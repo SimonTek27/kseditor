@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="ksAudiioStudio.01.16.00">
+    <object class="EncodingSetting" id="{c5329e15-6e80-4980-8dc0-52560ea40d8e}">
+        <property name="sampleRate">
+            <value>44100</value>
+        </property>
+        <relationship name="platform">
+            <destination>{cd5cee5c-0a41-4237-ad16-a4b338a7c549}</destination>
+        </relationship>
+        <relationship name="encodable">
+            <destination>{9ac7c7a7-33f8-4512-bd5e-63894d4a368b}</destination>
+        </relationship>
+    </object>
+</objects>

@@ -1,0 +1,104 @@
+#include "AiSplineEditor.h"
+#include <QDir>
+#include <QFileInfo>
+#include <cmath>
+
+// ============================================================================
+// AiSplineManager
+// ============================================================================
+
+AiSplineManager::AiSplineManager(const QString& trackPath)
+    : m_trackPath(trackPath)
+{
+}
+
+bool AiSplineManager::load()
+{
+    if (m_trackPath.isEmpty()) return false;
+    QDir dir(m_trackPath + "/ai");
+    if (!dir.exists()) return false;
+
+    m_data = AiSplineEditor::loadTrack(m_trackPath);
+
+    if (!m_data.hasFastLane()) {
+        return false;
+    }
+
+    if (m_data.fastLane.totalDistance == 0.0f) {
+        m_data.fastLane.totalDistance = AiSplineEditor::calculateTotalLength(m_data.fastLane);
+    }
+
+    return true;
+}
+
+bool AiSplineManager::save()
+{
+    if (m_trackPath.isEmpty()) return false;
+    return AiSplineEditor::saveTrack(m_data, m_trackPath);
+}
+
+float AiSplineManager::getFastLaneLength() const
+{
+    return m_data.fastLane.totalDistance;
+}
+
+bool AiSplineManager::smoothFastLane(int iterations)
+{
+    if (!m_data.hasFastLane()) return false;
+    m_data.fastLane = AiSplineEditor::smoothSpline(m_data.fastLane, iterations);
+    m_data.fastLane.totalDistance = AiSplineEditor::calculateTotalLength(m_data.fastLane);
+    return true;
+}
+
+bool AiSplineManager::resampleFastLane(int targetPoints)
+{
+    if (!m_data.hasFastLane()) return false;
+    m_data.fastLane = AiSplineEditor::resampleSpline(m_data.fastLane, targetPoints);
+    m_data.fastLane.totalDistance = AiSplineEditor::calculateTotalLength(m_data.fastLane);
+    return true;
+}
+
+bool AiSplineManager::generateBorders(float width)
+{
+    if (!m_data.hasFastLane()) return false;
+
+    const auto& pts = m_data.fastLane.points;
+    if (pts.size() < 2) return false;
+
+    AiSplineEditor::AiBorder left, right;
+    left.name = "left";
+    right.name = "right";
+
+    for (int i = 0; i < pts.size(); ++i) {
+        int prev = (i > 0) ? i - 1 : (m_data.fastLane.isClosed ? pts.size() - 1 : 0);
+        int next = (i < pts.size() - 1) ? i + 1 : (m_data.fastLane.isClosed ? 0 : pts.size() - 1);
+
+        float dx = pts[next].x - pts[prev].x;
+        float dz = pts[next].z - pts[prev].z;
+        float len = std::sqrt(dx * dx + dz * dz);
+        if (len < 0.0001f) continue;
+
+        float nx = -dz / len;
+        float nz = dx / len;
+
+        AiSplineEditor::AiSplinePoint lpt, rpt;
+        lpt.x = pts[i].x + nx * width;
+        lpt.z = pts[i].z + nz * width;
+        lpt.y = pts[i].y;
+        left.points.append(lpt);
+
+        rpt.x = pts[i].x - nx * width;
+        rpt.z = pts[i].z - nz * width;
+        rpt.y = pts[i].y;
+        right.points.append(rpt);
+    }
+
+    m_data.leftBorder = left;
+    m_data.rightBorder = right;
+    return true;
+}
+
+bool AiSplineManager::validate(QString* error) const
+{
+    return AiSplineEditor::validateTrackData(m_data, error);
+}

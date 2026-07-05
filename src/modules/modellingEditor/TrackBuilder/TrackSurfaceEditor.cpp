@@ -1,0 +1,561 @@
+#include "TrackSurfaceEditor.h"
+#include <QFile>
+#include <QTextStream>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QDir>
+#include <QDebug>
+#include <algorithm>
+
+// ============================================================================
+// Static member initialization
+// ============================================================================
+
+QMap<QString, TrackSurfaceEditor::SurfaceDefinition> TrackSurfaceEditor::m_surfaces;
+QString TrackSurfaceEditor::m_trackPath;
+
+// ============================================================================
+// Surface management
+// ============================================================================
+
+bool TrackSurfaceEditor::loadSurfaces(const QString& trackPath) {
+    m_trackPath = trackPath;
+
+    // Try to load from surfaces.ini first
+    QString iniPath = trackPath + "/data/surfaces.ini";
+    if (QFile::exists(iniPath)) {
+        return loadFromIni(iniPath);
+    }
+
+    // Try to load from ui_track.json
+    QString jsonPath = trackPath + "/ui/ui_track.json";
+    if (QFile::exists(jsonPath)) {
+        return importFromContentManager(jsonPath);
+    }
+
+    // Load defaults if no surface data found
+    loadDefaults();
+    return true;
+}
+
+bool TrackSurfaceEditor::saveSurfaces(const QString& trackPath) {
+    QString path = trackPath;
+    if (path.isEmpty()) path = m_trackPath;
+    if (path.isEmpty()) return false;
+
+    QString iniPath = path + "/data/surfaces.ini";
+    return saveToIni(iniPath);
+}
+
+bool TrackSurfaceEditor::loadFromIni(const QString& iniPath) {
+    QFile file(iniPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return false;
+    }
+
+    QTextStream stream(&file);
+    QString currentSection;
+    SurfaceDefinition currentSurface;
+    bool inSurface = false;
+
+    while (!stream.atEnd()) {
+        QString line = stream.readLine().trimmed();
+
+        // Skip comments and empty lines
+        if (line.startsWith(';') || line.startsWith('#') || line.isEmpty()) {
+            continue;
+        }
+
+        // Section header
+        if (line.startsWith('[') && line.endsWith(']')) {
+            // Save previous surface if valid
+            if (inSurface && !currentSurface.name.isEmpty()) {
+                m_surfaces[currentSurface.name] = currentSurface;
+            }
+
+            currentSection = line.mid(1, line.length() - 2);
+            currentSurface = SurfaceDefinition();
+            inSurface = currentSection.startsWith("SURFACE_");
+
+            if (inSurface) {
+                // Extract surface ID from section name
+                QString idStr = currentSection.mid(8); // Remove "SURFACE_"
+                currentSurface.id = idStr.toInt();
+            }
+            continue;
+        }
+
+        // Key-value pair
+        if (inSurface && line.contains('=')) {
+            int eqPos = line.indexOf('=');
+            QString key = line.left(eqPos).trimmed().toUpper();
+            QString value = line.mid(eqPos + 1).trimmed();
+
+            if (key == "NAME") {
+                currentSurface.name = value;
+            } else if (key == "GRIP_K") {
+                currentSurface.gripK = value.toFloat();
+            } else if (key == "GRIP_M") {
+                currentSurface.gripM = value.toFloat();
+            } else if (key == "ROLLING_RESISTANCE") {
+                currentSurface.rollingResistance = value.toFloat();
+            } else if (key == "VIBRATION_GAIN") {
+                currentSurface.vibrationGain = value.toFloat();
+            } else if (key == "PARTICLES_GAIN") {
+                currentSurface.particlesGain = value.toFloat();
+            } else if (key == "IS_BALLAST") {
+                currentSurface.isBallast = (value.toInt() != 0);
+            } else if (key == "IS_WET") {
+                currentSurface.isWet = (value.toInt() != 0);
+            } else if (key == "IS_GRASS") {
+                currentSurface.isGrass = (value.toInt() != 0);
+            } else if (key == "IS_GRAVEL") {
+                currentSurface.isGravel = (value.toInt() != 0);
+            } else if (key == "IS_RUMBLE") {
+                currentSurface.isRumble = (value.toInt() != 0);
+            } else if (key == "MESH_PREFIX") {
+                currentSurface.meshPrefix = value;
+            } else if (key == "SOUND_TYPE") {
+                currentSurface.soundType = value;
+            } else if (key == "SOUND_GAIN") {
+                currentSurface.soundGain = value.toFloat();
+            }
+        }
+    }
+
+    // Save last surface
+    if (inSurface && !currentSurface.name.isEmpty()) {
+        m_surfaces[currentSurface.name] = currentSurface;
+    }
+
+    file.close();
+    return true;
+}
+
+bool TrackSurfaceEditor::saveToIni(const QString& iniPath) {
+    QFile file(iniPath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        return false;
+    }
+
+    QTextStream stream(&file);
+    stream << "; Track Surface Definitions\n";
+    stream << "; Generated by ksEditor\n";
+    stream << "; Based on ac-track-tools and AC Tools Blender addon\n\n";
+
+    int surfaceIndex = 0;
+    for (auto it = m_surfaces.begin(); it != m_surfaces.end(); ++it) {
+        const SurfaceDefinition& surface = it.value();
+
+        stream << "[SURFACE_" << surfaceIndex << "]\n";
+        stream << "NAME=" << surface.name << "\n";
+        stream << "GRIP_K=" << QString::number(surface.gripK, 'f', 4) << "\n";
+        stream << "GRIP_M=" << QString::number(surface.gripM, 'f', 4) << "\n";
+        stream << "ROLLING_RESISTANCE=" << QString::number(surface.rollingResistance, 'f', 4) << "\n";
+        stream << "VIBRATION_GAIN=" << QString::number(surface.vibrationGain, 'f', 4) << "\n";
+        stream << "PARTICLES_GAIN=" << QString::number(surface.particlesGain, 'f', 4) << "\n";
+        stream << "IS_BALLAST=" << (surface.isBallast ? 1 : 0) << "\n";
+        stream << "IS_WET=" << (surface.isWet ? 1 : 0) << "\n";
+        stream << "IS_GRASS=" << (surface.isGrass ? 1 : 0) << "\n";
+        stream << "IS_GRAVEL=" << (surface.isGravel ? 1 : 0) << "\n";
+        stream << "IS_RUMBLE=" << (surface.isRumble ? 1 : 0) << "\n";
+
+        if (!surface.meshPrefix.isEmpty()) {
+            stream << "MESH_PREFIX=" << surface.meshPrefix << "\n";
+        }
+        if (!surface.soundType.isEmpty()) {
+            stream << "SOUND_TYPE=" << surface.soundType << "\n";
+            stream << "SOUND_GAIN=" << QString::number(surface.soundGain, 'f', 2) << "\n";
+        }
+
+        stream << "\n";
+        surfaceIndex++;
+    }
+
+    file.close();
+    return true;
+}
+
+// ============================================================================
+// Surface operations
+// ============================================================================
+
+void TrackSurfaceEditor::addSurface(const SurfaceDefinition& surface) {
+    m_surfaces[surface.name] = surface;
+}
+
+void TrackSurfaceEditor::removeSurface(const QString& name) {
+    m_surfaces.remove(name);
+}
+
+void TrackSurfaceEditor::updateSurface(const QString& name, const SurfaceDefinition& surface) {
+    if (m_surfaces.contains(name)) {
+        m_surfaces[name] = surface;
+    }
+}
+
+TrackSurfaceEditor::SurfaceDefinition TrackSurfaceEditor::getSurface(const QString& name) {
+    return m_surfaces.value(name);
+}
+
+QVector<TrackSurfaceEditor::SurfaceDefinition> TrackSurfaceEditor::getAllSurfaces() {
+    QVector<SurfaceDefinition> result;
+    for (auto it = m_surfaces.begin(); it != m_surfaces.end(); ++it) {
+        result.append(it.value());
+    }
+    return result;
+}
+
+bool TrackSurfaceEditor::hasSurface(const QString& name) {
+    return m_surfaces.contains(name);
+}
+
+// ============================================================================
+// Default surfaces
+// ============================================================================
+
+void TrackSurfaceEditor::loadDefaults() {
+    m_surfaces.clear();
+
+    QVector<SurfaceDefinition> defaults = getDefaultSurfaces();
+    for (const SurfaceDefinition& surface : defaults) {
+        m_surfaces[surface.name] = surface;
+    }
+}
+
+QVector<TrackSurfaceEditor::SurfaceDefinition> TrackSurfaceEditor::getDefaultSurfaces() {
+    QVector<SurfaceDefinition> surfaces;
+
+    // Road (asphalt)
+    SurfaceDefinition road;
+    road.name = "ROAD";
+    road.id = 0;
+    road.displayColor = QColor(80, 80, 80);
+    road.gripK = 1.0f;
+    road.gripM = 1.0f;
+    road.rollingResistance = 0.015f;
+    road.vibrationGain = 1.0f;
+    road.particlesGain = 0.3f;
+    road.meshPrefix = "1ROAD";
+    road.soundType = "asphalt";
+    road.soundGain = 1.0f;
+    surfaces.append(road);
+
+    // Kerb
+    SurfaceDefinition kerb;
+    kerb.name = "KERB";
+    kerb.id = 1;
+    kerb.displayColor = QColor(255, 0, 0);
+    kerb.gripK = 0.9f;
+    kerb.gripM = 0.9f;
+    kerb.rollingResistance = 0.02f;
+    kerb.vibrationGain = 2.0f;
+    kerb.particlesGain = 0.2f;
+    kerb.isRumble = true;
+    kerb.meshPrefix = "1KERB";
+    kerb.soundType = "kerb";
+    kerb.soundGain = 1.5f;
+    surfaces.append(kerb);
+
+    // Grass
+    SurfaceDefinition grass;
+    grass.name = "GRASS";
+    grass.id = 2;
+    grass.displayColor = QColor(0, 128, 0);
+    grass.gripK = 0.5f;
+    grass.gripM = 0.5f;
+    grass.rollingResistance = 0.05f;
+    grass.vibrationGain = 1.5f;
+    grass.particlesGain = 1.0f;
+    grass.isGrass = true;
+    grass.meshPrefix = "1GRASS";
+    grass.soundType = "grass";
+    grass.soundGain = 0.8f;
+    surfaces.append(grass);
+
+    // Gravel
+    SurfaceDefinition gravel;
+    gravel.name = "GRAVEL";
+    gravel.id = 3;
+    gravel.displayColor = QColor(139, 119, 101);
+    gravel.gripK = 0.4f;
+    gravel.gripM = 0.4f;
+    gravel.rollingResistance = 0.08f;
+    gravel.vibrationGain = 2.5f;
+    gravel.particlesGain = 1.5f;
+    gravel.isGravel = true;
+    gravel.meshPrefix = "1GRAVEL";
+    gravel.soundType = "gravel";
+    gravel.soundGain = 1.2f;
+    surfaces.append(gravel);
+
+    // Sand
+    SurfaceDefinition sand;
+    sand.name = "SAND";
+    sand.id = 4;
+    sand.displayColor = QColor(194, 178, 128);
+    sand.gripK = 0.35f;
+    sand.gripM = 0.35f;
+    sand.rollingResistance = 0.1f;
+    sand.vibrationGain = 1.8f;
+    sand.particlesGain = 1.2f;
+    sand.meshPrefix = "1SAND";
+    sand.soundType = "sand";
+    sand.soundGain = 0.9f;
+    surfaces.append(sand);
+
+    // Pit lane
+    SurfaceDefinition pit;
+    pit.name = "PIT";
+    pit.id = 5;
+    pit.displayColor = QColor(100, 100, 100);
+    pit.gripK = 1.0f;
+    pit.gripM = 1.0f;
+    pit.rollingResistance = 0.015f;
+    pit.vibrationGain = 1.0f;
+    pit.particlesGain = 0.3f;
+    pit.meshPrefix = "1PIT";
+    pit.soundType = "asphalt";
+    pit.soundGain = 1.0f;
+    surfaces.append(pit);
+
+    // Wall
+    SurfaceDefinition wall;
+    wall.name = "WALL";
+    wall.id = 6;
+    wall.displayColor = QColor(200, 200, 200);
+    wall.gripK = 0.8f;
+    wall.gripM = 0.8f;
+    wall.rollingResistance = 0.0f;
+    wall.vibrationGain = 3.0f;
+    wall.particlesGain = 0.5f;
+    wall.isBallast = true;
+    wall.meshPrefix = "1WALL";
+    wall.soundType = "wall";
+    wall.soundGain = 2.0f;
+    surfaces.append(wall);
+
+    // Out of bounds
+    SurfaceDefinition out;
+    out.name = "OUT";
+    out.id = 7;
+    out.displayColor = QColor(50, 50, 50);
+    out.gripK = 0.9f;
+    out.gripM = 0.9f;
+    out.rollingResistance = 0.02f;
+    out.vibrationGain = 1.0f;
+    out.particlesGain = 0.3f;
+    out.meshPrefix = "1OUT";
+    out.soundType = "asphalt";
+    out.soundGain = 1.0f;
+    surfaces.append(out);
+
+    // Wet road
+    SurfaceDefinition wetRoad;
+    wetRoad.name = "ROAD_WET";
+    wetRoad.id = 8;
+    wetRoad.displayColor = QColor(60, 60, 80);
+    wetRoad.gripK = 0.7f;
+    wetRoad.gripM = 0.6f;
+    wetRoad.rollingResistance = 0.02f;
+    wetRoad.vibrationGain = 0.8f;
+    wetRoad.particlesGain = 0.8f;
+    wetRoad.isWet = true;
+    wetRoad.meshPrefix = "1ROAD_WET";
+    wetRoad.soundType = "wet";
+    wetRoad.soundGain = 1.1f;
+    surfaces.append(wetRoad);
+
+    return surfaces;
+}
+
+// ============================================================================
+// Validation
+// ============================================================================
+
+bool TrackSurfaceEditor::validateSurface(const SurfaceDefinition& surface, QString* error) {
+    if (surface.name.isEmpty()) {
+        if (error) *error = "Surface name is empty";
+        return false;
+    }
+
+    if (surface.gripK < 0.0f || surface.gripK > 2.0f) {
+        if (error) *error = "Grip K value out of range (0.0-2.0)";
+        return false;
+    }
+
+    if (surface.gripM < 0.0f || surface.gripM > 2.0f) {
+        if (error) *error = "Grip M value out of range (0.0-2.0)";
+        return false;
+    }
+
+    if (surface.rollingResistance < 0.0f || surface.rollingResistance > 0.5f) {
+        if (error) *error = "Rolling resistance out of range (0.0-0.5)";
+        return false;
+    }
+
+    if (surface.vibrationGain < 0.0f || surface.vibrationGain > 5.0f) {
+        if (error) *error = "Vibration gain out of range (0.0-5.0)";
+        return false;
+    }
+
+    if (surface.particlesGain < 0.0f || surface.particlesGain > 3.0f) {
+        if (error) *error = "Particles gain out of range (0.0-3.0)";
+        return false;
+    }
+
+    return true;
+}
+
+bool TrackSurfaceEditor::validateAllSurfaces(QString* error) {
+    for (auto it = m_surfaces.begin(); it != m_surfaces.end(); ++it) {
+        if (!validateSurface(it.value(), error)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// ============================================================================
+// Import/Export
+// ============================================================================
+
+bool TrackSurfaceEditor::importFromBlender(const QString& csvPath) {
+    QFile file(csvPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return false;
+    }
+
+    QTextStream stream(&file);
+    bool headerSkipped = false;
+
+    while (!stream.atEnd()) {
+        QString line = stream.readLine().trimmed();
+
+        if (!headerSkipped) {
+            headerSkipped = true;
+            continue; // Skip header line
+        }
+
+        if (line.isEmpty()) continue;
+
+        QStringList parts = line.split(',');
+        if (parts.size() >= 2) {
+            SurfaceDefinition surface;
+            surface.name = parts[0].trimmed();
+            surface.id = parts[1].trimmed().toInt();
+
+            if (parts.size() >= 4) {
+                surface.gripK = parts[2].trimmed().toFloat();
+                surface.gripM = parts[3].trimmed().toFloat();
+            }
+
+            if (parts.size() >= 6) {
+                surface.meshPrefix = parts[4].trimmed();
+                surface.soundType = parts[5].trimmed();
+            }
+
+            m_surfaces[surface.name] = surface;
+        }
+    }
+
+    file.close();
+    return true;
+}
+
+bool TrackSurfaceEditor::exportToBlender(const QString& csvPath) {
+    QFile file(csvPath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        return false;
+    }
+
+    QTextStream stream(&file);
+    stream << "name,id,grip_k,grip_m,mesh_prefix,sound_type\n";
+
+    for (auto it = m_surfaces.begin(); it != m_surfaces.end(); ++it) {
+        const SurfaceDefinition& s = it.value();
+        stream << s.name << ","
+               << s.id << ","
+               << QString::number(s.gripK, 'f', 3) << ","
+               << QString::number(s.gripM, 'f', 3) << ","
+               << s.meshPrefix << ","
+               << s.soundType << "\n";
+    }
+
+    file.close();
+    return true;
+}
+
+bool TrackSurfaceEditor::importFromContentManager(const QString& jsonPath) {
+    QFile file(jsonPath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return false;
+    }
+
+    QByteArray data = file.readAll();
+    file.close();
+
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (doc.isNull() || !doc.isObject()) {
+        return false;
+    }
+
+    QJsonObject root = doc.object();
+
+    // Parse surfaces from CM format
+    if (root.contains("surfaces")) {
+        QJsonObject surfacesObj = root["surfaces"].toObject();
+        for (auto it = surfacesObj.begin(); it != surfacesObj.end(); ++it) {
+            SurfaceDefinition surface;
+            surface.name = it.key();
+            surface.id = it.value().toInt();
+
+            // Set defaults based on name
+            if (surface.name.contains("road", Qt::CaseInsensitive)) {
+                surface.gripK = 1.0f;
+                surface.meshPrefix = "1ROAD";
+                surface.soundType = "asphalt";
+            } else if (surface.name.contains("grass", Qt::CaseInsensitive)) {
+                surface.gripK = 0.5f;
+                surface.meshPrefix = "1GRASS";
+                surface.soundType = "grass";
+                surface.isGrass = true;
+            }
+
+            m_surfaces[surface.name] = surface;
+        }
+    }
+
+    return true;
+}
+
+// ============================================================================
+// Utility
+// ============================================================================
+
+QString TrackSurfaceEditor::getMeshPrefixForSurface(const QString& surfaceName) {
+    if (m_surfaces.contains(surfaceName)) {
+        return m_surfaces[surfaceName].meshPrefix;
+    }
+    return QString();
+}
+
+QString TrackSurfaceEditor::getSurfaceForMesh(const QString& meshName) {
+    for (auto it = m_surfaces.begin(); it != m_surfaces.end(); ++it) {
+        if (!it.value().meshPrefix.isEmpty() && meshName.startsWith(it.value().meshPrefix)) {
+            return it.key();
+        }
+    }
+    return QString();
+}
+
+int TrackSurfaceEditor::getNextAvailableId() {
+    int maxId = -1;
+    for (auto it = m_surfaces.begin(); it != m_surfaces.end(); ++it) {
+        if (it.value().id > maxId) {
+            maxId = it.value().id;
+        }
+    }
+    return maxId + 1;
+}

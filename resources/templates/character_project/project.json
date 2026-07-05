@@ -1,0 +1,1 @@
+{"name": "Example Character Project", "description": "A basic character model project for driver and NPC models.", "type": "character", "created": "2026-07-04", "lastModified": "2026-07-04", "files": ["data/model.fbx", "data/skeleton.json", "data/appearance.json"], "modules": ["3D Modeler", "Character Builder"], "difficulty": 3}

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="ksAudiioStudio.01.16.00">
+    <object class="MixerGroup" id="{37bf169d-f171-4af4-a924-d65a1f998264}">
+        <property name="volume">
+            <value>1.5</value>
+        </property>
+        <property name="name">
+            <value>grp_skid_int</value>
+        </property>
+        <property name="instanceStealing">
+            <value>1</value>
+        </property>
+        <relationship name="masters">
+            <destination>{f8b9d9e5-bd29-4a82-a1a0-66e8b9059ccb}</destination>
+        </relationship>
+        <relationship name="effectChain">
+            <destination>{c0864923-ee93-45c5-b903-ff530c4b14bd}</destination>
+        </relationship>
+        <relationship name="panner">
+            <destination>{f98b6d26-66d3-420b-b885-3680d460162e}</destination>
+        </relationship>
+        <relationship name="output">
+            <destination>{08f6ba78-f576-4f9f-a232-47657d5fec19}</destination>
+        </relationship>
+    </object>
+    <object class="MixerBusEffectChain" id="{c0864923-ee93-45c5-b903-ff530c4b14bd}">
+        <relationship name="effects">
+            <destination>{6981c56b-64c5-4aa5-9682-dacc08cb2abe}</destination>
+        </relationship>
+    </object>
+    <object class="MixerBusPanner" id="{f98b6d26-66d3-420b-b885-3680d460162e}"/>
+    <object class="MixerBusFader" id="{6981c56b-64c5-4aa5-9682-dacc08cb2abe}"/>
+</objects>

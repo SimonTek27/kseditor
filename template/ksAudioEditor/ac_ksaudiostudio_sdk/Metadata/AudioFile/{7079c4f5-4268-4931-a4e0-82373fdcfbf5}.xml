@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="ksAudiioStudio.01.16.00">
+    <object class="AudioFile" id="{7079c4f5-4268-4931-a4e0-82373fdcfbf5}">
+        <property name="assetPath">
+            <value>Abarth/Tatuus/Accessories/gearupEXT.wav</value>
+        </property>
+        <property name="frequencyInKHz">
+            <value>44.0999985</value>
+        </property>
+        <property name="channelCount">
+            <value>1</value>
+        </property>
+        <property name="length">
+            <value>0.193764172335601</value>
+        </property>
+        <relationship name="masterAssetFolder">
+            <destination>{9ac7c7a7-33f8-4512-bd5e-63894d4a368b}</destination>
+        </relationship>
+    </object>
+</objects>

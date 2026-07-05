@@ -1,0 +1,581 @@
+{
+  "meta": {
+    "version": "1.0",
+    "description": "AC car component hierarchy template",
+    "based_on": "Benetton B191 (1991)"
+      },
+
+    "manufacturers": {
+    "_COMMENT": "THREE-LETTER CODES FOR CAR MANUFACTURERS, USED IN NODE NAMING",
+
+    "ABARTH": "ABA",
+    "AC": "ACM",
+    "ACURA": "ACU",
+    "AEOLUS": "AEO",
+    "AION": "AIN",
+    "AIWAYS": "AIW",
+    "ALFA_ROMEO": "ALF",
+    "ALPINE": "ALP",
+    "ARCFOX": "ARC",
+    "ARIEL": "ARL",
+    "ASTON_MARTIN": "AST",
+    "AUDI": "AUD",
+    "AUTO": "AUT",
+    "AVATR": "AVA",
+    "BAC": "BAC",
+    "BAIC": "BAI",
+    "BAOJUN": "BAO",
+    "BAW": "BAW",
+    "BEIJING": "BEI",
+    "BENTLEY": "BEN",
+    "BEZTUNE": "BEZ",
+    "BJEV": "BJE",
+    "BMW": "BMW",
+    "BRILLIANCE": "BRI",
+    "BUGATTI": "BUG",
+    "BUICK": "BUI",
+    "BYD": "BYD",
+    "CADILLAC": "CAD",
+    "CATERHAM": "CAT",
+    "CHANGAN": "CHA",
+    "CHANGHE": "CHG",
+    "CHERY": "CHE",
+    "CHEVROLET": "CHV",
+    "CHRYSLER": "CHR",
+    "CITROEN": "CIT",
+    "CUPRA": "CUP",
+    "DACIA": "DAC",
+    "DAIHATSU": "DAI",
+    "DALLARA": "DAL",
+    "DATSON": "DAT",
+    "DAYUN": "DAY",
+    "DENZA": "DEN",
+    "DFM": "DFM",
+    "DFSK": "DFS",
+    "DODGE": "DOD",
+    "DONGFENG": "DON",
+    "DORCEN": "DOR",
+    "DS": "DSA",
+    "EBRO": "EBR",
+    "EVERUS": "EVE",
+    "EXCEED": "EXC",
+    "FANG_CHENG_BAO": "FCB",
+    "FARIZON": "FAR",
+    "FERRARI": "FER",
+    "FIAT": "FIA",
+    "FODAY": "FOD",
+    "FORD": "FOR",
+    "FORTHING": "FTH",
+    "FOTON": "FOT",
+    "GAC_MOTOR": "GAC",
+    "GEELY": "GEE",
+    "GENESIS": "GEN",
+    "GEOMETRY": "GEO",
+    "GMC": "GMC",
+    "GREAT_WALL": "GRE",
+    "GWM": "GWM",
+    "HAVAL": "HAV",
+    "HAWTAI": "HAW",
+    "HENGRUN": "HEN",
+    "HENTENG": "HET",
+    "HIPI": "HIP",
+    "HISPANO_SUIZA": "HIS",
+    "HONDA": "HON",
+    "HONGYAN": "HGY",
+    "HONQI": "HNQ",
+    "HUANGHAI": "HUA",
+    "HUAWEI": "HWA",
+    "HYCAN": "HYC",
+    "HYUNDAI": "HYU",
+    "IKCO": "IKC",
+    "IM_MOTORS": "IMM",
+    "INEOS": "INE",
+    "INFINITI": "INF",
+    "IONIQ": "ION",
+    "ISUZU": "ISU",
+    "JAC": "JAC",
+    "JAECCO": "JAE",
+    "JAGUAR": "JAG",
+    "JEEP": "JEE",
+    "JETTA": "JET",
+    "JETTOUR": "JTR",
+    "JIANGNAN": "JIA",
+    "JIANYUAN": "JIY",
+    "JINBEI": "JIN",
+    "KAICENE": "KAI",
+    "KAIVI": "KAV",
+    "KARRY": "KAR",
+    "KAWEI": "KAW",
+    "KG_MOBILITY": "KGM",
+    "KIA": "KIA",
+    "KING_LONG": "KIN",
+    "LADA": "LAD",
+    "LAMBORGHINI": "LAM",
+    "LANCIA": "LAN",
+    "LAND_ROVER": "LANDR",
+    "LEAPMOTOR": "LEA",
+    "LEVC": "LEV",
+    "LEXUS": "LEX",
+    "LI_AUTO": "LIA",
+    "LIFAN": "LIF",
+    "LINCOLN": "LIN",
+    "LINGBOX": "LGB",
+    "LINGTU": "LGT",
+    "LIVAN": "LIV",
+    "LOTUS": "LOT",
+    "LUCID": "LUC",
+    "LUXEED": "LUX",
+    "LUXGEN": "LXG",
+    "LYNK_CO": "LYN",
+    "MAHINDRA": "MAH",
+    "MARUTI_SUZUKI": "MAR",
+    "MASERATI": "MAS",
+    "MAXUS": "MAX",
+    "MAYBACH": "MAY",
+    "MAZDA": "MAZ",
+    "MCLAREN": "MCL",
+    "MERCEDES_BENZ": "MER",
+    "MG": "MG",
+    "M_HERO": "MHE",
+    "MINAN": "MIN",
+    "MINI": "MNI",
+    "MITSUBISHI": "MIT",
+    "MODERN": "MOD",
+    "MORGAN": "MOR",
+    "NETA": "NET",
+    "NEVO": "NEV",
+    "NIO": "NIO",
+    "NISSAN": "NIS",
+    "NOBLE": "NOB",
+    "OMODA": "OMO",
+    "OPEL": "OPE",
+    "ORA": "ORA",
+    "OSHAN": "OSH",
+    "OULING_AUTO": "OUL",
+    "PAGANI": "PAG",
+    "PERODUA": "PER",
+    "PEUGEOT": "PEU",
+    "POLESTAR": "POL",
+    "PORSCHE": "POR",
+    "PROTON": "PRO",
+    "QLIN": "QLI",
+    "QOROS": "QOR",
+    "QUANT": "QUA",
+    "RADAR": "RAD",
+    "RAM": "RAM",
+    "RENAULT": "REN",
+    "RIMAC": "RIM",
+    "RISING_AUTO": "RIS",
+    "RIVIAN": "RIV",
+    "ROEWE": "ROE",
+    "ROLLS_ROYCE": "ROL",
+    "RUILI": "RUI",
+    "SAIPA": "SAI",
+    "SEAT": "SEA",
+    "SEHOL": "SEH",
+    "SERES": "SER",
+    "SHANGHAI_MAPLE": "SHM",
+    "SHENLAN": "SHE",
+    "SINOgold": "SIN",
+    "SKODA": "SKO",
+    "SKYWELL": "SKY",
+    "SMART": "SMA",
+    "SOUEAST": "SOU",
+    "SRM": "SRM",
+    "SUBARU": "SUB",
+    "SUNRA": "SUN",
+    "SUNWIN": "SUW",
+    "SUZUKI": "SUZ",
+    "SWM": "SWM",
+    "TANK": "TAN",
+    "TATA": "TAT",
+    "TESLA": "TES",
+    "TOYOTA": "TOY",
+    "TROLLER": "TRO",
+    "UAZ": "UAZ",
+    "ULTIMA": "ULT",
+    "VAUXHALL": "VAU",
+    "VGV": "VGV",
+    "VINFAST": "VIN",
+    "VOLKSWAGEN": "VOLKSW",
+    "VOLVO": "VOL",
+    "WEI_AO": "WEA",
+    "WEY": "WEY",
+    "WULING": "WUL",
+    "XENIA": "XEN",
+    "XEV": "XEV",
+    "XIALI": "XIA",
+    "XIAOMI": "XIM",
+    "XINKAI": "XIN",
+    "XPENG": "XPE",
+    "YANGWANG": "YAN",
+    "YEMA": "YEM",
+    "YUDO": "YUD",
+    "YUSHENG": "YUS",
+    "ZEEKR": "ZEE",
+    "ZX_AUTO": "ZXA"
+  },
+
+    "teams": {
+    "_COMMENT": "THREE-LETTER CODES FOR RACING TEAMS (F1, WEC, INDYCAR, ETC.), USED IN NODE NAMING",
+    "RED_BULL_RACING": "RBR",
+    "MERCEDES_AMG_PETRONAS": "MAP",
+    "FERRARI_SCUDERIA": "FER",
+    "MCLAREN_F1": "MCL",
+    "ASTON_MARTIN_ARAMCO": "AMA",
+    "ALPINE_F1": "ALP",
+    "WILLIAMS_RACING": "WIL",
+    "ALPHATAURI": "ATR",
+    "SAUBER": "SAU",
+    "HAAS_F1": "HAA",
+    "PENSKE_RACING": "PEN",
+    "CHIP_GANASSI": "CGR",
+    "TEAM_PENSKE": "PEN",
+    "ANDREW_RACING": "ANR",
+    "MEYER_SHANK": "MSR",
+    "TOYOTA_GAZOO": "TGZ",
+    "PORSCHE_PENSKE": "PPE",
+    "CADILLAC_RACING": "CDR",
+    "BMW_MOTORSPORT": "BMW",
+    "CORVETTE_RACING": "COR",
+    "FERRARI_AF_CORSE": "FAC",
+    "PORSCHE_GT": "PGT",
+    "AUDI_SPORT": "AUS",
+    "MERCEDES_AMG_GT": "MGT",
+    "LAMBORGHINI_SQUADRA": "LSQ",
+    "PEUGEOT_SPORT": "PST",
+    "GLICKENHAUS": "GLI",
+    "VANWALL_RACING": "VAN",
+    "BYKOLL_RACING": "BYK",
+    "DKR_ENGINEERING": "DKR",
+    "PROTON_COMPETITION": "PRC",
+    "WEATHERTECH_RACING": "WTR",
+    "PAUL_MILLER_RACING": "PMR",
+    "JOTA_SPORT": "JOT",
+    "UNITED_AUTOSPORTS": "UNA",
+    "PREMA_RACING": "PRE",
+    "HIGHLAND_RACING": "HIG",
+    "RLL_RACING": "RLL",
+    "MSR": "MSR",
+    "DRAGONSPEED": "DRA",
+    "EKR": "EKR",
+    "RACING_ENGINEERING": "REN",
+    "KRUGER_RACING": "KRU",
+    "INTER_EUROPOL": "INE",
+    "TDS_RACING": "TDS",
+    "G_Drive_Racing": "GDR",
+    "ALGARVE_PRO": "ALG",
+    "COOL_RACING": "CRG",
+    "DUQUEINE": "DUQ",
+    "PANIS_RACING": "PNR"
+  },
+
+  "required_nodes": [
+    "ben_body",
+    "ben_dashboard",
+    "ben_seat",
+    "ben_engine",
+    "ben_gearbox",
+    "ben_tcam",
+    "ben_cwind",
+    "ben_fwing",
+    "ben_rwing",
+    "ben_nosecone",
+    "ben_exhaust",
+    "ben_airscope",
+    "ben_radiators"
+  ],
+  "tree": {
+    "SUSPRR": {
+      "ben_rr_susp": {
+        "ben_rr_susp01": {}
+      }
+    },
+    "SUSPLR": {
+      "ben_lr_susp": {
+        "ben_lr_susp01": {}
+      }
+    },
+    "SUPRF": {
+      "ben_rf_susp": {
+        "ben_rf_susp02": {}
+      }
+    },
+    "SUPLF": {
+      "ben_lf_susp": {
+        "ben_lf_susp02": {}
+      }
+    },
+    "SUSP_RR": {
+      "HUB_RR": {
+        "9X_RR_CAL_B": {}
+      },
+      "WHEEL_RR": {
+        "DISC_RR": {
+          "9x_rr_bd": {
+            "9x_rr_bd_SUB0": {},
+            "9x_rr_bd_SUB1": {}
+          }
+        },
+        "RIM_RR": {
+          "BEN_RIM_RR": {}
+        },
+        "RR_TIRE": {
+          "P9X_RR_TIRE": {
+            "BEN_RR_TIRE": {}
+          }
+        },
+        "RIM_BLUR_RR": {
+          "BEN_RIM_BLUR_RR": {},
+          "BEN_RIMBLR_RR": {}
+        }
+      },
+      "DIR_SUSPRR": {}
+    },
+    "SUSP_LR": {
+      "DIR_SUSPLR": {},
+      "HUB_LR": {
+        "9X_LR_CAL_B": {}
+      },
+      "WHEEL_LR": {
+        "DISC_LR": {
+          "9x_lr_bd": {
+            "9x_lr_bd_SUB0": {},
+            "9x_lr_bd_SUB1": {}
+          }
+        },
+        "RIM_BLUR_LR": {
+          "BEN_RIM_BLUR_LR": {},
+          "BEN_RIMBLR_LR": {}
+        },
+        "RIM_LR": {
+          "BEN_RIM_LR": {}
+        },
+        "LR_TIRE": {
+          "P9X_LR_TIRE": {
+            "BEN_LR_TIRE": {}
+          }
+        }
+      }
+    },
+    "HUB_RF": {
+      "SUSP_RF": {
+        "DIR_SUPRF": {},
+        "ben_rf_bcool": {
+          "ben_rf_bcool01": {}
+        },
+        "9X_RF_CAL_B": {}
+      },
+      "WHEEL_RF": {
+        "RF_TIRE": {
+          "P9X_RF_TIRE": {
+            "BEN_RF_TIRE": {}
+          }
+        },
+        "RIM_RF": {
+          "BEN_RIM_RF": {}
+        },
+        "RIM_BLUR_RF": {
+          "BEN_RIM_BLUR_RF": {},
+          "BEN_RIMBLR_RF": {}
+        },
+        "DISC_RF": {
+          "9x_rf_bd": {
+            "9x_rf_bd_SUB0": {},
+            "9x_rf_bd_SUB1": {}
+          }
+        }
+      }
+    },
+    "HUB_LF": {
+      "SUSP_LF": {
+        "DIR_SUPLF": {},
+        "ben_lf_bcool": {
+          "ben_lf_bcool01": {}
+        },
+        "9X_LF_CAL_B": {}
+      },
+      "WHEEL_LF": {
+        "RIM_BLUR_LF": {
+          "BEN_RIM_BLUR_LF": {},
+          "BEN_RIMBLR_LF": {}
+        },
+        "LF_TIRE": {
+          "P9X_LF_TIRE": {
+            "BEN_LF_TIRE": {}
+          }
+        },
+        "RIM_LF": {
+          "BEN_RIM_LF": {}
+        },
+        "DISC_LF": {
+          "9x_lf_bd": {
+            "9x_lf_bd_SUB0": {},
+            "9x_lf_bd_SUB1": {}
+          }
+        }
+      }
+    },
+    "STEER_HR": {
+      "STEER": {
+        "BEN_STEER": {}
+      }
+    },
+    "SUSPLFSUP": {},
+    "SUSPRFSUP": {},
+    "CINTURE_ON": {
+      "ben_driver_belt": {}
+    },
+    "CINTURE_OFF": {
+      "ben_belt": {}
+    },
+    "ben_seat": {},
+    "ben_airscope": {},
+    "ben_cwind": {},
+    "ben_dashboard": {},
+    "ben_engine": {},
+    "ben_engine_low": {},
+    "ben_exhaust": {},
+    "ben_fwing": {},
+    "ben_nosecone": {},
+    "ben_gearbox": {},
+    "hlglo_ds": {},
+    "ben_gearbox_parts": {},
+    "ben_motec_glass": {},
+    "ben_radiators": {},
+    "ben_rwing": {},
+    "ben_tcam": {},
+    "ben_display": {},
+    "COVER": {
+      "COVERLED": {}
+    },
+    "RPM": {
+      "RPM_LIGHT_0": {},
+      "RPM_LIGHT_1": {},
+      "RPM_LIGHT_2": {},
+      "RPM_LIGHT_3": {},
+      "RPM_LIGHT_4": {},
+      "RPM_LIGHT_5": {},
+      "RPM_LIGHT_6": {},
+      "RPM_LIGHT_7": {},
+      "RPM_LIGHT_8": {},
+      "RPM_LIGHT_9": {},
+      "RPM_LIGHT_10": {},
+      "RPM_LIGHT_11": {},
+      "RPM_LIGHT_12": {},
+      "RPM_LIGHT_13": {},
+      "RPM_LIGHT_14": {},
+      "RPM_LIGHT_15": {},
+      "RPM_LIGHT_16": {},
+      "RPM_LIGHT_17": {},
+      "RPM_LIGHT_18": {},
+      "RPM_LIGHT_19": {},
+      "RPM_LIGHT_20": {},
+      "RPM_LIGHT_21": {},
+      "RPM_LIGHT_22": {},
+      "RPM_LIGHT_23": {},
+      "RPM_LIGHT_24": {},
+      "RPM_LIGHT_25": {},
+      "RPM_LIGHT_26": {},
+      "RPM_LIGHT_27": {},
+      "RPM_LIGHT_28": {},
+      "RPM_LIGHT_29": {},
+      "RPM_LIGHT_30": {},
+      "RPM_LIGHT_31": {},
+      "RPM_LIGHT_32": {},
+      "RPM_LIGHT_33": {},
+      "RPM_LIGHT_34": {},
+      "RPM_LIGHT_35": {},
+      "RPM_LIGHT_36": {},
+      "RPM_LIGHT_37": {},
+      "RPM_LIGHT_38": {},
+      "RPM_LIGHT_39": {},
+      "RPM_LIGHT_40": {},
+      "RPM_LIGHT_41": {},
+      "RPM_LIGHT_42": {},
+      "RPM_LIGHT_43": {},
+      "RPM_LIGHT_44": {},
+      "RPM_LIGHT_45": {},
+      "RPM_LIGHT_46": {},
+      "RPM_LIGHT_47": {},
+      "RPM_LIGHT_48": {},
+      "RPM_LIGHT_49": {},
+      "RPM_LIGHT_50": {},
+      "RPM_LIGHT_51": {},
+      "RPM_LIGHT_52": {},
+      "RPM_LIGHT_53": {},
+      "RPM_LIGHT_54": {},
+      "RPM_LIGHT_55": {},
+      "RPM_LIGHT_56": {},
+      "RPM_LIGHT_57": {},
+      "RPM_LIGHT_58": {},
+      "RPM_LIGHT_59": {},
+      "RPM_LIGHT_60": {},
+      "RPM_LIGHT_61": {},
+      "RPM_LIGHT_62": {},
+      "RPM_LIGHT_63": {},
+      "RPM_LIGHT_64": {},
+      "RPM_LIGHT_65": {},
+      "RPM_LIGHT_66": {},
+      "RPM_LIGHT_67": {},
+      "RPM_LIGHT_68": {},
+      "RPM_LIGHT_69": {},
+      "RPM_LIGHT_70": {},
+      "RPM_LIGHT_71": {},
+      "RPM_LIGHT_72": {},
+      "RPM_LIGHT_73": {},
+      "RPM_LIGHT_74": {},
+      "RPM_LIGHT_75": {},
+      "RPM_LIGHT_76": {},
+      "RPM_LIGHT_77": {},
+      "RPM_LIGHT_78": {},
+      "RPM_LIGHT_79": {},
+      "RPM_LIGHT_80": {},
+      "RPM_LIGHT_81": {},
+      "RPM_LIGHT_82": {},
+      "RPM_LIGHT_83": {},
+      "RPM_LIGHT_84": {},
+      "RPM_LIGHT_85": {},
+      "RPM_LIGHT_86": {},
+      "RPM_LIGHT_87": {},
+      "RPM_LIGHT_88": {},
+      "RPM_LIGHT_89": {},
+      "RPM_LIGHT_90": {},
+      "RPM_LIGHT_91": {},
+      "RPM_LIGHT_92": {},
+      "RPM_LIGHT_93": {},
+      "RPM_LIGHT_94": {},
+      "RPM_LIGHT_95": {},
+      "RPM_LIGHT_96": {},
+      "RPM_LIGHT_97": {},
+      "RPM_LIGHT_98": {},
+      "RPM_LIGHT_99": {}
+    },
+    "wcextra": {},
+    "LEDPSY": {},
+    "LED_REV": {},
+    "LEDLF": {},
+    "ben_coverengine_int": {},
+    "ben_coverengine": {},
+    "ben_cockpit_parts": {},
+    "ben_intcockpit": {},
+    "ben_body": {},
+    "ben_mirror_dust": {},
+    "ben_lmirror_in": {},
+    "ben_rmirror_in": {}
+  },
+  "categories": {
+    "Body": ["ben_body", "ben_nosecone", "ben_cockpit_parts", "ben_intcockpit", "ben_coverengine", "ben_coverengine_int"],
+    "Aero": ["ben_fwing", "ben_rwing", "ben_airscope"],
+    "Cockpit": ["ben_dashboard", "ben_seat", "ben_display", "ben_motec_glass", "ben_mirror_dust", "ben_lmirror_in", "ben_rmirror_in"],
+    "Glass": ["ben_cwind"],
+    "Driver": ["CINTURE_ON", "CINTURE_OFF"],
+    "Engine": ["ben_engine", "ben_engine_low", "ben_exhaust"],
+    "Drivetrain": ["ben_gearbox", "ben_gearbox_parts"],
+    "Suspension": ["SUSPRR", "SUSPLR", "SUPRF", "SUPLF", "SUSP_RR", "SUSP_LR", "HUB_RF", "HUB_LF", "SUSPLFSUP", "SUSPRFSUP"],
+    "Wheels": ["WHEEL_RR", "WHEEL_LR", "WHEEL_RF", "WHEEL_LF"],
+    "Camera": ["ben_tcam"],
+    "Dashboard": ["COVER", "RPM", "wcextra", "LEDPSY", "LED_REV", "LEDLF"],
+    "Steering": ["STEER_HR"]
+  }
+}

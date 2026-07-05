@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="ksAudiioStudio.01.16.00">
+    <object class="EventFolder" id="{7c82005d-5981-4061-9b4b-060cffb6d3d7}">
+        <property name="name">
+            <value>tatuusfa1</value>
+        </property>
+        <relationship name="folder">
+            <destination>{d3721fc3-d511-4234-a503-e2362da7f3f4}</destination>
+        </relationship>
+    </object>
+</objects>

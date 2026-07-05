@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="ksAudiioStudio.01.16.00">
+    <object class="MixerGroup" id="{9e2b6406-bcd0-4f61-92a5-b3e5d68d4b97}">
+        <property name="name">
+            <value>grp_backfire_ext</value>
+        </property>
+        <property name="instanceStealing">
+            <value>1</value>
+        </property>
+        <relationship name="effectChain">
+            <destination>{1d788d00-3acf-41d4-b748-cb245b4d9e1f}</destination>
+        </relationship>
+        <relationship name="panner">
+            <destination>{06b38c09-c744-4800-b8ec-63f3a4131e7c}</destination>
+        </relationship>
+        <relationship name="output">
+            <destination>{08f6ba78-f576-4f9f-a232-47657d5fec19}</destination>
+        </relationship>
+    </object>
+    <object class="MixerBusEffectChain" id="{1d788d00-3acf-41d4-b748-cb245b4d9e1f}">
+        <relationship name="effects">
+            <destination>{991370af-a81f-473a-bcb9-eb6ab6c4b61f}</destination>
+        </relationship>
+    </object>
+    <object class="MixerBusPanner" id="{06b38c09-c744-4800-b8ec-63f3a4131e7c}"/>
+    <object class="MixerBusFader" id="{991370af-a81f-473a-bcb9-eb6ab6c4b61f}"/>
+</objects>

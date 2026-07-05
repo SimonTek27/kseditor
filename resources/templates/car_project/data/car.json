@@ -1,0 +1,1 @@
+{"model": "ks_spa_red_bull_r17", "engine": {"horsepower": 750, "torque": 800, "rpm": 9000, "displacement": 1.6, "cylinders": 6}, "suspension": {"frontType": "doubleWishbone", "rearType": "pushRod", "frontStroke": 150, "rearStroke": 140}, "aero": {"downforce": 4.2, "dragCoef": 0.28, "rideHeight": 35}, "created": "2026-07-04", "lastModified": "2026-07-04"}

@@ -1,0 +1,1035 @@
+import QtQuick 2.15
+import QtQuick.Controls
+import QtQuick.Layouts
+import QtQuick.Dialogs
+import "../../widgets"
+import ksEditor.Physics 1.0
+
+Rectangle {
+    id: physicsEditor
+    width: 1280
+    height: 720
+    color: "#121212"
+
+    property string activePanel: "suspension"
+    property bool isValid: Physics ? Physics.isValid : true
+    property string currentFile: Physics ? Physics.currentFile : "LOD0.FBX"
+    property string statusText: "Ready"
+
+    Component.onCompleted: {
+        if (Physics) {
+            Physics.statusMessage.connect(function(msg) { statusText = msg; })
+        }
+    }
+
+    FileDialog {
+        id: importDialog
+        title: "Import Physics File"
+        nameFilters: ["Physics files (*.ini *.json *.fbx *.kn5)", "All files (*)"]
+        onAccepted: {
+            if (Physics) {
+                Physics.loadFile(selectedFile.toString().replace("file:///", ""))
+                currentFile = Physics.currentFile.split("/").pop().split("\\").pop()
+            }
+        }
+    }
+
+    FileDialog {
+        id: exportDialog
+        title: "Export Physics File"
+        nameFilters: ["INI files (*.ini)", "JSON files (*.json)", "All files (*)"]
+        onAccepted: {
+            if (Physics) {
+                Physics.saveFile(selectedFile.toString().replace("file:///", ""))
+            }
+        }
+    }
+
+    FileDialog {
+        id: colliderExportDialog
+        title: "Export Collider Mesh"
+        nameFilters: ["FBX files (*.fbx)", "KN5 files (*.kn5)", "All files (*)"]
+    }
+
+    FileDialog {
+        id: lodsImportDialog
+        title: "Import LOD Files"
+        nameFilters: ["FBX files (*.fbx)", "KN5 files (*.kn5)", "All files (*)"]
+    }
+
+    ColumnLayout {
+        anchors.fill: parent
+        spacing: 0
+
+        // --- Toolbar ---
+        Rectangle {
+            height: 40
+            color: "#1e1e1e"
+            Layout.fillWidth: true
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 10
+
+                KsButton {
+                    text: "Import"
+                    flat: true
+                    height: 32
+                    bgcolor: "transparent"
+                    color: "#ffffff"
+                    onClicked: importDialog.open()
+                }
+                KsButton {
+                    text: "Export"
+                    flat: true
+                    height: 32
+                    bgcolor: "transparent"
+                    color: "#ffffff"
+                    onClicked: exportDialog.open()
+                }
+                Rectangle {
+                    width: 1
+                    height: 20
+                    color: "#444444"
+                }
+                KsButton {
+                    text: "Validate"
+                    flat: true
+                    height: 32
+                    bgcolor: "transparent"
+                    color: "#ffffff"
+                    onClicked: {
+                        if (Physics) {
+                            isValid = Physics.validate()
+                        }
+                    }
+                }
+                Rectangle {
+                    width: 1
+                    height: 20
+                    color: "#444444"
+                }
+                KsButton {
+                    text: "Simulate"
+                    flat: true
+                    height: 32
+                    bgcolor: Physics && Physics.isSimulating ? "#E10600" : "transparent"
+                    color: "#ffffff"
+                    onClicked: {
+                        if (Physics) {
+                            if (Physics.isSimulating) Physics.stopSimulation()
+                            else Physics.startSimulation()
+                        }
+                    }
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Text {
+                    text: currentFile
+                    color: "#aaaaaa"
+                    font.pixelSize: 12
+                }
+            }
+        }
+
+        // --- Main Content ---
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            spacing: 0
+
+            // --- Left Panel: Panels List ---
+            Rectangle {
+                width: 160
+                Layout.fillHeight: true
+                color: "#1e1e1e"
+                border.color: "#333333"
+                border.width: 1
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    spacing: 4
+
+                    Text {
+                        text: "PANELS"
+                        color: "#666"
+                        font.pixelSize: 10
+                        font.bold: true
+                    }
+
+                    KsButton {
+                        height: 28
+                        text: "Suspension"
+                        bgcolor: activePanel === "suspension" ? "#E10600" : "#3e3e42"
+                        color: activePanel === "suspension" ? "#121212" : "#ffffff"
+                        onClicked: activePanel = "suspension"
+                    }
+                    KsButton {
+                        height: 28
+                        text: "Wheels"
+                        bgcolor: activePanel === "wheels" ? "#E10600" : "#3e3e42"
+                        color: activePanel === "wheels" ? "#121212" : "#ffffff"
+                        onClicked: activePanel = "wheels"
+                    }
+                    KsButton {
+                        height: 28
+                        text: "Tires"
+                        bgcolor: activePanel === "tires" ? "#E10600" : "#3e3e42"
+                        color: activePanel === "tires" ? "#121212" : "#ffffff"
+                        onClicked: activePanel = "tires"
+                    }
+                    KsButton {
+                        height: 28
+                        text: "Aerodynamics"
+                        bgcolor: activePanel === "aero" ? "#E10600" : "#3e3e42"
+                        color: activePanel === "aero" ? "#121212" : "#ffffff"
+                        onClicked: activePanel = "aero"
+                    }
+                    KsButton {
+                        height: 28
+                        text: "Engine"
+                        bgcolor: activePanel === "engine" ? "#E10600" : "#3e3e42"
+                        color: activePanel === "engine" ? "#121212" : "#ffffff"
+                        onClicked: activePanel = "engine"
+                    }
+                    KsButton {
+                        height: 28
+                        text: "Transmission"
+                        bgcolor: activePanel === "trans" ? "#E10600" : "#3e3e42"
+                        color: activePanel === "trans" ? "#121212" : "#ffffff"
+                        onClicked: activePanel = "trans"
+                    }
+                    KsButton {
+                        height: 28
+                        text: "Brakes"
+                        bgcolor: activePanel === "brakes" ? "#E10600" : "#3e3e42"
+                        color: activePanel === "brakes" ? "#121212" : "#ffffff"
+                        onClicked: activePanel = "brakes"
+                    }
+                    KsButton {
+                        height: 28
+                        text: "Steering"
+                        bgcolor: activePanel === "steering" ? "#E10600" : "#3e3e42"
+                        color: activePanel === "steering" ? "#121212" : "#ffffff"
+                        onClicked: activePanel = "steering"
+                    }
+                    KsButton {
+                        height: 28
+                        text: "Driver"
+                        bgcolor: activePanel === "driver" ? "#E10600" : "#3e3e42"
+                        color: activePanel === "driver" ? "#121212" : "#ffffff"
+                        onClicked: activePanel = "driver"
+                    }
+                    KsButton {
+                        height: 28
+                        text: "AI Config"
+                        bgcolor: activePanel === "ai" ? "#E10600" : "#3e3e42"
+                        color: activePanel === "ai" ? "#121212" : "#ffffff"
+                        onClicked: activePanel = "ai"
+                    }
+
+                    Rectangle { height: 10 }
+
+                    Text {
+                        text: "TOOLS"
+                        color: "#666"
+                        font.pixelSize: 10
+                        font.bold: true
+                    }
+
+                    KsButton {
+                        height: 28
+                        text: "Colliders"
+                        bgcolor: "#3e3e42"
+                        color: "#ffffff"
+                        onClicked: colliderExportDialog.open()
+                    }
+                    KsButton {
+                        height: 28
+                        text: "LODs"
+                        bgcolor: "#3e3e42"
+                        color: "#ffffff"
+                        onClicked: lodsImportDialog.open()
+                    }
+                    KsButton {
+                        height: 28
+                        text: "Mirrors"
+                        bgcolor: "#3e3e42"
+                        color: "#ffffff"
+                        onClicked: {
+                            if (Physics) Physics.statusMessage("Mirror setup not yet implemented")
+                        }
+                    }
+                    KsButton {
+                        height: 28
+                        text: "Exhaust"
+                        bgcolor: "#3e3e42"
+                        color: "#ffffff"
+                        onClicked: {
+                            if (Physics) Physics.statusMessage("Exhaust config not yet implemented")
+                        }
+                    }
+
+                    Item { Layout.fillHeight: true }
+
+                    KsButton {
+                        height: 32
+                        text: "Advanced"
+                        bgcolor: "#E10600"
+                        color: "#121212"
+                        onClicked: {
+                            if (Physics) Physics.statusMessage("Advanced physics settings")
+                        }
+                    }
+                }
+            }
+
+            // --- Center: 3D Preview ---
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                color: "#2a2a2a"
+                clip: true
+
+                Rectangle {
+                    anchors.fill: parent
+                    gradient: Gradient {
+                        GradientStop { position: 0.0; color: "#4a708b" }
+                        GradientStop { position: 0.6; color: "#87ceeb" }
+                        GradientStop { position: 0.61; color: "#333333" }
+                        GradientStop { position: 1.0; color: "#1a1a1a" }
+                    }
+                }
+
+                Text {
+                    anchors.bottom: parent.bottom
+                    anchors.left: parent.left
+                    anchors.margins: 10
+                    text: "Perspective | Gizmo: Local | Camera: Free"
+                    color: "#E10600"
+                    font.pixelSize: 11
+                }
+            }
+
+            // --- Right Panel: Properties & Tools ---
+            Rectangle {
+                Layout.preferredWidth: 320
+                Layout.fillHeight: true
+                color: "#1e1e1e"
+                border.color: "#333333"
+                border.width: 1
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 15
+                    spacing: 15
+
+                    // --- Properties Section ---
+                    if (activePanel === "suspension") {
+                        Text {
+                            text: "SUSPENSION PHYSICS"
+                            color: "white"
+                            font.bold: true
+                            font.pixelSize: 14
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            color: "#252526"
+                            border.color: "#3e3e42"
+                            border.width: 1
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 8
+
+                                Text {
+                                    text: "FRONT"
+                                    color: "#E10600"
+                                    font.bold: true
+                                    font.pixelSize: 12
+                                }
+
+                                RowLayout {
+                                    Text { text: "Type:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    ComboBox {
+                                        Layout.fillWidth: true
+                                        model: ["Pushrod", "Pullrod", "MacPherson", "Double Wishbone"]
+                                    }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Spring:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        id: frontSpringField
+                                        text: Physics ? Physics.suspensionFrontSpring : "0"
+                                        Layout.fillWidth: true
+                                        onEditingFinished: if (Physics) Physics.suspensionFrontSpring = parseFloat(text)
+                                    }
+                                    Text { text: "N/m"; color: "#666"; font.pixelSize: 10 }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Comp:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField { text: "8"; width: 50 }
+                                    Text { text: "Reb:"; color: "#bbbbbb" }
+                                    TextField { text: "10"; width: 50 }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            color: "#252526"
+                            border.color: "#3e3e42"
+                            border.width: 1
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 8
+
+                                Text {
+                                    text: "REAR"
+                                    color: "#E10600"
+                                    font.bold: true
+                                    font.pixelSize: 12
+                                }
+
+                                RowLayout {
+                                    Text { text: "Type:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    ComboBox {
+                                        Layout.fillWidth: true
+                                        model: ["Pushrod", "Pullrod", "MacPherson", "Double Wishbone"]
+                                    }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Spring:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        id: rearSpringField
+                                        text: Physics ? Physics.suspensionRearSpring : "0"
+                                        Layout.fillWidth: true
+                                        onEditingFinished: if (Physics) Physics.suspensionRearSpring = parseFloat(text)
+                                    }
+                                    Text { text: "N/m"; color: "#666"; font.pixelSize: 10 }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Comp:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField { text: "7"; width: 50 }
+                                    Text { text: "Reb:"; color: "#bbbbbb" }
+                                    TextField { text: "9"; width: 50 }
+                                }
+                            }
+                        }
+                    }
+
+                    if (activePanel === "wheels") {
+                        Text {
+                            text: "WHEEL PHYSICS"
+                            color: "white"
+                            font.bold: true
+                            font.pixelSize: 14
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            color: "#252526"
+                            border.color: "#3e3e42"
+                            border.width: 1
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 8
+
+                                RowLayout {
+                                    Text { text: "Diameter:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        text: Physics ? Physics.wheelDiameter : "26"
+                                        width: 60
+                                        onEditingFinished: if (Physics) Physics.wheelDiameter = parseFloat(text)
+                                    }
+                                    Text { text: "in"; color: "#666"; font.pixelSize: 10 }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Width:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        text: Physics ? Physics.wheelWidth : "12"
+                                        width: 60
+                                        onEditingFinished: if (Physics) Physics.wheelWidth = parseFloat(text)
+                                    }
+                                    Text { text: "in"; color: "#666"; font.pixelSize: 10 }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Mass:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        text: Physics ? Physics.wheelMass : "12"
+                                        width: 60
+                                        onEditingFinished: if (Physics) Physics.wheelMass = parseFloat(text)
+                                    }
+                                    Text { text: "kg"; color: "#666"; font.pixelSize: 10 }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Rim:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    ComboBox {
+                                        Layout.fillWidth: true
+                                        model: ["Single Piece", "Multi Piece", "Forged", "Carbon"]
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (activePanel === "tires") {
+                        Text {
+                            text: "TIRE PHYSICS"
+                            color: "white"
+                            font.bold: true
+                            font.pixelSize: 14
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            color: "#252526"
+                            border.color: "#3e3e42"
+                            border.width: 1
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 8
+
+                                RowLayout {
+                                    Text { text: "Compound:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    ComboBox {
+                                        Layout.fillWidth: true
+                                        model: ["Soft", "Medium", "Hard", "Inter", "Wet"]
+                                        currentIndex: {
+                                            if (!Physics) return 1
+                                            var idx = model.indexOf(Physics.tireCompound)
+                                            return idx >= 0 ? idx : 1
+                                        }
+                                        onCurrentTextChanged: if (Physics) Physics.tireCompound = currentText
+                                    }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Tread:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    Slider {
+                                        from: 0; to: 100; value: Physics ? Physics.tireTreadRemaining : 100
+                                        onValueChanged: if (Physics) Physics.tireTreadRemaining = value
+                                    }
+                                    Text {
+                                        text: Math.round(Physics ? Physics.tireTreadRemaining : 100) + "%"
+                                        color: "#E10600"; font.pixelSize: 11
+                                    }
+                                }
+
+                                Text {
+                                    text: "THERMAL"
+                                    color: "#666"
+                                    font.pixelSize: 10
+                                    font.bold: true
+                                }
+
+                                RowLayout {
+                                    Text { text: "Optimal:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        text: Physics ? Physics.tireOptimalTemp : "90"
+                                        width: 60
+                                        onEditingFinished: if (Physics) Physics.tireOptimalTemp = parseFloat(text)
+                                    }
+                                    Text { text: "°C"; color: "#666"; font.pixelSize: 10 }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Max:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        text: Physics ? Physics.tireMaxTemp : "120"
+                                        width: 60
+                                        onEditingFinished: if (Physics) Physics.tireMaxTemp = parseFloat(text)
+                                    }
+                                    Text { text: "°C"; color: "#666"; font.pixelSize: 10 }
+                                }
+                            }
+                        }
+                    }
+
+                    if (activePanel === "aero") {
+                        Text {
+                            text: "AERODYNAMICS"
+                            color: "white"
+                            font.bold: true
+                            font.pixelSize: 14
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            color: "#252526"
+                            border.color: "#3e3e42"
+                            border.width: 1
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 8
+
+                                RowLayout {
+                                    Text { text: "Drag:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        id: dragField
+                                        text: Physics ? Physics.drag : "0.4"
+                                        width: 60
+                                        onEditingFinished: if (Physics) Physics.drag = parseFloat(text)
+                                    }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Downforce:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        id: downforceField
+                                        text: Physics ? Physics.frontDownforce : "1200"
+                                        width: 60
+                                        onEditingFinished: if (Physics) Physics.frontDownforce = parseFloat(text)
+                                    }
+                                    Text { text: "N"; color: "#666"; font.pixelSize: 10 }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Balance:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    Slider {
+                                        from: 30; to: 70; value: Physics ? Physics.brakeBalance * 100 : 42
+                                        onValueChanged: if (Physics) Physics.brakeBalance = value / 100
+                                    }
+                                    Text {
+                                        text: Math.round(Physics ? Physics.brakeBalance * 100 : 42) + "%"
+                                        color: "#E10600"; font.pixelSize: 11
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (activePanel === "engine") {
+                        Text {
+                            text: "ENGINE PHYSICS"
+                            color: "white"
+                            font.bold: true
+                            font.pixelSize: 14
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            color: "#252526"
+                            border.color: "#3e3e42"
+                            border.width: 1
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 8
+
+                                RowLayout {
+                                    Text { text: "Max RPM:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        id: maxRpmField
+                                        text: Physics ? Physics.redlineRPM : "8000"
+                                        width: 60
+                                        onEditingFinished: if (Physics) Physics.redlineRPM = parseInt(text)
+                                    }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Power:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        id: powerField
+                                        text: Physics ? Math.round(Physics.maxPowerKw * 1.34102) : "268"
+                                        width: 60
+                                        onEditingFinished: if (Physics) Physics.maxPowerKw = parseFloat(text) / 1.34102
+                                    }
+                                    Text { text: "HP"; color: "#666"; font.pixelSize: 10 }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Torque:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        id: torqueField
+                                        text: Physics ? Physics.maxTorqueNm : "400"
+                                        width: 60
+                                        onEditingFinished: if (Physics) Physics.maxTorqueNm = parseFloat(text)
+                                    }
+                                    Text { text: "Nm"; color: "#666"; font.pixelSize: 10 }
+                                }
+                            }
+                        }
+                    }
+
+                    if (activePanel === "trans") {
+                        Text {
+                            text: "TRANSMISSION"
+                            color: "white"
+                            font.bold: true
+                            font.pixelSize: 14
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            color: "#252526"
+                            border.color: "#3e3e42"
+                            border.width: 1
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 8
+
+                                RowLayout {
+                                    Text { text: "Type:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    ComboBox {
+                                        Layout.fillWidth: true
+                                        model: ["Sequential", "H-Pattern", "Dual Clutch", "CVT"]
+                                        currentIndex: Physics ? Physics.transmissionType : 0
+                                        onCurrentIndexChanged: if (Physics) Physics.transmissionType = currentIndex
+                                    }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Gears:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        text: Physics ? Physics.gearCount : "7"
+                                        width: 60
+                                        onEditingFinished: if (Physics) Physics.gearCount = Math.max(1, Math.min(10, parseInt(text)))
+                                    }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Final:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        id: finalDriveField
+                                        text: Physics ? Physics.finalDrive : "3.7"
+                                        width: 60
+                                        onEditingFinished: if (Physics) Physics.finalDrive = parseFloat(text)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (activePanel === "brakes") {
+                        Text {
+                            text: "BRAKE PHYSICS"
+                            color: "white"
+                            font.bold: true
+                            font.pixelSize: 14
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            color: "#252526"
+                            border.color: "#3e3e42"
+                            border.width: 1
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 8
+
+                                RowLayout {
+                                    Text { text: "Type:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    ComboBox {
+                                        Layout.fillWidth: true
+                                        model: ["Steel", "Carbon Ceramic", "Carbon Carbon"]
+                                    }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Pressure:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        text: Physics ? Physics.brakePressure : "150"
+                                        width: 60
+                                        onEditingFinished: if (Physics) Physics.brakePressure = parseFloat(text)
+                                    }
+                                    Text { text: "bar"; color: "#666"; font.pixelSize: 10 }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Bias:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    Slider {
+                                        from: 50; to: 70; value: Physics ? Physics.brakeBalance * 100 : 58
+                                        onValueChanged: if (Physics) Physics.brakeBalance = value / 100
+                                    }
+                                    Text {
+                                        text: Math.round(Physics ? Physics.brakeBalance * 100 : 58) + "%"
+                                        color: "#E10600"; font.pixelSize: 11
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (activePanel === "steering") {
+                        Text {
+                            text: "STEERING"
+                            color: "white"
+                            font.bold: true
+                            font.pixelSize: 14
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            color: "#252526"
+                            border.color: "#3e3e42"
+                            border.width: 1
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 8
+
+                                RowLayout {
+                                    Text { text: "Ratio:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    Slider {
+                                        from: 10; to: 30; value: Physics ? Physics.steeringRatio : 15
+                                        onValueChanged: if (Physics) Physics.steeringRatio = value
+                                    }
+                                    Text {
+                                        text: Math.round(Physics ? Physics.steeringRatio : 15) + ":1"
+                                        color: "#E10600"; font.pixelSize: 11
+                                    }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Lock:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        text: Physics ? Physics.steeringLockAngle : "45"
+                                        width: 60
+                                        onEditingFinished: if (Physics) Physics.steeringLockAngle = parseFloat(text)
+                                    }
+                                    Text { text: "°"; color: "#666"; font.pixelSize: 10 }
+                                }
+
+                                RowLayout {
+                                    CheckBox {
+                                        checked: Physics ? Physics.powerSteering : true
+                                        onClicked: if (Physics) Physics.powerSteering = checked
+                                    }
+                                    Text { text: "Power Steering"; color: "#bbbbbb"; font.pixelSize: 11 }
+                                }
+                            }
+                        }
+                    }
+
+                    if (activePanel === "driver") {
+                        Text {
+                            text: "DRIVER"
+                            color: "white"
+                            font.bold: true
+                            font.pixelSize: 14
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            color: "#252526"
+                            border.color: "#3e3e42"
+                            border.width: 1
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 8
+
+                                RowLayout {
+                                    Text { text: "Position:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        text: Physics ? Physics.driverPositionX : "0.1"
+                                        width: 50
+                                        onEditingFinished: if (Physics) Physics.driverPositionX = parseFloat(text)
+                                    }
+                                    TextField {
+                                        text: Physics ? Physics.driverPositionY : "0.5"
+                                        width: 50
+                                        onEditingFinished: if (Physics) Physics.driverPositionY = parseFloat(text)
+                                    }
+                                    TextField {
+                                        text: Physics ? Physics.driverPositionZ : "-0.2"
+                                        width: 50
+                                        onEditingFinished: if (Physics) Physics.driverPositionZ = parseFloat(text)
+                                    }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Mass:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        text: Physics ? Physics.driverMass : "75"
+                                        width: 60
+                                        onEditingFinished: if (Physics) Physics.driverMass = parseFloat(text)
+                                    }
+                                    Text { text: "kg"; color: "#666"; font.pixelSize: 10 }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Height:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    TextField {
+                                        text: Physics ? Physics.driverHeight : "1.8"
+                                        width: 60
+                                        onEditingFinished: if (Physics) Physics.driverHeight = parseFloat(text)
+                                    }
+                                    Text { text: "m"; color: "#666"; font.pixelSize: 10 }
+                                }
+                            }
+                        }
+                    }
+
+                    if (activePanel === "ai") {
+                        Text {
+                            text: "AI CONFIG"
+                            color: "white"
+                            font.bold: true
+                            font.pixelSize: 14
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            color: "#252526"
+                            border.color: "#3e3e42"
+                            border.width: 1
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 8
+
+                                RowLayout {
+                                    Text { text: "Aggression:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    Slider {
+                                        from: 0; to: 100; value: Physics ? Physics.aiAggression : 50
+                                        onValueChanged: if (Physics) Physics.aiAggression = value
+                                    }
+                                    Text {
+                                        text: Math.round(Physics ? Physics.aiAggression : 50) + "%"
+                                        color: "#E10600"; font.pixelSize: 11
+                                    }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Skill:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    Slider {
+                                        from: 0; to: 100; value: Physics ? Physics.aiSkill : 80
+                                        onValueChanged: if (Physics) Physics.aiSkill = value
+                                    }
+                                    Text {
+                                        text: Math.round(Physics ? Physics.aiSkill : 80) + "%"
+                                        color: "#E10600"; font.pixelSize: 11
+                                    }
+                                }
+
+                                RowLayout {
+                                    Text { text: "Consistency:"; color: "#bbbbbb"; Layout.preferredWidth: 70 }
+                                    Slider {
+                                        from: 0; to: 100; value: Physics ? Physics.aiConsistency : 90
+                                        onValueChanged: if (Physics) Physics.aiConsistency = value
+                                    }
+                                    Text {
+                                        text: Math.round(Physics ? Physics.aiConsistency : 90) + "%"
+                                        color: "#E10600"; font.pixelSize: 11
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Item { Layout.fillHeight: true }
+
+                    // --- Validation Section ---
+                    Rectangle {
+                        Layout.fillWidth: true
+                        color: "#252526"
+                        border.color: "#3e3e42"
+                        border.width: 1
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            spacing: 8
+
+                            Text {
+                                text: "VALIDATION"
+                                color: "#666"
+                                font.pixelSize: 10
+                                font.bold: true
+                            }
+
+                            RowLayout {
+                                Rectangle {
+                                    width: 12
+                                    height: 12
+                                    radius: 6
+                                    color: isValid ? "#E10600" : "#ef4444"
+                                }
+                                Text {
+                                    text: isValid ? "Valid" : "Invalid"
+                                    color: isValid ? "#E10600" : "#ef4444"
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                }
+                            }
+
+                            RowLayout {
+                                KsButton {
+                                    height: 28
+                                    text: "Validate"
+                                    bgcolor: "#E10600"
+                                    color: "#121212"
+                                    Layout.fillWidth: true
+                                    onClicked: {
+                                        if (Physics) {
+                                            isValid = Physics.validate()
+                                        }
+                                    }
+                                }
+                                KsButton {
+                                    height: 28
+                                    text: "Export"
+                                    bgcolor: "#ff6600"
+                                    color: "#ffffff"
+                                    Layout.fillWidth: true
+                                    onClicked: exportDialog.open()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- Status Bar ---
+        Rectangle {
+            height: 24
+            color: "#252526"
+            Layout.fillWidth: true
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.margins: 4
+
+                Text { text: statusText; color: "#E10600"; font.pixelSize: 10 }
+                Item { Layout.fillWidth: true }
+                Text {
+                    text: Physics ? Physics.carName + " | ksEditor Physics" : "ksEditor v1.0 - Physics"
+                    color: "#666"
+                    font.pixelSize: 10
+                }
+            }
+        }
+    }
+}
+
+

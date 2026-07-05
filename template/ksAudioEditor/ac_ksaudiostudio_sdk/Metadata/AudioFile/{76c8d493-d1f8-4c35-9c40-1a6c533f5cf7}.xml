@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="ksAudiioStudio.01.16.00">
+    <object class="AudioFile" id="{76c8d493-d1f8-4c35-9c40-1a6c533f5cf7}">
+        <property name="assetPath">
+            <value>surfaces/dirt.wav</value>
+        </property>
+        <property name="frequencyInKHz">
+            <value>44.0999985</value>
+        </property>
+        <property name="channelCount">
+            <value>2</value>
+        </property>
+        <property name="length">
+            <value>7.2653299999999996</value>
+        </property>
+        <relationship name="masterAssetFolder">
+            <destination>{9ac7c7a7-33f8-4512-bd5e-63894d4a368b}</destination>
+        </relationship>
+    </object>
+</objects>

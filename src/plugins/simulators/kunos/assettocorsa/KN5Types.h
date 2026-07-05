@@ -1,0 +1,391 @@
+// KN5Types.h — Assetto Corsa KN5 format type definitions
+// Shared between KN5Parser, FBXExporter, and the modelling editor.
+#pragma once
+
+#include <QString>
+#include <QVector>
+#include <QMap>
+#include <QByteArray>
+#include <QMatrix4x4>
+#include <cmath>
+
+namespace KN5Parser {
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+static constexpr quint32 KN5_MAGIC   = 0x346E6B73; // "skn4"
+static constexpr quint32 KN5_VERSION = 5;
+static constexpr quint32 KN5_VERSION_MIN = 4; // minimum supported
+
+// AC node naming convention prefixes (for validation)
+static const QStringList AC_LOD_PREFIXES   = {"LOD_A","LOD_B","LOD_C","LOD_D"};
+static const QStringList AC_WHEEL_NODES    = {"WHEEL_LF","WHEEL_RF","WHEEL_LR","WHEEL_RR"};
+static const QStringList AC_COLLIDER_NODES = {"AC_POBJECT","AC_WHEEL_","AC_OFF"};
+
+// ---------------------------------------------------------------------------
+// Vertex attribute types (matches FMOD AC kN5 vertex layout)
+// ---------------------------------------------------------------------------
+enum class AttributeType : quint32 {
+    Position   = 0,  // vec3
+    Normal     = 1,  // vec3
+    TexCoord0  = 2,  // vec2 — primary UV
+    TexCoord1  = 3,  // vec2 — UV2 (lightmap / damage)
+    Tangent    = 4,  // vec3
+    Bitangent  = 5,  // vec3
+    BoneIndex  = 6,  // uvec4 (as 4×uint8)
+    BoneWeight = 7,  // vec4
+    Color      = 8,  // vec4 (RGBA)
+};
+
+struct VertexLayout {
+    QVector<QPair<AttributeType, quint8>> attributes; // (type, offset)
+    quint32 vertexSize = 0;
+
+    bool has(AttributeType a) const {
+        for (const auto& p : attributes)
+            if (p.first == a) return true;
+        return false;
+    }
+    int offsetOf(AttributeType a) const {
+        for (const auto& p : attributes)
+            if (p.first == a) return p.second;
+        return -1;
+    }
+};
+
+// ---------------------------------------------------------------------------
+// Sub-mesh (one material per sub-mesh)
+// ---------------------------------------------------------------------------
+struct SubMesh {
+    quint32 materialIndex = 0;
+    quint32 vertexOffset  = 0;
+    quint32 vertexCount   = 0;
+    quint32 indexOffset   = 0;
+    quint32 indexCount    = 0;
+    struct Vec3 { float x=0,y=0,z=0; };
+    Vec3 boundingMin, boundingMax;
+};
+
+// ---------------------------------------------------------------------------
+// Mesh node
+// ---------------------------------------------------------------------------
+struct Mesh {
+    QString   name;
+    quint32   nodeIndex    = 0;
+    bool      castShadows  = true;
+    bool      isVisible    = true;
+    bool      isTransparent = false;
+    bool      isSkinnedMesh = false;
+
+    enum class MaterialType : quint32 {
+        Standard   = 0,
+        AlphaMask  = 1,
+        Transparent = 2,
+        Additive   = 3
+    } materialType = MaterialType::Standard;
+
+    struct Vec3 { float x=0,y=0,z=0; };
+    Vec3    boundingMin, boundingMax;
+    float   boundingRadius = 0.0f;
+
+    VertexLayout         vertexLayout;
+    QByteArray           vertexData;
+    QByteArray           indexData;
+    QVector<SubMesh>     subMeshes;
+
+    // Decoded vertex helpers
+    QVector<QVector3D>   positions;
+    QVector<QVector3D>   normals;
+    QVector<QVector3D>   tangents;
+    QVector<QVector3D>   bitangents;
+    QVector<QVector2D>   uv0;          // primary UV channel
+    QVector<QVector2D>   uv1;          // UV2 (damage maps, lightmaps)
+    QVector<QVector4D>   boneWeights;
+    QVector<quint32>     boneIndices;  // packed 4×uint8
+
+    quint32 getVertexCount() const;
+    quint32 getTriangleCount() const;
+
+    // Decode raw vertexData into typed arrays
+    void decodeVertices();
+};
+
+// ---------------------------------------------------------------------------
+// Material
+// ---------------------------------------------------------------------------
+struct ShaderParam {
+    QString name;
+    float   value = 0.0f;
+    float   valueA = 0.0f; // for vec2 params
+};
+
+struct Material {
+    quint32 id = 0;
+    QString name;
+    QString shaderName;     // e.g. "ksPerPixelMultiMap_NMDetail"
+
+    enum class Type : quint32 {
+        Normal     = 0,
+        AlphaMask  = 1,
+        Transparent = 2,
+        Additive   = 3,
+        Invisible  = 4,
+    } type = Type::Normal;
+
+    QMap<QString, QString> properties;        // raw shader property strings
+    QMap<QString, QString> textureMapping;    // slot → texture name
+
+    // Parsed shader parameters (for editor display)
+    QVector<ShaderParam>   shaderParams;
+    bool     alphaBlending  = false;
+    bool     alphaTesting   = false;
+    float    alphaRef       = 0.5f;
+    bool     depthTest      = true;
+    bool     depthWrite     = true;
+    bool     useDetailMap   = false;
+    bool     useNormalMap   = false;
+    float    detailUVMultiplier = 1.0f;
+};
+
+// ---------------------------------------------------------------------------
+// Texture
+// ---------------------------------------------------------------------------
+struct Texture {
+    QString    name;
+    quint32    width  = 0;
+    quint32    height = 0;
+    quint32    format = 0;   // DDS format
+    quint32    mipmapCount = 0;
+    QByteArray data;        // raw DDS data
+};
+
+// ---------------------------------------------------------------------------
+// Bone (for skinned meshes)
+// ---------------------------------------------------------------------------
+struct Bone {
+    QString name;
+    int     parentIndex = -1;
+    float   matrix[16] = {};     // bind pose world matrix (row-major)
+};
+
+// ---------------------------------------------------------------------------
+// LOD group
+// ---------------------------------------------------------------------------
+struct LODGroup {
+    QString name;       // "LOD_A", "LOD_B", "LOD_C", "LOD_D"
+    float   distance = 0.0f;  // switch-in distance (metres)
+    QVector<int> meshIndices;
+};
+
+// ---------------------------------------------------------------------------
+// File header
+// ---------------------------------------------------------------------------
+struct FileHeader {
+    quint32 magic             = KN5_MAGIC;
+    quint32 version           = KN5_VERSION;
+    quint32 flags             = 0;
+    quint32 textureCount      = 0;
+    quint32 materialCount     = 0;
+    quint32 nodeCount         = 0;
+    quint32 headerSize        = 0;
+    quint32 nodeOffset        = 0;
+    quint32 textureOffset     = 0;
+    quint32 vertexBufferOffset = 0;
+    quint32 indexBufferOffset  = 0;
+    quint32 vertexBufferSize   = 0;
+    quint32 indexBufferSize    = 0;
+};
+
+// ---------------------------------------------------------------------------
+// World matrix
+// ---------------------------------------------------------------------------
+struct Matrix4x4 {
+    float m[4][4] = {};
+    Matrix4x4() { m[0][0]=m[1][1]=m[2][2]=m[3][3]=1.0f; }
+    QMatrix4x4 toQMatrix() const {
+        return QMatrix4x4(m[0][0],m[0][1],m[0][2],m[0][3],
+                          m[1][0],m[1][1],m[1][2],m[1][3],
+                          m[2][0],m[2][1],m[2][2],m[2][3],
+                          m[3][0],m[3][1],m[3][2],m[3][3]);
+    }
+};
+
+// ---------------------------------------------------------------------------
+// KN5 node naming validation helpers
+// ---------------------------------------------------------------------------
+struct NodeNameWarning {
+    QString nodeName;
+    QString message;
+    enum Level { Info, Warning, Error } level = Warning;
+};
+
+// ---------------------------------------------------------------------------
+// Top-level KN5 file
+// ---------------------------------------------------------------------------
+struct KN5File {
+    QString             filePath;
+    FileHeader          header;
+    QVector<Texture>    textures;
+    QStringList         textureNames;
+    QVector<Material>   materials;
+    QVector<Mesh>       meshes;
+    QVector<Bone>       bones;
+    QVector<LODGroup>   lodGroups;
+    Matrix4x4           worldMatrix;
+
+    // Validate AC naming convention, populate lodGroups
+    QVector<NodeNameWarning> validateNodeNames() const;
+    void extractLODGroups();
+
+    bool isValid() const { return header.magic == KN5_MAGIC && !meshes.isEmpty(); }
+};
+
+// ---------------------------------------------------------------------------
+// KN5File::validateNodeNames() — checks AC naming convention
+// ---------------------------------------------------------------------------
+inline QVector<NodeNameWarning> KN5File::validateNodeNames() const {
+    QVector<NodeNameWarning> warnings;
+    bool hasLodA = false;
+    QStringList meshNames;
+    for (const auto& mesh : meshes) {
+        meshNames << mesh.name;
+        if (mesh.name.startsWith("LOD_A")) hasLodA = true;
+        // Check for duplicate names
+        if (meshNames.count(mesh.name) > 1) {
+            warnings.append({mesh.name,
+                "Duplicate node name — AC will only load the first occurrence",
+                NodeNameWarning::Error});
+        }
+        // Check for spaces in names (AC doesn't support them)
+        if (mesh.name.contains(' ')) {
+            warnings.append({mesh.name,
+                "Node name contains spaces — replace with underscores",
+                NodeNameWarning::Error});
+        }
+    }
+    if (!hasLodA && !meshes.isEmpty()) {
+        warnings.append({"", "No LOD_A node found — AC requires at least LOD_A",
+                         NodeNameWarning::Warning});
+    }
+    return warnings;
+}
+
+inline void KN5File::extractLODGroups() {
+    lodGroups.clear();
+    QStringList lodNames = {"LOD_A", "LOD_B", "LOD_C", "LOD_D"};
+    float distances[]    = {0.0f, 50.0f, 100.0f, 250.0f};
+    for (int li = 0; li < lodNames.size(); ++li) {
+        LODGroup g;
+        g.name     = lodNames[li];
+        g.distance = distances[li];
+        for (int mi = 0; mi < meshes.size(); ++mi) {
+            if (meshes[mi].name.startsWith(lodNames[li]))
+                g.meshIndices << mi;
+        }
+        if (!g.meshIndices.isEmpty())
+            lodGroups << g;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Mesh::decodeVertices() — unpack raw vertexData into typed arrays
+// ---------------------------------------------------------------------------
+inline void Mesh::decodeVertices() {
+    if (vertexData.isEmpty()) return;
+    quint32 stride = vertexLayout.vertexSize > 0 ? vertexLayout.vertexSize : 44;
+    quint32 count  = (quint32)vertexData.size() / stride;
+
+    positions.resize(count);
+    normals.resize(count);
+    uv0.resize(count);
+
+    bool hasUV1  = vertexLayout.has(AttributeType::TexCoord1);
+    bool hasTan  = vertexLayout.has(AttributeType::Tangent);
+    bool hasBiTan = vertexLayout.has(AttributeType::Bitangent);
+    bool hasBone = vertexLayout.has(AttributeType::BoneWeight);
+
+    if (hasUV1)  uv1.resize(count);
+    if (hasTan)  tangents.resize(count);
+    if (hasBiTan) bitangents.resize(count);
+    if (hasBone) { boneWeights.resize(count); boneIndices.resize(count); }
+
+    auto off = [&](AttributeType a) { return vertexLayout.offsetOf(a); };
+
+    for (quint32 i = 0; i < count; ++i) {
+        const char* v = vertexData.constData() + i * stride;
+        auto rf = [&](int o) { float f; memcpy(&f, v+o, 4); return f; };
+        auto ru = [&](int o) { quint8 b[4]; memcpy(b, v+o, 4); 
+                                return (quint32)(b[0]|(b[1]<<8)|(b[2]<<16)|(b[3]<<24)); };
+
+        int pOff  = off(AttributeType::Position);
+        if (pOff >= 0) positions[i] = {rf(pOff), rf(pOff+4), rf(pOff+8)};
+
+        int nOff  = off(AttributeType::Normal);
+        if (nOff >= 0) normals[i] = {rf(nOff), rf(nOff+4), rf(nOff+8)};
+
+        int t0Off = off(AttributeType::TexCoord0);
+        if (t0Off >= 0) uv0[i] = {rf(t0Off), rf(t0Off+4)};
+
+        if (hasUV1) {
+            int t1Off = off(AttributeType::TexCoord1);
+            if (t1Off >= 0) uv1[i] = {rf(t1Off), rf(t1Off+4)};
+        }
+        if (hasTan) {
+            int tOff = off(AttributeType::Tangent);
+            if (tOff >= 0) tangents[i] = {rf(tOff), rf(tOff+4), rf(tOff+8)};
+        }
+        if (hasBiTan) {
+            int bOff = off(AttributeType::Bitangent);
+            if (bOff >= 0) bitangents[i] = {rf(bOff), rf(bOff+4), rf(bOff+8)};
+        }
+        if (hasBone) {
+            int wOff = off(AttributeType::BoneWeight);
+            int iOff = off(AttributeType::BoneIndex);
+            if (wOff >= 0) boneWeights[i] = {rf(wOff), rf(wOff+4), rf(wOff+8), rf(wOff+12)};
+            if (iOff >= 0) boneIndices[i] = ru(iOff);
+        }
+    }
+}
+
+
+
+// ---------------------------------------------------------------------------
+// MeshHelper
+// ---------------------------------------------------------------------------
+struct Vector3 {
+    float x=0,y=0,z=0;
+    Vector3() = default;
+    Vector3(float x,float y,float z):x(x),y(y),z(z){}
+    Vector3 operator+(const Vector3& o) const { return {x+o.x,y+o.y,z+o.z}; }
+    Vector3 operator-(const Vector3& o) const { return {x-o.x,y-o.y,z-o.z}; }
+    Vector3 operator*(float f) const { return {x*f,y*f,z*f}; }
+    float length() const { return sqrtf(x*x+y*y+z*z); }
+};
+
+class MeshHelper {
+public:
+    static void computeBoundingBox(const KN5File&, Vector3& min, Vector3& max);
+    static void computeBoundingSphere(const KN5File&, Vector3& center, float& radius);
+    static quint32 getTotalTriangles(const KN5File&);
+    static quint32 getTotalVertices(const KN5File&);
+};
+
+// ---------------------------------------------------------------------------
+// KN5Parser class (Qt-based, full implementation in KN5Types.h (declaration) and KN5Parser.cpp (definition).
+// ---------------------------------------------------------------------------
+class KN5ParserImpl {
+public:
+    static KN5File  parse(const QString& filePath, QString* error = nullptr);
+    static bool     write(const QString& filePath, const KN5File& kn5);
+    static bool     isValid(const QString& filePath);
+    static QString  lastError();
+
+private:
+    static QString  m_lastError;
+    static void parseTexture(KN5File& out, QDataStream& stream);
+    static void parseMaterial(KN5File& out, QDataStream& stream);
+    static void parseMesh(KN5File& out, QDataStream& stream);
+};
+
+} // namespace KN5Parser

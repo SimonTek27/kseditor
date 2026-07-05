@@ -1,0 +1,1 @@
+{"name": "Example Car Project", "description": "A basic example car project with engine, suspension, and aero setup.", "type": "car", "created": "2026-07-04", "lastModified": "2026-07-04", "files": ["data/car.ini", "data/engine.ini", "data/suspension.ini", "data/aero.ini"], "modules": ["Physics Editor", "3D Modeler"], "difficulty": 1}

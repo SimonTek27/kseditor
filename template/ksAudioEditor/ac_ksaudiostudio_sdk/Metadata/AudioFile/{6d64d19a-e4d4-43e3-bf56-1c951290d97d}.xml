@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="ksAudiioStudio.01.16.00">
+    <object class="AudioFile" id="{6d64d19a-e4d4-43e3-bf56-1c951290d97d}">
+        <property name="assetPath">
+            <value>cars/Abarth/Tatuus/Accessories/gearup.wav</value>
+        </property>
+        <property name="frequencyInKHz">
+            <value>44.0999985</value>
+        </property>
+        <property name="channelCount">
+            <value>1</value>
+        </property>
+        <property name="length">
+            <value>0.29607709750566891</value>
+        </property>
+        <relationship name="masterAssetFolder">
+            <destination>{9ac7c7a7-33f8-4512-bd5e-63894d4a368b}</destination>
+        </relationship>
+    </object>
+</objects>

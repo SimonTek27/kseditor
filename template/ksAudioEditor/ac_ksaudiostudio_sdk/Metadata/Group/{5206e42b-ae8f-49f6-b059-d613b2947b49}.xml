@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="ksAudiioStudio.01.16.00">
+    <object class="MixerGroup" id="{5206e42b-ae8f-49f6-b059-d613b2947b49}">
+        <property name="name">
+            <value>grp_engine_ext</value>
+        </property>
+        <property name="instanceStealing">
+            <value>1</value>
+        </property>
+        <relationship name="masters">
+            <destination>{94f04703-a92c-49cf-a097-734f3e79ec08}</destination>
+        </relationship>
+        <relationship name="effectChain">
+            <destination>{ff3c0a1d-e8c4-486b-82cc-2e22afc6a654}</destination>
+        </relationship>
+        <relationship name="panner">
+            <destination>{a711592d-04d6-4b89-b3c6-61f53a36d075}</destination>
+        </relationship>
+        <relationship name="output">
+            <destination>{08f6ba78-f576-4f9f-a232-47657d5fec19}</destination>
+        </relationship>
+    </object>
+    <object class="MixerBusEffectChain" id="{ff3c0a1d-e8c4-486b-82cc-2e22afc6a654}">
+        <relationship name="effects">
+            <destination>{1f299135-00ed-407e-84e2-7b10e90d93c0}</destination>
+            <destination>{0ca49309-ad26-42f1-b8ca-05522b2ff42c}</destination>
+        </relationship>
+    </object>
+    <object class="MixerBusPanner" id="{a711592d-04d6-4b89-b3c6-61f53a36d075}"/>
+    <object class="MixerBusFader" id="{1f299135-00ed-407e-84e2-7b10e90d93c0}"/>
+    <object class="CompressorEffect" id="{0ca49309-ad26-42f1-b8ca-05522b2ff42c}">
+        <property name="threshold">
+            <value>-6</value>
+        </property>
+        <property name="ratio">
+            <value>2</value>
+        </property>
+        <property name="attackTime">
+            <value>10</value>
+        </property>
+        <property name="releaseTime">
+            <value>50</value>
+        </property>
+    </object>
+</objects>

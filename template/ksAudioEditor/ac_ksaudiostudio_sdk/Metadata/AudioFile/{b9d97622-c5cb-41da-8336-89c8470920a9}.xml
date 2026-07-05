@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="ksAudiioStudio.01.16.00">
+    <object class="AudioFile" id="{b9d97622-c5cb-41da-8336-89c8470920a9}">
+        <property name="assetPath">
+            <value>cars/Abarth/Tatuus/Engine EXT/ext_fa01_on_6500.wav</value>
+        </property>
+        <property name="frequencyInKHz">
+            <value>44.0999985</value>
+        </property>
+        <property name="channelCount">
+            <value>1</value>
+        </property>
+        <property name="length">
+            <value>9.1081179138321993</value>
+        </property>
+        <relationship name="masterAssetFolder">
+            <destination>{9ac7c7a7-33f8-4512-bd5e-63894d4a368b}</destination>
+        </relationship>
+    </object>
+</objects>

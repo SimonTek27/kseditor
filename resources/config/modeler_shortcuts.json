@@ -1,0 +1,68 @@
+{
+  "shortcuts": {
+    "undo": {
+      "key": "Ctrl+Z",
+      "description": "Undo last operation"
+    },
+    "redo": {
+      "key": "Ctrl+Shift+Z",
+      "description": "Redo last operation"
+    },
+    "select": {
+      "key": "Q",
+      "description": "Select tool (LMB)"
+    },
+    "move": {
+      "key": "W",
+      "description": "Move/Translate tool (G)"
+    },
+    "rotate": {
+      "key": "E",
+      "description": "Rotate tool (R)"
+    },
+    "scale": {
+      "key": "R",
+      "description": "Scale tool (S)"
+    },
+    "delete": {
+      "key": "X",
+      "description": "Delete selected object"
+    },
+    "duplicate": {
+      "key": "Shift+D",
+      "description": "Duplicate selected object"
+    },
+    "toggle_grid": {
+      "key": "G",
+      "description": "Toggle grid visibility"
+    },
+    "toggle_wireframe": {
+      "key": "Z",
+      "description": "Toggle wireframe mode"
+    },
+    "toggle_proportional": {
+      "key": "O",
+      "description": "Toggle proportional editing"
+    },
+    "focus_selected": {
+      "key": "NumPad_Period",
+      "description": "Focus camera on selected object"
+    },
+    "frame_all": {
+      "key": "Home",
+      "description": "Frame all objects in viewport"
+    },
+    "view_front": {
+      "key": "Numpad_1",
+      "description": "View front (face -Z)"
+    },
+    "view_right": {
+      "key": "Numpad_3",
+      "description": "View right (face X)"
+    },
+    "view_top": {
+      "key": "Numpad_7",
+      "description": "View top (face Y)"
+    }
+  }
+}

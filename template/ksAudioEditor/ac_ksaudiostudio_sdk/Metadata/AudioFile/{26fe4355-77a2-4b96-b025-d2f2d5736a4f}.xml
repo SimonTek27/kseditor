@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="ksAudiioStudio.01.16.00">
+    <object class="AudioFile" id="{26fe4355-77a2-4b96-b025-d2f2d5736a4f}">
+        <property name="assetPath">
+            <value>cars/kunos/Tatuus/Backfires/500_backfire4.wav</value>
+        </property>
+        <property name="frequencyInKHz">
+            <value>44.0999985</value>
+        </property>
+        <property name="channelCount">
+            <value>2</value>
+        </property>
+        <property name="length">
+            <value>0.59496598639455778</value>
+        </property>
+        <relationship name="masterAssetFolder">
+            <destination>{9ac7c7a7-33f8-4512-bd5e-63894d4a368b}</destination>
+        </relationship>
+    </object>
+</objects>

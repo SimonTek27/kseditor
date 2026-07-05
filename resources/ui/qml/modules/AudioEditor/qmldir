@@ -1,0 +1,36 @@
+module AudioEditor
+
+audio_Editor 1.0 audio_Editor.qml
+audio_Mixer 1.0 audio_Mixer.qml
+audio_batch 1.0 audio_batch.qml
+audio_effects 1.0 audio_effects.qml
+audio_export 1.0 audio_export.qml
+audio_player 1.0 audio_player.qml
+audio_project 1.0 audio_project.qml
+audio_recording_studio 1.0 audio_recording_studio.qml
+audio_studio 1.0 audio_studio.qml
+audio_tools 1.0 audio_tools.qml
+audio_visualizer 1.0 audio_visualizer.qml
+AudioAnalyzer 1.0 AudioAnalyzer.qml
+AudioLoudnessMeter 1.0 AudioLoudnessMeter.qml
+AudioDynamicsProcessor 1.0 AudioDynamicsProcessor.qml
+AudioConvolutionReverb 1.0 AudioConvolutionReverb.qml
+AudioStereoEnhancer 1.0 AudioStereoEnhancer.qml
+AudioTapeEmulator 1.0 AudioTapeEmulator.qml
+AudioTransientDesigner 1.0 AudioTransientDesigner.qml
+AudioPitchShifter 1.0 AudioPitchShifter.qml
+AudioNoiseGate 1.0 AudioNoiseGate.qml
+AudioMultiBandSplitter 1.0 AudioMultiBandSplitter.qml
+AudioDelayEffect 1.0 AudioDelayEffect.qml
+AudioLimiter 1.0 AudioLimiter.qml
+AudioReverbUI 1.0 AudioReverbUI.qml
+AudioModulation 1.0 AudioModulation.qml
+AudioSaturationDistortion 1.0 AudioSaturationDistortion.qml
+AudioDeEsser 1.0 AudioDeEsser.qml
+AudioDucker 1.0 AudioDucker.qml
+AudioBitCrusher 1.0 AudioBitCrusher.qml
+AudioStereoCorrelator 1.0 AudioStereoCorrelator.qml
+AudioWahWah 1.0 AudioWahWah.qml
+AudioRingMod 1.0 AudioRingMod.qml
+AudioFormantFilter 1.0 AudioFormantFilter.qml
+AudioSpectralGate 1.0 AudioSpectralGate.qml

@@ -1,0 +1,1 @@
+{"name": "Example Sound Project", "description": "A basic sound project for car audio, engine, and environmental sounds.", "type": "sound", "created": "2026-07-04", "lastModified": "2026-07-04", "files": ["banks/engine.bank", "banks/tire.bank", "banks/ambient.bank"], "modules": ["Sound Editor", "Audio Editor"], "difficulty": 4}

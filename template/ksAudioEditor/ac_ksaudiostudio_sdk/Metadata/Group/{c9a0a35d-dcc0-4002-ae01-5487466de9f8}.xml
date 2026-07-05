@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="ksAudiioStudio.01.16.00">
+    <object class="MixerGroup" id="{c9a0a35d-dcc0-4002-ae01-5487466de9f8}">
+        <property name="volume">
+            <value>-6</value>
+        </property>
+        <property name="name">
+            <value>grp_gear_ext</value>
+        </property>
+        <property name="instanceStealing">
+            <value>1</value>
+        </property>
+        <relationship name="effectChain">
+            <destination>{44f61512-4192-4f46-b329-1f08f79fda9f}</destination>
+        </relationship>
+        <relationship name="panner">
+            <destination>{2a3feb3e-758a-4d70-855c-688d1e2196d9}</destination>
+        </relationship>
+        <relationship name="output">
+            <destination>{08f6ba78-f576-4f9f-a232-47657d5fec19}</destination>
+        </relationship>
+    </object>
+    <object class="MixerBusEffectChain" id="{44f61512-4192-4f46-b329-1f08f79fda9f}">
+        <relationship name="effects">
+            <destination>{6433640f-a21b-4936-893e-2e336eaf568b}</destination>
+        </relationship>
+    </object>
+    <object class="MixerBusPanner" id="{2a3feb3e-758a-4d70-855c-688d1e2196d9}"/>
+    <object class="MixerBusFader" id="{6433640f-a21b-4936-893e-2e336eaf568b}"/>
+</objects>

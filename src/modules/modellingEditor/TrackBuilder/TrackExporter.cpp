@@ -1,0 +1,1079 @@
+#include "TrackExporter.h"
+#include "assettocorsa/KN5Parser.h"
+#include <QFile>
+#include <QTextStream>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QProcess>
+#include <QDir>
+#include <QDebug>
+#include <QRegularExpression>
+#include <cmath>
+#include <QImage>
+#include <cstring>
+#include <limits>
+
+namespace ks { namespace track {
+
+TrackExporter::TrackExporter(QObject* parent) : QObject(parent) {}
+
+// ============================================================================
+// Main export entry point
+// ============================================================================
+bool TrackExporter::exportTrack(const TrackProject& project,
+                                 std::function<void(int,QString)> progress)
+{
+    auto prog=[&](int p,const QString& s){
+        if(progress) progress(p,s);
+        emit exportProgress(p,s);
+    };
+
+    // Sanitise track id
+    m_trackId = project.name.toLower().replace(' ','_')
+                           .remove(QRegularExpression("[^a-z0-9_]"));
+    if (m_trackId.isEmpty()) m_trackId="custom_track";
+
+    QString base = m_outputDir + "/" + m_trackId;
+    ensureDir(base);
+    ensureDir(base+"/models");
+    ensureDir(base+"/data");
+    ensureDir(base+"/ai");
+    ensureDir(base+"/ui/"+m_trackId);
+    ensureDir(base+"/audio");
+
+    prog(5,"Exporting terrain…");
+    if (!exportTerrain(project,base)) return false;
+
+    prog(15,"Building road meshes…");
+    QVector<RoadMesh> roadMeshes;
+    if (!exportRoads(project,base,roadMeshes)) return false;
+
+    prog(30,"Exporting walls…");
+    exportWalls(project,base,roadMeshes);
+
+    prog(40,"Exporting kerbs…");
+    exportKerbs(project,base,roadMeshes);
+
+    prog(50,"Exporting props…");
+    exportProps(project,base);
+
+    prog(55,"Exporting lights…");
+    exportLights(project,base);
+
+    prog(60,"Writing surfaces.ini…");
+    exportSurfacesIni(project,base);
+
+    prog(65,"Writing AI line…");
+    exportAILine(project,base,roadMeshes);
+
+    prog(70,"Writing start/pit positions…");
+    exportStartPit(project,base);
+
+    prog(75,"Writing physics roads…");
+    exportPhysicsRoads(project,base);
+
+    prog(78,"Writing timing sectors…");
+    exportTimingSectors(project,base);
+
+    prog(80,"Writing groove data…");
+    exportGroove(project,base);
+
+    prog(82,"Writing VAO hint…");
+    exportVAOHint(project,base);
+
+    prog(84,"Generating track map SVG…");
+    exportTrackMapSVG(project,base);
+
+    prog(86,"Writing INI files…");
+    exportIniFiles(project,base);
+
+    prog(88,"Writing UI metadata…");
+    exportUIJson(project,base);
+
+    // Build and write proper KN5 file with all mesh data
+    prog(89,"Writing KN5 model…");
+    {
+        QVector<RoadMesh> wallMeshes, kerbMeshes;
+        if (m_roadBuilder) {
+            for (const auto& wall : project.walls) {
+                const RoadMesh* snap = nullptr;
+                if (wall.snapToRoad) {
+                    for (const auto& rm : roadMeshes)
+                        if (rm.roadId == wall.snapRoadId) { snap = &rm; break; }
+                }
+                RoadMesh wm = m_roadBuilder->buildWall(wall, snap);
+                if (!wm.isEmpty()) wallMeshes.append(wm);
+            }
+            for (const auto& kerb : project.kerbs) {
+                const RoadMesh* parent = nullptr;
+                for (const auto& rm : roadMeshes)
+                    if (rm.roadId == kerb.roadId) { parent = &rm; break; }
+                if (!parent) continue;
+                KerbMesh km = m_roadBuilder->buildKerb(kerb, *parent);
+                RoadMesh rm; rm.roadId = km.kerbId;
+                rm.vertices = km.vertices; rm.indices = km.indices;
+                if (!rm.isEmpty()) kerbMeshes.append(rm);
+            }
+        }
+        writeKN5(base+"/models/"+m_trackId+".kn5", project, roadMeshes, wallMeshes, kerbMeshes);
+    }
+
+    if (m_zipOutput) {
+        prog(90,"Creating zip…");
+        QString zipPath=m_outputDir+"/"+m_trackId+".zip";
+        if (!zipDirectory(base,zipPath)) {
+            prog(100,"Export complete (zip failed, folder: "+base+")");
+            emit exportDone(base);
+            return true;
+        }
+        prog(100,"Done: "+zipPath);
+        emit exportDone(zipPath);
+    } else {
+        prog(100,"Done: "+base);
+        emit exportDone(base);
+    }
+    return true;
+}
+
+// ============================================================================
+// Terrain → terrain.obj (coarse mesh) + heightmap.png
+// ============================================================================
+bool TrackExporter::exportTerrain(const TrackProject& p, const QString& dir)
+{
+    if (!m_terrain || p.heightmap.isEmpty()) {
+        // Write informative placeholder terrain
+        QString objPath = dir + "/models/terrain.obj";
+        QFile f(objPath); if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) return false;
+        QTextStream ts(&f);
+        ts << "# Flat terrain placeholder - no heightmap data available\n";
+        ts << "# Generated by ksEditor TrackBuilder\n\n";
+        ts << "mtllib track.mtl\n";
+        ts << "o TERRAIN\n";
+        float hw = p.terrain.worldWidth * 0.5f, hh = p.terrain.worldHeight * 0.5f;
+        ts << "v " << -hw << " 0 " << -hh << "\n";
+        ts << "v " <<  hw << " 0 " << -hh << "\n";
+        ts << "v " <<  hw << " 0 " <<  hh << "\n";
+        ts << "v " << -hw << " 0 " <<  hh << "\n";
+        ts << "vt 0 0\nvt 1 0\nvt 1 1\nvt 0 1\n";
+        ts << "vn 0 1 0\n";
+        ts << "usemtl TERRAIN_GRASS\n";
+        ts << "f 1/1/1 2/2/1 3/3/1\n";
+        ts << "f 1/1/1 3/3/1 4/4/1\n";
+        return true;
+    }
+
+    // Export terrain as OBJ with simplified grid (every Nth vertex)
+    const int skip=4;
+    int gw=p.terrain.gridWidth, gh=p.terrain.gridHeight;
+    int ow=(gw-1)/skip+1, oh=(gh-1)/skip+1;
+    float dxW=p.terrain.worldWidth/(gw-1);
+    float dzW=p.terrain.worldHeight/(gh-1);
+
+    QString objPath=dir+"/models/terrain.obj";
+    QFile f(objPath); if(!f.open(QIODevice::WriteOnly|QIODevice::Text)) return false;
+    QTextStream ts(&f);
+    ts<<"# ksTrackBuilder terrain export\nmtllib track.mtl\n";
+    ts<<"o TERRAIN\n";
+
+    auto idx=[&](int ox,int oz)->int{ return oz*ow+ox; };
+    auto h=[&](int ox,int oz)->float{
+        int gx=qMin(ox*skip,gw-1), gz=qMin(oz*skip,gh-1);
+        return p.heightmap[gz*gw+gx];
+    };
+
+    for (int oz=0;oz<oh;++oz) for (int ox=0;ox<ow;++ox) {
+        float wx=(ox*skip)*dxW - p.terrain.worldWidth*0.5f;
+        float wz=(oz*skip)*dzW - p.terrain.worldHeight*0.5f;
+        ts<<"v "<<wx<<" "<<h(ox,oz)<<" "<<wz<<"\n";
+    }
+    for (int oz=0;oz<oh;++oz) for (int ox=0;ox<ow;++ox)
+        ts<<"vt "<<float(ox)/(ow-1)<<" "<<float(oz)/(oh-1)<<"\n";
+    ts<<"vn 0 1 0\n";
+    ts<<"usemtl TERRAIN_GRASS\n";
+    for (int oz=0;oz<oh-1;++oz) for (int ox=0;ox<ow-1;++ox) {
+        int a=idx(ox,oz)+1, b=idx(ox+1,oz)+1,
+            c=idx(ox,oz+1)+1, d=idx(ox+1,oz+1)+1;
+        ts<<"f "<<a<<"/"<<a<<"/1 "<<b<<"/"<<b<<"/1 "<<d<<"/"<<d<<"/1\n";
+        ts<<"f "<<a<<"/"<<a<<"/1 "<<d<<"/"<<d<<"/1 "<<c<<"/"<<c<<"/1\n";
+    }
+
+    // Export heightmap image
+    if (m_terrain) {
+        QImage himg=m_terrain->toHeightmapImage(512);
+        himg.save(dir+"/models/heightmap.png");
+    }
+    return true;
+}
+
+// ============================================================================
+// Roads → road_XX.obj
+// ============================================================================
+bool TrackExporter::exportRoads(const TrackProject& p, const QString& dir,
+                                 QVector<RoadMesh>& outMeshes)
+{
+    if (!m_roadBuilder) return true;
+    if (m_terrain) {
+        m_roadBuilder->setTerrainSampleFn(
+            [this](float x,float z){ return m_terrain->getHeightWorld(x,z); });
+    }
+
+    outMeshes.clear();
+    QVector<RoadMesh> allMeshes;
+
+    for (int i=0;i<p.roads.size();++i) {
+        RoadMesh rm=m_roadBuilder->buildRoad(p.roads[i]);
+        if (!rm.isEmpty()) { outMeshes.append(rm); allMeshes.append(rm); }
+        emit exportProgress(15+i*15/qMax(1,p.roads.size()),"Road "+p.roads[i].name);
+    }
+
+    // Write combined OBJ
+    writeMTL(dir+"/models/track.mtl",p);
+    writeOBJ(dir+"/models/roads.obj",allMeshes,"track.mtl");
+    return true;
+}
+
+// ============================================================================
+// Walls
+// ============================================================================
+bool TrackExporter::exportWalls(const TrackProject& p, const QString& dir,
+                                 const QVector<RoadMesh>& roadMeshes)
+{
+    if (!m_roadBuilder || p.walls.isEmpty()) return true;
+    QVector<RoadMesh> wallMeshes;
+    for (const auto& wall:p.walls) {
+        const RoadMesh* snap=nullptr;
+        if (wall.snapToRoad) {
+            for (const auto& rm:roadMeshes)
+                if (rm.roadId==wall.snapRoadId){ snap=&rm; break; }
+        }
+        RoadMesh wm=m_roadBuilder->buildWall(wall,snap);
+        if (!wm.isEmpty()) wallMeshes.append(wm);
+    }
+    writeOBJ(dir+"/models/walls.obj",wallMeshes,"track.mtl");
+    return true;
+}
+
+// ============================================================================
+// Kerbs
+// ============================================================================
+bool TrackExporter::exportKerbs(const TrackProject& p, const QString& dir,
+                                 const QVector<RoadMesh>& roadMeshes)
+{
+    if (!m_roadBuilder || p.kerbs.isEmpty()) return true;
+    QVector<RoadMesh> kMeshes;
+    for (const auto& kerb:p.kerbs) {
+        const RoadMesh* parent=nullptr;
+        for (const auto& rm:roadMeshes)
+            if (rm.roadId==kerb.roadId){ parent=&rm; break; }
+        if (!parent) continue;
+        KerbMesh km=m_roadBuilder->buildKerb(kerb,*parent);
+        RoadMesh rm; rm.roadId=km.kerbId;
+        rm.vertices=km.vertices; rm.indices=km.indices;
+        if (!rm.isEmpty()) kMeshes.append(rm);
+    }
+    writeOBJ(dir+"/models/kerbs.obj",kMeshes,"track.mtl");
+    return true;
+}
+
+// ============================================================================
+// Props → props.ini
+// ============================================================================
+bool TrackExporter::exportProps(const TrackProject& p, const QString& dir)
+{
+    QFile f(dir+"/models/objects.ini");
+    if (!f.open(QIODevice::WriteOnly|QIODevice::Text)) return false;
+    QTextStream ts(&f);
+    for (int i=0;i<p.props.size();++i) {
+        const auto& prop=p.props[i];
+        ts<<"[OBJECT_"<<i<<"]\n";
+        ts<<"MESH="<<(prop.modelId.isEmpty()?prop.name:prop.modelId)<<"\n";
+        ts<<"POSITION="<<prop.position.x()<<","<<prop.position.y()<<","<<prop.position.z()<<"\n";
+        ts<<"ROTATION="<<prop.rotation.x()<<","<<prop.rotation.y()<<","<<prop.rotation.z()<<"\n";
+        ts<<"SCALE="<<prop.scale.x()<<","<<prop.scale.y()<<","<<prop.scale.z()<<"\n\n";
+    }
+    return true;
+}
+
+// ============================================================================
+// Lights → lighting.ini
+// ============================================================================
+bool TrackExporter::exportLights(const TrackProject& p, const QString& dir)
+{
+    QFile f(dir+"/data/lighting.ini");
+    if (!f.open(QIODevice::WriteOnly|QIODevice::Text)) return false;
+    QTextStream ts(&f);
+    for (int i=0;i<p.lights.size();++i) {
+        const auto& l=p.lights[i];
+        if (!l.enabled) continue;
+        ts<<"[LIGHT_"<<i<<"]\n";
+        ts<<"TYPE="<<(int)l.type<<"\n";
+        ts<<"POSITION="<<l.position.x()<<","<<l.position.y()<<","<<l.position.z()<<"\n";
+        ts<<"COLOR="<<l.color.redF()<<","<<l.color.greenF()<<","<<l.color.blueF()<<"\n";
+        ts<<"INTENSITY="<<l.intensity<<"\n";
+        ts<<"RANGE="<<l.range<<"\n";
+        if (l.type==LightType::Spot) ts<<"SPOT_ANGLE="<<l.spotAngle<<"\n";
+        ts<<"\n";
+    }
+    return true;
+}
+
+// ============================================================================
+// surfaces.ini – AC surface physics
+// ============================================================================
+bool TrackExporter::exportSurfacesIni(const TrackProject& p, const QString& dir)
+{
+    QFile f(dir+"/data/surfaces.ini");
+    if (!f.open(QIODevice::WriteOnly|QIODevice::Text)) return false;
+    QTextStream ts(&f);
+
+    // Default surfaces catalogue
+    struct Surf { QString key; float grip; float ffb; float dirt; QString wav; };
+    QVector<Surf> surfs={
+        {"ASPHALT",   1.00f, 1.00f, 0.00f, "road"},
+        {"CONCRETE",  0.96f, 0.95f, 0.00f, "road"},
+        {"GRAVEL",    0.65f, 0.60f, 0.80f, "gravel"},
+        {"DIRT",      0.70f, 0.55f, 0.90f, "dirt"},
+        {"GRASS",     0.60f, 0.40f, 0.95f, "grass"},
+        {"SAND",      0.50f, 0.35f, 1.00f, "gravel"},
+        {"ICE",       0.30f, 0.20f, 0.00f, "road"},
+        {"TERRAIN_GRASS",0.55f,0.30f,0.90f,"grass"},
+        {"KERB_RED",  0.90f, 1.10f, 0.00f, "road"},
+        {"KERB_WHITE",0.90f, 1.10f, 0.00f, "road"},
+    };
+
+    for (int i=0;i<surfs.size();++i) {
+        const auto& s=surfs[i];
+        ts<<"[SURFACE_"<<i<<"]\n";
+        ts<<"KEY="<<s.key<<"\n";
+        ts<<"FRICTION="<<s.grip<<"\n";
+        ts<<"DAMPING=0.0\n";
+        ts<<"WAV="<<s.wav<<"\n";
+        ts<<"WAV_PITCH=1.0\n";
+        ts<<"FF_EFFECT="<<s.ffb<<"\n";
+        ts<<"DIRT_ADDITIVE="<<s.dirt<<"\n";
+        ts<<"IS_PITLANE=0\n\n";
+    }
+
+    // Physics roads from project
+    for (int i=0;i<p.physicsRoads.size();++i) {
+        const auto& pr=p.physicsRoads[i];
+        ts<<"[SURFACE_"<<(surfs.size()+i)<<"]\n";
+        ts<<"KEY=PHYSICS_ROAD_"<<i<<"\n";
+        ts<<"FRICTION="<<pr.gripMultiplier<<"\n";
+        ts<<"DAMPING=0.0\n";
+        ts<<"WAV=road\n";
+        ts<<"WAV_PITCH=1.0\n";
+        ts<<"FF_EFFECT="<<pr.ffbMultiplier<<"\n";
+        ts<<"DIRT_ADDITIVE=0.0\n";
+        ts<<"IS_PITLANE="<<(pr.hasPitLane?1:0)<<"\n\n";
+    }
+    return true;
+}
+
+// ============================================================================
+// AI line → ai/fast_lane.ai + ai/pit_lane.ai
+// ============================================================================
+bool TrackExporter::exportAILine(const TrackProject& p, const QString& dir,
+                                  const QVector<RoadMesh>& roadMeshes)
+{
+    AILine ai=p.aiLine;
+    if (ai.points.isEmpty() && m_roadBuilder && !roadMeshes.isEmpty()) {
+        ai=m_roadBuilder->autoAILine(roadMeshes,true);
+    }
+    if (ai.points.isEmpty()) return true;
+
+    auto writeLine=[&](const QString& path, const QVector<AILinePoint>& pts)->bool{
+        QFile f(path); if(!f.open(QIODevice::WriteOnly|QIODevice::Text)) return false;
+        QTextStream ts(&f);
+        for (const auto& pt:pts) {
+            ts<<pt.position.x()<<","<<pt.position.y()<<","<<pt.position.z()<<",";
+            ts<<pt.width<<","<<pt.speed/3.6f<<"\n"; // speed in m/s
+        }
+        return true;
+    };
+
+    writeLine(dir+"/ai/fast_lane.ai",ai.points);
+
+    // Pit lane: if we have pit positions, create a simple straight line
+    if (!p.pitPositions.isEmpty()) {
+        QVector<AILinePoint> pitPts;
+        for (const auto& pit:p.pitPositions) {
+            AILinePoint pp;
+            pp.position=pit.position;
+            pp.speed=30.f; pp.width=4.f;
+            pitPts.append(pp);
+        }
+        writeLine(dir+"/ai/pit_lane.ai",pitPts);
+    }
+    return true;
+}
+
+// ============================================================================
+// Start/Pit → data/start_positions.ini + pit_boxes.ini
+// ============================================================================
+bool TrackExporter::exportStartPit(const TrackProject& p, const QString& dir)
+{
+    {
+        QFile f(dir+"/data/start_positions.ini");
+        if (f.open(QIODevice::WriteOnly|QIODevice::Text)) {
+            QTextStream ts(&f);
+            int idx=0;
+            for (const auto& sp:p.startPositions) {
+                ts<<"[START_"<<idx<<"]\n";
+                ts<<"POSITION="<<sp.position.x()<<","<<sp.position.y()<<","<<sp.position.z()<<"\n";
+                ts<<"HEADING="<<sp.yaw<<"\n\n";
+                ++idx;
+            }
+            if (p.startPositions.isEmpty()) {
+                ts<<"[START_0]\nPOSITION=0,0.5,0\nHEADING=0\n\n";
+            }
+        }
+    }
+    {
+        QFile f(dir+"/data/pit_boxes.ini");
+        if (f.open(QIODevice::WriteOnly|QIODevice::Text)) {
+            QTextStream ts(&f);
+            for (int i=0;i<p.pitPositions.size();++i) {
+                const auto& pit=p.pitPositions[i];
+                ts<<"[BOX_"<<i<<"]\n";
+                ts<<"POSITION="<<pit.position.x()<<","<<pit.position.y()<<","<<pit.position.z()<<"\n";
+                ts<<"HEADING="<<pit.yaw<<"\n";
+                ts<<"DRIVEIN="<<pit.driveInPoint.x()<<","<<pit.driveInPoint.y()<<","<<pit.driveInPoint.z()<<"\n";
+                ts<<"DRIVEOUT="<<pit.driveOutPoint.x()<<","<<pit.driveOutPoint.y()<<","<<pit.driveOutPoint.z()<<"\n\n";
+            }
+        }
+    }
+    return true;
+}
+
+// ============================================================================
+// Physics roads → data/road.ini
+// ============================================================================
+bool TrackExporter::exportPhysicsRoads(const TrackProject& p, const QString& dir)
+{
+    QFile f(dir+"/data/road.ini");
+    if (!f.open(QIODevice::WriteOnly|QIODevice::Text)) return false;
+    QTextStream ts(&f);
+    if (p.physicsRoads.isEmpty()) {
+        ts<<"[DEFAULT]\nNOISE_AMPLITUDE=0.002\nNOISE_FREQUENCY=10\nBUMPINESS=0.5\n";
+    } else {
+        for (int i=0;i<p.physicsRoads.size();++i) {
+            const auto& pr=p.physicsRoads[i];
+            ts<<"[ROAD_"<<i<<"]\n";
+            ts<<"ROAD_ID="<<pr.roadId<<"\n";
+            ts<<"NOISE_AMPLITUDE="<<pr.noiseAmplitude<<"\n";
+            ts<<"NOISE_FREQUENCY="<<pr.noiseFrequency<<"\n";
+            ts<<"BUMPINESS="<<pr.bumpiness<<"\n";
+            ts<<"GRIP_MULTIPLIER="<<pr.gripMultiplier<<"\n";
+            ts<<"FFB_MULTIPLIER="<<pr.ffbMultiplier<<"\n\n";
+        }
+    }
+    return true;
+}
+
+// ============================================================================
+// UI JSON
+// ============================================================================
+bool TrackExporter::exportUIJson(const TrackProject& p, const QString& dir)
+{
+    QString uiDir=dir+"/ui/"+m_trackId;
+    ensureDir(uiDir);
+
+    QJsonObject ui;
+    ui["name"]        = p.name;
+    ui["description"] = p.description.isEmpty() ? "Created with ksEditor Track Builder" : p.description;
+    ui["author"]      = p.author.isEmpty() ? "ksEditor" : p.author;
+    ui["country"]     = p.location;
+    ui["city"]        = p.location;
+    ui["tags"]        = QJsonArray::fromStringList({"custom","kseditor"});
+    ui["version"]     = "1.0";
+    ui["pitboxes"]    = p.pitPositions.size();
+
+    // Layout
+    QJsonObject layout;
+    layout["name"] = p.name;
+    // Calculate track length from roads
+    float totalLength = 0.0f;
+    for (const auto& road : p.roads) {
+        for (int i = 1; i < road.points.size(); ++i) {
+            totalLength += (road.points[i].position - road.points[i-1].position).length();
+        }
+    }
+    layout["length"] = totalLength;
+    layout["width"]  = 10;
+    layout["pitboxes"] = p.pitPositions.size();
+    ui["layout"] = layout;
+
+    writeFile(uiDir+"/ui_track.json",QJsonDocument(ui).toJson());
+
+    // Placeholder outline image
+    QImage preview(512,320,QImage::Format_RGB32);
+    preview.fill(QColor("#1a1a2e"));
+    preview.save(uiDir+"/preview.png");
+    preview.save(uiDir+"/outline.png");
+
+    return true;
+}
+
+// ============================================================================
+// Main INI files
+// ============================================================================
+bool TrackExporter::exportIniFiles(const TrackProject& p, const QString& dir)
+{
+    // track.ini
+    QFile f(dir+"/data/track.ini");
+    if (f.open(QIODevice::WriteOnly|QIODevice::Text)) {
+        QTextStream ts(&f);
+        ts<<"[HEADER]\nVERSION=2\n\n";
+        ts<<"[TRACK]\n";
+        ts<<"NAME="<<p.name<<"\n";
+        ts<<"DESCRIPTION="<<p.description<<"\n";
+        ts<<"AUTHOR="<<p.author<<"\n\n";
+        ts<<"[TERRAIN]\n";
+        ts<<"WIDTH="<<p.terrain.worldWidth<<"\n";
+        ts<<"HEIGHT="<<p.terrain.worldHeight<<"\n\n";
+        ts<<"[MODELS]\n";
+        ts<<"MODEL_0=terrain.obj\n";
+        ts<<"MODEL_1=roads.obj\n";
+        if (!p.walls.isEmpty())  ts<<"MODEL_2=walls.obj\n";
+        if (!p.kerbs.isEmpty())  ts<<"MODEL_3=kerbs.obj\n";
+    }
+
+    // cameras.ini (basic)
+    QFile fc(dir+"/data/cameras.ini");
+    if (fc.open(QIODevice::WriteOnly|QIODevice::Text)) {
+        QTextStream ts(&fc);
+        ts<<"[CAM_0]\nPOSITION=0,20,0\nLOOK_AT=0,0,0\nFOV=60\n";
+    }
+    return true;
+}
+
+// ============================================================================
+// OBJ writer
+// ============================================================================
+bool TrackExporter::writeOBJ(const QString& path, const QVector<RoadMesh>& meshes,
+                               const QString& mtlName)
+{
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly|QIODevice::Text)) return false;
+    QTextStream ts(&f);
+    ts<<"# ksTrackBuilder OBJ export\nmtllib "<<mtlName<<"\n\n";
+
+    int vBase=1;
+    for (const auto& mesh:meshes) {
+        ts<<"o "<<mesh.roadId<<"\n";
+        for (const auto& v:mesh.vertices)
+            ts<<"v "<<v.position.x()<<" "<<v.position.y()<<" "<<v.position.z()<<"\n";
+        for (const auto& v:mesh.vertices)
+            ts<<"vt "<<v.uv.x()<<" "<<v.uv.y()<<"\n";
+        for (const auto& v:mesh.vertices)
+            ts<<"vn "<<v.normal.x()<<" "<<v.normal.y()<<" "<<v.normal.z()<<"\n";
+        ts<<"usemtl ASPHALT\n";
+        for (int i=0;i+2<mesh.indices.size();i+=3) {
+            int a=mesh.indices[i]+vBase, b=mesh.indices[i+1]+vBase, c=mesh.indices[i+2]+vBase;
+            ts<<"f "<<a<<"/"<<a<<"/"<<a<<" "<<b<<"/"<<b<<"/"<<b<<" "<<c<<"/"<<c<<"/"<<c<<"\n";
+        }
+        ts<<"\n";
+        vBase+=mesh.vertices.size();
+    }
+    return true;
+}
+
+bool TrackExporter::writeMTL(const QString& path, const TrackProject&)
+{
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly|QIODevice::Text)) return false;
+    QTextStream ts(&f);
+    auto mat=[&](const QString& name, float r,float g,float b){
+        ts<<"newmtl "<<name<<"\n";
+        ts<<"Kd "<<r<<" "<<g<<" "<<b<<"\nKa 0.1 0.1 0.1\nKs 0 0 0\n\n";
+    };
+    mat("ASPHALT",  0.15f,0.15f,0.15f);
+    mat("CONCRETE", 0.55f,0.55f,0.55f);
+    mat("GRAVEL",   0.45f,0.40f,0.30f);
+    mat("DIRT",     0.45f,0.32f,0.18f);
+    mat("GRASS",    0.20f,0.50f,0.15f);
+    mat("SAND",     0.80f,0.70f,0.40f);
+    mat("TERRAIN_GRASS",0.22f,0.52f,0.17f);
+    mat("KERB_RED", 0.90f,0.10f,0.10f);
+    mat("KERB_WHITE",0.95f,0.95f,0.95f);
+    return true;
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+QString TrackExporter::surfaceTag(SurfaceType s) const
+{
+    switch(s){
+    case SurfaceType::Concrete: return "CONCRETE";
+    case SurfaceType::Gravel:   return "GRAVEL";
+    case SurfaceType::Dirt:     return "DIRT";
+    case SurfaceType::Grass:    return "GRASS";
+    case SurfaceType::Sand:     return "SAND";
+    case SurfaceType::Ice:      return "ICE";
+    default:                    return "ASPHALT";
+    }
+}
+QString TrackExporter::wallTag(WallType w) const
+{
+    switch(w){
+    case WallType::TireStack: return "TYRE_BARRIER";
+    case WallType::Armco:     return "ARMCO";
+    case WallType::Mesh:      return "FENCE";
+    case WallType::Invisible: return "WALL_INVISIBLE";
+    default:                  return "CONCRETE_WALL";
+    }
+}
+
+void TrackExporter::ensureDir(const QString& path)
+{
+    QDir().mkpath(path);
+}
+
+bool TrackExporter::writeFile(const QString& path, const QByteArray& data)
+{
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly)) return false;
+    f.write(data);
+    return true;
+}
+
+bool TrackExporter::zipDirectory(const QString& dir, const QString& zipPath)
+{
+    // Try 7-Zip first (common on Windows), then system zip
+    for (const QString& tool : {"7z", "7za", "zip"}) {
+        QProcess p;
+        p.setWorkingDirectory(QFileInfo(dir).absolutePath());
+        if (tool == "7z" || tool == "7za") {
+            p.start(tool, {"a", "-tzip", zipPath, QFileInfo(dir).fileName()});
+        } else {
+            p.start(tool, {"-r", zipPath, QFileInfo(dir).fileName()});
+        }
+        if (p.waitForFinished(120000) && p.exitCode() == 0) {
+            return true;
+        }
+    }
+    m_lastError = "No zip tool found; output folder: " + dir;
+    return false;
+}
+
+// ============================================================================
+// Convert a RoadMesh to a KN5Parser::Mesh (with packed vertex data)
+// ============================================================================
+KN5Parser::Mesh TrackExporter::roadMeshToKN5Mesh(const RoadMesh& rm,
+                                                   const QString& name,
+                                                   quint32 nodeIndex)
+{
+    using namespace KN5Parser;
+    Mesh mesh;
+    mesh.name = name;
+    mesh.nodeIndex = nodeIndex;
+    mesh.castShadows = true;
+    mesh.isVisible = true;
+    mesh.isTransparent = false;
+    mesh.materialType = Mesh::MaterialType::Standard;
+
+    // Build vertex layout: Position(0) + Normal(1) + TexCoord0(2)
+    auto& vl = mesh.vertexLayout;
+    vl.attributes = {
+        {AttributeType::Position,  0},
+        {AttributeType::Normal,   12},
+        {AttributeType::TexCoord0, 24}
+    };
+    vl.vertexSize = 32;
+
+    // Pack vertex data (float3 pos + float3 normal + float2 uv)
+    const quint32 vertCount = static_cast<quint32>(rm.vertices.size());
+    mesh.vertexData.resize(vertCount * vl.vertexSize);
+    char* dst = mesh.vertexData.data();
+    for (const auto& v : rm.vertices) {
+        float pos[3] = { v.position.x(), v.position.y(), v.position.z() };
+        float nrm[3] = { v.normal.x(),   v.normal.y(),   v.normal.z() };
+        float uv[2]  = { v.uv.x(),       v.uv.y() };
+        std::memcpy(dst,      pos, 12);
+        std::memcpy(dst + 12, nrm, 12);
+        std::memcpy(dst + 24, uv,   8);
+        dst += vl.vertexSize;
+    }
+
+    // Pack index data (uint16)
+    const quint32 idxCount = static_cast<quint32>(rm.indices.size());
+    mesh.indexData.resize(idxCount * 2);
+    auto* idxDst = reinterpret_cast<quint16*>(mesh.indexData.data());
+    for (quint32 i = 0; i < idxCount; ++i)
+        idxDst[i] = static_cast<quint16>(rm.indices[i]);
+
+    // Compute bounding box from vertices
+    if (vertCount > 0) {
+        const auto& first = rm.vertices[0].position;
+        float minX = first.x(), minY = first.y(), minZ = first.z();
+        float maxX = first.x(), maxY = first.y(), maxZ = first.z();
+        for (const auto& v : rm.vertices) {
+            float x = v.position.x(), y = v.position.y(), z = v.position.z();
+            if (x < minX) minX = x; if (x > maxX) maxX = x;
+            if (y < minY) minY = y; if (y > maxY) maxY = y;
+            if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+        }
+        mesh.boundingMin = { minX, minY, minZ };
+        mesh.boundingMax = { maxX, maxY, maxZ };
+        float dx = maxX - minX, dy = maxY - minY, dz = maxZ - minZ;
+        mesh.boundingRadius = std::sqrt(dx*dx + dy*dy + dz*dz) * 0.5f;
+    }
+
+    // Single sub-mesh covering the entire mesh
+    SubMesh sub;
+    sub.materialIndex = 0;
+    sub.vertexOffset = 0;
+    sub.vertexCount = vertCount;
+    sub.indexOffset = 0;
+    sub.indexCount = idxCount;
+    sub.boundingMin = { mesh.boundingMin.x, mesh.boundingMin.y, mesh.boundingMin.z };
+    sub.boundingMax = { mesh.boundingMax.x, mesh.boundingMax.y, mesh.boundingMax.z };
+    mesh.subMeshes.append(sub);
+
+    return mesh;
+}
+
+// ============================================================================
+// Build a KN5File from track meshes and write via KN5Parser
+// ============================================================================
+bool TrackExporter::writeKN5(const QString& path, const TrackProject& p,
+                              const QVector<RoadMesh>& roadMeshes,
+                              const QVector<RoadMesh>& wallMeshes,
+                              const QVector<RoadMesh>& kerbMeshes)
+{
+    using namespace KN5Parser;
+    KN5File kn5;
+    kn5.filePath = path;
+
+    // --- Materials ---
+    // Use same materials as writeMTL
+    struct MatDef { QString name; float r, g, b; };
+    const MatDef matDefs[] = {
+        {"ASPHALT",        0.15f,0.15f,0.15f},
+        {"CONCRETE",       0.55f,0.55f,0.55f},
+        {"GRAVEL",         0.45f,0.40f,0.30f},
+        {"DIRT",           0.45f,0.32f,0.18f},
+        {"GRASS",          0.20f,0.50f,0.15f},
+        {"SAND",           0.80f,0.70f,0.40f},
+        {"TERRAIN_GRASS",  0.22f,0.52f,0.17f},
+        {"KERB_RED",       0.90f,0.10f,0.10f},
+        {"KERB_WHITE",     0.95f,0.95f,0.95f},
+    };
+    for (quint32 i = 0; i < 9; ++i) {
+        Material mat;
+        mat.id = i;
+        mat.name = matDefs[i].name;
+        mat.shaderName = "ksPerPixel";
+        mat.properties["ksDiffuse"] = QString("%1 %2 %3")
+            .arg(matDefs[i].r, 0, 'f', 6)
+            .arg(matDefs[i].g, 0, 'f', 6)
+            .arg(matDefs[i].b, 0, 'f', 6);
+        kn5.materials.append(mat);
+    }
+
+    quint32 nodeIdx = 0;
+
+    // --- Terrain mesh ---
+    if (p.terrain.gridWidth > 1 && p.terrain.gridHeight > 1 && p.heightmap.size() > 0) {
+        Mesh terrainMesh;
+        terrainMesh.name = "TERRAIN";
+        terrainMesh.nodeIndex = nodeIdx++;
+        terrainMesh.castShadows = true;
+        terrainMesh.isVisible = true;
+
+        const int skip = 4;
+        const int gw = p.terrain.gridWidth, gh = p.terrain.gridHeight;
+        const int ow = (gw - 1) / skip + 1, oh = (gh - 1) / skip + 1;
+        const float dxW = p.terrain.worldWidth / (gw - 1);
+        const float dzW = p.terrain.worldHeight / (gh - 1);
+        const float halfW = p.terrain.worldWidth * 0.5f;
+        const float halfH = p.terrain.worldHeight * 0.5f;
+
+        auto hFn = [&](int ox, int oz) -> float {
+            int gx = qMin(ox * skip, gw - 1), gz = qMin(oz * skip, gh - 1);
+            return p.heightmap[gz * gw + gx];
+        };
+
+        const quint32 tVertCount = static_cast<quint32>(ow * oh);
+        const quint32 tTriCount  = static_cast<quint32>((ow - 1) * (oh - 1) * 2);
+        const quint32 tIdxCount  = tTriCount * 3;
+        constexpr quint32 vertSize = 32;
+
+        terrainMesh.vertexLayout.attributes = {
+            {AttributeType::Position,  0},
+            {AttributeType::Normal,   12},
+            {AttributeType::TexCoord0, 24}
+        };
+        terrainMesh.vertexLayout.vertexSize = vertSize;
+
+        // Pack vertices
+        terrainMesh.vertexData.resize(tVertCount * vertSize);
+        char* tdst = terrainMesh.vertexData.data();
+        float minY = std::numeric_limits<float>::max();
+        float maxY = -std::numeric_limits<float>::max();
+        for (int oz = 0; oz < oh; ++oz) {
+            for (int ox = 0; ox < ow; ++ox) {
+                float wx = (ox * skip) * dxW - halfW;
+                float wz = (oz * skip) * dzW - halfH;
+                float wy = hFn(ox, oz);
+                if (wy < minY) minY = wy;
+                if (wy > maxY) maxY = wy;
+                float u = float(ox) / (ow - 1);
+                float v = float(oz) / (oh - 1);
+                float pos[3] = { wx, wy, wz };
+                float nrm[3] = { 0.0f, 1.0f, 0.0f };
+                float uv[2]  = { u, v };
+                std::memcpy(tdst,      pos, 12);
+                std::memcpy(tdst + 12, nrm, 12);
+                std::memcpy(tdst + 24, uv,   8);
+                tdst += vertSize;
+            }
+        }
+
+        // Pack indices
+        terrainMesh.indexData.resize(tIdxCount * 2);
+        auto* tidx = reinterpret_cast<quint16*>(terrainMesh.indexData.data());
+        for (int oz = 0; oz < oh - 1; ++oz) {
+            for (int ox = 0; ox < ow - 1; ++ox) {
+                int a = oz * ow + ox;
+                int b = oz * ow + ox + 1;
+                int c = (oz + 1) * ow + ox;
+                int d = (oz + 1) * ow + ox + 1;
+                *tidx++ = static_cast<quint16>(a);
+                *tidx++ = static_cast<quint16>(b);
+                *tidx++ = static_cast<quint16>(d);
+                *tidx++ = static_cast<quint16>(a);
+                *tidx++ = static_cast<quint16>(d);
+                *tidx++ = static_cast<quint16>(c);
+            }
+        }
+
+        float hw = halfW, hh = halfH;
+        terrainMesh.boundingMin = { -hw, minY, -hh };
+        terrainMesh.boundingMax = {  hw, maxY,  hh };
+        float dx = hw * 2, dy = maxY - minY, dz = hh * 2;
+        terrainMesh.boundingRadius = std::sqrt(dx*dx + dy*dy + dz*dz) * 0.5f;
+
+        SubMesh tsub;
+        tsub.materialIndex = 6;
+        tsub.vertexOffset = 0;
+        tsub.vertexCount = tVertCount;
+        tsub.indexOffset = 0;
+        tsub.indexCount = tIdxCount;
+        tsub.boundingMin = { terrainMesh.boundingMin.x, terrainMesh.boundingMin.y, terrainMesh.boundingMin.z };
+        tsub.boundingMax = { terrainMesh.boundingMax.x, terrainMesh.boundingMax.y, terrainMesh.boundingMax.z };
+        terrainMesh.subMeshes.append(tsub);
+
+        kn5.meshes.append(terrainMesh);
+    }
+
+    // --- Road meshes ---
+    for (const auto& rm : roadMeshes) {
+        QString meshName = "ROAD_" + rm.roadId;
+        kn5.meshes.append(roadMeshToKN5Mesh(rm, meshName, nodeIdx++));
+    }
+
+    // --- Wall meshes ---
+    for (const auto& wm : wallMeshes) {
+        QString meshName = "WALL_" + wm.roadId;
+        kn5.meshes.append(roadMeshToKN5Mesh(wm, meshName, nodeIdx++));
+    }
+
+    // --- Kerb meshes ---
+    for (const auto& km : kerbMeshes) {
+        QString meshName = "KERB_" + km.roadId;
+        kn5.meshes.append(roadMeshToKN5Mesh(km, meshName, nodeIdx++));
+    }
+
+    // Write using the existing KN5 writer
+    if (!KN5ParserImpl::write(path, kn5)) {
+        m_lastError = "Failed to write KN5: " + path;
+        return false;
+    }
+    return true;
+}
+
+// ============================================================================
+// Timing sectors → data/timing.ini + extension/extension.ini (CSP)
+// AC needs: hotlap_start.ini, time_attack.ini, or extended timing via CSP
+// ============================================================================
+bool TrackExporter::exportTimingSectors(const TrackProject& p, const QString& dir)
+{
+    if (p.timingSectors.isEmpty()) return true;
+
+    // Standard AC: time_attack.ini (for Time Attack mode)
+    QFile fta(dir + "/data/time_attack.ini");
+    if (fta.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream ts(&fta);
+        ts << "[HEADER]\nVERSION=1\n\n";
+        int sIdx = 0;
+        for (const auto& sector : p.timingSectors) {
+            if (sector.isFinish) continue; // finish line is implicit
+            ts << "[SPLIT_" << sIdx << "]\n";
+            ts << "POSITION=" << sector.position.x() << ","
+                               << sector.position.y() << ","
+                               << sector.position.z() << "\n";
+            // AC heading: radians, clockwise from +Z axis
+            float headingRad = float(sector.yaw * 3.14159265358979323846 / 180.0);
+            ts << "HEADING=" << headingRad << "\n";
+            ts << "WIDTH=" << sector.width << "\n\n";
+            ++sIdx;
+        }
+    }
+
+    // CSP extension: extension/ext_config.ini sector definitions
+    QDir extDir(dir + "/extension");
+    extDir.mkpath(".");
+    QFile fext(dir + "/extension/ext_config.ini");
+    if (fext.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream ts(&fext);
+        ts << "[BASIC]\nORIGINAL_TRACK_SECTORS=";
+        ts << p.timingSectors.size() << "\n\n";
+        for (int i = 0; i < p.timingSectors.size(); ++i) {
+            const auto& s = p.timingSectors[i];
+            ts << "[TIMING_SECTOR_" << i << "]\n";
+            ts << "POSITION=" << s.position.x() << "," << s.position.y() << "," << s.position.z() << "\n";
+            ts << "YAW_DEG=" << s.yaw << "\n";
+            ts << "WIDTH=" << s.width << "\n";
+            ts << "IS_FINISH=" << (s.isFinish ? 1 : 0) << "\n\n";
+        }
+    }
+    return true;
+}
+
+// ============================================================================
+// Groove → data/groove.ini (if CSP present) + embedded in surfaces.ini
+// ============================================================================
+bool TrackExporter::exportGroove(const TrackProject& p, const QString& dir)
+{
+    if (p.grooves.isEmpty()) return true;
+
+    QFile f(dir + "/data/groove.ini");
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) return false;
+    QTextStream ts(&f);
+    ts << "[HEADER]\nVERSION=1\n\n";
+    for (int i = 0; i < p.grooves.size(); ++i) {
+        const auto& g = p.grooves[i];
+        ts << "[GROOVE_" << i << "]\n";
+        ts << "ROAD_ID=" << g.roadId << "\n";
+        ts << "MAX_GRIP=" << g.maxGrip << "\n";
+        ts << "MIN_GRIP=" << g.minGrip << "\n";
+        ts << "BUILD_RATE=" << g.buildRate << "\n";
+        ts << "WIDTH=" << g.width << "\n\n";
+    }
+    return true;
+}
+
+// ============================================================================
+// VAO bake hint → extension/vao_patch_hint.ini
+// Tells CSP where to find the baked VAO patch
+// ============================================================================
+bool TrackExporter::exportVAOHint(const TrackProject& p, const QString& dir)
+{
+    if (!p.vao.enabled) return true;
+
+    QDir(dir + "/extension").mkpath(".");
+    QFile f(dir + "/extension/vao_patch_hint.ini");
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) return false;
+    QTextStream ts(&f);
+    ts << "[VAO_PATCH]\n";
+    ts << "FILE=" << p.vao.outputPatch << "\n";
+    ts << "RAY_COUNT=" << p.vao.rayCount << "\n";
+    ts << "MAX_DISTANCE=" << p.vao.maxDistance << "\n";
+    ts << "TEXTURE_SIZE=" << p.vao.textureSize << "\n";
+
+    // Write basic VAO settings for offline baking tools
+    QFile fset(dir + "/extension/vao_bake_settings.ini");
+    if (fset.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream ts2(&fset);
+        ts2 << "[BAKE]\n";
+        ts2 << "RAY_COUNT=" << p.vao.rayCount << "\n";
+        ts2 << "MAX_DISTANCE=" << p.vao.maxDistance << "\n";
+        ts2 << "BIAS=" << p.vao.bias << "\n";
+        ts2 << "TEXTURE_SIZE=" << p.vao.textureSize << "\n";
+        ts2 << "OUTPUT=" << p.vao.outputPatch << "\n";
+    }
+    return true;
+}
+
+// ============================================================================
+// Track map SVG — auto-generated from road spline projected to XZ
+// Saved to ui/<trackId>/outline.svg (Content Manager uses this)
+// ============================================================================
+bool TrackExporter::exportTrackMapSVG(const TrackProject& p, const QString& dir)
+{
+    if (p.roads.isEmpty()) return true;
+
+    QString uiDir = dir + "/ui/" + m_trackId;
+    QDir(uiDir).mkpath(".");
+
+    // Collect all road spline points projected to XZ
+    float minX=1e9f, minZ=1e9f, maxX=-1e9f, maxZ=-1e9f;
+    for (const auto& road : p.roads) {
+        for (const auto& sp : road.points) {
+            minX = qMin(minX, sp.position.x());
+            minZ = qMin(minZ, sp.position.z());
+            maxX = qMax(maxX, sp.position.x());
+            maxZ = qMax(maxZ, sp.position.z());
+        }
+    }
+    if (maxX <= minX || maxZ <= minZ) return true;
+
+    const float svgW = 512.f, svgH = 320.f;
+    const float margin = 20.f;
+    float scaleX = (svgW - 2*margin) / (maxX - minX);
+    float scaleZ = (svgH - 2*margin) / (maxZ - minZ);
+    float scale  = qMin(scaleX, scaleZ);
+
+    auto toSVG = [&](float wx, float wz) -> QPair<float,float> {
+        return { margin + (wx - minX) * scale,
+                 svgH - margin - (wz - minZ) * scale };
+    };
+
+    QString svg;
+    svg += QString("<svg xmlns=\"http://www.w3.org/2000/svg\" "
+                   "viewBox=\"0 0 %1 %2\" width=\"%1\" height=\"%2\">\n")
+               .arg(svgW).arg(svgH);
+    svg += "<rect width=\"100%\" height=\"100%\" fill=\"#1a1a2e\"/>\n";
+
+    for (const auto& road : p.roads) {
+        if (road.points.size() < 2) continue;
+        svg += "<polyline fill=\"none\" stroke=\"#e8e8e8\" stroke-width=\"3\" points=\"";
+        for (const auto& sp : road.points) {
+            auto [px, pz] = toSVG(sp.position.x(), sp.position.z());
+            svg += QString("%1,%2 ").arg(px, 0, 'f', 1).arg(pz, 0, 'f', 1);
+        }
+        svg += "\"/>\n";
+    }
+
+    // Start positions
+    for (const auto& sp : p.startPositions) {
+        auto [px, pz] = toSVG(sp.position.x(), sp.position.z());
+        svg += QString("<circle cx=\"%1\" cy=\"%2\" r=\"4\" fill=\"#00ff88\"/>\n")
+                   .arg(px, 0, 'f', 1).arg(pz, 0, 'f', 1);
+    }
+
+    // Timing sectors
+    for (const auto& sec : p.timingSectors) {
+        auto [px, pz] = toSVG(sec.position.x(), sec.position.z());
+        QString col = sec.isFinish ? "#ff4444" : "#ffcc00";
+        svg += QString("<line x1=\"%1\" y1=\"%2\" x2=\"%3\" y2=\"%4\" "
+                       "stroke=\"%5\" stroke-width=\"2\"/>\n")
+                   .arg(px-8,0,'f',1).arg(pz,0,'f',1)
+                   .arg(px+8,0,'f',1).arg(pz,0,'f',1).arg(col);
+    }
+
+    svg += "</svg>\n";
+
+    QFile f(uiDir + "/outline.svg");
+    if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        f.write(svg.toUtf8());
+        return true;
+    }
+    return false;
+}
+
+}} // namespace ks::track

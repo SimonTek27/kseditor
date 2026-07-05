@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="ksAudiioStudio.01.16.00">
+    <object class="MixerVCA" id="{ff157bb9-ecc1-49da-ad82-5e42fecb2ac9}">
+        <property name="name">
+            <value>vca_engine_int</value>
+        </property>
+        <relationship name="mixer">
+            <destination>{23d11d28-899c-4b65-87ff-9e2377a8de15}</destination>
+        </relationship>
+    </object>
+</objects>

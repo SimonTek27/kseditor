@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="ksAudiioStudio.01.16.00">
+    <object class="EncodableAsset" id="{f4fbd161-580c-4f6b-9957-67003f8c90aa}">
+        <property name="assetPath">
+            <value>cars/Abarth/Tatuus/Engine INT/</value>
+        </property>
+        <relationship name="masterAssetFolder">
+            <destination>{9ac7c7a7-33f8-4512-bd5e-63894d4a368b}</destination>
+        </relationship>
+    </object>
+</objects>

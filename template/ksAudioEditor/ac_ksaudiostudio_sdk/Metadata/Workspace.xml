@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="ksAudiioStudio.01.16.00">
+    <object class="Workspace" id="{ef6394e4-d3f4-42b0-a554-d2d191a67920}">
+        <relationship name="masterEventFolder">
+            <destination>{bb59f669-42fe-4f86-ad94-fc001aa0e320}</destination>
+        </relationship>
+        <relationship name="masterTagFolder">
+            <destination>{0ffd2718-c5db-47bc-8fb5-53ae9b210f62}</destination>
+        </relationship>
+        <relationship name="masterBankFolder">
+            <destination>{39a32fe3-f97b-4316-9cb9-8f1146258ad2}</destination>
+        </relationship>
+        <relationship name="masterAssetFolder">
+            <destination>{9ac7c7a7-33f8-4512-bd5e-63894d4a368b}</destination>
+        </relationship>
+        <relationship name="mixer">
+            <destination>{23d11d28-899c-4b65-87ff-9e2377a8de15}</destination>
+        </relationship>
+        <relationship name="platforms">
+            <destination>{cd5cee5c-0a41-4237-ad16-a4b338a7c549}</destination>
+        </relationship>
+    </object>
+    <object class="Platform" id="{cd5cee5c-0a41-4237-ad16-a4b338a7c549}">
+        <property name="hardwareType">
+            <value>0</value>
+        </property>
+        <property name="name">
+            <value>Desktop</value>
+        </property>
+        <property name="subDirectory">
+            <value>Desktop</value>
+        </property>
+        <property name="speakerFormat">
+            <value>7</value>
+        </property>
+    </object>
+</objects>
