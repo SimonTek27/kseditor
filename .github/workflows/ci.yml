@@ -8,11 +8,11 @@ on:
 
 env:
   BUILD_TYPE: Release
-  QT_VERSION: '6.8.0'
+  QT_VERSION: '6.11.1'
   QT_HOST: 'windows'
   QT_TARGET: 'desktop'
   QT_ARCH: 'win64_msvc2022_64'
-  QT_MODULES: 'qtquick3d qtmultimedia qtcharts qtwebsockets'
+  QT_MODULES: 'qtquick3d qtmultimedia qtcharts qtwebsockets qtshadertools qt3d'
 
 jobs:
   build:
@@ -39,22 +39,41 @@ jobs:
           arch: ${{ env.QT_ARCH }}
           modules: ${{ env.QT_MODULES }}
 
+      - name: Restore vcpkg from cache
+        uses: actions/cache@v4
+        id: vcpkg-cache
+        with:
+          path: ${{github.workspace}}/external/vcpkg
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('external/vcpkg/installed/**') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-
+
       - name: Install vcpkg
+        if: steps.vcpkg-cache.outputs.cache-hit != 'true'
         run: |
-          git clone https://github.com/microsoft/vcpkg.git ${{github.workspace}}/external/vcpkg
-          cd ${{github.workspace}}/external/vcpkg
-          .\bootstrap-vcpkg.bat
-          .\vcpkg install eigen3:x64-windows bullet3:x64-windows openvdb:x64-windows cgal:x64-windows libuv:x64-windows opensubdiv:x64-windows 7zip:x64-windows --triplet x64-windows-static
+          if (-not (Test-Path "${{github.workspace}}/external/vcpkg/.git")) {
+            git clone https://github.com/microsoft/vcpkg.git "${{github.workspace}}/external/vcpkg"
+          }
+          & "${{github.workspace}}/external/vcpkg/bootstrap-vcpkg.bat"
+          & "${{github.workspace}}/external/vcpkg/vcpkg" install `
+            eigen3:x64-windows bullet3:x64-windows openvdb:x64-windows `
+            cgal:x64-windows libuv:x64-windows opensubdiv:x64-windows `
+            --triplet x64-windows
 
       - name: Configure CMake
+        shell: pwsh
         run: |
-          cmake -B ${{github.workspace}}/build `
-            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} `
-            -DQT6_PATH="${{env.Qt6_DIR}}/.." `
-            -DCMAKE_PREFIX_PATH="${{github.workspace}}/external/vcpkg/installed/x64-windows"
+          $env:QTDIR = "${{ env.Qt6_DIR }}"
+          cmake -B "${{github.workspace}}/build" `
+            -DCMAKE_BUILD_TYPE="${{env.BUILD_TYPE}}" `
+            -DQT6_PATH="${{ env.Qt6_DIR }}" `
+            -DCMAKE_PREFIX_PATH="${{github.workspace}}/external/vcpkg/installed/x64-windows;${{ env.Qt6_DIR }}"
 
-      - name: Build
-        run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel
+      - name: Build (kseditor_lib)
+        run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target kseditor_lib --parallel 2
+
+      - name: Build (ksEditor and plugins)
+        run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel 2
 
       - name: Run tests
         run: |
