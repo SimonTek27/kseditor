@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
 <TS version="2.1" language="it_IT" sourcelanguage="it_IT">
 <context>
@@ -8,7 +8,7 @@
     <message><source>New Project</source><translation>Nuovo progetto</translation></message>
     <message><source>Open Project</source><translation>Apri progetto</translation></message>
     <message><source>Save</source><translation>Salva</translation></message>
-    <message><source>Save As...</source><translation>Salva come…</translation></message>
+    <message><source>Save As...</source><translation>Salva comeâ€¦</translation></message>
     <message><source>Close</source><translation>Chiudi</translation></message>
     <message><source>Exit</source><translation>Esci</translation></message>
     <message><source>Edit</source><translation>Modifica</translation></message>
@@ -42,7 +42,7 @@
     <message><source>Settings</source><translation>Impostazioni</translation></message>
     <message><source>Import</source><translation>Importa</translation></message>
     <message><source>Export</source><translation>Esporta</translation></message>
-    <message><source>Properties</source><translation>Proprietà</translation></message>
+    <message><source>Properties</source><translation>ProprietÃ </translation></message>
     <message><source>Output</source><translation>Output</translation></message>
     <message><source>Search</source><translation>Cerca</translation></message>
     <message><source>Terminal</source><translation>Terminale</translation></message>
@@ -72,19 +72,19 @@
     <message><source>Failed to save project</source><translation>Salvataggio progetto fallito</translation></message>
     <message><source>Open Project</source><translation>Apri progetto</translation></message>
     <message><source>ksEditor Projects (*.ksproject);;All Files (*)</source><translation>Progetti ksEditor (*.ksproject);;Tutti i file (*)</translation></message>
-    <message><source>Loading project...</source><translation>Caricamento progetto…</translation></message>
+    <message><source>Loading project...</source><translation>Caricamento progettoâ€¦</translation></message>
     <message><source>Project loaded</source><translation>Progetto caricato</translation></message>
 </context>
 <context>
     <name>ValidationSystem</name>
     <message><source>Mesh has no vertices</source><translation>La mesh non ha vertici</translation></message>
-    <message><source>Mesh has no UV coordinates</source><translation>La mesh non ha coordinate UV – le texture non verranno renderizzate correttamente</translation></message>
+    <message><source>Mesh has no UV coordinates</source><translation>La mesh non ha coordinate UV â€“ le texture non verranno renderizzate correttamente</translation></message>
     <message><source>Material has no shader assigned</source><translation>Il materiale non ha shader assegnato</translation></message>
     <message><source>Expected 4 wheel nodes</source><translation>Previsti 4 nodi ruota, trovati %1</translation></message>
     <message><source>Missing LOD for distance %1</source><translation>LOD mancante per distanza %1</translation></message>
     <message><source>Texture resolution exceeds %1x%2</source><translation>Risoluzione texture supera %1x%2</translation></message>
     <message><source>Collision mesh has no faces</source><translation>La mesh di collisione non ha facce</translation></message>
-    <message><source>Engine torque curve is empty</source><translation>La curva di coppia del motore è vuota</translation></message>
+    <message><source>Engine torque curve is empty</source><translation>La curva di coppia del motore Ã¨ vuota</translation></message>
 </context>
 <context>
     <name>AutoSave</name>
@@ -98,10 +98,10 @@
 <context>
     <name>UpdateChecker</name>
     <message><source>Update available</source><translation>Aggiornamento disponibile</translation></message>
-    <message><source>A new version (%1) is available.</source><translation>Una nuova versione (%1) è disponibile. Scaricare ora?</translation></message>
-    <message><source>ksEditor is up to date</source><translation>ksEditor è aggiornato.</translation></message>
+    <message><source>A new version (%1) is available.</source><translation>Una nuova versione (%1) Ã¨ disponibile. Scaricare ora?</translation></message>
+    <message><source>ksEditor is up to date</source><translation>ksEditor Ã¨ aggiornato.</translation></message>
     <message><source>Download</source><translation>Scarica</translation></message>
-    <message><source>Later</source><translation>Più tardi</translation></message>
+    <message><source>Later</source><translation>PiÃ¹ tardi</translation></message>
 </context>
 <context>
     <name>ksModelerModule</name>
@@ -114,8 +114,8 @@
     <message><source>Add Cylinder</source><translation>Aggiungi cilindro</translation></message>
     <message><source>Add Light</source><translation>Aggiungi luce</translation></message>
     <message><source>Add Camera</source><translation>Aggiungi camera</translation></message>
-    <message><source>Solid Mode</source><translation>Modalità solida</translation></message>
-    <message><source>Wireframe Mode</source><translation>Modalità wireframe</translation></message>
+    <message><source>Solid Mode</source><translation>ModalitÃ  solida</translation></message>
+    <message><source>Wireframe Mode</source><translation>ModalitÃ  wireframe</translation></message>
     <message><source>Perspective</source><translation>Prospettiva</translation></message>
     <message><source>Top</source><translation>Dall&apos;alto</translation></message>
     <message><source>Front</source><translation>Frontale</translation></message>
@@ -123,11 +123,11 @@
     <message><source>Layers</source><translation>Livelli</translation></message>
     <message><source>Material</source><translation>Materiale</translation></message>
     <message><source>Base Color</source><translation>Colore base</translation></message>
-    <message><source>Roughness</source><translation>Ruvidità</translation></message>
+    <message><source>Roughness</source><translation>RuviditÃ </translation></message>
     <message><source>Metallic</source><translation>Metallico</translation></message>
-    <message><source>Opacity</source><translation>Opacità</translation></message>
+    <message><source>Opacity</source><translation>OpacitÃ </translation></message>
     <message><source>Emissive</source><translation>Emissivo</translation></message>
-    <message><source>Blend Mode</source><translation>Modalità fusione</translation></message>
+    <message><source>Blend Mode</source><translation>ModalitÃ  fusione</translation></message>
     <message><source>Two-Sided</source><translation>Double-face</translation></message>
     <message><source>Position</source><translation>Posizione</translation></message>
     <message><source>Rotation</source><translation>Rotazione</translation></message>
@@ -153,7 +153,7 @@
     <message><source>Physics Profiler</source><translation>Profiler fisica</translation></message>
     <message><source>Maximum Power</source><translation>Potenza massima</translation></message>
     <message><source>Peak RPM</source><translation>Giri max</translation></message>
-    <message><source>Max Speed</source><translation>Velocità max</translation></message>
+    <message><source>Max Speed</source><translation>VelocitÃ  max</translation></message>
     <message><source>Downforce</source><translation>Carico aerodinamico</translation></message>
     <message><source>Drag Coefficient</source><translation>Coefficiente di resistenza</translation></message>
     <message><source>Weight</source><translation>Peso</translation></message>
@@ -182,7 +182,7 @@
     <message><source>Remove Element</source><translation>Rimuovi elemento</translation></message>
     <message><source>Element Type</source><translation>Tipo elemento</translation></message>
     <message><source>Data Source</source><translation>Origine dati</translation></message>
-    <message><source>Test Mode</source><translation>Modalità test</translation></message>
+    <message><source>Test Mode</source><translation>ModalitÃ  test</translation></message>
     <message><source>Export as Image</source><translation>Esporta come immagine</translation></message>
     <message><source>Import Lua Script</source><translation>Importa script Lua</translation></message>
 </context>
@@ -270,3 +270,4 @@
     <message><source>OK</source><translation>OK</translation></message>
 </context>
 </TS>
+

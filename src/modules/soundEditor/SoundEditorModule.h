@@ -5,6 +5,9 @@
 #include "../../core/editor/EditorModule.h"
 
 namespace ks {
+namespace audio {
+class ACEventBridge;
+}
 
 class AudioWaveformBridge;
 
@@ -37,6 +40,7 @@ protected:
 private:
     QQuickWidget* m_quickWidget = nullptr;
     AudioWaveformBridge* m_waveformBridge = nullptr;
+    ks::audio::ACEventBridge* m_eventBridge = nullptr;
     bool m_initialized = false;
 };
 

@@ -1,17 +1,13 @@
 #include "AudioEffects.h"
-#include "AudioEffectsAdvanced.h"
-#include "AudioEffectsExtra.h"
-#include "ksAudioEffects.h"
 #include <QDebug>
-#include <QMap>
-#include <QVector>
 #include <functional>
 
-namespace ks { namespace audio {
+namespace ks {
+namespace audio {
 
-// ---------------------------------------------------------------------------
+// ============================================================================
 // Effect registry — maps type name to parameter list + factory function
-// ---------------------------------------------------------------------------
+// ============================================================================
 
 using ProcessFn = QVector<float>(*)(QObject*, const QVector<float>&, int);
 
@@ -158,9 +154,9 @@ static QMap<QString, EffectRegistration>& registry()
     return reg;
 }
 
-// ---------------------------------------------------------------------------
+// ============================================================================
 // EffectInstance — one slot in the processing chain
-// ---------------------------------------------------------------------------
+// ============================================================================
 
 struct EffectInstance {
     QString type;
@@ -171,9 +167,9 @@ struct EffectInstance {
     EffectInstance() = default;
 };
 
-// ---------------------------------------------------------------------------
+// ============================================================================
 // Global effect chain
-// ---------------------------------------------------------------------------
+// ============================================================================
 
 static QVector<EffectInstance> s_chain;
 static AudioEffects* s_masterChain = nullptr; // EQ + compressor + delay + reverb + limiter
@@ -185,9 +181,9 @@ AudioEffects* masterChain()
     return s_masterChain;
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
+// ============================================================================
+// Public API Implementation
+// ============================================================================
 
 QStringList availableEffectTypes()
 {
@@ -219,7 +215,6 @@ int addEffect(const QString& type)
     const auto& reg = registry();
     auto rit = reg.find(type);
     for (const auto& p : rit->params) {
-        // Try to get the default from the DSP object via property
         if (inst.dsp) {
             QVariant val = inst.dsp->property(p.toUtf8().constData());
             if (val.isValid())
@@ -278,7 +273,6 @@ void setEffectParam(int index, const QString& param, double value)
     auto& inst = s_chain[index];
     inst.params[param] = value;
 
-    // Forward to DSP object if it has the property
     if (inst.dsp) {
         inst.dsp->setProperty(param.toUtf8().constData(), static_cast<float>(value));
     }
@@ -308,9 +302,7 @@ void resetEffect(int index)
     auto& inst = s_chain[index];
     inst.params.clear();
 
-    // Reset DSP object then re-read defaults
     if (inst.dsp) {
-        // Try calling reset() if the effect has one
         QMetaObject::invokeMethod(inst.dsp.data(), "reset", Qt::DirectConnection);
 
         const auto& reg = registry();
@@ -334,15 +326,14 @@ void moveEffect(int from, int to)
     s_chain.insert(to, std::move(inst));
 }
 
-// ---------------------------------------------------------------------------
+// ============================================================================
 // Audio processing — run the chain + master chain on samples
-// ---------------------------------------------------------------------------
+// ============================================================================
 
 QVector<float> processEffects(const QVector<float>& input, int sampleRate)
 {
     QVector<float> output = input;
 
-    // Run individual effects in the chain
     for (auto& inst : s_chain) {
         if (inst.bypassed || !inst.dsp)
             continue;
@@ -353,16 +344,15 @@ QVector<float> processEffects(const QVector<float>& input, int sampleRate)
         }
     }
 
-    // Run master chain (EQ → compressor → delay → reverb → limiter)
     if (s_masterChain && !s_masterChain->isBypassed())
         output = s_masterChain->process(output);
 
     return output;
 }
 
-// ---------------------------------------------------------------------------
-// Master chain (ksAudioEffects.h) proxy
-// ---------------------------------------------------------------------------
+// ============================================================================
+// Master chain (AudioEffects) proxy
+// ============================================================================
 
 void setMasterBypass(bool bypass)
 {

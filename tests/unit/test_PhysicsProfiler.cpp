@@ -49,12 +49,12 @@ void TestPhysicsProfiler::test_subsystemTiming() {
     prof->beginFrame();
     {
         prof->beginSubsystem(PhysicsProfiler::Engine);
-        QThread::msleep(2);
+        QThread::msleep(40);
         prof->endSubsystem(PhysicsProfiler::Engine);
     }
     {
         prof->beginSubsystem(PhysicsProfiler::Brakes);
-        QThread::msleep(1);
+        QThread::msleep(5);
         prof->endSubsystem(PhysicsProfiler::Brakes);
     }
     prof->endFrame();

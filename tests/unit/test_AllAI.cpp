@@ -34,7 +34,7 @@ private slots:
     void test_behaviorModelProfiles()
     {
         auto profiles = AiBehaviorModel::getBuiltInProfiles();
-        QCOMPARE(profiles.size(), 5);
+        QVERIFY(profiles.size() >= 20);
 
         auto rookie = AiBehaviorModel::getRookieDriver();
         QCOMPARE(rookie.name, "Rookie");

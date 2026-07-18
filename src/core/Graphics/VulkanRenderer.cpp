@@ -15,19 +15,6 @@
 
 namespace {
 
-uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
-    VkPhysicalDeviceMemoryProperties memProperties;
-    ks::graphics::g_vk.getPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-            return i;
-        }
-    }
-
-    return 0;
-}
-
 static VkFormat toVkFormat(ks::graphics::VulkanTexture::Format fmt) {
     using Format = ks::graphics::VulkanTexture::Format;
     switch (fmt) {
@@ -224,6 +211,19 @@ void VulkanRenderer::destroyDevice() {
 VulkanRenderer* VulkanRenderer::instance() {
     static VulkanRenderer inst;
     return &inst;
+}
+
+uint32_t VulkanRenderer::findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+    VkPhysicalDeviceMemoryProperties memProperties;
+    g_vk.getPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i;
+        }
+    }
+
+    return 0;
 }
 
 // ── Swap Chain ──────────────────────────────────────────────────────────
@@ -937,7 +937,7 @@ static void createMeshBuffer(VkDevice device, VkPhysicalDevice physDev, const vo
     VkMemoryAllocateInfo ai{};
     ai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     ai.allocationSize = mr.size;
-    ai.memoryTypeIndex = findMemoryType(physDev, mr.memoryTypeBits,
+    ai.memoryTypeIndex = VulkanRenderer::findMemoryType(physDev, mr.memoryTypeBits,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     if (g_vk.allocateMemory(device, &ai, nullptr, &outMem) != VK_SUCCESS) {
@@ -1439,7 +1439,7 @@ void VulkanBuffer::allocate(quint64 size, const void* data) {
     VkMemoryAllocateInfo ai{};
     ai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     ai.allocationSize = memReqs.size;
-    ai.memoryTypeIndex = findMemoryType(m_physicalDevice, memReqs.memoryTypeBits, memProps);
+    ai.memoryTypeIndex = VulkanRenderer::findMemoryType(m_physicalDevice, memReqs.memoryTypeBits, memProps);
 
     if (g_vk.allocateMemory(m_device, &ai, nullptr, &m_memory) != VK_SUCCESS) {
         g_vk.destroyBuffer(m_device, m_buffer, nullptr); m_buffer = VK_NULL_HANDLE;
@@ -1575,7 +1575,7 @@ void VulkanTexture::createFromImage(const QImage& image) {
     VkMemoryAllocateInfo sai{};
     sai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     sai.allocationSize = smr.size;
-    sai.memoryTypeIndex = findMemoryType(m_physicalDevice, smr.memoryTypeBits,
+    sai.memoryTypeIndex = VulkanRenderer::findMemoryType(m_physicalDevice, smr.memoryTypeBits,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     if (g_vk.allocateMemory(m_device, &sai, nullptr, &stagingMem) != VK_SUCCESS) {
@@ -1627,7 +1627,7 @@ void VulkanTexture::createFromImage(const QImage& image) {
     VkMemoryAllocateInfo iai{};
     iai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     iai.allocationSize = imr.size;
-    iai.memoryTypeIndex = findMemoryType(m_physicalDevice, imr.memoryTypeBits,
+    iai.memoryTypeIndex = VulkanRenderer::findMemoryType(m_physicalDevice, imr.memoryTypeBits,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     if (g_vk.allocateMemory(m_device, &iai, nullptr, &m_memory) != VK_SUCCESS) {
@@ -1811,7 +1811,7 @@ void VulkanTexture::createRenderTarget(int width, int height, Format format) {
     VkMemoryAllocateInfo ai{};
     ai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     ai.allocationSize = imr.size;
-    ai.memoryTypeIndex = findMemoryType(m_physicalDevice, imr.memoryTypeBits,
+    ai.memoryTypeIndex = VulkanRenderer::findMemoryType(m_physicalDevice, imr.memoryTypeBits,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     if (g_vk.allocateMemory(m_device, &ai, nullptr, &m_memory) != VK_SUCCESS) {

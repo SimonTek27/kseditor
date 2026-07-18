@@ -6,6 +6,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QLineEdit>
+#include <QTableWidget>
 
 namespace ks {
 
@@ -46,6 +47,9 @@ private slots:
     void onLoadDir();
     void onSaveDir();
     void onEventNameChanged(const QString& t);
+    void onAddSetting();
+    void onRemoveSetting();
+    void onSettingChanged(int row, int column);
 
 private:
     void setupUi();
@@ -59,6 +63,10 @@ private:
     QPushButton* m_loadBtn = nullptr;
     QPushButton* m_saveBtn = nullptr;
     QLabel* m_statusLabel = nullptr;
+    QTableWidget* m_settingsTable = nullptr;
+    QPushButton* m_addSettingBtn = nullptr;
+    QPushButton* m_removeSettingBtn = nullptr;
+    bool m_updatingSettings = false;
     QVector<SpecialEvent> m_events;
     int m_selectedIndex = -1;
     QString m_dir;

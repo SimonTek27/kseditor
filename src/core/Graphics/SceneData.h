@@ -1,163 +1,307 @@
 #pragma once
 
+#include <QObject>
 #include <QString>
 #include <QVector>
 #include <QMap>
-#include <QVariant>
+#include <QJsonObject>
+#include <QUuid>
+#include <QDateTime>
 #include <QVector3D>
-#include <QVector4D>
-#include <QMatrix4x4>
-#include <QSharedPointer>
-#include <QColor>
+#include <QJsonArray>
 
-namespace Ks {
+namespace ks {
+namespace graphics {
 
-struct ShaderParam {
+class SceneGraph;
+class SceneMesh;
+class SceneObject;
+
+class PBRMaterial;
+
+// Project-level serialization format
+struct ProjectData {
+    QString formatVersion = "2.1.0";
+    QString editorVersion = "2.1.0";
+    QString name;
+    QString version = "1.0.0";
+    QString description;
+    QString author;
+    
+    QDateTime created;
+    QDateTime modified;
+    QDateTime lastSaved;
+    
+    // Active state
+    QString activeModule;
+    int activeModuleIndex = 0;
+    
+    // Module states
+    QMap<QString, QJsonObject> moduleStates;
+    
+    // Scene data
+    QJsonObject scene;
+    
+    // Settings
+    QMap<QString, QVariant> settings;
+    
+    // Window layout
+    QJsonObject windowLayout;
+    
+    // Recent files
+    QStringList recentFiles;
+    
+    // Asset database path
+    QString assetDatabasePath;
+};
+
+struct AssetMetadata {
+    QUuid id;
+    QString name;
+    QString type;           // "model", "texture", "audio", "material", "prefab", "scene"
+    QString category;       // "car", "track", "character", "prop", "environment"
+    QString filePath;
+    QString sourcePath;     // Original import path
+    qint64 fileSize = 0;
+    QString hash;           // SHA256 of file content
+    QString thumbnailPath;
+    
+    QDateTime created;
+    QDateTime modified;
+    QDateTime imported;
+    
+    QString author;
+    QString license;
+    QString version = "1.0.0";
+    
+    // Dependencies
+    QVector<QUuid> dependencies;
+    QVector<QUuid> dependents;
+    
+    // Tags for search
+    QStringList tags;
+    
+    // Platform variants
+    QMap<QString, QString> platformVariants;  // platform -> path
+    
+    // Import settings
+    QJsonObject importSettings;
+    
+    // Status
+    enum class Status { Missing, Valid, Outdated, Processing, Error };
+    Status status = Status::Valid;
+    QString errorMessage;
+};
+
+struct AssetCollection {
     QString name;
     QString description;
-    QVariant defaultValue;
-    float   rangeMin = 0.f;
-    float   rangeMax = 1.f;
+    QVector<QUuid> assets;
+    QStringList tags;
+    QDateTime created;
+    QDateTime modified;
 };
 
-struct ShaderTexture {
-    QString name;
-    QString notes;
+struct WorkspaceState {
+    // Window state
+    QByteArray mainWindowGeometry;
+    QByteArray mainWindowState;
+    
+    // Dock panels
+    QMap<QString, QByteArray> dockPanelStates;
+    
+    // Editors
+    QMap<QString, QJsonObject> editorStates;  // module -> state
+    
+    // UI preferences
+    QString theme = "dark";
+    int fontSize = 12;
+    bool showGrid = true;
+    bool showGizmos = true;
+    QString cameraMode = "orbit";
+    
+    // Viewport
+    QVector3D viewportCameraPos = {0, 5, 10};
+    QVector3D viewportCameraTarget = {0, 0, 0};
+    float viewportFOV = 60.0f;
+    
+    // Active document
+    QString activeDocument;
+    QStringList openDocuments;
 };
 
-struct ShaderDef {
-    QString      name;
-    bool         isAlphaTested   = false;
-    bool         isSkinned       = false;
-    bool         isParticle      = false;
-    bool         hasGeomShadow   = false;
-    QString      psModel;
-    QString      vsModel;
-    QVector<ShaderParam>   params;
-    QVector<ShaderTexture> textures;
-
-    static QMap<QString, ShaderDef> loadAllFromDirectory(const QString& shaderHtmlDir);
+struct UserPreferences {
+    // General
+    QString language = "en";
+    bool autoSave = true;
+    int autoSaveInterval = 300;  // seconds
+    bool checkUpdates = true;
+    bool telemetry = false;
+    
+    // Paths
+    QString projectsPath;
+    QString assetsPath;
+    QString pluginsPath;
+    QString tempPath;
+    
+    // Editor
+    QString externalEditor;
+    bool wordWrap = false;
+    int tabSize = 4;
+    bool useSpaces = true;
+    QString codeTheme = "dark";
+    
+    // Viewport
+    float gridSize = 1.0f;
+    int gridDivisions = 10;
+    bool snapToGrid = false;
+    float snapIncrement = 0.1f;
+    bool snapRotation = false;
+    float rotationSnap = 15.0f;
+    
+    // Rendering
+    bool vsync = true;
+    int maxFPS = 144;
+    bool hdr = false;
+    float exposure = 1.0f;
+    bool bloom = true;
+    bool ssao = true;
+    int shadowQuality = 2;
+    int textureQuality = 2;
+    
+    // Audio
+    int sampleRate = 48000;
+    int bufferSize = 512;
+    float masterVolume = 1.0f;
+    
+    // Network
+    QString cloudSyncEndpoint;
+    bool autoSync = false;
+    
+    // Advanced
+    QJsonObject advanced;
 };
 
-struct Material {
-    QString  name;
-    QString  shaderName;
-    QMap<QString, float>     floatParams;
-    QMap<QString, QVector4D> vec4Params;
-    QMap<QString, QString>   texturePaths;
+class ProjectSerializer : public QObject
+{
+    Q_OBJECT
 
-    float ambient()   const { return floatParams.value("ksAmbient",  0.5f); }
-    float diffuse()   const { return floatParams.value("ksDiffuse",  0.6f); }
-    float specular()  const { return floatParams.value("ksSpecular", 0.3f); }
-    float specularEx()const { return floatParams.value("ksSpecularEXP", 80.f); }
-    float emissive()  const { return floatParams.value("ksEmissive", 0.f); }
-    float alphaRef()  const { return floatParams.value("ksAlphaRef", 0.5f); }
+public:
+    static ProjectSerializer& instance();
+
+    // Project file operations
+    bool saveProject(const QString& path, const ProjectData& data);
+    bool loadProject(const QString& path, ProjectData& data);
+    bool saveBackup(const QString& path, const ProjectData& data);
+    
+    // Scene serialization
+    QJsonObject serializeScene(const SceneGraph* scene);
+    bool deserializeScene(SceneGraph* scene, const QJsonObject& json);
+    
+    // Object serialization
+    QJsonObject serializeObject(const SceneObject* object);
+    SceneObject* deserializeObject(SceneGraph* graph, const QJsonObject& json);
+    
+    // Mesh serialization
+    QJsonObject serializeMesh(const SceneMesh* mesh);
+    SceneMesh* deserializeMesh(const QJsonObject& json);
+    
+    // Material serialization
+    QJsonObject serializeMaterial(const PBRMaterial* material);
+    PBRMaterial* deserializeMaterial(const QJsonObject& json);
+    
+    // Version migration
+    bool migrateProject(ProjectData& data, const QString& fromVersion);
+    
+    // Utility
+    static QString generateProjectPath(const QString& baseDir, const QString& name);
+    static bool validateProject(const ProjectData& data, QStringList& errors);
+
+signals:
+    void projectSaved(const QString& path);
+    void projectLoaded(const QString& path);
+    void projectError(const QString& message);
+    void migrationNeeded(const QString& fromVersion, const QString& toVersion);
+
+private:
+    ProjectSerializer(QObject* parent = nullptr);
+    ~ProjectSerializer();
+    Q_DISABLE_COPY(ProjectSerializer)
+
+    static ProjectSerializer* s_instance;
+    
+    int m_currentFormatVersion = 2;
+    int m_minSupportedVersion = 1;
 };
 
-struct Vertex {
-    QVector3D position;
-    QVector3D normal;
-    QVector3D tangent;
-    QVector2D uv0;
-    QVector2D uv1;
-    QVector4D boneWeights;
-    QVector<int> boneIndices;
+// Asset database serialization
+class AssetDatabaseSerializer : public QObject
+{
+    Q_OBJECT
+
+public:
+    static AssetDatabaseSerializer& instance();
+    
+    bool saveDatabase(const QString& path);
+    bool loadDatabase(const QString& path);
+    
+    // Query serialization
+    QJsonArray serializeAssets(const QVector<QUuid>& assetIds);
+    QJsonArray serializeCollections(const QVector<QUuid>& collectionIds);
+    
+    // Import/Export
+    bool exportPackage(const QString& path, const QVector<QUuid>& assetIds);
+    bool importPackage(const QString& path, QVector<QUuid>& importedIds);
+    
+    // Validation
+    bool validateAssets(QVector<QUuid>& valid, QVector<QUuid>& invalid);
+    void repairMissingAssets(const QVector<QUuid>& assetIds);
+
+signals:
+    void databaseSaved(const QString& path);
+    void databaseLoaded(const QString& path);
+    void assetExported(const QUuid& id, const QString& path);
+    void assetImported(const QUuid& id);
+
+private:
+    struct AssetRecord {
+        QUuid id;
+        QString name;
+        QString type;
+        QString path;
+        QString collectionId;
+    };
+    struct CollectionRecord {
+        QUuid id;
+        QString name;
+        QString description;
+        QVector<QUuid> assetIds;
+    };
+
+    AssetDatabaseSerializer(QObject* parent = nullptr);
+    ~AssetDatabaseSerializer();
+    Q_DISABLE_COPY(AssetDatabaseSerializer)
+    static AssetDatabaseSerializer* s_instance;
+
+    QMap<QUuid, AssetRecord> m_assets;
+    QMap<QUuid, CollectionRecord> m_collections;
 };
 
-struct SubMesh {
-    QString        materialName;
-    QVector<Vertex> vertices;
-    QVector<quint32> indices;
-    QVector3D      boundsMin;
-    QVector3D      boundsMax;
+// Version info
+struct VersionInfo {
+    int major = 2;
+    int minor = 1;
+    int patch = 0;
+    QString build = "dev";
+    QString channel = "stable";
+    QDateTime buildDate;
+    QString gitCommit;
+    
+    QString toString() const;
+    static VersionInfo fromString(const QString& str);
+    bool isCompatible(const VersionInfo& other) const;
+    bool isNewerThan(const VersionInfo& other) const;
 };
 
-struct Mesh {
-    QString          name;
-    QVector<SubMesh> subMeshes;
-    bool             castShadow   = true;
-    bool             receiveShadow = true;
-    bool             isVisible     = true;
-    QString          layer;
-};
-
-struct SceneNode {
-    using Ptr = QSharedPointer<SceneNode>;
-
-    QString         name;
-    QMatrix4x4      localTransform;
-    QVector<Ptr>    children;
-    SceneNode*      parent = nullptr;
-    QSharedPointer<Mesh> mesh;
-
-    QVector3D translation() const;
-    QVector3D rotation()    const;
-    QVector3D scale()       const;
-    void setTranslation(const QVector3D&);
-    void setRotation(const QVector3D&);
-    void setScale(const QVector3D&);
-
-    QMatrix4x4 worldTransform() const;
-};
-
-enum class ColliderType {
-    Box, Sphere, Capsule, Mesh, ConvexHull
-};
-
-struct PhysicsCollider {
-    ColliderType type     = ColliderType::Box;
-    QVector3D    center;
-    QVector3D    halfExtents = {0.5f, 0.5f, 0.5f};
-    float        radius     = 0.5f;
-    float        height     = 1.0f;
-    float        friction   = 0.7f;
-    float        restitution = 0.3f;
-    bool         isTrigger  = false;
-    QString      surfaceType;
-};
-
-struct PhysicsBody {
-    bool               isStatic     = true;
-    float              mass         = 0.f;
-    float              linearDamp   = 0.05f;
-    float              angularDamp  = 0.05f;
-    QVector<PhysicsCollider> colliders;
-};
-
-enum class SoundTrigger {
-    Always, Speed, RPM, Gear, Surface, Collision, Custom
-};
-
-struct SoundEmitter {
-    QString      name;
-    QString      bankFile;
-    QString      eventPath;
-    QVector3D    position;
-    float        minDistance = 1.f;
-    float        maxDistance = 100.f;
-    float        volume      = 1.f;
-    float        pitch       = 1.f;
-    bool         loop        = false;
-    bool         is3D        = true;
-    SoundTrigger trigger     = SoundTrigger::Always;
-    float        triggerMin  = 0.f;
-    float        triggerMax  = 1.f;
-
-    QMap<QString, QString> surfaceSounds;
-};
-
-struct Scene {
-    QString                         name;
-    QString                         filePath;
-    SceneNode::Ptr                  root;
-    QMap<QString, Material>         materials;
-    QMap<QString, ShaderDef>        shaderDefs;
-    QMap<QString, PhysicsBody>      physicsBodies;
-    QVector<SoundEmitter>           soundEmitters;
-
-    bool isDirty = false;
-
-    void clear();
-};
-
-} // namespace Ks
+} // namespace graphics
+} // namespace ks

@@ -329,7 +329,7 @@ QVector<QVector3D> TrackEditor::getSplinePoints(const QString& name) const
 
 void TrackEditor::addMeshDecoration(const QString& name, const QVector3D& position, const QString& meshId)
 {
-    m_decorations[name] = qMakePair(position, meshId);
+    m_decorations[name] = std::make_pair(position, meshId);
 }
 
 TrackTerrainTool::TrackTerrainTool(QObject* parent)

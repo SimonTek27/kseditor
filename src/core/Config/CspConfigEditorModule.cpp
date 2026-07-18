@@ -30,7 +30,7 @@ void CspConfigEditorModule::shutdown()
 QDockWidget* CspConfigEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
 {
     if (m_dockWidget) return m_dockWidget;
-    m_dockWidget = new QDockWidget("CSP Config Editor", mainWindow);
+    m_dockWidget = new QDockWidget(tr("CSP Config Editor"), mainWindow);
     m_dockWidget->setObjectName("CspConfigEditorDock");
 
     auto* centralWidget = new QWidget();
@@ -41,132 +41,132 @@ QDockWidget* CspConfigEditorModule::getOrCreateDockWidget(QMainWindow* mainWindo
     auto* genWidget = new QWidget();
     auto* genLayout = new QGridLayout(genWidget);
 
-    genLayout->addWidget(new QLabel("AC Path:"), 0, 0);
+    genLayout->addWidget(new QLabel(tr("AC Path:")), 0, 0);
     m_acPathEdit = new QLineEdit();
-    m_acPathEdit->setPlaceholderText("C:/Program Files (x86)/Steam/steamapps/common/assettocorsa");
+    m_acPathEdit->setPlaceholderText(tr("C:/Program Files (x86)/Steam/steamapps/common/assettocorsa"));
     genLayout->addWidget(m_acPathEdit, 0, 1);
-    m_browseBtn = new QPushButton("Browse...");
+    m_browseBtn = new QPushButton(tr("Browse..."));
     genLayout->addWidget(m_browseBtn, 0, 2);
 
-    m_cspStatusLabel = new QLabel("CSP Status: Not checked");
+    m_cspStatusLabel = new QLabel(tr("CSP Status: Not checked"));
     genLayout->addWidget(m_cspStatusLabel, 1, 0, 1, 3);
 
-    m_cspVersionLabel = new QLabel("CSP Version: --");
+    m_cspVersionLabel = new QLabel(tr("CSP Version: --"));
     genLayout->addWidget(m_cspVersionLabel, 2, 0, 1, 3);
 
-    m_refreshBtn = new QPushButton("Refresh Status");
+    m_refreshBtn = new QPushButton(tr("Refresh Status"));
     genLayout->addWidget(m_refreshBtn, 3, 0, 1, 3);
-    m_tabWidget->addTab(genWidget, "General");
+    m_tabWidget->addTab(genWidget, tr("General"));
 
     // ── Tab 2: WeatherFX ────────────────────────────────────────────
     auto* weWidget = new QWidget();
     auto* weLayout = new QGridLayout(weWidget);
-    m_weEnabled = new QCheckBox("Enabled");
+    m_weEnabled = new QCheckBox(tr("Enabled"));
     weLayout->addWidget(m_weEnabled, 0, 0, 1, 2);
-    weLayout->addWidget(new QLabel("Script Name:"), 1, 0);
+    weLayout->addWidget(new QLabel(tr("Script Name:")), 1, 0);
     m_weScript = new QLineEdit();
     weLayout->addWidget(m_weScript, 1, 1);
     m_weTimeMult = new QDoubleSpinBox();
     m_weTimeMult->setRange(0.0, 100.0);
     m_weTimeMult->setSingleStep(0.1);
-    weLayout->addWidget(new QLabel("Time Multiplier:"), 2, 0);
+    weLayout->addWidget(new QLabel(tr("Time Multiplier:")), 2, 0);
     weLayout->addWidget(m_weTimeMult, 2, 1);
-    m_weRealWeather = new QCheckBox("Use Real Weather");
+    m_weRealWeather = new QCheckBox(tr("Use Real Weather"));
     weLayout->addWidget(m_weRealWeather, 3, 0, 1, 2);
-    m_tabWidget->addTab(weWidget, "WeatherFX");
+    m_tabWidget->addTab(weWidget, tr("WeatherFX"));
 
     // ── Tab 3: LightingFX ───────────────────────────────────────────
     auto* lfWidget = new QWidget();
     auto* lfLayout = new QGridLayout(lfWidget);
-    m_lfEnabled = new QCheckBox("Enabled");
+    m_lfEnabled = new QCheckBox(tr("Enabled"));
     lfLayout->addWidget(m_lfEnabled, 0, 0, 1, 2);
-    m_lfDynamicLights = new QCheckBox("Dynamic Lights");
+    m_lfDynamicLights = new QCheckBox(tr("Dynamic Lights"));
     lfLayout->addWidget(m_lfDynamicLights, 1, 0, 1, 2);
-    m_lfOcclusion = new QCheckBox("Enable Occlusion");
+    m_lfOcclusion = new QCheckBox(tr("Enable Occlusion"));
     lfLayout->addWidget(m_lfOcclusion, 2, 0, 1, 2);
     m_lfAmbient = new QDoubleSpinBox();
     m_lfAmbient->setRange(0.0, 10.0);
     m_lfAmbient->setSingleStep(0.1);
-    lfLayout->addWidget(new QLabel("Ambient Multiplier:"), 3, 0);
+    lfLayout->addWidget(new QLabel(tr("Ambient Multiplier:")), 3, 0);
     lfLayout->addWidget(m_lfAmbient, 3, 1);
     m_lfSun = new QDoubleSpinBox();
     m_lfSun->setRange(0.0, 10.0);
     m_lfSun->setSingleStep(0.1);
-    lfLayout->addWidget(new QLabel("Sun Multiplier:"), 4, 0);
+    lfLayout->addWidget(new QLabel(tr("Sun Multiplier:")), 4, 0);
     lfLayout->addWidget(m_lfSun, 4, 1);
-    m_tabWidget->addTab(lfWidget, "LightingFX");
+    m_tabWidget->addTab(lfWidget, tr("LightingFX"));
 
     // ── Tab 4: ParticlesFX ──────────────────────────────────────────
     auto* pfWidget = new QWidget();
     auto* pfLayout = new QGridLayout(pfWidget);
-    m_pfEnabled = new QCheckBox("Enabled");
+    m_pfEnabled = new QCheckBox(tr("Enabled"));
     pfLayout->addWidget(m_pfEnabled, 0, 0, 1, 2);
-    m_pfSmoke = new QCheckBox("Enable Smoke");
+    m_pfSmoke = new QCheckBox(tr("Enable Smoke"));
     pfLayout->addWidget(m_pfSmoke, 1, 0, 1, 2);
-    m_pfSparks = new QCheckBox("Enable Sparks");
+    m_pfSparks = new QCheckBox(tr("Enable Sparks"));
     pfLayout->addWidget(m_pfSparks, 2, 0, 1, 2);
-    m_pfGrass = new QCheckBox("Enable Grass");
+    m_pfGrass = new QCheckBox(tr("Enable Grass"));
     pfLayout->addWidget(m_pfGrass, 3, 0, 1, 2);
     m_pfSmokeIntensity = new QDoubleSpinBox();
     m_pfSmokeIntensity->setRange(0.0, 10.0);
     m_pfSmokeIntensity->setSingleStep(0.1);
-    pfLayout->addWidget(new QLabel("Smoke Intensity:"), 4, 0);
+    pfLayout->addWidget(new QLabel(tr("Smoke Intensity:")), 4, 0);
     pfLayout->addWidget(m_pfSmokeIntensity, 4, 1);
     m_pfSparkIntensity = new QDoubleSpinBox();
     m_pfSparkIntensity->setRange(0.0, 10.0);
     m_pfSparkIntensity->setSingleStep(0.1);
-    pfLayout->addWidget(new QLabel("Spark Intensity:"), 5, 0);
+    pfLayout->addWidget(new QLabel(tr("Spark Intensity:")), 5, 0);
     pfLayout->addWidget(m_pfSparkIntensity, 5, 1);
-    m_tabWidget->addTab(pfWidget, "ParticlesFX");
+    m_tabWidget->addTab(pfWidget, tr("ParticlesFX"));
 
     // ── Tab 5: Physics Extensions ───────────────────────────────────
     auto* phWidget = new QWidget();
     auto* phLayout = new QGridLayout(phWidget);
-    m_phEnabled = new QCheckBox("Enabled");
+    m_phEnabled = new QCheckBox(tr("Enabled"));
     phLayout->addWidget(m_phEnabled, 0, 0, 1, 2);
-    m_phAero = new QCheckBox("Enable Aero");
+    m_phAero = new QCheckBox(tr("Enable Aero"));
     phLayout->addWidget(m_phAero, 1, 0, 1, 2);
-    m_phSuspension = new QCheckBox("Enable Suspension");
+    m_phSuspension = new QCheckBox(tr("Enable Suspension"));
     phLayout->addWidget(m_phSuspension, 2, 0, 1, 2);
-    m_phTires = new QCheckBox("Enable Tires");
+    m_phTires = new QCheckBox(tr("Enable Tires"));
     phLayout->addWidget(m_phTires, 3, 0, 1, 2);
     m_phAeroMult = new QDoubleSpinBox();
     m_phAeroMult->setRange(0.0, 10.0);
     m_phAeroMult->setSingleStep(0.1);
-    phLayout->addWidget(new QLabel("Aero Multiplier:"), 4, 0);
+    phLayout->addWidget(new QLabel(tr("Aero Multiplier:")), 4, 0);
     phLayout->addWidget(m_phAeroMult, 4, 1);
-    m_tabWidget->addTab(phWidget, "Physics");
+    m_tabWidget->addTab(phWidget, tr("Physics"));
 
     // ── Tab 6: Car Extensions ───────────────────────────────────────
     auto* ceWidget = new QWidget();
     auto* ceLayout = new QGridLayout(ceWidget);
-    m_ceEnabled = new QCheckBox("Enabled");
+    m_ceEnabled = new QCheckBox(tr("Enabled"));
     ceLayout->addWidget(m_ceEnabled, 0, 0, 1, 2);
-    m_ceReverseLights = new QCheckBox("Reverse Lights");
+    m_ceReverseLights = new QCheckBox(tr("Reverse Lights"));
     ceLayout->addWidget(m_ceReverseLights, 1, 0, 1, 2);
-    m_ceTurnSignals = new QCheckBox("Turn Signals");
+    m_ceTurnSignals = new QCheckBox(tr("Turn Signals"));
     ceLayout->addWidget(m_ceTurnSignals, 2, 0, 1, 2);
-    m_ceOdometer = new QCheckBox("Odometer");
+    m_ceOdometer = new QCheckBox(tr("Odometer"));
     ceLayout->addWidget(m_ceOdometer, 3, 0, 1, 2);
-    m_ceWipers = new QCheckBox("Working Wipers");
+    m_ceWipers = new QCheckBox(tr("Working Wipers"));
     ceLayout->addWidget(m_ceWipers, 4, 0, 1, 2);
-    m_tabWidget->addTab(ceWidget, "Car Extensions");
+    m_tabWidget->addTab(ceWidget, tr("Car Extensions"));
 
     // ── Tab 7: Track Extensions ─────────────────────────────────────
     auto* teWidget = new QWidget();
     auto* teLayout = new QGridLayout(teWidget);
-    m_teEnabled = new QCheckBox("Enabled");
+    m_teEnabled = new QCheckBox(tr("Enabled"));
     teLayout->addWidget(m_teEnabled, 0, 0, 1, 2);
-    m_teGrassFx = new QCheckBox("Grass FX");
+    m_teGrassFx = new QCheckBox(tr("Grass FX"));
     teLayout->addWidget(m_teGrassFx, 1, 0, 1, 2);
-    m_teParticles = new QCheckBox("Particles");
+    m_teParticles = new QCheckBox(tr("Particles"));
     teLayout->addWidget(m_teParticles, 2, 0, 1, 2);
     m_teGrassDistance = new QDoubleSpinBox();
     m_teGrassDistance->setRange(1.0, 1000.0);
     m_teGrassDistance->setSingleStep(10.0);
-    teLayout->addWidget(new QLabel("Grass Distance:"), 3, 0);
+    teLayout->addWidget(new QLabel(tr("Grass Distance:")), 3, 0);
     teLayout->addWidget(m_teGrassDistance, 3, 1);
-    m_tabWidget->addTab(teWidget, "Track Extensions");
+    m_tabWidget->addTab(teWidget, tr("Track Extensions"));
 
     // ── Tab 8: Extensions Browser ───────────────────────────────────
     auto* extWidget = new QWidget();
@@ -178,46 +178,46 @@ QDockWidget* CspConfigEditorModule::getOrCreateDockWidget(QMainWindow* mainWindo
     m_extConfigView->setReadOnly(true);
     extTopLayout->addWidget(m_extConfigView);
     extLayout->addLayout(extTopLayout);
-    auto* extRefreshBtn = new QPushButton("Refresh Extension List");
+    auto* extRefreshBtn = new QPushButton(tr("Refresh Extension List"));
     extLayout->addWidget(extRefreshBtn);
-    m_tabWidget->addTab(extWidget, "Extensions");
+    m_tabWidget->addTab(extWidget, tr("Extensions"));
 
     // ── Tab 9: Shader Compiler ──────────────────────────────────────
     auto* scWidget = new QWidget();
     auto* scLayout = new QVBoxLayout(scWidget);
 
-    auto* scHeader = new QLabel("GLSL Shader Compiler & Profiler");
+    auto* scHeader = new QLabel(tr("GLSL Shader Compiler & Profiler"));
     scHeader->setStyleSheet("font-weight: bold; font-size: 13px;");
     scLayout->addWidget(scHeader);
 
-    m_compilerStatusLabel = new QLabel("Compiler: checking...");
+    m_compilerStatusLabel = new QLabel(tr("Compiler: checking..."));
     m_compilerStatusLabel->setStyleSheet("color: #888; font-size: 11px;");
     scLayout->addWidget(m_compilerStatusLabel);
 
-    auto* scSourceLabel = new QLabel("Shader Source (GLSL):");
+    auto* scSourceLabel = new QLabel(tr("Shader Source (GLSL):"));
     scLayout->addWidget(scSourceLabel);
 
     m_shaderSourceEdit = new QPlainTextEdit();
-    m_shaderSourceEdit->setPlaceholderText("#version 450\n\nlayout(location = 0) in vec3 inPosition;\nlayout(location = 0) out vec4 outColor;\n\nvoid main() {\n    outColor = vec4(inPosition, 1.0);\n}");
+    m_shaderSourceEdit->setPlaceholderText(tr("#version 450\n\nlayout(location = 0) in vec3 inPosition;\nlayout(location = 0) out vec4 outColor;\n\nvoid main() {\n    outColor = vec4(inPosition, 1.0);\n}"));
     m_shaderSourceEdit->setTabStopDistance(20);
     m_shaderSourceEdit->setMinimumHeight(150);
     scLayout->addWidget(m_shaderSourceEdit);
 
     auto* scBtnLayout = new QHBoxLayout();
-    auto* validateBtn = new QPushButton("Validate");
+    auto* validateBtn = new QPushButton(tr("Validate"));
     validateBtn->setStyleSheet("background: #555; color: white;");
     scBtnLayout->addWidget(validateBtn);
 
-    auto* compileBtn = new QPushButton("Compile to SPIR-V");
+    auto* compileBtn = new QPushButton(tr("Compile to SPIR-V"));
     compileBtn->setStyleSheet("background: #E10600; color: white; font-weight: bold;");
     scBtnLayout->addWidget(compileBtn);
 
-    auto* profileBtn = new QPushButton("Profile");
+    auto* profileBtn = new QPushButton(tr("Profile"));
     profileBtn->setStyleSheet("background: #2a7a2a; color: white;");
     scBtnLayout->addWidget(profileBtn);
     scLayout->addLayout(scBtnLayout);
 
-    auto* scResultLabel = new QLabel("Results:");
+    auto* scResultLabel = new QLabel(tr("Results:"));
     scLayout->addWidget(scResultLabel);
 
     m_shaderResultView = new QTextEdit();
@@ -225,15 +225,15 @@ QDockWidget* CspConfigEditorModule::getOrCreateDockWidget(QMainWindow* mainWindo
     m_shaderResultView->setMaximumHeight(180);
     scLayout->addWidget(m_shaderResultView);
 
-    m_tabWidget->addTab(scWidget, "Shader Compiler");
+    m_tabWidget->addTab(scWidget, tr("Shader Compiler"));
 
     // Check available compilers
     QStringList compilers = CspShaderCompiler::findAvailableCompilers();
     if (!compilers.isEmpty()) {
-        m_compilerStatusLabel->setText("Compiler: " + compilers.first() + " (found " + QString::number(compilers.size()) + ")");
+        m_compilerStatusLabel->setText(tr("Compiler: %1 (found %2)").arg(compilers.first()).arg(compilers.size()));
         m_compilerStatusLabel->setStyleSheet("color: #2a7a2a; font-size: 11px;");
     } else {
-        m_compilerStatusLabel->setText("Compiler: none found (install glslangValidator or glslc)");
+        m_compilerStatusLabel->setText(tr("Compiler: none found (install glslangValidator or glslc)"));
         m_compilerStatusLabel->setStyleSheet("color: #E10600; font-size: 11px;");
     }
 
@@ -242,9 +242,9 @@ QDockWidget* CspConfigEditorModule::getOrCreateDockWidget(QMainWindow* mainWindo
         QStringList errors;
         bool valid = CspShaderCompiler::validateSource(src, &errors);
         if (valid) {
-            m_shaderResultView->setHtml("<span style='color: #2a7a2a;'>Validation passed. Source is valid GLSL.</span>");
+            m_shaderResultView->setHtml("<span style='color: #2a7a2a;'>" + tr("Validation passed. Source is valid GLSL.") + "</span>");
         } else {
-            QString html = "<span style='color: #E10600;'>Validation failed:</span><br/>";
+            QString html = "<span style='color: #E10600;'>" + tr("Validation failed:") + "</span><br/>";
             for (const QString& e : errors) html += e.toHtmlEscaped() + "<br/>";
             m_shaderResultView->setHtml(html);
         }
@@ -253,21 +253,21 @@ QDockWidget* CspConfigEditorModule::getOrCreateDockWidget(QMainWindow* mainWindo
     connect(compileBtn, &QPushButton::clicked, this, [this]() {
         QString src = m_shaderSourceEdit->toPlainText();
         if (src.isEmpty()) {
-            m_shaderResultView->setPlainText("No shader source to compile.");
+            m_shaderResultView->setPlainText(tr("No shader source to compile."));
             return;
         }
         ShaderCompileResult result = CspShaderCompiler::compileGLSLToSPIRV(src, true);
         QString html;
         if (result.success) {
-            html += QString("<span style='color: #2a7a2a;'>Compilation successful!</span><br/>");
-            html += QString("SPIR-V size: %1 bytes<br/>").arg(result.spirv.size());
-            html += QString("Compiler: %1<br/>").arg(result.compilerUsed);
+            html += QString("<span style='color: #2a7a2a;'>%1</span><br/>").arg(tr("Compilation successful!"));
+            html += tr("SPIR-V size: %1 bytes<br/>").arg(result.spirv.size());
+            html += tr("Compiler: %1<br/>").arg(result.compilerUsed);
         } else {
-            html += "<span style='color: #E10600;'>Compilation failed:</span><br/>";
+            html += "<span style='color: #E10600;'>" + tr("Compilation failed:") + "</span><br/>";
             for (const QString& e : result.errors) html += e.toHtmlEscaped() + "<br/>";
         }
         if (!result.warnings.isEmpty()) {
-            html += "<br/><b>Warnings:</b><br/>";
+            html += "<br/><b>" + tr("Warnings:") + "</b><br/>";
             for (const QString& w : result.warnings) html += w.toHtmlEscaped() + "<br/>";
         }
         m_shaderResultView->setHtml(html);
@@ -276,12 +276,12 @@ QDockWidget* CspConfigEditorModule::getOrCreateDockWidget(QMainWindow* mainWindo
     connect(profileBtn, &QPushButton::clicked, this, [this]() {
         QString src = m_shaderSourceEdit->toPlainText();
         if (src.isEmpty()) {
-            m_shaderResultView->setPlainText("No shader source to profile.");
+            m_shaderResultView->setPlainText(tr("No shader source to profile."));
             return;
         }
         ShaderProfile profile = CspShaderCompiler::profileShader(src);
         QString html = QString(
-            "<b>Shader Profile</b><br/>"
+            tr("<b>Shader Profile</b><br/>"
             "<table style='font-size: 12px;'>"
             "<tr><td>Estimated Instructions:</td><td><b>%1</b></td></tr>"
             "<tr><td>Texture Samples:</td><td>%2</td></tr>"
@@ -292,15 +292,15 @@ QDockWidget* CspConfigEditorModule::getOrCreateDockWidget(QMainWindow* mainWindo
             "<tr><td>Uses discard:</td><td>%7</td></tr>"
             "<tr><td>Uses derivatives:</td><td>%8</td></tr>"
             "<tr><td>Estimated Complexity:</td><td><b>%9</b></td></tr>"
-            "</table>"
+            "</table>")
         ).arg(profile.estimatedInstructions)
          .arg(profile.textureSamples)
          .arg(profile.uniformCount)
          .arg(profile.branchCount)
          .arg(profile.loopCount)
          .arg(profile.functionCalls)
-         .arg(profile.usesDiscard ? "Yes" : "No")
-         .arg(profile.usesDerivatives ? "Yes" : "No")
+         .arg(profile.usesDiscard ? tr("Yes") : tr("No"))
+         .arg(profile.usesDerivatives ? tr("Yes") : tr("No"))
          .arg(profile.estimatedComplexity, 0, 'f', 2);
         m_shaderResultView->setHtml(html);
     });
@@ -308,15 +308,15 @@ QDockWidget* CspConfigEditorModule::getOrCreateDockWidget(QMainWindow* mainWindo
     mainLayout->addWidget(m_tabWidget);
 
     auto* actionLayout = new QHBoxLayout();
-    m_loadBtn = new QPushButton("Load");
-    m_saveBtn = new QPushButton("Save");
-    m_resetBtn = new QPushButton("Reset");
+    m_loadBtn = new QPushButton(tr("Load"));
+    m_saveBtn = new QPushButton(tr("Save"));
+    m_resetBtn = new QPushButton(tr("Reset"));
     actionLayout->addWidget(m_loadBtn);
     actionLayout->addWidget(m_saveBtn);
     actionLayout->addWidget(m_resetBtn);
     mainLayout->addLayout(actionLayout);
 
-    m_statusLabel = new QLabel("Ready");
+    m_statusLabel = new QLabel(tr("Ready"));
     mainLayout->addWidget(m_statusLabel);
 
     connect(m_loadBtn, &QPushButton::clicked, this, &CspConfigEditorModule::onLoad);
@@ -346,17 +346,17 @@ void CspConfigEditorModule::exportFile(const QString& filePath)
     if (!m_cspManager) return;
     saveToManager();
     m_cspManager->saveGlobalConfig();
-    m_statusLabel->setText("Saved: " + filePath);
+    m_statusLabel->setText(tr("Saved: %1").arg(filePath));
 }
 
 void CspConfigEditorModule::onActivation()
 {
-    if (m_statusLabel) m_statusLabel->setText("Active");
+    if (m_statusLabel) m_statusLabel->setText(tr("Active"));
 }
 
 void CspConfigEditorModule::onDeactivation()
 {
-    if (m_statusLabel) m_statusLabel->setText("Inactive");
+    if (m_statusLabel) m_statusLabel->setText(tr("Inactive"));
 }
 
 // ── Slots ──────────────────────────────────────────────────────────
@@ -365,7 +365,7 @@ void CspConfigEditorModule::onLoad()
 {
     QString acPath = m_acPathEdit ? m_acPathEdit->text() : QString();
     if (acPath.isEmpty()) {
-        acPath = QFileDialog::getExistingDirectory(this, "Select Assetto Corsa Installation");
+        acPath = QFileDialog::getExistingDirectory(this, tr("Select Assetto Corsa Installation"));
         if (acPath.isEmpty()) return;
         m_acPathEdit->setText(acPath);
     }
@@ -378,18 +378,18 @@ void CspConfigEditorModule::onLoad()
     loadFromManager();
     onRefreshStatus();
     refreshExtList();
-    m_statusLabel->setText("Loaded CSP config from: " + acPath);
+    m_statusLabel->setText(tr("Loaded CSP config from: %1").arg(acPath));
 }
 
 void CspConfigEditorModule::onSave()
 {
     if (!m_cspManager) {
-        m_statusLabel->setText("No CSP config loaded. Click Load first.");
+        m_statusLabel->setText(tr("No CSP config loaded. Click Load first."));
         return;
     }
     saveToManager();
     m_cspManager->saveGlobalConfig();
-    m_statusLabel->setText("Saved CSP config to: " + m_cspManager->getCspPath());
+    m_statusLabel->setText(tr("Saved CSP config to: %1").arg(m_cspManager->getCspPath()));
 }
 
 void CspConfigEditorModule::onReset()
@@ -429,12 +429,12 @@ void CspConfigEditorModule::onReset()
     m_teParticles->setChecked(true);
     m_teGrassDistance->setValue(100.0);
 
-    m_statusLabel->setText("Reset to defaults");
+    m_statusLabel->setText(tr("Reset to defaults"));
 }
 
 void CspConfigEditorModule::onBrowseAcPath()
 {
-    QString dir = QFileDialog::getExistingDirectory(this, "Select Assetto Corsa Installation");
+    QString dir = QFileDialog::getExistingDirectory(this, tr("Select Assetto Corsa Installation"));
     if (!dir.isEmpty()) {
         m_acPathEdit->setText(dir);
     }
@@ -445,15 +445,15 @@ void CspConfigEditorModule::onRefreshStatus()
     if (!m_cspManager) {
         QString acPath = m_acPathEdit ? m_acPathEdit->text() : QString();
         if (acPath.isEmpty()) {
-            m_cspStatusLabel->setText("CSP Status: No AC path set");
+            m_cspStatusLabel->setText(tr("CSP Status: No AC path set"));
             m_cspVersionLabel->setText("CSP Version: --");
             return;
         }
         m_cspManager = new CspConfigManager(acPath);
     }
     m_cspStatusLabel->setText(m_cspManager->isCspInstalled()
-        ? "CSP Status: Installed" : "CSP Status: Not found");
-    m_cspVersionLabel->setText("CSP Version: " + m_cspManager->getCspVersion());
+        ? tr("CSP Status: Installed") : tr("CSP Status: Not found"));
+    m_cspVersionLabel->setText(tr("CSP Version: %1").arg(m_cspManager->getCspVersion()));
 }
 
 void CspConfigEditorModule::onExtSelectionChanged()
@@ -474,7 +474,7 @@ void CspConfigEditorModule::loadFromManager()
 {
     if (!m_cspManager) return;
     if (!m_cspManager->isCspInstalled()) {
-        m_statusLabel->setText("CSP not installed at this path");
+        m_statusLabel->setText(tr("CSP not installed at this path"));
         return;
     }
 

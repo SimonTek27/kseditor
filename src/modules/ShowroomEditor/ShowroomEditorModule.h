@@ -62,6 +62,8 @@ public slots:
     void onSaveConfig();
     void onGeneratePreview();
     void onResetDefaults();
+    void onLoadCarModel();
+    void onCarPathChanged(const QString& path);
 
 private:
     void setupUi();
@@ -107,6 +109,10 @@ private:
     QTabWidget* m_previewTabs = nullptr;
     ShowroomPreviewWidget* m_previewWidget = nullptr;
     ShowroomViewport3D* m_viewport3D = nullptr;
+
+    // Car loading
+    QPushButton* m_loadCarBtn = nullptr;
+    QString m_carPath;
 
     // Data
     ShowroomSystem::ShowroomConfig m_config;

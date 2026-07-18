@@ -285,7 +285,9 @@ void TestSculptMode::testShrinkSelection()
     SelectionTools st;
     st.setMeshData(makeTestVertices(), makeTestFaces());
     st.setSelectMode(SelectionTools::SelectVertex);
-    st.selectAll();
+    // A single selected vertex has no selected neighbour, so shrinking must
+    // remove it (it lies entirely on the selection boundary).
+    st.selectVertex(0);
     int before = st.getSelectedVertices().size();
     st.shrinkSelection();
     QVERIFY(st.getSelectedVertices().size() < before);

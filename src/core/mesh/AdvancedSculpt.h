@@ -166,6 +166,7 @@ signals:
 private:
     QVector<Layer> m_layers;
     QVector<QVector<QVector<int>>> m_layerStrokes;
+    QVector<QVector<QVector<int>>> m_redoStrokes;
     int m_activeLayer = 0;
 
     QMap<int, int> m_vertexToLayer;

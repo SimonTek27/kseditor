@@ -5,9 +5,13 @@
 #include "core/tools/SymmetryManager.h"
 
 namespace ks {
-
 class SceneGraph;
+namespace graphics {
 class SceneObject;
+} }
+
+namespace ks {
+using graphics::SceneObject;
 
 class SymmetryQmlBridge : public QObject {
     Q_OBJECT

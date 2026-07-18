@@ -118,6 +118,9 @@ void TestAdvancedSculpt::testRefinerDetail()
 void TestAdvancedSculpt::testPresetAddRemove()
 {
     SculptBrushPreset presets;
+    const int initialCount = presets.getPresets().size();
+    QVERIFY(initialCount >= 5); // default presets are built in the constructor
+
     SculptBrushPreset::PresetData p;
     p.name = "TestPreset";
     p.mode = AdvancedSculptMode::SculptModeType::ClayStrips;
@@ -125,15 +128,22 @@ void TestAdvancedSculpt::testPresetAddRemove()
     p.strength = 0.75f;
 
     presets.addPreset(p);
-    QCOMPARE(presets.getPresets().size(), 1);
+    QCOMPARE(presets.getPresets().size(), initialCount + 1);
 
-    SculptBrushPreset::PresetData* retrieved = presets.getPreset(0);
+    int idx = -1;
+    QVector<SculptBrushPreset::PresetData> all = presets.getPresets();
+    for (int i = 0; i < all.size(); ++i) {
+        if (all[i].name == "TestPreset") { idx = i; break; }
+    }
+    QVERIFY(idx >= 0);
+
+    SculptBrushPreset::PresetData* retrieved = presets.getPreset(idx);
     QVERIFY(retrieved != nullptr);
     QCOMPARE(retrieved->name, QString("TestPreset"));
     QCOMPARE(retrieved->mode, AdvancedSculptMode::SculptModeType::ClayStrips);
 
-    presets.removePreset(0);
-    QCOMPARE(presets.getPresets().size(), 0);
+    presets.removePreset(idx);
+    QCOMPARE(presets.getPresets().size(), initialCount);
 }
 
 void TestAdvancedSculpt::testDefaultPresets()

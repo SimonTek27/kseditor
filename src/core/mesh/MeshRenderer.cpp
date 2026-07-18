@@ -7,6 +7,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QQuaternion>
 
 MeshRenderer::MeshRenderer(QObject *parent)
     : QObject(parent)
@@ -412,9 +413,9 @@ QMatrix4x4 MeshRenderer::getTransformMatrix() const
     QMatrix4x4 matrix;
     matrix.translate(m_position);
 
-    if (!qFuzzyIsNull(m_rotation.x())) matrix.rotate(m_rotation.x(), QVector3D(1, 0, 0));
-    if (!qFuzzyIsNull(m_rotation.y())) matrix.rotate(m_rotation.y(), QVector3D(0, 1, 0));
-    if (!qFuzzyIsNull(m_rotation.z())) matrix.rotate(m_rotation.z(), QVector3D(0, 0, 1));
+    if (!qFuzzyIsNull(m_rotation.x())) matrix.rotate(QQuaternion::fromAxisAndAngle(1.0f, 0.0f, 0.0f, m_rotation.x()));
+    if (!qFuzzyIsNull(m_rotation.y())) matrix.rotate(QQuaternion::fromAxisAndAngle(0.0f, 1.0f, 0.0f, m_rotation.y()));
+    if (!qFuzzyIsNull(m_rotation.z())) matrix.rotate(QQuaternion::fromAxisAndAngle(0.0f, 0.0f, 1.0f, m_rotation.z()));
 
     matrix.scale(m_scale);
     return matrix;

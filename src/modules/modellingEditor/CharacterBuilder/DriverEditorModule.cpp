@@ -6,17 +6,20 @@
 #include <QGroupBox>
 #include <QFileDialog>
 #include <QTextStream>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonDocument>
 
 namespace ks {
 
 DriverEditorModule::DriverEditorModule(QWidget* parent) : EditorModule(parent) {}
 bool DriverEditorModule::initialize() { LOG_INFO("DriverEditorModule", "Initialized"); return true; }
-void DriverEditorModule::shutdown() { if (m_statusLabel) m_statusLabel->setText("Shut down"); }
+void DriverEditorModule::shutdown() { if (m_statusLabel) m_statusLabel->setText(tr("Shut down")); }
 
 QDockWidget* DriverEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
 {
     if (m_dockWidget) return m_dockWidget;
-    m_dockWidget = new QDockWidget("Driver Editor", mainWindow);
+    m_dockWidget = new QDockWidget(tr("Driver Editor"), mainWindow);
     m_dockWidget->setObjectName("DriverEditorDock");
 
     auto* centralWidget = new QWidget();
@@ -27,7 +30,7 @@ QDockWidget* DriverEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
     auto* listLayout = new QVBoxLayout(listWidget);
     m_driverList = new QListWidget();
     listLayout->addWidget(m_driverList);
-    m_refreshBtn = new QPushButton("Refresh");
+    m_refreshBtn = new QPushButton(tr("Refresh"));
     listLayout->addWidget(m_refreshBtn);
     mainLayout->addWidget(listWidget);
 
@@ -36,36 +39,36 @@ QDockWidget* DriverEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
     auto* propsLayout = new QGridLayout(propsWidget);
 
     m_suitPathEdit = new QLineEdit();
-    propsLayout->addWidget(new QLabel("Suit:"), 0, 0); propsLayout->addWidget(m_suitPathEdit, 0, 1);
+    propsLayout->addWidget(new QLabel(tr("Suit:")), 0, 0); propsLayout->addWidget(m_suitPathEdit, 0, 1);
 
     m_glovesPathEdit = new QLineEdit();
-    propsLayout->addWidget(new QLabel("Gloves:"), 1, 0); propsLayout->addWidget(m_glovesPathEdit, 1, 1);
+    propsLayout->addWidget(new QLabel(tr("Gloves:")), 1, 0); propsLayout->addWidget(m_glovesPathEdit, 1, 1);
 
     m_helmetPathEdit = new QLineEdit();
-    propsLayout->addWidget(new QLabel("Helmet:"), 2, 0); propsLayout->addWidget(m_helmetPathEdit, 2, 1);
+    propsLayout->addWidget(new QLabel(tr("Helmet:")), 2, 0); propsLayout->addWidget(m_helmetPathEdit, 2, 1);
 
     m_helmetBaseEdit = new QLineEdit();
-    propsLayout->addWidget(new QLabel("Helmet Base:"), 3, 0); propsLayout->addWidget(m_helmetBaseEdit, 3, 1);
+    propsLayout->addWidget(new QLabel(tr("Helmet Base:")), 3, 0); propsLayout->addWidget(m_helmetBaseEdit, 3, 1);
 
     m_helmetVariantSpin = new QSpinBox();
     m_helmetVariantSpin->setRange(0, 50);
-    propsLayout->addWidget(new QLabel("Variant:"), 4, 0); propsLayout->addWidget(m_helmetVariantSpin, 4, 1);
+    propsLayout->addWidget(new QLabel(tr("Variant:")), 4, 0); propsLayout->addWidget(m_helmetVariantSpin, 4, 1);
 
     m_brandEdit = new QLineEdit();
-    propsLayout->addWidget(new QLabel("Brand:"), 5, 0); propsLayout->addWidget(m_brandEdit, 5, 1);
+    propsLayout->addWidget(new QLabel(tr("Brand:")), 5, 0); propsLayout->addWidget(m_brandEdit, 5, 1);
 
     mainLayout->addWidget(propsWidget);
 
     auto* actionLayout = new QHBoxLayout();
-    m_loadBtn = new QPushButton("Load skins.ini");
-    m_saveBtn = new QPushButton("Save skins.ini");
+    m_loadBtn = new QPushButton(tr("Load skins.ini"));
+    m_saveBtn = new QPushButton(tr("Save skins.ini"));
     actionLayout->addWidget(m_loadBtn); actionLayout->addWidget(m_saveBtn);
     mainLayout->addLayout(actionLayout);
 
     // ... vertical main
     auto* vMain = new QVBoxLayout();
     vMain->addLayout(mainLayout);
-    m_statusLabel = new QLabel("Ready");
+    m_statusLabel = new QLabel(tr("Ready"));
     vMain->addWidget(m_statusLabel);
 
     auto* wrapper = new QWidget();
@@ -91,12 +94,12 @@ void DriverEditorModule::importFile(const QString& f) { m_skinsDir = f; loadSkin
 void DriverEditorModule::exportFile(const QString& f) { m_skinsDir = f; saveSkinsIniFromUI(); }
 void DriverEditorModule::onActivation()
 {
-    m_statusLabel->setText("Active");
+    m_statusLabel->setText(tr("Active"));
 }
 
 void DriverEditorModule::onDeactivation()
 {
-    m_statusLabel->setText("Inactive");
+    m_statusLabel->setText(tr("Inactive"));
 }
 
 void DriverEditorModule::onDriverSelected(int row) {
@@ -109,7 +112,7 @@ void DriverEditorModule::onDriverSelected(int row) {
         m_helmetBaseEdit->setText(skin.helmetBase);
         m_helmetVariantSpin->setValue(skin.helmetVariant);
         m_brandEdit->setText(skin.brand);
-        m_statusLabel->setText("Selected: " + skin.name);
+        m_statusLabel->setText(tr("Selected: %1").arg(skin.name));
     }
 }
 void DriverEditorModule::onLoadDriver() { loadSkinsIniToUI(); }
@@ -119,10 +122,10 @@ void DriverEditorModule::onHelmetPathChanged(const QString& t) { if (m_selectedI
 void DriverEditorModule::onHelmetBaseChanged(const QString& t) { if (m_selectedIndex >= 0) m_skins[m_selectedIndex].helmetBase = t; }
 void DriverEditorModule::onHelmetVariantChanged(int v) { if (m_selectedIndex >= 0) m_skins[m_selectedIndex].helmetVariant = v; }
 void DriverEditorModule::onBrandChanged(const QString& t) { if (m_selectedIndex >= 0) m_skins[m_selectedIndex].brand = t; }
-void DriverEditorModule::onLoadSkinsDir() { QString d = QFileDialog::getExistingDirectory(this, "Open skins directory"); if (!d.isEmpty()) { m_skinsDir = d; loadSkinsIniToUI(); } }
+void DriverEditorModule::onLoadSkinsDir() { QString d = QFileDialog::getExistingDirectory(this, tr("Open skins directory")); if (!d.isEmpty()) { m_skinsDir = d; loadSkinsIniToUI(); } }
 void DriverEditorModule::onSaveSkinsDir() { saveSkinsIniFromUI(); }
 void DriverEditorModule::onRefreshDrivers() { loadSkinsIniToUI(); }
-void DriverEditorModule::setupUi() { if (m_statusLabel) m_statusLabel->setText("UI Ready"); }
+void DriverEditorModule::setupUi() { if (m_statusLabel) m_statusLabel->setText(tr("UI Ready")); }
 
 void DriverEditorModule::loadSkinsIniToUI()
 {
@@ -155,7 +158,7 @@ void DriverEditorModule::loadSkinsIniToUI()
         }
     }
 
-    m_statusLabel->setText(QString("Loaded %1 driver skins from %2").arg(m_skins.size()).arg(m_skinsDir));
+    m_statusLabel->setText(tr("Loaded %1 driver skins from %2").arg(m_skins.size()).arg(m_skinsDir));
 
     m_driverList->clear();
     for (const auto& skin : m_skins)
@@ -182,7 +185,7 @@ void DriverEditorModule::saveSkinsIniFromUI()
     o << "BRAND=" << skin.brand << "\n";
     file.close();
 
-    m_statusLabel->setText("Saved: " + skinIniPath);
+    m_statusLabel->setText(tr("Saved: %1").arg(skinIniPath));
 }
 
 QJsonObject DriverEditorModule::serializeProject() const

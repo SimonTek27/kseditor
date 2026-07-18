@@ -1,14 +1,169 @@
-#include "PythonScriptHost.h"
-#include "core/Graphics/SceneGraph.h"
-#include "core/Graphics/SceneObject.h"
-#include <QDebug>
-#include <QFile>
-
 #if HAS_PYTHON
 #include <Python.h>
 #endif
 
+#include "PythonScriptHost.h"
+#include "core/Graphics/SceneGraph.h"
+#include "core/Graphics/SceneObject.h"
+#include "core/Graphics/SceneMesh.h"
+#include <QDebug>
+#include <QFile>
+#include <QVector3D>
+
 namespace ks {
+
+#if HAS_PYTHON
+static PythonScriptHost* s_pyHostInstance = nullptr;
+
+static PyObject* pySceneObjectCount(PyObject* /*self*/, PyObject* /*args*/) {
+    if (!s_pyHostInstance || !s_pyHostInstance->sceneGraph())
+        return PyLong_FromLong(0);
+    return PyLong_FromLong(s_pyHostInstance->sceneGraph()->objectCount());
+}
+
+static PyObject* pySceneFindByName(PyObject* /*self*/, PyObject* args) {
+    const char* name = nullptr;
+    if (!PyArg_ParseTuple(args, "s", &name))
+        return PyLong_FromLong(-1);
+    if (!s_pyHostInstance || !s_pyHostInstance->sceneGraph() || !name)
+        return PyLong_FromLong(-1);
+    SceneObject* obj = s_pyHostInstance->sceneGraph()->findObjectByName(QString::fromUtf8(name));
+    return PyLong_FromLong(obj ? obj->id() : -1);
+}
+
+static PyObject* pySceneFindByType(PyObject* /*self*/, PyObject* args) {
+    int typeInt = 0;
+    if (!PyArg_ParseTuple(args, "i", &typeInt))
+        Py_RETURN_NONE;
+    if (!s_pyHostInstance || !s_pyHostInstance->sceneGraph())
+        Py_RETURN_NONE;
+    auto type = static_cast<SceneObject::Type>(typeInt);
+    auto objects = s_pyHostInstance->sceneGraph()->findObjectsByType(type);
+    PyObject* list = PyList_New(objects.size());
+    for (int i = 0; i < objects.size(); ++i) {
+        PyList_SetItem(list, i, PyLong_FromLong(objects[i]->id()));
+    }
+    return list;
+}
+
+static PyObject* pySceneCreateObject(PyObject* /*self*/, PyObject* args) {
+    const char* name = nullptr;
+    int typeInt = 0;
+    if (!PyArg_ParseTuple(args, "si", &name, &typeInt))
+        return PyLong_FromLong(-1);
+    if (!s_pyHostInstance || !s_pyHostInstance->sceneGraph() || !name)
+        return PyLong_FromLong(-1);
+    auto type = static_cast<SceneObject::Type>(typeInt);
+    SceneObject* obj = s_pyHostInstance->sceneGraph()->createObject(QString::fromUtf8(name), type);
+    return PyLong_FromLong(obj->id());
+}
+
+static PyObject* pySceneDeleteObject(PyObject* /*self*/, PyObject* args) {
+    int id = 0;
+    if (!PyArg_ParseTuple(args, "i", &id))
+        Py_RETURN_FALSE;
+    if (!s_pyHostInstance || !s_pyHostInstance->sceneGraph())
+        Py_RETURN_FALSE;
+    SceneObject* obj = s_pyHostInstance->sceneGraph()->findObjectById(id);
+    if (obj && obj != s_pyHostInstance->sceneGraph()->root()) {
+        s_pyHostInstance->sceneGraph()->deleteObject(obj);
+        Py_RETURN_TRUE;
+    }
+    Py_RETURN_FALSE;
+}
+
+static PyObject* pySceneSetTranslation(PyObject* /*self*/, PyObject* args) {
+    int id = 0;
+    double x = 0, y = 0, z = 0;
+    if (!PyArg_ParseTuple(args, "iddd", &id, &x, &y, &z))
+        Py_RETURN_FALSE;
+    if (!s_pyHostInstance || !s_pyHostInstance->sceneGraph())
+        Py_RETURN_FALSE;
+    SceneObject* obj = s_pyHostInstance->sceneGraph()->findObjectById(id);
+    if (obj) {
+        obj->setTranslation(QVector3D(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)));
+        Py_RETURN_TRUE;
+    }
+    Py_RETURN_FALSE;
+}
+
+static PyObject* pySceneGetTranslation(PyObject* /*self*/, PyObject* args) {
+    int id = 0;
+    if (!PyArg_ParseTuple(args, "i", &id))
+        Py_RETURN_NONE;
+    if (!s_pyHostInstance || !s_pyHostInstance->sceneGraph())
+        Py_RETURN_NONE;
+    SceneObject* obj = s_pyHostInstance->sceneGraph()->findObjectById(id);
+    if (obj) {
+        auto t = obj->translation();
+        PyObject* list = PyList_New(3);
+        PyList_SetItem(list, 0, PyFloat_FromDouble(t.x()));
+        PyList_SetItem(list, 1, PyFloat_FromDouble(t.y()));
+        PyList_SetItem(list, 2, PyFloat_FromDouble(t.z()));
+        return list;
+    }
+    Py_RETURN_NONE;
+}
+
+static PyObject* pySceneSetMaterial(PyObject* /*self*/, PyObject* args) {
+    int id = 0;
+    const char* matName = nullptr;
+    if (!PyArg_ParseTuple(args, "is", &id, &matName))
+        Py_RETURN_FALSE;
+    if (!s_pyHostInstance || !s_pyHostInstance->sceneGraph() || !matName)
+        Py_RETURN_FALSE;
+    SceneObject* obj = s_pyHostInstance->sceneGraph()->findObjectById(id);
+    if (obj && obj->mesh() && !obj->mesh()->geometry().subMeshes.isEmpty()) {
+        obj->mesh()->geometry().subMeshes[0].materialName = QString::fromUtf8(matName);
+        Py_RETURN_TRUE;
+    }
+    Py_RETURN_FALSE;
+}
+
+static PyObject* pySceneUpdateTransforms(PyObject* /*self*/, PyObject* /*args*/) {
+    if (!s_pyHostInstance || !s_pyHostInstance->sceneGraph())
+        Py_RETURN_FALSE;
+    s_pyHostInstance->sceneGraph()->updateAllTransforms();
+    Py_RETURN_TRUE;
+}
+
+static PyObject* pySceneSave(PyObject* /*self*/, PyObject* args) {
+    const char* path = nullptr;
+    if (!PyArg_ParseTuple(args, "s", &path))
+        Py_RETURN_FALSE;
+    if (!s_pyHostInstance || !s_pyHostInstance->sceneGraph() || !path)
+        Py_RETURN_FALSE;
+    if (s_pyHostInstance->sceneGraph()->saveToFile(QString::fromUtf8(path)))
+        Py_RETURN_TRUE;
+    Py_RETURN_FALSE;
+}
+
+static PyObject* pySceneLoad(PyObject* /*self*/, PyObject* args) {
+    const char* path = nullptr;
+    if (!PyArg_ParseTuple(args, "s", &path))
+        Py_RETURN_FALSE;
+    if (!s_pyHostInstance || !s_pyHostInstance->sceneGraph() || !path)
+        Py_RETURN_FALSE;
+    if (s_pyHostInstance->sceneGraph()->loadFromFile(QString::fromUtf8(path)))
+        Py_RETURN_TRUE;
+    Py_RETURN_FALSE;
+}
+
+static PyMethodDef kSceneMethods[] = {
+    {"scene_object_count",     pySceneObjectCount,     METH_VARARGS, "Return number of objects in scene"},
+    {"scene_find_by_name",     pySceneFindByName,       METH_VARARGS, "Find object by name, return id"},
+    {"scene_find_by_type",     pySceneFindByType,       METH_VARARGS, "Find objects by type, return list of ids"},
+    {"scene_create_object",    pySceneCreateObject,     METH_VARARGS, "Create object with name and type, return id"},
+    {"scene_delete_object",    pySceneDeleteObject,     METH_VARARGS, "Delete object by id"},
+    {"scene_set_translation",  pySceneSetTranslation,   METH_VARARGS, "Set object translation (id, x, y, z)"},
+    {"scene_get_translation",  pySceneGetTranslation,   METH_VARARGS, "Get object translation as [x, y, z]"},
+    {"scene_set_material",     pySceneSetMaterial,      METH_VARARGS, "Set object material by name"},
+    {"scene_update_transforms",pySceneUpdateTransforms, METH_VARARGS, "Update all transforms"},
+    {"scene_save",             pySceneSave,             METH_VARARGS, "Save scene to file"},
+    {"scene_load",             pySceneLoad,             METH_VARARGS, "Load scene from file"},
+    {nullptr, nullptr, 0, nullptr}
+};
+#endif
 
 PythonScriptHost::PythonScriptHost(QObject* parent)
     : ScriptHost(Language::Python, parent)
@@ -149,20 +304,20 @@ void PythonScriptHost::setVariable(const QString& name, const QVariant& value) {
     PyObject* dict = PyModule_GetDict(m_pyMain);
     PyObject* pyValue = nullptr;
 
-    switch (value.type()) {
-        case QVariant::Bool:
+    switch (value.typeId()) {
+        case QMetaType::Bool:
             pyValue = value.toBool() ? Py_True : Py_False;
             Py_INCREF(pyValue);
             break;
-        case QVariant::Int:
-        case QVariant::LongLong:
+        case QMetaType::Int:
+        case QMetaType::LongLong:
             pyValue = PyLong_FromLong(value.toInt());
             break;
-        case QVariant::Double:
-        case QVariant::Float:
+        case QMetaType::Double:
+        case QMetaType::Float:
             pyValue = PyFloat_FromDouble(value.toDouble());
             break;
-        case QVariant::String:
+        case QMetaType::QString:
             pyValue = PyUnicode_FromString(value.toString().toUtf8().constData());
             break;
         default:
@@ -178,9 +333,18 @@ void PythonScriptHost::setVariable(const QString& name, const QVariant& value) {
 
 void PythonScriptHost::registerBuiltinFunctions() {
 #if HAS_PYTHON
-    // Python builtins are registered via the __builtins__ module
-    // Custom scene functions would be registered here as Python callables
-    // For now, the Python host provides basic execution capability
+    s_pyHostInstance = this;
+
+    PyObject* builtins = PyEval_GetBuiltins();
+    if (!builtins) return;
+
+    for (int i = 0; kSceneMethods[i].ml_name != nullptr; ++i) {
+        PyObject* func = PyCFunction_New(&kSceneMethods[i], nullptr);
+        if (func) {
+            PyDict_SetItemString(builtins, kSceneMethods[i].ml_name, func);
+            Py_DECREF(func);
+        }
+    }
 #endif
 }
 
@@ -189,20 +353,20 @@ bool PythonScriptHost::pushQVariant(PyObject* module, const QString& name, const
     PyObject* dict = PyModule_GetDict(module);
     PyObject* pyValue = nullptr;
 
-    switch (value.type()) {
-        case QVariant::Bool:
+    switch (value.typeId()) {
+        case QMetaType::Bool:
             pyValue = value.toBool() ? Py_True : Py_False;
             Py_INCREF(pyValue);
             break;
-        case QVariant::Int:
-        case QVariant::LongLong:
+        case QMetaType::Int:
+        case QMetaType::LongLong:
             pyValue = PyLong_FromLong(value.toInt());
             break;
-        case QVariant::Double:
-        case QVariant::Float:
+        case QMetaType::Double:
+        case QMetaType::Float:
             pyValue = PyFloat_FromDouble(value.toDouble());
             break;
-        case QVariant::String:
+        case QMetaType::QString:
             pyValue = PyUnicode_FromString(value.toString().toUtf8().constData());
             break;
         default:

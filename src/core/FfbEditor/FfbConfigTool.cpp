@@ -1,480 +1,432 @@
 #include "FfbConfigTool.h"
-#include "../../core/FileFormat/INIParser.h"
-#include "../sys/LogManager.h"
-#include <cmath>
 #include <QFile>
-#include <QDir>
-#include <QStandardPaths>
+#include <QTextStream>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QStandardPaths>
+#include <QDebug>
+#include <QFileInfo>
+#include <QDir>
 
-// Explicit include to ensure WheelPreset is visible
-#include "FfbConfigTool.h"
+namespace ks {
 
-FfbConfigTool::FfbSettings FfbConfigTool::loadSettings(const QString& settingsPath)
-{
+// ============================================================================
+// FfbConfigTool Implementation
+// ============================================================================
+
+FfbConfigTool::FfbSettings FfbConfigTool::loadSettings(const QString& settingsPath) {
     FfbSettings settings;
-
-    INIParser ini;
-    if (!ini.load(settingsPath)) {
-        LOG_WARNING("FfbConfigTool", QString("Failed to load FFB settings from: %1").arg(settingsPath));
-        return settings;
+    QFile file(settingsPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return settings; // Return defaults
     }
-
-    settings.gain = static_cast<float>(ini.real("FFB", "GAIN", 100.0));
-    settings.filter = static_cast<float>(ini.real("FFB", "FILTER", 0.0));
-    settings.minimumForce = static_cast<float>(ini.real("FFB", "MINIMUM_FORCE", 0.0));
-    settings.kerbEffect = static_cast<float>(ini.real("FFB", "KERB_EFFECT", 0.0));
-    settings.roadEffect = static_cast<float>(ini.real("FFB", "ROAD_EFFECT", 0.0));
-    settings.slipEffect = static_cast<float>(ini.real("FFB", "SLIP_EFFECT", 0.0));
-    settings.absEffect = static_cast<float>(ini.real("FFB", "ABS_EFFECT", 0.0));
-    settings.enhUndersteer = static_cast<float>(ini.real("FFB", "ENHANCE_UNDERSTEER", 0.0));
-    settings.centreBoostGain = static_cast<float>(ini.real("FFB", "CENTRE_BOOST_GAIN", 0.0));
-    settings.centreBoostRange = static_cast<float>(ini.real("FFB", "CENTRE_BOOST_RANGE", 0.0));
-    settings.enableGyro = ini.boolean("FFB", "ENABLE_GYRO", false);
-    settings.gyroStrength = static_cast<float>(ini.real("FFB", "GYRO_STRENGTH", 0.0));
-
-    LOG_INFO("FfbConfigTool", QString("Loaded FFB settings from: %1").arg(settingsPath));
+    
+    QTextStream in(&file);
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+        if (line.isEmpty() || line.startsWith(';') || line.startsWith('#') || line.startsWith('['))
+            continue;
+        
+        int eq = line.indexOf('=');
+        if (eq > 0) {
+            QString key = line.left(eq).trimmed().toUpper();
+            QString value = line.mid(eq + 1).trimmed();
+            
+            float val = value.toFloat();
+            if (key == "GAIN") settings.gain = val;
+            else if (key == "FILTER") settings.filter = val;
+            else if (key == "MINIMUMFORCE") settings.minimumForce = val;
+            else if (key == "KERBEFFECT") settings.kerbEffect = val;
+            else if (key == "ROADEFFECT") settings.roadEffect = val;
+            else if (key == "SLIPEFFECT") settings.slipEffect = val;
+            else if (key == "ABSEFFECT") settings.absEffect = val;
+            else if (key == "ENHUNDERSTEER") settings.enhUndersteer = val;
+            else if (key == "CENTREBOOSTGAIN") settings.centreBoostGain = val;
+            else if (key == "CENTREBOOSTRANGE") settings.centreBoostRange = val;
+            else if (key == "ENABLEGYRO") settings.enableGyro = (value.toInt() != 0);
+            else if (key == "GYROSTRENGTH") settings.gyroStrength = val;
+        }
+    }
+    
     return settings;
 }
 
-bool FfbConfigTool::saveSettings(const FfbSettings& settings, const QString& settingsPath)
-{
-    INIParser ini;
-
-    if (QFile::exists(settingsPath)) {
-        ini.load(settingsPath);
-    }
-
-    ini.setValue("FFB", "GAIN", static_cast<double>(settings.gain));
-    ini.setValue("FFB", "FILTER", static_cast<double>(settings.filter));
-    ini.setValue("FFB", "MINIMUM_FORCE", static_cast<double>(settings.minimumForce));
-    ini.setValue("FFB", "KERB_EFFECT", static_cast<double>(settings.kerbEffect));
-    ini.setValue("FFB", "ROAD_EFFECT", static_cast<double>(settings.roadEffect));
-    ini.setValue("FFB", "SLIP_EFFECT", static_cast<double>(settings.slipEffect));
-    ini.setValue("FFB", "ABS_EFFECT", static_cast<double>(settings.absEffect));
-    ini.setValue("FFB", "ENHANCE_UNDERSTEER", static_cast<double>(settings.enhUndersteer));
-    ini.setValue("FFB", "CENTRE_BOOST_GAIN", static_cast<double>(settings.centreBoostGain));
-    ini.setValue("FFB", "CENTRE_BOOST_RANGE", static_cast<double>(settings.centreBoostRange));
-    ini.setValue("FFB", "ENABLE_GYRO", settings.enableGyro);
-    ini.setValue("FFB", "GYRO_STRENGTH", static_cast<double>(settings.gyroStrength));
-
-    if (!ini.save(settingsPath)) {
-        LOG_ERROR("FfbConfigTool", QString("Failed to save FFB settings to: %1").arg(settingsPath));
+bool FfbConfigTool::saveSettings(const FfbSettings& settings, const QString& settingsPath) {
+    QFile file(settingsPath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         return false;
     }
-
-    LOG_INFO("FfbConfigTool", QString("Saved FFB settings to: %1").arg(settingsPath));
+    
+    QTextStream out(&file);
+    out << "; FFB Settings generated by ksEditor\n";
+    out << "[FORCE_FEEDBACK]\n";
+    out << "GAIN=" << settings.gain << "\n";
+    out << "FILTER=" << settings.filter << "\n";
+    out << "MINIMUMFORCE=" << settings.minimumForce << "\n";
+    out << "KERBEFFECT=" << settings.kerbEffect << "\n";
+    out << "ROADEFFECT=" << settings.roadEffect << "\n";
+    out << "SLIPEFFECT=" << settings.slipEffect << "\n";
+    out << "ABSEFFECT=" << settings.absEffect << "\n";
+    out << "ENHUNDERSTEER=" << settings.enhUndersteer << "\n";
+    out << "CENTREBOOSTGAIN=" << settings.centreBoostGain << "\n";
+    out << "CENTREBOOSTRANGE=" << settings.centreBoostRange << "\n";
+    out << "ENABLEGYRO=" << (settings.enableGyro ? "1" : "0") << "\n";
+    out << "GYROSTRENGTH=" << settings.gyroStrength << "\n";
+    out << "\n";
+    
     return true;
 }
 
-QVector<FfbConfigTool::WheelPreset> FfbConfigTool::getPresets()
-{
-    QVector<WheelPreset> presets;
-    presets.append(getLogitechG27Preset());
-    presets.append(getLogitechG29Preset());
-    presets.append(getThrustmasterT300Preset());
-    presets.append(getThrustmasterT818Preset());
-    presets.append(getFanatecCSLPreset());
-    presets.append(getFanatecCSW25Preset());
-    presets.append(getSimucubePreset());
-    return presets;
+QVector<FfbConfigTool::WheelPreset> FfbConfigTool::getPresets() {
+    return {
+        getLogitechG27Preset(),
+        getLogitechG29Preset(),
+        getThrustmasterT300Preset(),
+        getThrustmasterT818Preset(),
+        getFanatecCSLPreset(),
+        getFanatecCSW25Preset(),
+        getSimucubePreset()
+    };
 }
 
-FfbConfigTool::WheelPreset FfbConfigTool::getPreset(const QString& presetName)
-{
-    auto presets = getPresets();
-    for (const auto& preset : presets) {
-        if (preset.name == presetName) {
-            return preset;
-        }
+FfbConfigTool::WheelPreset FfbConfigTool::getPreset(const QString& presetName) {
+    for (const auto& preset : getPresets()) {
+        if (preset.name == presetName) return preset;
     }
     return WheelPreset();
 }
 
-bool FfbConfigTool::applyPreset(FfbSettings& settings, const WheelPreset& preset)
-{
+bool FfbConfigTool::applyPreset(FfbSettings& settings, const WheelPreset& preset) {
     settings = preset.settings;
-    LOG_INFO("FfbConfigTool", QString("Applied preset: %1").arg(preset.name));
     return true;
 }
 
-bool FfbConfigTool::savePreset(const WheelPreset& preset)
-{
-    QString presetsDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/ffb_presets";
-    QDir().mkpath(presetsDir);
-
-    QString filePath = presetsDir + "/" + preset.name + ".json";
-
-    QJsonObject json;
-    json["name"] = preset.name;
-    json["wheelModel"] = preset.wheelModel;
-    json["manufacturer"] = preset.manufacturer;
-    json["description"] = preset.description;
-    json["isBuiltIn"] = preset.isBuiltIn;
-
-    QJsonObject settingsJson;
-    settingsJson["gain"] = static_cast<double>(preset.settings.gain);
-    settingsJson["filter"] = static_cast<double>(preset.settings.filter);
-    settingsJson["minimumForce"] = static_cast<double>(preset.settings.minimumForce);
-    settingsJson["kerbEffect"] = static_cast<double>(preset.settings.kerbEffect);
-    settingsJson["roadEffect"] = static_cast<double>(preset.settings.roadEffect);
-    settingsJson["slipEffect"] = static_cast<double>(preset.settings.slipEffect);
-    settingsJson["absEffect"] = static_cast<double>(preset.settings.absEffect);
-    settingsJson["enhUndersteer"] = static_cast<double>(preset.settings.enhUndersteer);
-    settingsJson["centreBoostGain"] = static_cast<double>(preset.settings.centreBoostGain);
-    settingsJson["centreBoostRange"] = static_cast<double>(preset.settings.centreBoostRange);
-    settingsJson["enableGyro"] = preset.settings.enableGyro;
-    settingsJson["gyroStrength"] = static_cast<double>(preset.settings.gyroStrength);
-    json["settings"] = settingsJson;
-
-    QFile file(filePath);
-    if (!file.open(QIODevice::WriteOnly)) {
-        LOG_ERROR("FfbConfigTool", QString("Failed to save preset to: %1").arg(filePath));
-        return false;
-    }
-
-    file.write(QJsonDocument(json).toJson());
-    LOG_INFO("FfbConfigTool", QString("Saved preset: %1 to %2").arg(preset.name, filePath));
+bool FfbConfigTool::savePreset(const WheelPreset& preset) {
+    QString presetPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/ffb_presets/" + preset.name + ".json";
+    QDir().mkpath(QFileInfo(presetPath).absolutePath());
+    
+    QFile file(presetPath);
+    if (!file.open(QIODevice::WriteOnly)) return false;
+    
+    QJsonObject obj;
+    obj["name"] = preset.name;
+    obj["wheelModel"] = preset.wheelModel;
+    obj["manufacturer"] = preset.manufacturer;
+    obj["description"] = preset.description;
+    obj["isBuiltIn"] = preset.isBuiltIn;
+    
+    QJsonObject settings;
+    settings["gain"] = preset.settings.gain;
+    settings["filter"] = preset.settings.filter;
+    settings["minimumForce"] = preset.settings.minimumForce;
+    settings["kerbEffect"] = preset.settings.kerbEffect;
+    settings["roadEffect"] = preset.settings.roadEffect;
+    settings["slipEffect"] = preset.settings.slipEffect;
+    settings["absEffect"] = preset.settings.absEffect;
+    settings["enhUndersteer"] = preset.settings.enhUndersteer;
+    settings["centreBoostGain"] = preset.settings.centreBoostGain;
+    settings["centreBoostRange"] = preset.settings.centreBoostRange;
+    settings["enableGyro"] = preset.settings.enableGyro;
+    settings["gyroStrength"] = preset.settings.gyroStrength;
+    obj["settings"] = settings;
+    
+    QJsonDocument doc(obj);
+    file.write(doc.toJson(QJsonDocument::Indented));
     return true;
 }
 
-FfbConfigTool::WheelPreset FfbConfigTool::getLogitechG27Preset()
-{
-    WheelPreset preset;
-    preset.name = "Logitech G27";
-    preset.wheelModel = "G27";
-    preset.manufacturer = "Logitech";
-    preset.description = "Logitech G27 racing wheel preset - balanced settings for 900 degree rotation";
-    preset.isBuiltIn = true;
-    preset.settings.gain = 100.0f;
-    preset.settings.filter = 0.0f;
-    preset.settings.minimumForce = 0.0f;
-    preset.settings.kerbEffect = 40.0f;
-    preset.settings.roadEffect = 30.0f;
-    preset.settings.slipEffect = 50.0f;
-    preset.settings.absEffect = 30.0f;
-    preset.settings.enhUndersteer = 0.0f;
-    preset.settings.centreBoostGain = 0.0f;
-    preset.settings.centreBoostRange = 0.0f;
-    preset.settings.enableGyro = false;
-    preset.settings.gyroStrength = 0.0f;
-    return preset;
+FfbConfigTool::WheelPreset FfbConfigTool::getLogitechG27Preset() {
+    WheelPreset p;
+    p.name = "Logitech G27";
+    p.wheelModel = "G27";
+    p.manufacturer = "Logitech";
+    p.description = "Official Logitech G27 recommended settings";
+    p.isBuiltIn = true;
+    p.settings.gain = 100;
+    p.settings.filter = 0;
+    p.settings.minimumForce = 5;
+    p.settings.kerbEffect = 100;
+    p.settings.roadEffect = 80;
+    p.settings.slipEffect = 60;
+    p.settings.absEffect = 40;
+    p.settings.enhUndersteer = 20;
+    p.settings.centreBoostGain = 10;
+    p.settings.centreBoostRange = 50;
+    p.settings.enableGyro = false;
+    p.settings.gyroStrength = 0;
+    return p;
 }
 
-FfbConfigTool::WheelPreset FfbConfigTool::getLogitechG29Preset()
-{
-    WheelPreset preset;
-    preset.name = "Logitech G29";
-    preset.wheelModel = "G29";
-    preset.manufacturer = "Logitech";
-    preset.description = "Logitech G29/G920 racing wheel preset - optimized for dual-motor force feedback";
-    preset.isBuiltIn = true;
-    preset.settings.gain = 100.0f;
-    preset.settings.filter = 0.0f;
-    preset.settings.minimumForce = 5.0f;
-    preset.settings.kerbEffect = 50.0f;
-    preset.settings.roadEffect = 35.0f;
-    preset.settings.slipEffect = 55.0f;
-    preset.settings.absEffect = 35.0f;
-    preset.settings.enhUndersteer = 10.0f;
-    preset.settings.centreBoostGain = 0.0f;
-    preset.settings.centreBoostRange = 0.0f;
-    preset.settings.enableGyro = false;
-    preset.settings.gyroStrength = 0.0f;
-    return preset;
+FfbConfigTool::WheelPreset FfbConfigTool::getLogitechG29Preset() {
+    WheelPreset p;
+    p.name = "Logitech G29/G920";
+    p.wheelModel = "G29/G920";
+    p.manufacturer = "Logitech";
+    p.description = "Official Logitech G29/G920 recommended settings";
+    p.isBuiltIn = true;
+    p.settings.gain = 100;
+    p.settings.filter = 0;
+    p.settings.minimumForce = 5;
+    p.settings.kerbEffect = 100;
+    p.settings.roadEffect = 80;
+    p.settings.slipEffect = 60;
+    p.settings.absEffect = 40;
+    p.settings.enhUndersteer = 20;
+    p.settings.centreBoostGain = 10;
+    p.settings.centreBoostRange = 50;
+    p.settings.enableGyro = false;
+    p.settings.gyroStrength = 0;
+    return p;
 }
 
-FfbConfigTool::WheelPreset FfbConfigTool::getThrustmasterT300Preset()
-{
-    WheelPreset preset;
-    preset.name = "Thrustmaster T300";
-    preset.wheelModel = "T300RS";
-    preset.manufacturer = "Thrustmaster";
-    preset.description = "Thrustmaster T300RS preset - belt-driven wheel with strong FFB";
-    preset.isBuiltIn = true;
-    preset.settings.gain = 85.0f;
-    preset.settings.filter = 0.0f;
-    preset.settings.minimumForce = 10.0f;
-    preset.settings.kerbEffect = 60.0f;
-    preset.settings.roadEffect = 45.0f;
-    preset.settings.slipEffect = 65.0f;
-    preset.settings.absEffect = 40.0f;
-    preset.settings.enhUndersteer = 15.0f;
-    preset.settings.centreBoostGain = 10.0f;
-    preset.settings.centreBoostRange = 30.0f;
-    preset.settings.enableGyro = false;
-    preset.settings.gyroStrength = 0.0f;
-    return preset;
+FfbConfigTool::WheelPreset FfbConfigTool::getThrustmasterT300Preset() {
+    WheelPreset p;
+    p.name = "Thrustmaster T300 RS";
+    p.wheelModel = "T300 RS";
+    p.manufacturer = "Thrustmaster";
+    p.description = "Thrustmaster T300 RS recommended settings";
+    p.isBuiltIn = true;
+    p.settings.gain = 75;
+    p.settings.filter = 2;
+    p.settings.minimumForce = 10;
+    p.settings.kerbEffect = 80;
+    p.settings.roadEffect = 70;
+    p.settings.slipEffect = 50;
+    p.settings.absEffect = 30;
+    p.settings.enhUndersteer = 15;
+    p.settings.centreBoostGain = 5;
+    p.settings.centreBoostRange = 40;
+    p.settings.enableGyro = false;
+    p.settings.gyroStrength = 0;
+    return p;
 }
 
-FfbConfigTool::WheelPreset FfbConfigTool::getThrustmasterT818Preset()
-{
-    WheelPreset preset;
-    preset.name = "Thrustmaster T818";
-    preset.wheelModel = "T818";
-    preset.manufacturer = "Thrustmaster";
-    preset.description = "Thrustmaster T818 direct drive - high torque with smooth response";
-    preset.isBuiltIn = true;
-    preset.settings.gain = 75.0f;
-    preset.settings.filter = 5.0f;
-    preset.settings.minimumForce = 15.0f;
-    preset.settings.kerbEffect = 70.0f;
-    preset.settings.roadEffect = 55.0f;
-    preset.settings.slipEffect = 75.0f;
-    preset.settings.absEffect = 50.0f;
-    preset.settings.enhUndersteer = 20.0f;
-    preset.settings.centreBoostGain = 15.0f;
-    preset.settings.centreBoostRange = 25.0f;
-    preset.settings.enableGyro = false;
-    preset.settings.gyroStrength = 0.0f;
-    return preset;
+FfbConfigTool::WheelPreset FfbConfigTool::getThrustmasterT818Preset() {
+    WheelPreset p;
+    p.name = "Thrustmaster T818";
+    p.wheelModel = "T818";
+    p.manufacturer = "Thrustmaster";
+    p.description = "Thrustmaster T818 recommended settings";
+    p.isBuiltIn = true;
+    p.settings.gain = 70;
+    p.settings.filter = 2;
+    p.settings.minimumForce = 10;
+    p.settings.kerbEffect = 70;
+    p.settings.roadEffect = 60;
+    p.settings.slipEffect = 40;
+    p.settings.absEffect = 30;
+    p.settings.enhUndersteer = 10;
+    p.settings.centreBoostGain = 5;
+    p.settings.centreBoostRange = 35;
+    p.settings.enableGyro = false;
+    p.settings.gyroStrength = 0;
+    return p;
 }
 
-FfbConfigTool::WheelPreset FfbConfigTool::getFanatecCSLPreset()
-{
-    WheelPreset preset;
-    preset.name = "Fanatec CSL";
-    preset.wheelModel = "CSL";
-    preset.manufacturer = "Fanatec";
-    preset.description = "Fanatec CSL pedal set with wheel - entry-level belt drive";
-    preset.isBuiltIn = true;
-    preset.settings.gain = 90.0f;
-    preset.settings.filter = 0.0f;
-    preset.settings.minimumForce = 8.0f;
-    preset.settings.kerbEffect = 55.0f;
-    preset.settings.roadEffect = 40.0f;
-    preset.settings.slipEffect = 60.0f;
-    preset.settings.absEffect = 35.0f;
-    preset.settings.enhUndersteer = 12.0f;
-    preset.settings.centreBoostGain = 5.0f;
-    preset.settings.centreBoostRange = 20.0f;
-    preset.settings.enableGyro = false;
-    preset.settings.gyroStrength = 0.0f;
-    return preset;
+FfbConfigTool::WheelPreset FfbConfigTool::getFanatecCSLPreset() {
+    WheelPreset p;
+    p.name = "Fanatec CSL DD";
+    p.wheelModel = "CSL DD";
+    p.manufacturer = "Fanatec";
+    p.description = "Fanatec CSL DD recommended settings";
+    p.isBuiltIn = true;
+    p.settings.gain = 60;
+    p.settings.filter = 3;
+    p.settings.minimumForce = 5;
+    p.settings.kerbEffect = 60;
+    p.settings.roadEffect = 50;
+    p.settings.slipEffect = 40;
+    p.settings.absEffect = 20;
+    p.settings.enhUndersteer = 10;
+    p.settings.centreBoostGain = 5;
+    p.settings.centreBoostRange = 30;
+    p.settings.enableGyro = false;
+    p.settings.gyroStrength = 0;
+    return p;
 }
 
-FfbConfigTool::WheelPreset FfbConfigTool::getFanatecCSW25Preset()
-{
-    WheelPreset preset;
-    preset.name = "Fanatec CSW 2.5";
-    preset.wheelModel = "CSW25";
-    preset.manufacturer = "Fanatec";
-    preset.description = "Fanatec ClubSport Wheel 2.5 - strong belt-driven FFB";
-    preset.isBuiltIn = true;
-    preset.settings.gain = 80.0f;
-    preset.settings.filter = 0.0f;
-    preset.settings.minimumForce = 12.0f;
-    preset.settings.kerbEffect = 65.0f;
-    preset.settings.roadEffect = 50.0f;
-    preset.settings.slipEffect = 70.0f;
-    preset.settings.absEffect = 45.0f;
-    preset.settings.enhUndersteer = 18.0f;
-    preset.settings.centreBoostGain = 10.0f;
-    preset.settings.centreBoostRange = 25.0f;
-    preset.settings.enableGyro = false;
-    preset.settings.gyroStrength = 0.0f;
-    return preset;
+FfbConfigTool::WheelPreset FfbConfigTool::getFanatecCSW25Preset() {
+    WheelPreset p;
+    p.name = "Fanatec CSW 2.5";
+    p.wheelModel = "CSW 2.5";
+    p.manufacturer = "Fanatec";
+    p.description = "Fanatec CSW 2.5 recommended settings";
+    p.isBuiltIn = true;
+    p.settings.gain = 70;
+    p.settings.filter = 2;
+    p.settings.minimumForce = 5;
+    p.settings.kerbEffect = 70;
+    p.settings.roadEffect = 60;
+    p.settings.slipEffect = 50;
+    p.settings.absEffect = 25;
+    p.settings.enhUndersteer = 15;
+    p.settings.centreBoostGain = 5;
+    p.settings.centreBoostRange = 35;
+    p.settings.enableGyro = false;
+    p.settings.gyroStrength = 0;
+    return p;
 }
 
-FfbConfigTool::WheelPreset FfbConfigTool::getSimucubePreset()
-{
-    WheelPreset preset;
-    preset.name = "Simucube";
-    preset.wheelModel = "Simucube";
-    preset.manufacturer = "Simucube";
-    preset.description = "Simucube direct drive base - high fidelity FFB with minimal filtering";
-    preset.isBuiltIn = true;
-    preset.settings.gain = 70.0f;
-    preset.settings.filter = 0.0f;
-    preset.settings.minimumForce = 20.0f;
-    preset.settings.kerbEffect = 80.0f;
-    preset.settings.roadEffect = 65.0f;
-    preset.settings.slipEffect = 85.0f;
-    preset.settings.absEffect = 55.0f;
-    preset.settings.enhUndersteer = 25.0f;
-    preset.settings.centreBoostGain = 20.0f;
-    preset.settings.centreBoostRange = 20.0f;
-    preset.settings.enableGyro = false;
-    preset.settings.gyroStrength = 0.0f;
-    return preset;
+FfbConfigTool::WheelPreset FfbConfigTool::getSimucubePreset() {
+    WheelPreset p;
+    p.name = "Simucube 2 Pro";
+    p.wheelModel = "Simucube 2 Pro";
+    p.manufacturer = "Simucube";
+    p.description = "Simucube 2 Pro recommended settings";
+    p.isBuiltIn = true;
+    p.settings.gain = 50;
+    p.settings.filter = 5;
+    p.settings.minimumForce = 3;
+    p.settings.kerbEffect = 40;
+    p.settings.roadEffect = 40;
+    p.settings.slipEffect = 30;
+    p.settings.absEffect = 15;
+    p.settings.enhUndersteer = 5;
+    p.settings.centreBoostGain = 3;
+    p.settings.centreBoostRange = 25;
+    p.settings.enableGyro = false;
+    p.settings.gyroStrength = 0;
+    return p;
 }
 
-float FfbConfigTool::calculateOptimalGain(const FfbSettings& settings)
-{
-    float optimalGain = 100.0f;
-
-    float filterPenalty = settings.filter * 0.3f;
-    float minimumForceBonus = settings.minimumForce * 0.2f;
-    optimalGain -= filterPenalty;
-    optimalGain += minimumForceBonus;
-
-    if (settings.kerbEffect > 50.0f) {
-        optimalGain -= (settings.kerbEffect - 50.0f) * 0.2f;
-    }
-
-    optimalGain = qBound(0.0f, optimalGain, 100.0f);
-    return optimalGain;
+float FfbConfigTool::calculateOptimalGain(const FfbSettings& settings) {
+    // Simplified calculation based on wheel type and settings
+    float baseGain = settings.gain;
+    float filterFactor = 1.0f - (settings.filter / 100.0f) * 0.5f;
+    return baseGain * filterFactor;
 }
 
-float FfbConfigTool::calculateOptimalFilter(const FfbSettings& settings)
-{
-    float optimalFilter = 0.0f;
-
-    if (settings.gain > 90.0f) {
-        optimalFilter = (settings.gain - 90.0f) * 0.5f;
-    }
-
-    optimalFilter = qBound(0.0f, optimalFilter, 50.0f);
-    return optimalFilter;
+float FfbConfigTool::calculateOptimalFilter(const FfbSettings& settings) {
+    // Filter recommendation based on gain and wheel type
+    if (settings.gain > 80) return 5.0f;
+    if (settings.gain > 60) return 3.0f;
+    return 1.0f;
 }
 
-void FfbConfigTool::optimizeForWheel(FfbSettings& settings, const QString& wheelModel)
-{
-    QString manufacturer = getWheelManufacturer(wheelModel);
-
-    if (manufacturer == "Logitech") {
-        settings.minimumForce = qMax(settings.minimumForce, 5.0f);
-        settings.centreBoostGain = 0.0f;
-        settings.centreBoostRange = 0.0f;
-    } else if (manufacturer == "Thrustmaster") {
-        settings.minimumForce = qMax(settings.minimumForce, 10.0f);
-        settings.centreBoostGain = qMax(settings.centreBoostGain, 5.0f);
-    } else if (manufacturer == "Fanatec") {
-        settings.minimumForce = qMax(settings.minimumForce, 8.0f);
-    } else if (manufacturer == "Simucube" || manufacturer == "Other DD") {
-        settings.minimumForce = qMax(settings.minimumForce, 15.0f);
-        settings.filter = qMin(settings.filter, 5.0f);
+void FfbConfigTool::optimizeForWheel(FfbSettings& settings, const QString& wheelModel) {
+    if (wheelModel.contains("G27", Qt::CaseInsensitive) || wheelModel.contains("G29", Qt::CaseInsensitive)) {
+        settings = getLogitechG29Preset().settings;
+    } else if (wheelModel.contains("T300", Qt::CaseInsensitive)) {
+        settings = getThrustmasterT300Preset().settings;
+    } else if (wheelModel.contains("T818", Qt::CaseInsensitive)) {
+        settings = getThrustmasterT818Preset().settings;
+    } else if (wheelModel.contains("CSL DD", Qt::CaseInsensitive) || wheelModel.contains("CSL", Qt::CaseInsensitive)) {
+        settings = getFanatecCSLPreset().settings;
+    } else if (wheelModel.contains("CSW", Qt::CaseInsensitive)) {
+        settings = getFanatecCSW25Preset().settings;
+    } else if (wheelModel.contains("Simucube", Qt::CaseInsensitive)) {
+        settings = getSimucubePreset().settings;
     }
-
-    settings.gain = calculateOptimalGain(settings);
-    settings.filter = calculateOptimalFilter(settings);
-
-    LOG_INFO("FfbConfigTool", QString("Optimized settings for wheel: %1 (%2)").arg(wheelModel, manufacturer));
 }
 
-bool FfbConfigTool::validateSettings(const FfbSettings& settings, QString* error)
-{
-    if (settings.gain < 0.0f || settings.gain > 100.0f) {
-        if (error) *error = "Gain must be between 0 and 100%";
+bool FfbConfigTool::validateSettings(const FfbSettings& settings, QString* error) {
+    if (settings.gain < 0 || settings.gain > 100) {
+        if (error) *error = "Gain must be 0-100";
         return false;
     }
-    if (settings.filter < 0.0f || settings.filter > 100.0f) {
-        if (error) *error = "Filter must be between 0 and 100%";
+    if (settings.filter < 0 || settings.filter > 100) {
+        if (error) *error = "Filter must be 0-100";
         return false;
     }
-    if (settings.minimumForce < 0.0f || settings.minimumForce > 100.0f) {
-        if (error) *error = "Minimum force must be between 0 and 100%";
+    if (settings.minimumForce < 0 || settings.minimumForce > 100) {
+        if (error) *error = "Minimum force must be 0-100";
         return false;
     }
-    if (settings.kerbEffect < 0.0f || settings.kerbEffect > 100.0f) {
-        if (error) *error = "Kerb effect must be between 0 and 100%";
+    if (settings.kerbEffect < 0 || settings.kerbEffect > 100) {
+        if (error) *error = "Kerb effect must be 0-100";
         return false;
     }
-    if (settings.roadEffect < 0.0f || settings.roadEffect > 100.0f) {
-        if (error) *error = "Road effect must be between 0 and 100%";
+    if (settings.roadEffect < 0 || settings.roadEffect > 100) {
+        if (error) *error = "Road effect must be 0-100";
         return false;
     }
-    if (settings.slipEffect < 0.0f || settings.slipEffect > 100.0f) {
-        if (error) *error = "Slip effect must be between 0 and 100%";
+    if (settings.slipEffect < 0 || settings.slipEffect > 100) {
+        if (error) *error = "Slip effect must be 0-100";
         return false;
     }
-    if (settings.absEffect < 0.0f || settings.absEffect > 100.0f) {
-        if (error) *error = "ABS effect must be between 0 and 100%";
+    if (settings.absEffect < 0 || settings.absEffect > 100) {
+        if (error) *error = "ABS effect must be 0-100";
         return false;
     }
-    if (settings.enhUndersteer < 0.0f || settings.enhUndersteer > 100.0f) {
-        if (error) *error = "Enhance understeer must be between 0 and 100%";
+    if (settings.enhUndersteer < 0 || settings.enhUndersteer > 100) {
+        if (error) *error = "Enhanced understeer must be 0-100";
         return false;
     }
-    if (settings.centreBoostGain < 0.0f || settings.centreBoostGain > 100.0f) {
-        if (error) *error = "Centre boost gain must be between 0 and 100%";
+    if (settings.centreBoostGain < 0 || settings.centreBoostGain > 100) {
+        if (error) *error = "Centre boost gain must be 0-100";
         return false;
     }
-    if (settings.centreBoostRange < 0.0f || settings.centreBoostRange > 100.0f) {
-        if (error) *error = "Centre boost range must be between 0 and 100%";
+    if (settings.centreBoostRange < 0 || settings.centreBoostRange > 100) {
+        if (error) *error = "Centre boost range must be 0-100";
         return false;
     }
-    if (settings.gyroStrength < 0.0f || settings.gyroStrength > 100.0f) {
-        if (error) *error = "Gyro strength must be between 0 and 100%";
+    if (settings.gyroStrength < 0 || settings.gyroStrength > 100) {
+        if (error) *error = "Gyro strength must be 0-100";
         return false;
     }
     return true;
 }
 
-QString FfbConfigTool::getWheelManufacturer(const QString& wheelModel)
-{
-    QString lower = wheelModel.toLower();
-    if (lower.contains("logitech") || lower.contains("g27") || lower.contains("g29") || lower.contains("g920") || lower.contains("g923")) {
-        return "Logitech";
-    }
-    if (lower.contains("thrustmaster") || lower.contains("t300") || lower.contains("t818") || lower.contains("t150") || lower.contains("ts-pc") || lower.contains("ts-xw")) {
-        return "Thrustmaster";
-    }
-    if (lower.contains("fanatec") || lower.contains("csl") || lower.contains("csw") || lower.contains("clubsport") || lower.contains("podium")) {
-        return "Fanatec";
-    }
-    if (lower.contains("simucube") || lower.contains("accuforce") || lower.contains("vrs")) {
-        return "Other DD";
+QString FfbConfigTool::getWheelManufacturer(const QString& wheelModel) {
+    static QMap<QString, QString> manufacturers = {
+        {"G27", "Logitech"}, {"G29", "Logitech"}, {"G920", "Logitech"}, {"G923", "Logitech"},
+        {"T150", "Thrustmaster"}, {"T300", "Thrustmaster"}, {"T500", "Thrustmaster"}, {"T818", "Thrustmaster"},
+        {"CSL", "Fanatec"}, {"CSW", "Fanatec"}, {"PODIUM", "Fanatec"},
+        {"SIMUCUBE", "Simucube"}, {"SIMUCUBE", "Simucube"},
+        {"MOZA", "Moza"}, {"ALPHA", "Alpha"},
+    };
+    
+    for (auto it = manufacturers.begin(); it != manufacturers.end(); ++it) {
+        if (wheelModel.contains(it.key(), Qt::CaseInsensitive)) {
+            return it.value();
+        }
     }
     return "Unknown";
 }
 
-QStringList FfbConfigTool::getSupportedWheels()
-{
+QStringList FfbConfigTool::getSupportedWheels() {
     return {
-        "Logitech G27",
-        "Logitech G29",
-        "Logitech G920",
-        "Logitech G923",
-        "Thrustmaster T150",
-        "Thrustmaster T300RS",
-        "Thrustmaster T818",
-        "Thrustmaster TS-PC",
-        "Thrustmaster TS-XW",
-        "Fanatec CSL",
-        "Fanatec CSW 2.5",
-        "Fanatec ClubSport",
-        "Fanatec Podium",
-        "Simucube 2",
-        "AccuForce",
-        "VRS DirectForce"
+        "Logitech G27", "Logitech G29", "Logitech G920", "Logitech G923",
+        "Thrustmaster T150", "Thrustmaster T300 RS", "Thrustmaster T500 RS", "Thrustmaster T818",
+        "Fanatec CSL DD", "Fanatec CSL Elite", "Fanatec CSW 2.5", "Fanatec Podium DD1", "Fanatec Podium DD2",
+        "Simucube 2 Pro", "Simucube 2 Sport", "Simucube 2 Ultimate",
+        "Moza R9", "Moza R12", "Moza R16",
+        "Alpha Mini"
     };
 }
 
-// ── FfbConfigManager ──────────────────────────────────────────────
+// ============================================================================
+// FfbConfigManager Implementation
+// ============================================================================
 
-FfbConfigManager::FfbConfigManager(const QString& acPath)
-    : m_acPath(acPath)
-{
+FfbConfigManager::FfbConfigManager(const QString& acPath) : m_acPath(acPath) {
 }
 
-bool FfbConfigManager::loadSettings()
-{
-    QString settingsPath = m_acPath + "/cfg/cfg.ini";
+bool FfbConfigManager::loadSettings() {
+    QString settingsPath = m_acPath + "/cfg/ff_post_process.ini";
     m_settings = FfbConfigTool::loadSettings(settingsPath);
     return true;
 }
 
-bool FfbConfigManager::saveSettings()
-{
-    QString settingsPath = m_acPath + "/cfg/cfg.ini";
+bool FfbConfigManager::saveSettings() {
+    QString settingsPath = m_acPath + "/cfg/ff_post_process.ini";
     return FfbConfigTool::saveSettings(m_settings, settingsPath);
 }
 
-bool FfbConfigManager::applyPreset(const QString& presetName)
-{
-    FfbConfigTool::WheelPreset preset = FfbConfigTool::getPreset(presetName);
-    if (preset.name.isEmpty()) {
-        LOG_WARNING("FfbConfigManager", QString("Preset not found: %1").arg(presetName));
-        return false;
+bool FfbConfigManager::applyPreset(const QString& presetName) {
+    for (const auto& preset : FfbConfigTool::getPresets()) {
+        if (preset.name == presetName) {
+            m_settings = preset.settings;
+            return saveSettings();
+        }
     }
-    return FfbConfigTool::applyPreset(m_settings, preset);
+    return false;
 }
 
-bool FfbConfigManager::optimizeForWheel(const QString& wheelModel)
-{
+bool FfbConfigManager::optimizeForWheel(const QString& wheelModel) {
     FfbConfigTool::optimizeForWheel(m_settings, wheelModel);
-    return true;
+    return saveSettings();
 }
+
+} // namespace ks

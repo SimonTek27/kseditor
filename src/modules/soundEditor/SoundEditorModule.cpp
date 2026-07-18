@@ -1,6 +1,7 @@
 #include "SoundEditorModule.h"
 #include "AudioCore.h"
 #include "AudioWaveformBridge.h"
+#include "ACEventBridge.h"
 #include "../../core/sys/LogManager.h"
 #include <QVBoxLayout>
 #include <QUrl>
@@ -25,13 +26,20 @@ SoundEditorModule::SoundEditorModule(QWidget* parent)
 SoundEditorModule::~SoundEditorModule()
 {
     delete m_waveformBridge;
+    delete m_eventBridge;
 }
 
 bool SoundEditorModule::initialize()
 {
     if (!m_initialized) {
+        if (!AudioEditorModule::instance())
+            new AudioEditorModule(this);
+
         m_waveformBridge = new AudioWaveformBridge(this);
-        m_quickWidget->rootContext()->setContextProperty("waveformBridge", m_waveformBridge);
+        m_eventBridge = new ks::audio::ACEventBridge(this);
+        auto* ctx = m_quickWidget->rootContext();
+        ctx->setContextProperty("waveformBridge", m_waveformBridge);
+        ctx->setContextProperty("eventDefs", m_eventBridge);
         m_quickWidget->setSource(QUrl("qrc:///qml/pages/page_ksAudioEditor.qml"));
         m_initialized = true;
     }
@@ -46,6 +54,8 @@ void SoundEditorModule::shutdown()
     if (m_initialized) {
         delete m_waveformBridge;
         m_waveformBridge = nullptr;
+        delete m_eventBridge;
+        m_eventBridge = nullptr;
         m_quickWidget->setSource(QUrl());
         m_initialized = false;
     }
@@ -63,7 +73,7 @@ void SoundEditorModule::exportFile(const QString& filePath)
     if (auto* audio = AudioEditorModule::instance()) {
         audio->onExportAsset();
     } else {
-        LOG_WARN("SoundEditorModule", "AudioEditorModule not available for export");
+        LOG_WARNING("SoundEditorModule", "AudioEditorModule not available for export");
     }
     loadAudioFile(filePath);
 }
@@ -73,7 +83,7 @@ void SoundEditorModule::importFile(const QString& filePath)
     if (auto* audio = AudioEditorModule::instance()) {
         audio->onImportAsset();
     } else {
-        LOG_WARN("SoundEditorModule", "AudioEditorModule not available for import");
+        LOG_WARNING("SoundEditorModule", "AudioEditorModule not available for import");
     }
     loadAudioFile(filePath);
 }

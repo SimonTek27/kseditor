@@ -9,6 +9,7 @@
 #include <QCompleter>
 #include <QStringListModel>
 #include <QTimer>
+#include "LSPClient.h"
 
 namespace ks {
 class MinimapWidget;
@@ -20,6 +21,7 @@ class CodeEditor : public QPlainTextEdit {
     Q_OBJECT
 public:
     explicit CodeEditor(QWidget* parent = nullptr);
+    ~CodeEditor() override;
 
     void lineNumberAreaPaintEvent(QPaintEvent* event);
     int lineNumberAreaWidth() const;
@@ -30,6 +32,7 @@ public:
 
     void setSyntaxHighlighter(QSyntaxHighlighter* highlighter);
     void gotoLine(int line);
+    void setLanguage(const QString& language);
 
     // Folding
     bool isBlockFolded(const QTextBlock& block) const;
@@ -65,6 +68,9 @@ private slots:
     void updateFoldArea(const QRect& rect, int dy);
     void highlightCurrentLine();
     void matchBrackets();
+    void onDiagnosticsReceived(const QString& file, const QVector<LSPDiagnostic>& diagnostics);
+    void onLSPCompletionReceived(const QStringList& completions);
+    void onLSPHoverReceived(const QString& file, int line, const QString& content);
 
 private:
     int computeFoldLevel(const QTextBlock& block) const;
@@ -74,6 +80,18 @@ private:
     void applyKeyToAllCursors(const QString& text);
     void applyDeleteToAllCursors();
     void applyBackspaceToAllCursors();
+
+    void toggleComment();
+    void addExtraCursor(const QTextCursor& cursor);
+    void removeExtraCursor(int index);
+    QChar matchingChar(QChar ch) const;
+    bool isBracket(QChar ch) const;
+    int findMatchingBracket(int pos, bool forward) const;
+    void rebuildWordIndex();
+    void addSnippet(const QString& trigger, const QString& expansion);
+    void addCursorAbove();
+    void addCursorBelow();
+    void addMultiCursorSelection(const QTextCursor& cursor);
 
     QWidget* m_lineNumberArea;
     QWidget* m_foldArea;
@@ -113,6 +131,12 @@ private:
     // Multi-cursor state
     QList<QTextCursor> m_extraCursors;
 
+    LSPClient* m_lspClient = nullptr;
+    QString m_language;
+    QTextBlock m_bracketMatchStart;
+    QTextBlock m_bracketMatchEnd;
+    QSet<QString> m_wordIndex;
+
     QCompleter* m_completer;
     QStringListModel* m_completionModel;
     QTimer* m_completionTimer;
@@ -149,11 +173,13 @@ protected:
     void paintEvent(QPaintEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
 
 private:
     ks::CodeEditor* m_editor;
     qreal m_lineHeight = 3.0;
     bool m_dragging = false;
+    void scrollToPosition(int mouseY);
 };
 
 } // namespace ks

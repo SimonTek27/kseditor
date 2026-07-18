@@ -1,6 +1,6 @@
 #include "ScriptHost.h"
-#include "core/Graphics/SceneGraph.h"
-#include "core/Graphics/SceneObject.h"
+#include "../Graphics/SceneGraph.h"
+#include "../Graphics/SceneObject.h"
 #include <QDebug>
 
 namespace ks {
@@ -12,7 +12,6 @@ ScriptHost::ScriptHost(Language lang, QObject* parent)
 }
 
 ScriptHost::~ScriptHost() {
-    shutdown();
 }
 
 void ScriptHost::registerFunction(const QString& name, ScriptFunction func) {

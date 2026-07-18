@@ -193,7 +193,8 @@ Rectangle {
                         }
                         CheckBox {
                             text: "ABS"
-                            checked: true
+                            checked: Physics.absEnabled
+                            onClicked: Physics.absEnabled = checked
                         }
                         CheckBox {
                             text: "TC"
@@ -212,30 +213,31 @@ Rectangle {
                         }
                         CheckBox {
                             text: "ERS/Hybrid"
-                            checked: false
+                            checked: Physics.ersEnabled
+                            onClicked: Physics.ersEnabled = checked
                         }
                         CheckBox {
-                            text: "KERS"
-                            checked: false
+                            text: "DRS"
+                            checked: Physics.drsEnabled
+                            onClicked: Physics.drsEnabled = checked
                         }
                         CheckBox {
                             text: "Push to Pass"
-                            checked: false
+                            checked: Physics.ersAttackAvailable
+                            onClicked: if (checked) Physics.activateErsAttack()
                         }
                     }
 
                     RowLayout {
                         CheckBox {
-                            text: "Drift Mode"
-                            checked: false
-                        }
-                        CheckBox {
-                            text: "Launch Control"
-                            checked: true
+                            text: "Damage Model"
+                            checked: Physics.damageEnabled
+                            onClicked: Physics.damageEnabled = checked
                         }
                         CheckBox {
                             text: "Fuel Consumption"
-                            checked: true
+                            checked: Physics.fuelConsumptionEnabled
+                            onClicked: Physics.fuelConsumptionEnabled = checked
                         }
                         CheckBox {
                             text: "Tyre Wear"

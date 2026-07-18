@@ -36,7 +36,9 @@
 #include "../../modules/modellingEditor/CharacterBuilder/DriverEditorModule.h"
 #include "../../core/Config/CspConfigEditorModule.h"
 #include "../../modules/fontEditor/FontCreatorQmlBridge.h"
+#include "../../modules/displayEditor/DisplayEditorModule.h"
 #include "../../core/ppfiltersEditor/PPFiltersQmlBridge.h"
+#include "../../core/ServerConfigEditor/ServerConfigEditorModule.h"
 
 #include <QVBoxLayout>
 #include <QLabel>
@@ -88,7 +90,7 @@ void ModuleManager::loadModules()
     registerModule(new ks::TextEditorModule(this));
     registerModule(new ks::SetupEditorModule(this));
     registerModule(new ks::TelemetryViewerModule(this));
-    registerModule(new ks::WeatherEditorModule(this));
+    registerModule(new ks::weather::WeatherEditorModule(this));
     registerModule(new ks::TrackSurfaceEditorModule(this));
     registerModule(new ks::TrackMapEditorModule(this));
     registerModule(new ks::TrackLightingEditorModule(this));
@@ -105,8 +107,10 @@ void ModuleManager::loadModules()
     registerModule(new ks::RaceConfigEditorModule(this));
     registerModule(new ks::CspConfigEditorModule(this));
     registerModule(new ks::FontCreatorEditorModule(this));
+    registerModule(new ks::DisplayEditorModule(this));
     registerModule(new ks::PPFiltersEditorModule(this));
     registerModule(new ks::CareerEditorModule(this));
+    registerModule(new ks::ServerConfigEditorModule(this));
     registerModule(new ks::ShowroomPPEditorModule(this));
 
     // Sort modules by priority (higher priority first)

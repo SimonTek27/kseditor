@@ -14,6 +14,7 @@
 #include <QSlider>
 #include <QCheckBox>
 #include "LiveryEditorModule.h"
+#include "LiveryViewport.h"
 
 namespace ks {
 
@@ -48,6 +49,12 @@ private slots:
     void onLicensePlateGenerate();
     void onSaveSkin();
     void onRefreshSkins();
+    void onExportDDS();
+    void onImportDecal();
+    void onCreateFromTemplate();
+    void onUndo();
+    void onRedo();
+    void onPaletteColorSelected(const QColor& color);
     void updateLayerUI();
     void clearLayerUI();
     void refreshSkinList();
@@ -62,6 +69,7 @@ private:
 
     LiveryEditor* m_editor;
     LiveryPainterWidget* m_painterWidget;
+    LiveryViewport* m_viewport3D;
 
     QGroupBox* m_skinsGroup;
     QListWidget* m_skinList;
@@ -97,6 +105,13 @@ private:
 
     QPushButton* m_saveSkinBtn;
     QPushButton* m_refreshBtn;
+    QPushButton* m_exportDdsBtn;
+    QPushButton* m_importDecalBtn;
+    QPushButton* m_templateBtn;
+    QPushButton* m_undoBtn;
+    QPushButton* m_redoBtn;
+    QPushButton* m_paletteBtns[10];
+    int m_paletteCount = 0;
 
     bool m_updatingUI;
 };

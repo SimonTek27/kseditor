@@ -1205,9 +1205,9 @@ void MeshModifier::rotateVertices(int meshId, const QVector<int>& vertices, cons
     auto& verts = m_meshes[meshId]->vertices;
     QMatrix4x4 rotMat;
     rotMat.translate(center);
-    rotMat.rotate(rotation.x(), QVector3D(1, 0, 0));
-    rotMat.rotate(rotation.y(), QVector3D(0, 1, 0));
-    rotMat.rotate(rotation.z(), QVector3D(0, 0, 1));
+    rotMat.rotate(QQuaternion::fromAxisAndAngle(1.0f, 0.0f, 0.0f, rotation.x()));
+    rotMat.rotate(QQuaternion::fromAxisAndAngle(0.0f, 1.0f, 0.0f, rotation.y()));
+    rotMat.rotate(QQuaternion::fromAxisAndAngle(0.0f, 0.0f, 1.0f, rotation.z()));
     rotMat.translate(-center);
 
     for (int idx : vertices) {

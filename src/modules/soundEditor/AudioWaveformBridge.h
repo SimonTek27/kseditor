@@ -20,7 +20,7 @@ public:
     ~AudioWaveformBridge() override = default;
 
     // Load audio file and prepare waveform data
-    bool loadFile(const QString& path);
+    Q_INVOKABLE bool loadFile(const QString& path);
 
     // Get waveform data for rendering (downsampled for display)
     // Returns QVector<QPointF> with x = time (normalized 0-1), y = amplitude (-1 to 1)
@@ -42,8 +42,8 @@ public:
     bool hasData() const { return !m_audioData.isEmpty(); }
 
     // Peak amplitude
-    float peakAmplitude() const { return m_peakAmplitude; }
-    float rmsAmplitude() const { return m_rmsAmplitude; }
+    Q_INVOKABLE float peakAmplitude() const { return m_peakAmplitude; }
+    Q_INVOKABLE float rmsAmplitude() const { return m_rmsAmplitude; }
 
     // Clear data
     void clear();

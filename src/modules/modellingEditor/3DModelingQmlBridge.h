@@ -32,6 +32,8 @@
 
 namespace ks {
 
+using graphics::SceneObject;
+
 class SceneObjectQml : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString name READ name WRITE setName)
@@ -51,25 +53,22 @@ public:
 
     int id() const { return m_object ? m_object->id() : -1; }
 
-    QVector3D position() const { return m_object ? QVector3D(m_object->transform().translation().x, m_object->transform().translation().y, m_object->transform().translation().z) : QVector3D(); }
-    void setPosition(const QVector3D& p) { if (m_object) { Matrix4 t = m_object->transform(); t.setTranslation(Vec3(p.x(), p.y(), p.z())); m_object->setTransform(t); emit changed(); } }
+    QVector3D position() const { return m_object ? m_object->position() : QVector3D(); }
+    void setPosition(const QVector3D& p) { if (m_object) { m_object->setPosition(p); emit changed(); } }
 
     QVector3D rotation() const {
         if (!m_object) return QVector3D();
-        Vec3 r = m_object->transform().rotation();
-        return QVector3D(r.x, r.y, r.z);
+        return m_object->rotationEuler();
     }
     void setRotation(const QVector3D& r) {
         if (m_object) {
-            Matrix4 t = m_object->transform();
-            t.setRotation(Vec3(r.x(), r.y(), r.z()));
-            m_object->setTransform(t);
+            m_object->setRotationEuler(r);
             emit changed();
         }
     }
 
-    QVector3D scale() const { if (!m_object) return QVector3D(1,1,1); Vec3 s = m_object->transform().scale(); return QVector3D(s.x, s.y, s.z); }
-    void setScale(const QVector3D& s) { if (m_object) { Matrix4 t = m_object->transform(); t.setScale(Vec3(s.x(), s.y(), s.z())); m_object->setTransform(t); emit changed(); } }
+    QVector3D scale() const { if (!m_object) return QVector3D(1,1,1); return m_object->scale(); }
+    void setScale(const QVector3D& s) { if (m_object) { m_object->setScale(s); emit changed(); } }
 
     bool isSelected() const { return m_object ? m_object->isSelected() : false; }
     void setSelected(bool s) { if (m_object) m_object->setSelected(s); emit changed(); }
@@ -361,6 +360,7 @@ public:
     Q_INVOKABLE float getAnimationTime() const;
     Q_INVOKABLE bool isAnimating() const;
     Q_INVOKABLE void setAnimationLoop(bool loop);
+    Q_INVOKABLE QVariantList currentAnimationKeyframes() const;
 
     Q_INVOKABLE void undo();
     Q_INVOKABLE void redo();

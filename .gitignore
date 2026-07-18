@@ -62,8 +62,25 @@ stdout*.txt
 stderr*.txt
 test_*.txt
 test_*.xml
+test_results/
+*.err
+*.out
+*.tmp
 NUL.obj
 TrackExporter.obj
+test.ksproj
+single_file_errors.txt
+help_output.txt
+ederr.txt
+edout.txt
+
+# Generated Python scripts
+generate_fmod_project.py
+
+# Qt MOC generated files (should not be tracked)
+moc_*
+*_parameters
+moc_*.cpp
 
 # OS
 Thumbs.db
@@ -88,3 +105,5 @@ external/vcpkg/downloads/
 
 # External tools (not part of this project)
 .minimax/
+external/7zip/
+external/openxr/

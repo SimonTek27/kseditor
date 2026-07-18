@@ -21,32 +21,183 @@ Rectangle {
 
     // ── State ──────────────────────────────────────────────────────────────
     property string selectedEvent: "engine_int"
-    property string selectedTab:   "rpms"
+    property string selectedTab:   "Timeline"
     property bool   isPlaying:     false
 
-    property var trackList: [
-        { name: "load",      solo: false, mute: false, vol: 0 },
-        { name: "load exh",  solo: false, mute: false, vol: 0 },
-        { name: "coast",     solo: false, mute: false, vol: 0 },
-        { name: "coast exh", solo: false, mute: false, vol: 0 }
-    ]
+    property var trackList: []
+    property int ctxTrackIndex: -1
 
-    property var eventTree: {
-        "cars": {
-            "tatusfa1": [
-                "backfire_ext","backfire_int","bodywork","door",
-                "engine_ext","engine_int","gear_ext","gear_grind",
-                "gear_int","horn_int","horn_ext","limiter",
-                "skid_ext","skid_int","starter","tractioncontrol_ext",
-                "tractioncontrol_int","transmission_int","transmission_ext",
-                "turbo_int","turbo_ext","wheel","wind"
-            ]
-        },
-        "collisions": [],
-        "common":     [],
-        "showrooms":  [],
-        "surfaces":   []
+    function buildTrackList(event) {
+        var colors = ["#2a5298", "#5a2a98", "#2a985a", "#985a2a"];
+        var isExt = event.indexOf("_ext") > 0;
+        if (isExt || event.indexOf("engine") >= 0) {
+            var prefix = event.replace(/_int|_ext/, "");
+            return [
+                { name: event + " (L)", solo: false, mute: false, vol: 0, clipColor: colors[0],
+                  regions: [
+                      { startPct: 0.00, endPct: 0.14, label: prefix + "_idle" },
+                      { startPct: 0.10, endPct: 0.26, label: prefix + "_on_3200" },
+                      { startPct: 0.22, endPct: 0.38, label: prefix + "_off_4000" },
+                      { startPct: 0.34, endPct: 0.50, label: prefix + "_80_limiter" }
+                  ],
+                  volumeDb: -48.0, volumeDbLabel: "-48.00" },
+                { name: event + " (R)", solo: false, mute: false, vol: 0, clipColor: colors[1],
+                  regions: [
+                      { startPct: 0.05, endPct: 0.18, label: prefix + "_on_3200" },
+                      { startPct: 0.14, endPct: 0.30, label: prefix + "_off_4000" },
+                      { startPct: 0.26, endPct: 0.55, label: prefix + "_80_limiter" }
+                  ],
+                  volumeDb: -0.17, volumeDbLabel: "-0.17" },
+                { name: event + " (mix)", solo: false, mute: false, vol: 0, clipColor: colors[2],
+                  regions: [
+                      { startPct: 0.00, endPct: 0.12, label: prefix + "_idle" },
+                      { startPct: 0.08, endPct: 0.22, label: prefix + "_on_3200" },
+                      { startPct: 0.18, endPct: 0.34, label: prefix + "_off_4000" },
+                      { startPct: 0.30, endPct: 0.50, label: prefix + "_80_limiter" }
+                  ],
+                  volumeDb: -17.7, volumeDbLabel: "-17.70" }
+            ];
+        }
+        return [
+            { name: event, solo: false, mute: false, vol: 0, clipColor: colors[0],
+              regions: [
+                  { startPct: 0.00, endPct: 0.15, label: event + "_idle" },
+                  { startPct: 0.10, endPct: 0.28, label: event + "_on_3200" },
+                  { startPct: 0.22, endPct: 0.42, label: event + "_off_4000" }
+              ],
+              volumeDb: 0.0, volumeDbLabel: "0.0" },
+            { name: event + " (alt)", solo: false, mute: false, vol: 0, clipColor: colors[1],
+              regions: [
+                  { startPct: 0.05, endPct: 0.20, label: event + "_alt_1" },
+                  { startPct: 0.16, endPct: 0.38, label: event + "_alt_2" }
+              ],
+              volumeDb: 0.8, volumeDbLabel: "0.8" }
+        ];
     }
+    onSelectedEventChanged: trackList = buildTrackList(selectedEvent)
+    Component.onCompleted: trackList = buildTrackList(selectedEvent)
+
+    property string leftTab: "Events"
+
+    // Event metadata lookup
+    function eventInfo(name) {
+        if (typeof eventDefs !== "undefined" && eventDefs) {
+            var info = eventDefs.eventInfo(name);
+            if (info && info.name) return info;
+        }
+        var db = {
+            "engine_int":     { cat: "Engine", desc: "Interior engine sound", params: ["rpms","throttle"], loops: true, vol: "1.0" },
+            "engine_ext":     { cat: "Engine", desc: "Exterior engine sound", params: ["rpms","throttle"], loops: true, vol: "1.0" },
+            "turbo":          { cat: "Engine", desc: "Turbo whistle", params: ["boost"], loops: true, vol: "0.6" },
+            "turbo_ext":      { cat: "Engine", desc: "Turbo whistle (exterior)", params: ["boost","event cone angle"], loops: true, vol: "0.6" },
+            "limiter":        { cat: "Engine", desc: "Rev limiter", params: ["decay"], loops: false, vol: "0.8" },
+            "gear_ext":       { cat: "Engine", desc: "Gear change (exterior)", params: ["state","event cone angle"], loops: false, vol: "0.8" },
+            "gear_int":       { cat: "Engine", desc: "Gear change (interior)", params: ["state"], loops: false, vol: "0.8" },
+            "gear_grind":     { cat: "Engine", desc: "Gear grind", params: ["timeline"], loops: false, vol: "0.8" },
+            "starter_ext":    { cat: "Engine", desc: "Starter motor (exterior)", params: ["crank","start","killed"], loops: false, vol: "0.7" },
+            "starter_int":    { cat: "Engine", desc: "Starter motor (interior)", params: ["crank","start","killed"], loops: false, vol: "0.7" },
+            "ignition_ext":   { cat: "Engine", desc: "Ignition sound (exterior)", params: ["state"], loops: false, vol: "0.8" },
+            "ignition_int":   { cat: "Engine", desc: "Ignition sound (interior)", params: ["state"], loops: false, vol: "0.8" },
+            "misc_int":       { cat: "Engine", desc: "Misc interior sounds", params: ["rpms","throttle","pit","antistall","gearClonk","gearReverse"], loops: false, vol: "0.6" },
+            "door":           { cat: "Body", desc: "Door open/close", params: ["state"], loops: false, vol: "0.7" },
+            "horn":           { cat: "Body", desc: "Horn", params: [], loops: false, vol: "0.9" },
+            "bodywork":       { cat: "Body", desc: "Bodywork rattles and creaks", params: ["timeline","speed"], loops: false, vol: "0.6" },
+            "chassis_ext":    { cat: "Body", desc: "Chassis creaks & collisions (ext)", params: ["speed","kerbL","kerbR","strike"], loops: false, vol: "0.6" },
+            "chassis_int":    { cat: "Body", desc: "Chassis creaks & collisions (int)", params: ["speed","kerbL","kerbR","strike"], loops: false, vol: "0.6" },
+            "backfire_ext":   { cat: "Backfire", desc: "Backfire (exterior)", params: ["throttle","event cone angle"], loops: false, vol: "0.8" },
+            "backfire_int":   { cat: "Backfire", desc: "Backfire (interior)", params: ["throttle","event cone angle"], loops: false, vol: "0.8" },
+            "skid_ext":       { cat: "Tires", desc: "Skid sound (exterior)", params: ["timeline","event cone angle"], loops: false, vol: "0.8" },
+            "skid_int":       { cat: "Tires", desc: "Skid sound (interior)", params: ["timeline"], loops: false, vol: "0.8" },
+            "wheel":          { cat: "Tires", desc: "Wheel sound", params: ["timeline"], loops: false, vol: "0.8" },
+            "tractioncontrol_ext": { cat: "Tires", desc: "Traction control (exterior)", params: ["timeline","event cone angle"], loops: false, vol: "0.7" },
+            "tractioncontrol_int": { cat: "Tires", desc: "Traction control (interior)", params: ["timeline"], loops: false, vol: "0.7" },
+            "transmission":   { cat: "Transmission", desc: "Transmission sound", params: ["timeline","throttle","drivetrain_speed"], loops: true, vol: "0.7" },
+            "transmission_ext": { cat: "Transmission", desc: "Transmission sound (exterior)", params: ["timeline","throttle","drivetrain_speed","event cone angle"], loops: true, vol: "0.7" },
+            "brakes":         { cat: "Brakes", desc: "Brake squeal and noise", params: ["speed","brake","brake_temp"], loops: true, vol: "0.7" },
+            "hybrid_ext":     { cat: "Hybrid", desc: "Hybrid MGU sound (exterior)", params: ["drivetrain_speed","throttle","brake","deploy","harvest"], loops: true, vol: "0.7" },
+            "hybrid_int":     { cat: "Hybrid", desc: "Hybrid MGU sound (interior)", params: ["drivetrain_speed","throttle","brake","deploy","harvest","slip"], loops: true, vol: "0.7" },
+            "wind":           { cat: "Environment", desc: "Wind noise", params: ["timeline","air_pressure","speed"], loops: true, vol: "0.5" }
+        };
+        return db[name] || { category: "—", description: "—", parameters: [], loops: false, defaultVolume: 1.0 };
+    }
+
+    function eventParams(name) {
+        if (typeof eventDefs !== "undefined" && eventDefs)
+            return eventDefs.eventParameters(name);
+        return eventInfo(name).params || eventInfo(name).parameters || [];
+    }
+
+    // Build flat tree model from eventTree structure
+    function buildTreeModel(tree, expandedMap) {
+        var model = [];
+        function walk(obj, depth) {
+            for (var key in obj) {
+                var val = obj[key];
+                var isArr = Array.isArray(val);
+                if (!isArr && typeof val === "object") {
+                    model.push({ label: key, depth: depth, expandable: true, isExpanded: expandedMap[key] !== false });
+                    walk(val, depth + 1);
+                } else {
+                    model.push({ label: key, depth: depth, expandable: true, isExpanded: expandedMap[key] !== false });
+                    for (var i = 0; i < val.length; i++) {
+                        model.push({ label: val[i], depth: depth + 1, expandable: false, isExpanded: false });
+                    }
+                }
+            }
+        }
+        walk(tree, 0);
+        return model;
+    }
+    property var expandedState: ({})
+
+    function buildEventTree() {
+        if (typeof eventDefs !== "undefined" && eventDefs) {
+            var tree = {};
+            var cats = eventDefs.categories;
+            for (var ci = 0; ci < cats.length; ci++) {
+                var evs = eventDefs.eventsByCategory(cats[ci]);
+                if (evs.length > 0) tree[cats[ci]] = evs;
+            }
+            return tree;
+        }
+        return {
+            "Engine": [
+                "engine_int","engine_ext","turbo","turbo_ext","limiter",
+                "gear_ext","gear_int","gear_grind","starter_ext","starter_int",
+                "ignition_ext","ignition_int","misc_int"
+            ],
+            "Body": [
+                "door","horn","bodywork","chassis_ext","chassis_int"
+            ],
+            "Backfire": [
+                "backfire_ext","backfire_int"
+            ],
+            "Tires": [
+                "skid_ext","skid_int","wheel","tractioncontrol_ext","tractioncontrol_int"
+            ],
+            "Transmission": [
+                "transmission","transmission_ext"
+            ],
+            "Brakes": ["brakes"],
+            "Hybrid": ["hybrid_ext","hybrid_int"],
+            "Environment": ["wind"],
+            "CSP Rain": [
+                "rain_amb","rain_amb_thunder","rain_car_ext","rain_car_int",
+                "rain_grass","rain_gravel","rain_skid_ext","rain_skid_int"
+            ],
+            "CSP Vehicle": [
+                "turn_signal_ext__off","turn_signal_int__off","turn_signal_int",
+                "wiper_car_ext","wiper_car_ext_vintage","wiper_car_int","wiper_car_int_vintage",
+                "handbrake_int"
+            ],
+            "CSP Wind": ["external_wind"],
+            "CSP Surfaces": [
+                "csp_surfaces_skid","csp_surfaces_force","csp_surfaces_rocks","csp_surfaces_ice"
+            ]
+        };
+    }
+
+    property var eventTree: buildEventTree()
 
     // ── Root layout: left sidebar | center | right panel ──────────────────
     RowLayout {
@@ -80,20 +231,21 @@ Rectangle {
                             Rectangle {
                                 Layout.fillWidth: true
                                 height: 30
-                                color: modelData === "Events" ? cPanel : "transparent"
-                                border.color: modelData === "Events" ? cAccent : "transparent"
-                                border.width: modelData === "Events" ? 0 : 0
-                                // bottom border indicator
+                                color: modelData === leftTab ? cPanel : "transparent"
                                 Rectangle {
                                     anchors.bottom: parent.bottom
                                     width: parent.width; height: 2
-                                    color: modelData === "Events" ? cAccent : "transparent"
+                                    color: modelData === leftTab ? cAccent : "transparent"
                                 }
                                 Text {
                                     anchors.centerIn: parent
                                     text: modelData
-                                    color: modelData === "Events" ? cAccent : cMuted
+                                    color: modelData === leftTab ? cAccent : cMuted
                                     font.pixelSize: 11
+                                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: leftTab = modelData
                                 }
                             }
                         }
@@ -104,6 +256,7 @@ Rectangle {
                 Rectangle {
                     height: 24; Layout.fillWidth: true
                     color: "#1e1e1e"; border.color: cBorder; border.width: 1
+                    visible: leftTab === "Events"
                     RowLayout {
                         anchors.fill: parent; anchors.leftMargin: 6; spacing: 4
                         Text { text: "Q:"; color: cMuted; font.pixelSize: 10 }
@@ -116,45 +269,52 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    model: ListModel {
-                        ListElement { label: "cars";       depth: 0; expandable: true;  isExpanded: true  }
-                        ListElement { label: "tatusfa1";   depth: 1; expandable: true;  isExpanded: true  }
-                        ListElement { label: "backfire_ext";   depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "backfire_int";   depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "bodywork";       depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "door";           depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "engine_ext";     depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "engine_int";     depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "gear_ext";       depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "gear_grind";     depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "gear_int";       depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "horn_int";       depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "horn_ext";       depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "limiter";        depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "skid_ext";       depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "skid_int";       depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "starter";        depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "tractioncontrol_ext"; depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "tractioncontrol_int"; depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "transmission_int";    depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "transmission_ext";    depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "turbo_int";      depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "turbo_ext";      depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "wheel";          depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "wind";           depth: 2; expandable: false; isExpanded: false }
-                        ListElement { label: "collisions"; depth: 0; expandable: true;  isExpanded: false }
-                        ListElement { label: "common";     depth: 0; expandable: true;  isExpanded: false }
-                        ListElement { label: "showrooms";  depth: 0; expandable: true;  isExpanded: false }
-                        ListElement { label: "surfaces";   depth: 0; expandable: true;  isExpanded: false }
+                    visible: leftTab === "Events"
+                    model: {
+                        var raw = buildTreeModel(eventTree, expandedState);
+                        var lm = [];
+                        for (var i = 0; i < raw.length; i++) lm.push(raw[i]);
+                        return lm;
                     }
                     delegate: Rectangle {
+                        id: delegateRoot
+                        required property string label
+                        required property int depth
+                        required property bool expandable
+                        required property bool isExpanded
+                        required property int index
+
                         width: ListView.view.width
                         height: 20
-                        color: label === selectedEvent ? cSelected : "transparent"
+                        visible: {
+                            if (depth === 0) return true;
+                            var idx = index - 1;
+                            var d = depth;
+                            while (idx >= 0 && d > 0) {
+                                var item = ListView.view.model[idx];
+                                if (!item) break;
+                                if (item.depth < d && item.depth < depth) {
+                                    d = item.depth;
+                                }
+                                if (item.depth === d && item.expandable && !item.isExpanded) {
+                                    return false;
+                                }
+                                idx--;
+                            }
+                            return true;
+                        }
+                        color: !expandable && label === selectedEvent ? cSelected : "transparent"
 
                         MouseArea {
                             anchors.fill: parent
-                            onClicked: { if (!expandable) selectedEvent = label }
+                            onClicked: {
+                                if (expandable) {
+                                    expandedState[label] = !isExpanded;
+                                    ListView.view.model = ListView.view.model.slice(0);
+                                } else {
+                                    selectedEvent = label;
+                                }
+                            }
                         }
 
                         RowLayout {
@@ -164,19 +324,62 @@ Rectangle {
                             spacing: 3
 
                             Text {
-                                text: expandable ? "▼" : "♪"
-                                color: expandable ? cMuted : (label === selectedEvent ? "#121212" : cMuted)
+                                text: expandable ? (isExpanded ? "▼" : "▶") : "♪"
+                                color: expandable ? cMuted : (!expandable && label === selectedEvent ? "#121212" : cMuted)
                                 font.pixelSize: 8
                             }
                             Text {
                                 text: label
-                                color: label === selectedEvent ? "#121212" : cText
+                                color: !expandable && label === selectedEvent ? "#121212" : cText
                                 font.pixelSize: 10
-                                font.bold: label === selectedEvent
+                                font.bold: !expandable && label === selectedEvent
                             }
                         }
                     }
                     ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                }
+
+                // Banks tab content
+                ColumnLayout {
+                    visible: leftTab === "Banks"
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    Layout.margins: 8; spacing: 6
+
+                    Text { text: "Sound Banks"; color: cText; font.pixelSize: 11; font.bold: true }
+                    Repeater {
+                        model: ["csp_base", "csp_extras", "csp_surface_gravel", "csp_surface_ice"]
+                        Rectangle {
+                            Layout.fillWidth: true; height: 22; color: "#1e1e1e"; radius: 3
+                            border.color: cBorder; border.width: 1
+                            RowLayout {
+                                anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 6
+                                Text { text: modelData; color: cText; font.pixelSize: 9; Layout.fillWidth: true }
+                                Text { text: "▸"; color: cMuted; font.pixelSize: 10 }
+                            }
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor }
+                        }
+                    }
+                    Item { Layout.fillHeight: true }
+                }
+
+                // Assets tab content
+                ColumnLayout {
+                    visible: leftTab === "Assets"
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    Layout.margins: 8; spacing: 6
+
+                    Text { text: "Audio Assets"; color: cText; font.pixelSize: 11; font.bold: true }
+                    Text { text: "Drop audio files here to import"; color: cMuted; font.pixelSize: 9; wrapMode: Text.WordWrap }
+                    Rectangle {
+                        Layout.fillWidth: true; Layout.fillHeight: true
+                        color: "#1a1a1a"; radius: 4; border.color: cBorder; border.width: 1; border.style: Qt.Dashed
+                        Text {
+                            anchors.centerIn: parent
+                            text: "Drop .wav / .ogg / .bank\nor click to browse"
+                            color: "#444"; font.pixelSize: 10; horizontalAlignment: Text.AlignHCenter
+                        }
+                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor }
+                    }
                 }
             }
         }
@@ -197,15 +400,15 @@ Rectangle {
                 RowLayout {
                     anchors.fill: parent; anchors.leftMargin: 4; spacing: 0
 
-                    // Tab: engine_int (active)
+                    // Tab: selected event (active)
                     Rectangle {
-                        width: 100; height: 28
+                        width: Math.max(80, selectedEvent.length * 7 + 20); height: 28
                         color: cPanel
                         border.color: cBorder; border.width: 1
                         Rectangle { anchors.top: parent.top; width: parent.width; height: 2; color: cAccent }
                         Text {
                             anchors.centerIn: parent
-                            text: "engine_int"; color: cAccent; font.pixelSize: 11
+                            text: selectedEvent; color: cAccent; font.pixelSize: 11
                         }
                     }
                     Item { Layout.fillWidth: true }
@@ -252,9 +455,14 @@ Rectangle {
                     Rectangle { width: 26; height: 26; color: "#3a3a3a"; radius: 3; border.color: cBorder; border.width: 1
                         Text { anchors.centerIn: parent; text: "⋮⋮"; color: cText; font.pixelSize: 13 } }
 
-                    // Tabs: Timeline | rpms | throttle
+                    // Tabs: Timeline | event parameters
                     Repeater {
-                        model: ["Timeline", "rpms", "throttle"]
+                        model: {
+                            var params = ["Timeline"];
+                            var p = root.eventParams(selectedEvent);
+                            for (var i = 0; i < p.length; i++) params.push(p[i]);
+                            return params;
+                        }
                         Rectangle {
                             height: 26; width: 64
                             color: modelData === selectedTab ? "#444" : "transparent"
@@ -265,22 +473,16 @@ Rectangle {
                         }
                     }
 
-                    // rpms knob indicator
-                    Rectangle {
-                        width: 42; height: 26; color: "#111111"; radius: 3; border.color: cBorder; border.width: 1
-                        ColumnLayout {
-                            anchors.fill: parent; anchors.margins: 3; spacing: 0
-                            Text { text: "rpms"; color: cMuted; font.pixelSize: 7 }
-                            Text { text: "4.00"; color: cText; font.pixelSize: 11; font.family: "Courier New" }
-                        }
-                    }
-                    // throttle knob indicator
-                    Rectangle {
-                        width: 50; height: 26; color: "#111111"; radius: 3; border.color: cBorder; border.width: 1
-                        ColumnLayout {
-                            anchors.fill: parent; anchors.margins: 3; spacing: 0
-                            Text { text: "throttle"; color: cMuted; font.pixelSize: 7 }
-                            Text { text: "0.00"; color: cText; font.pixelSize: 11; font.family: "Courier New" }
+                    // Dynamic parameter readouts (first 3 params)
+                    Repeater {
+                        model: root.eventParams(selectedEvent).slice(0, 3)
+                        Rectangle {
+                            width: 60; height: 26; color: "#111111"; radius: 3; border.color: cBorder; border.width: 1
+                            ColumnLayout {
+                                anchors.fill: parent; anchors.margins: 3; spacing: 0
+                                Text { text: modelData; color: cMuted; font.pixelSize: 7 }
+                                Text { text: "0.00"; color: cText; font.pixelSize: 11; font.family: "Courier New" }
+                            }
                         }
                     }
 
@@ -319,7 +521,7 @@ Rectangle {
 
                                 Rectangle {
                                     width: 100
-                                    height: modelData.name === "load" || modelData.name === "coast" ? 130 : 200
+                                    height: 130
                                     color: cPanel; border.color: cBorder; border.width: 1
 
                                     ColumnLayout {
@@ -360,7 +562,7 @@ Rectangle {
                                         }
 
                                         // dB label
-                                        Text { text: "-∞ dB"; color: cMuted; font.pixelSize: 8 }
+                                        Text { text: (modelData.volumeDb === -48.0) ? "-48.00" : (modelData.volumeDb === 0.0 ? "0.0" : (modelData.volumeDbLabel || "0.0")) + " dB"; color: cMuted; font.pixelSize: 8 }
                                         Text { text: "Volume   10 dB"; color: cMuted; font.pixelSize: 8 }
                                     }
                                 }
@@ -411,51 +613,143 @@ Rectangle {
                                     // Waveform lane
                                     Rectangle {
                                         width: parent.width
-                                        height: modelData.name === "load" || modelData.name === "coast" ? 90 : 90
-                                        color: "#1c1c1c"; border.color: cBorder; border.width: 1
+                                        height: 200
+                                        color: "#1a2a3a"; border.color: cBorder; border.width: 1
                                         clip: true
 
-                                        // Tinted track background blocks
-                                        Row {
-                                            anchors.fill: parent; anchors.margins: 2; spacing: 3
+                                        Canvas {
+                                            anchors.fill: parent
+                                            property var trackData: modelData
+                                            onTrackDataChanged: requestPaint()
+                                            onWidthChanged: requestPaint()
+                                            onHeightChanged: requestPaint()
 
-                                            Repeater {
-                                                model: modelData.name === "load" ? 7 :
-                                                       modelData.name === "load exh" ? 4 :
-                                                       modelData.name === "coast" ? 5 : 3
+                                            // Deterministic pseudo-random based on seed
+                                            function seededRand(seed) {
+                                                var x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+                                                return x - Math.floor(x);
+                                            }
 
-                                                Rectangle {
-                                                    height: parent.height
-                                                    width: modelData.name === "load" ? 140 :
-                                                           modelData.name === "load exh" ? 80 : 120
-                                                    color: cTrackFill; radius: 2; opacity: 0.85
+                                            onPaint: {
+                                                var ctx = getContext("2d");
+                                                ctx.clearRect(0, 0, width, height);
+                                                var regions = trackData.regions || [];
+                                                if (regions.length === 0) return;
 
-                                                    // Waveform visualization (sine-like)
-                                                    Canvas {
-                                                        anchors.fill: parent
-                                                        onPaint: {
-                                                            var ctx = getContext("2d");
-                                                            ctx.clearRect(0,0,width,height);
-                                                            ctx.strokeStyle = "#80c8ff";
-                                                            ctx.lineWidth = 1.5;
-                                                            ctx.beginPath();
-                                                            var amp = height * 0.35;
-                                                            var mid = height * 0.5;
-                                                            for (var x = 0; x < width; x++) {
-                                                                var y = mid + amp * Math.sin(x / width * Math.PI * (6 + index * 2)) * Math.sin(x / width * Math.PI);
-                                                                if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                                                            }
-                                                            ctx.stroke();
-                                                        }
+                                                var mid = height / 2;
+
+                                                for (var r = 0; r < regions.length; r++) {
+                                                    var reg = regions[r];
+                                                    var x0 = reg.startPct * width;
+                                                    var x1 = reg.endPct * width;
+                                                    var regW = x1 - x0;
+                                                    var seed = r * 1000 + (trackData.name || "").length * 7;
+
+                                                    // Clip background
+                                                    ctx.fillStyle = trackData.clipColor || "#2a5298";
+                                                    ctx.globalAlpha = 0.35;
+                                                    ctx.fillRect(x0, 0, regW, height);
+                                                    ctx.globalAlpha = 1.0;
+
+                                                    // Draw peak waveform envelope (filled)
+                                                    ctx.fillStyle = trackData.clipColor || "#4488cc";
+                                                    ctx.globalAlpha = 0.7;
+                                                    ctx.beginPath();
+                                                    ctx.moveTo(x0, mid);
+                                                    var step = 2;
+                                                    for (var x = x0; x < x1; x += step) {
+                                                        var t = (x - x0) / regW;
+                                                        // Envelope shape: attack-sustain-release
+                                                        var env = 1.0;
+                                                        if (t < 0.05) env = t / 0.05;
+                                                        else if (t > 0.92) env = (1.0 - t) / 0.08;
+                                                        // High-frequency detail
+                                                        var detail = seededRand(seed + x * 0.7) * 0.6 + 0.2;
+                                                        var amp = mid * 0.75 * env * detail;
+                                                        ctx.lineTo(x, mid - amp);
                                                     }
-                                                    Text {
-                                                        anchors.left: parent.left; anchors.top: parent.top
-                                                        anchors.margins: 3
-                                                        text: modelData.name + "_" + (index * 1500)
-                                                        color: "#aaccff"; font.pixelSize: 8
-                                                        elide: Text.ElideRight; width: parent.width - 6
+                                                    for (var x2 = x1; x2 > x0; x2 -= step) {
+                                                        var t2 = (x2 - x0) / regW;
+                                                        var env2 = 1.0;
+                                                        if (t2 < 0.05) env2 = t2 / 0.05;
+                                                        else if (t2 > 0.92) env2 = (1.0 - t2) / 0.08;
+                                                        var detail2 = seededRand(seed + x2 * 0.7 + 50) * 0.6 + 0.2;
+                                                        var amp2 = mid * 0.75 * env2 * detail2;
+                                                        ctx.lineTo(x2, mid + amp2);
+                                                    }
+                                                    ctx.closePath();
+                                                    ctx.fill();
+
+                                                    // Draw peak lines for sharper detail
+                                                    ctx.strokeStyle = trackData.clipColor || "#66aaee";
+                                                    ctx.globalAlpha = 0.9;
+                                                    ctx.lineWidth = 0.8;
+                                                    ctx.beginPath();
+                                                    for (var x3 = x0; x3 < x1; x3 += 1) {
+                                                        var t3 = (x3 - x0) / regW;
+                                                        var env3 = 1.0;
+                                                        if (t3 < 0.05) env3 = t3 / 0.05;
+                                                        else if (t3 > 0.92) env3 = (1.0 - t3) / 0.08;
+                                                        var peak = seededRand(seed + x3 * 1.3) * 0.5 + 0.3;
+                                                        var amp3 = mid * 0.8 * env3 * peak;
+                                                        ctx.moveTo(x3, mid - amp3);
+                                                        ctx.lineTo(x3, mid + amp3);
+                                                    }
+                                                    ctx.stroke();
+                                                    ctx.globalAlpha = 1.0;
+
+                                                    // Region label
+                                                    ctx.fillStyle = "#aaccff";
+                                                    ctx.font = "9px sans-serif";
+                                                    ctx.globalAlpha = 0.85;
+                                                    ctx.fillText(reg.label, x0 + 6, 14);
+                                                    ctx.globalAlpha = 1.0;
+                                                }
+
+                                                // Crossfade markers between adjacent regions
+                                                ctx.strokeStyle = "#ffffff";
+                                                ctx.globalAlpha = 0.4;
+                                                ctx.lineWidth = 1;
+                                                for (var ci = 0; ci < regions.length - 1; ci++) {
+                                                    var rA = regions[ci];
+                                                    var rB = regions[ci + 1];
+                                                    // Crossfade overlap region
+                                                    var cfLeft = rA.endPct * width;
+                                                    var cfRight = rB.startPct * width;
+                                                    // If regions overlap or are adjacent
+                                                    var cfCenter = (cfLeft + cfRight) / 2;
+                                                    var cfHalf = Math.abs(cfRight - cfLeft) / 2;
+                                                    if (cfHalf < 2) {
+                                                        // Regions touch — draw at boundary
+                                                        ctx.beginPath();
+                                                        ctx.moveTo(cfLeft, 0);
+                                                        ctx.lineTo(cfLeft, height);
+                                                        ctx.stroke();
+                                                    } else {
+                                                        // Fade-out line (top-left to bottom-right)
+                                                        ctx.beginPath();
+                                                        ctx.moveTo(cfCenter - cfHalf, 10);
+                                                        ctx.lineTo(cfCenter + cfHalf, height - 10);
+                                                        ctx.stroke();
+                                                        // Fade-in line (bottom-left to top-right)
+                                                        ctx.beginPath();
+                                                        ctx.moveTo(cfCenter - cfHalf, height - 10);
+                                                        ctx.lineTo(cfCenter + cfHalf, 10);
+                                                        ctx.stroke();
                                                     }
                                                 }
+                                                ctx.globalAlpha = 1.0;
+                                            }
+                                        }
+
+                                        // Right-click context menu
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            acceptedButtons: Qt.RightButton
+                                            onClicked: {
+                                                root.ctxTrackIndex = index
+                                                timelineCtx.trackName = modelData.name
+                                                timelineCtx.popup()
                                             }
                                         }
                                     }
@@ -463,42 +757,60 @@ Rectangle {
                                     // Volume curve lane
                                     Rectangle {
                                         width: parent.width
-                                        height: modelData.name === "load" || modelData.name === "coast" ? 40 : 110
+                                        height: 60
                                         color: "#161616"; border.color: cBorder; border.width: 1
                                         clip: true
 
-                                        // "Volume  10 dB" labels
                                         Text { anchors.left: parent.left; anchors.top: parent.top; anchors.margins: 3
                                             text: "Volume   10 dB"; color: cMuted; font.pixelSize: 8 }
                                         Text { anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 3
                                             text: "-∞ dB"; color: cMuted; font.pixelSize: 8 }
 
-                                        // Volume automation curve
                                         Canvas {
                                             anchors.fill: parent
+                                            property var trackData: modelData
+                                            onTrackDataChanged: requestPaint()
+                                            onWidthChanged: requestPaint()
+
                                             onPaint: {
                                                 var ctx = getContext("2d");
-                                                ctx.clearRect(0,0,width,height);
+                                                ctx.clearRect(0, 0, width, height);
+
+                                                var regions = trackData.regions || [];
+                                                var dB = trackData.volumeDb || 0;
+                                                // Map dB to Y position (0 dB = top-ish, -80 dB = bottom)
+                                                var dbNorm = Math.max(0, Math.min(1, (dB + 80) / 80));
+                                                var curveY = height * (1 - dbNorm * 0.85);
+
+                                                // Volume line from left edge
                                                 ctx.strokeStyle = root.cCurve;
                                                 ctx.lineWidth = 1.5;
                                                 ctx.beginPath();
-                                                // Draws a simple S-shaped rising then flat curve
-                                                var startX = width * 0.08;
-                                                var riseEnd = width * 0.25;
-                                                ctx.moveTo(startX, height * 0.95);
-                                                ctx.bezierCurveTo(
-                                                    startX + (riseEnd - startX)*0.4, height*0.95,
-                                                    startX + (riseEnd - startX)*0.6, height*0.25,
-                                                    riseEnd, height*0.25
-                                                );
-                                                ctx.lineTo(width, height*0.25);
+
+                                                if (regions.length > 0) {
+                                                    var startX = regions[0].startPct * width;
+                                                    ctx.moveTo(0, height * 0.95);
+                                                    ctx.bezierCurveTo(
+                                                        startX * 0.3, height * 0.95,
+                                                        startX * 0.7, curveY,
+                                                        startX, curveY
+                                                    );
+                                                    ctx.lineTo(width, curveY);
+                                                } else {
+                                                    ctx.moveTo(0, height * 0.5);
+                                                    ctx.lineTo(width, curveY);
+                                                }
                                                 ctx.stroke();
 
-                                                // dB value labels
+                                                // dB value labels at region boundaries
                                                 ctx.fillStyle = root.cCurve;
                                                 ctx.font = "8px Courier New";
-                                                ctx.fillText("-80.00", startX, height * 0.92);
-                                                ctx.fillText("-0.17", riseEnd + 10, height * 0.22);
+                                                ctx.fillText(dB.toFixed(2), 8, curveY - 4);
+
+                                                if (regions.length > 1) {
+                                                    var midX = regions[0].endPct * width;
+                                                    ctx.fillText(trackData.volumeDbLabel || dB.toFixed(2), midX + 4, curveY - 4);
+                                                }
                                             }
                                         }
                                     }
@@ -943,22 +1255,17 @@ Rectangle {
                 }
             }
 
-            // ── Log bar ───────────────────────────────────────────
+            // ── Status bar ───────────────────────────────────────────
             Rectangle {
-                height: 48; Layout.fillWidth: true
-                color: "#111111"; border.color: cBorder; border.width: 1
+                height: 24; Layout.fillWidth: true
+                color: "#1a1a1a"; border.color: cBorder; border.width: 1
 
-                ColumnLayout {
-                    anchors.fill: parent; anchors.margins: 4; spacing: 1
-                    Repeater {
-                        model: [
-                            "[INFO] Car module loaded",
-                            "[INFO] Track module loaded",
-                            "[INFO] Physics module loaded",
-                            "[INFO] All modules ready"
-                        ]
-                        Text { text: modelData; color: cMuted; font.pixelSize: 9; font.family: "Courier New" }
-                    }
+                RowLayout {
+                    anchors.fill: parent; anchors.leftMargin: 8; spacing: 8
+
+                    Text { text: "Current Module: sound"; color: cMuted; font.pixelSize: 10 }
+                    Item { Layout.fillWidth: true }
+                    Text { text: "Ready"; color: cMuted; font.pixelSize: 10 }
                 }
             }
         }
@@ -1058,37 +1365,75 @@ Rectangle {
                 }
                 ColumnLayout {
                     Layout.fillWidth: true; Layout.leftMargin: 8; Layout.rightMargin: 8
-                    Layout.topMargin: 6; spacing: 4
+                    Layout.topMargin: 6; spacing: 6
 
-                    Text { text: "Tags"; color: cMuted; font.pixelSize: 9; font.bold: true }
-                    Rectangle {
-                        Layout.fillWidth: true; height: 22; color: "#1e1e1e"
-                        radius: 3; border.color: cBorder; border.width: 1
-                        TextInput {
-                            anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 6
-                            verticalAlignment: Text.AlignVCenter
-                            color: cText; font.pixelSize: 10; clip: true
-                            placeholderText: "add tag..."
-                            placeholderTextColor: "#444"
+                    // Tags
+                    ColumnLayout { spacing: 2; Layout.fillWidth: true
+                        Text { text: "Tags"; color: cMuted; font.pixelSize: 9; font.bold: true }
+                        Rectangle {
+                            Layout.fillWidth: true; height: 22; color: "#1e1e1e"
+                            radius: 3; border.color: cBorder; border.width: 1
+                            TextInput {
+                                anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 6
+                                color: cText; font.pixelSize: 9; verticalAlignment: TextInput.AlignVCenter
+                                clip: true
+                            }
                         }
                     }
 
-                    Text { text: "User Properties"; color: cMuted; font.pixelSize: 9; font.bold: true }
-                    Rectangle {
-                        Layout.fillWidth: true; height: 22; color: "#1e1e1e"
-                        radius: 3; border.color: cBorder; border.width: 1
-                        Text { anchors.left: parent.left; anchors.leftMargin: 6; anchors.verticalCenter: parent.verticalCenter
-                            text: "—"; color: "#444"; font.pixelSize: 10 }
+                    // User Properties
+                    ColumnLayout { spacing: 2; Layout.fillWidth: true
+                        Text { text: "User Properties"; color: cMuted; font.pixelSize: 9; font.bold: true }
+                        Rectangle {
+                            Layout.fillWidth: true; height: 22; color: "#1e1e1e"
+                            radius: 3; border.color: cBorder; border.width: 1
+                            TextInput {
+                                anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 6
+                                color: cText; font.pixelSize: 9; verticalAlignment: TextInput.AlignVCenter
+                                clip: true
+                            }
+                        }
                     }
 
-                    Text { text: "Locale"; color: cMuted; font.pixelSize: 9; font.bold: true }
-                    Rectangle {
-                        Layout.fillWidth: true; height: 22; color: "#1e1e1e"
-                        radius: 3; border.color: cBorder; border.width: 1
-                        RowLayout {
-                            anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 4
-                            Text { text: "—"; color: "#444"; font.pixelSize: 10; Layout.fillWidth: true }
-                            Text { text: "▼"; color: "#555"; font.pixelSize: 9 }
+                    // Notes
+                    ColumnLayout { spacing: 2; Layout.fillWidth: true
+                        Text { text: "Notes"; color: cMuted; font.pixelSize: 9; font.bold: true }
+                        Rectangle {
+                            Layout.fillWidth: true; height: 22; color: "#1e1e1e"
+                            radius: 3; border.color: cBorder; border.width: 1
+                            TextInput {
+                                anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 6
+                                color: cText; font.pixelSize: 9; verticalAlignment: TextInput.AlignVCenter
+                                clip: true
+                            }
+                        }
+                    }
+
+                    // User Notes
+                    ColumnLayout { spacing: 2; Layout.fillWidth: true
+                        Text { text: "User Notes"; color: cMuted; font.pixelSize: 9; font.bold: true }
+                        Rectangle {
+                            Layout.fillWidth: true; height: 22; color: "#1e1e1e"
+                            radius: 3; border.color: cBorder; border.width: 1
+                            TextInput {
+                                anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 6
+                                color: cText; font.pixelSize: 9; verticalAlignment: TextInput.AlignVCenter
+                                clip: true
+                            }
+                        }
+                    }
+
+                    // Event EndProperties
+                    ColumnLayout { spacing: 2; Layout.fillWidth: true
+                        Text { text: "Event EndProperties"; color: cMuted; font.pixelSize: 9; font.bold: true }
+                        Rectangle {
+                            Layout.fillWidth: true; height: 22; color: "#1e1e1e"
+                            radius: 3; border.color: cBorder; border.width: 1
+                            TextInput {
+                                anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 6
+                                color: cText; font.pixelSize: 9; verticalAlignment: TextInput.AlignVCenter
+                                clip: true
+                            }
                         }
                     }
                 }
@@ -1112,26 +1457,22 @@ Rectangle {
 
                         ColumnLayout { spacing: 2
                             Text { text: "Pitch"; color: cMuted; font.pixelSize: 9 }
-                            // Rotary knob
                             Rectangle {
                                 width: 38; height: 38; radius: 19
                                 color: "#0f0f0f"; border.color: "#555"; border.width: 2
                                 Canvas {
                                     anchors.fill: parent
-                                    property real angle: -0.1  // near center
+                                    property real angle: -0.1
                                     onPaint: {
                                         var ctx = getContext("2d");
                                         ctx.clearRect(0,0,width,height);
                                         var cx = width/2, cy = height/2, r = width/2 - 4;
-                                        // Arc track
                                         ctx.beginPath();
                                         ctx.arc(cx, cy, r, Math.PI * 0.75, Math.PI * 2.25);
                                         ctx.strokeStyle = "#333"; ctx.lineWidth = 3; ctx.stroke();
-                                        // Value arc
                                         ctx.beginPath();
                                         ctx.arc(cx, cy, r, Math.PI * 1.5, Math.PI * 1.5 + angle);
                                         ctx.strokeStyle = root.cAccent; ctx.lineWidth = 3; ctx.stroke();
-                                        // Tick
                                         var tx = cx + (r-2) * Math.cos(Math.PI * 1.5 + angle);
                                         var ty = cy + (r-2) * Math.sin(Math.PI * 1.5 + angle);
                                         ctx.beginPath();
@@ -1146,52 +1487,46 @@ Rectangle {
                         ColumnLayout { spacing: 2; Layout.fillWidth: true
                             Text { text: "Max Instances"; color: cMuted; font.pixelSize: 9 }
                             Rectangle {
-                                width: 60; height: 22; color: "#1e1e1e"; radius: 3
+                                Layout.fillWidth: true; height: 22; color: "#1e1e1e"; radius: 3
                                 border.color: cBorder; border.width: 1
                                 RowLayout { anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 4
                                     Text { text: "on"; color: cAccent; font.pixelSize: 10; Layout.fillWidth: true }
                                     Text { text: "▼"; color: "#555"; font.pixelSize: 9 }
                                 }
                             }
-                            // Stealing mode
+                        }
+                    }
+
+                    // Row 2: Recording toggle
+                    RowLayout { Layout.fillWidth: true; spacing: 8
+                        ColumnLayout { spacing: 2; Layout.fillWidth: true
+                            Text { text: "Recording"; color: cMuted; font.pixelSize: 9 }
                             Rectangle {
-                                width: 70; height: 22; color: "#1e1e1e"; radius: 3
+                                Layout.fillWidth: true; height: 22; color: "#1e1e1e"; radius: 3
                                 border.color: cBorder; border.width: 1
+                                property bool on: false
                                 RowLayout { anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 4
-                                    Text { text: "Stealing"; color: cText; font.pixelSize: 9; Layout.fillWidth: true }
-                                    Text { text: "▼"; color: "#555"; font.pixelSize: 9 }
+                                    Rectangle { width: 8; height: 8; radius: 4
+                                        color: parent.parent.parent.on ? "#ff4444" : "#555" }
+                                    Text { text: "OFF"; color: cMuted; font.pixelSize: 9; Layout.fillWidth: true }
                                 }
-                            }
-                            // Virtualize toggle
-                            Rectangle {
-                                width: 80; height: 22; color: "#1e1e1e"; radius: 3
-                                border.color: cBorder; border.width: 1
-                                property bool on: true
-                                RowLayout { anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 4
-                                    Text { text: "Virtualize"; color: cMuted; font.pixelSize: 9; Layout.fillWidth: true }
-                                    Rectangle {
-                                        width: 30; height: 16; radius: 2
-                                        color: parent.parent.on ? "#1a4a3a" : "#3a3a3a"
-                                        border.color: parent.parent.on ? cAccent : "#555"; border.width: 1
-                                        Text { anchors.centerIn: parent; text: parent.parent.on ? "On" : "Off"
-                                            color: parent.parent.on ? cAccent : cMuted; font.pixelSize: 9 }
-                                        MouseArea { anchors.fill: parent; onClicked: parent.parent.parent.parent.on = !parent.parent.parent.parent.on }
-                                    }
-                                }
+                                MouseArea { anchors.fill: parent; onClicked: parent.on = !parent.on }
                             }
                         }
                     }
 
-                    // Row 2: Doppler + Cooldown
+                    // Row 3: Virtualize toggle + Cooldown
                     RowLayout { Layout.fillWidth: true; spacing: 8
                         ColumnLayout { spacing: 2
-                            Text { text: "Doppler"; color: cMuted; font.pixelSize: 9 }
+                            Text { text: "Virtualize"; color: cMuted; font.pixelSize: 9 }
                             Rectangle {
-                                width: 44; height: 22; color: "#1e1e1e"; radius: 3
+                                width: 60; height: 22; color: "#1e1e1e"; radius: 3
                                 border.color: cBorder; border.width: 1
-                                property bool on: false
-                                Text { anchors.centerIn: parent; text: on ? "ON" : "OFF"
-                                    color: on ? cAccent : cMuted; font.pixelSize: 9; font.bold: true }
+                                property bool on: true
+                                RowLayout { anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 4
+                                    Text { text: "On"; color: cAccent; font.pixelSize: 9; Layout.fillWidth: true }
+                                    Text { text: "▼"; color: "#555"; font.pixelSize: 9 }
+                                }
                                 MouseArea { anchors.fill: parent; onClicked: parent.on = !parent.on }
                             }
                         }
@@ -1207,16 +1542,8 @@ Rectangle {
                         }
                     }
 
-                    // Row 3: Scale + Priority
+                    // Row 4: Priority
                     RowLayout { Layout.fillWidth: true; spacing: 8
-                        ColumnLayout { spacing: 2
-                            Text { text: "Scale"; color: cMuted; font.pixelSize: 9 }
-                            Rectangle {
-                                width: 44; height: 22; color: "#1e1e1e"; radius: 3
-                                border.color: cBorder; border.width: 1
-                                Text { anchors.centerIn: parent; text: "100%"; color: cText; font.pixelSize: 9 }
-                            }
-                        }
                         ColumnLayout { spacing: 2; Layout.fillWidth: true
                             Text { text: "Priority"; color: cMuted; font.pixelSize: 9 }
                             Rectangle {
@@ -1302,6 +1629,87 @@ Rectangle {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // ── Timeline context menu ─────────────────────────────────────
+    Menu {
+        id: timelineCtx
+        property string trackName: ""
+
+        MenuItem {
+            text: "Open Audio in Audio Bin"
+            onTriggered: { console.log("Open in Audio Bin:", timelineCtx.trackName) }
+        }
+        MenuItem {
+            text: "Open in Explorer"
+            onTriggered: { console.log("Open in Explorer:", timelineCtx.trackName) }
+        }
+        MenuItem {
+            text: "Open in AudioEditor"
+            onTriggered: { console.log("Open in AudioEditor:", timelineCtx.trackName) }
+        }
+
+        MenuSeparator {}
+
+        MenuItem {
+            text: "Cut"; onTriggered: { console.log("Cut:", timelineCtx.trackName) }
+        }
+        MenuItem {
+            text: "Copy"; onTriggered: { console.log("Copy:", timelineCtx.trackName) }
+        }
+        MenuItem {
+            text: "Paste"; onTriggered: { console.log("Paste:", timelineCtx.trackName) }
+        }
+        MenuItem {
+            text: "Split"; onTriggered: { console.log("Split:", timelineCtx.trackName) }
+        }
+        MenuItem {
+            text: "Delete"
+            onTriggered: {
+                console.log("Delete:", timelineCtx.trackName)
+                // Remove track from trackList
+                if (root.ctxTrackIndex >= 0 && root.ctxTrackIndex < root.trackList.length) {
+                    var arr = root.trackList.slice(0);
+                    arr.splice(root.ctxTrackIndex, 1);
+                    root.trackList = arr;
+                }
+            }
+        }
+
+        MenuSeparator {}
+
+        MenuItem {
+            text: "Move to.."; onTriggered: { console.log("Move to..:", timelineCtx.trackName) }
+        }
+        MenuItem {
+            text: "Move to Cursor"; onTriggered: { console.log("Move to Cursor:", timelineCtx.trackName) }
+        }
+
+        MenuSeparator {}
+
+        MenuItem {
+            text: "Bring to Front"; onTriggered: { console.log("Bring to Front:", timelineCtx.trackName) }
+        }
+        MenuItem {
+            text: "Send to Back"; onTriggered: { console.log("Send to Back:", timelineCtx.trackName) }
+        }
+
+        MenuSeparator {}
+
+        MenuItem {
+            text: "Change Color"
+            onTriggered: {
+                var colors = ["#2a5298", "#5a2a98", "#2a985a", "#985a2a", "#982a2a", "#2a9898"];
+                var idx = root.ctxTrackIndex;
+                if (idx >= 0 && idx < root.trackList.length) {
+                    var arr = root.trackList.slice(0);
+                    var t = arr[idx];
+                    var ci = colors.indexOf(t.clipColor);
+                    t.clipColor = colors[(ci + 1) % colors.length];
+                    root.trackList = arr;
                 }
             }
         }

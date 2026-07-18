@@ -8,17 +8,19 @@
 #include <QHeaderView>
 #include <QSplitter>
 #include <QTextStream>
+#include <QJsonObject>
+#include <QJsonArray>
 
 namespace ks {
 
 DRSZoneEditorModule::DRSZoneEditorModule(QWidget* parent) : EditorModule(parent) {}
 bool DRSZoneEditorModule::initialize() { LOG_INFO("DRSZoneEditorModule", "Initialized"); return true; }
-void DRSZoneEditorModule::shutdown() { if (m_statusLabel) m_statusLabel->setText("Shut down"); }
+void DRSZoneEditorModule::shutdown() { if (m_statusLabel) m_statusLabel->setText(tr("Shut down")); }
 
 QDockWidget* DRSZoneEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
 {
     if (m_dockWidget) return m_dockWidget;
-    m_dockWidget = new QDockWidget("DRS Zone Editor", mainWindow);
+    m_dockWidget = new QDockWidget(tr("DRS Zone Editor"), mainWindow);
     m_dockWidget->setObjectName("DRSZoneEditorDock");
 
     auto* centralWidget = new QWidget();
@@ -28,12 +30,12 @@ QDockWidget* DRSZoneEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
     // Table
     auto* tableWidget = new QWidget(); auto* tableLayout = new QVBoxLayout(tableWidget);
     m_zoneTable = new QTableWidget(); m_zoneTable->setColumnCount(3);
-    m_zoneTable->setHorizontalHeaderLabels({"ID", "Detection", "Activation"});
+    m_zoneTable->setHorizontalHeaderLabels({tr("ID"), tr("Detection"), tr("Activation")});
     m_zoneTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     m_zoneTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     tableLayout->addWidget(m_zoneTable);
     auto* tableBtns = new QHBoxLayout();
-    m_addBtn = new QPushButton("Add"); m_removeBtn = new QPushButton("Remove");
+    m_addBtn = new QPushButton(tr("Add")); m_removeBtn = new QPushButton(tr("Remove"));
     tableBtns->addWidget(m_addBtn); tableBtns->addWidget(m_removeBtn); tableBtns->addStretch();
     tableLayout->addLayout(tableBtns);
     splitter->addWidget(tableWidget);
@@ -41,31 +43,31 @@ QDockWidget* DRSZoneEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
     // Props
     auto* propsWidget = new QWidget(); auto* propsLayout = new QGridLayout(propsWidget);
     m_startXSpin = new QDoubleSpinBox(); m_startXSpin->setRange(-100000, 100000);
-    propsLayout->addWidget(new QLabel("Start X:"), 0, 0); propsLayout->addWidget(m_startXSpin, 0, 1);
+    propsLayout->addWidget(new QLabel(tr("Start X:")), 0, 0); propsLayout->addWidget(m_startXSpin, 0, 1);
     m_startYSpin = new QDoubleSpinBox(); m_startYSpin->setRange(-100000, 100000);
-    propsLayout->addWidget(new QLabel("Start Y:"), 1, 0); propsLayout->addWidget(m_startYSpin, 1, 1);
+    propsLayout->addWidget(new QLabel(tr("Start Y:")), 1, 0); propsLayout->addWidget(m_startYSpin, 1, 1);
     m_startZSpin = new QDoubleSpinBox(); m_startZSpin->setRange(-100000, 100000);
-    propsLayout->addWidget(new QLabel("Start Z:"), 2, 0); propsLayout->addWidget(m_startZSpin, 2, 1);
+    propsLayout->addWidget(new QLabel(tr("Start Z:")), 2, 0); propsLayout->addWidget(m_startZSpin, 2, 1);
     m_endXSpin = new QDoubleSpinBox(); m_endXSpin->setRange(-100000, 100000);
-    propsLayout->addWidget(new QLabel("End X:"), 3, 0); propsLayout->addWidget(m_endXSpin, 3, 1);
+    propsLayout->addWidget(new QLabel(tr("End X:")), 3, 0); propsLayout->addWidget(m_endXSpin, 3, 1);
     m_endYSpin = new QDoubleSpinBox(); m_endYSpin->setRange(-100000, 100000);
-    propsLayout->addWidget(new QLabel("End Y:"), 4, 0); propsLayout->addWidget(m_endYSpin, 4, 1);
+    propsLayout->addWidget(new QLabel(tr("End Y:")), 4, 0); propsLayout->addWidget(m_endYSpin, 4, 1);
     m_endZSpin = new QDoubleSpinBox(); m_endZSpin->setRange(-100000, 100000);
-    propsLayout->addWidget(new QLabel("End Z:"), 5, 0); propsLayout->addWidget(m_endZSpin, 5, 1);
+    propsLayout->addWidget(new QLabel(tr("End Z:")), 5, 0); propsLayout->addWidget(m_endZSpin, 5, 1);
     m_detectionSpin = new QDoubleSpinBox(); m_detectionSpin->setRange(0, 100000);
-    propsLayout->addWidget(new QLabel("Detection Point:"), 6, 0); propsLayout->addWidget(m_detectionSpin, 6, 1);
+    propsLayout->addWidget(new QLabel(tr("Detection Point:")), 6, 0); propsLayout->addWidget(m_detectionSpin, 6, 1);
     m_activationSpin = new QDoubleSpinBox(); m_activationSpin->setRange(0, 100000);
-    propsLayout->addWidget(new QLabel("Activation Point:"), 7, 0); propsLayout->addWidget(m_activationSpin, 7, 1);
+    propsLayout->addWidget(new QLabel(tr("Activation Point:")), 7, 0); propsLayout->addWidget(m_activationSpin, 7, 1);
     splitter->addWidget(propsWidget);
 
     mainLayout->addWidget(splitter);
 
     auto* actionLayout = new QHBoxLayout();
-    m_loadBtn = new QPushButton("Load drs_zones.ini"); m_saveBtn = new QPushButton("Save drs_zones.ini"); m_resetBtn = new QPushButton("Reset");
+    m_loadBtn = new QPushButton(tr("Load drs_zones.ini")); m_saveBtn = new QPushButton(tr("Save drs_zones.ini")); m_resetBtn = new QPushButton(tr("Reset"));
     actionLayout->addWidget(m_loadBtn); actionLayout->addWidget(m_saveBtn); actionLayout->addWidget(m_resetBtn);
     mainLayout->addLayout(actionLayout);
 
-    m_statusLabel = new QLabel("Ready"); mainLayout->addWidget(m_statusLabel);
+    m_statusLabel = new QLabel(tr("Ready")); mainLayout->addWidget(m_statusLabel);
 
     connect(m_zoneTable, &QTableWidget::cellClicked, this, [this](int r, int) { onZoneSelected(r); });
     connect(m_addBtn, &QPushButton::clicked, this, &DRSZoneEditorModule::onAddZone);
@@ -92,12 +94,12 @@ void DRSZoneEditorModule::importFile(const QString& f) { m_filePath = f; loadFil
 void DRSZoneEditorModule::exportFile(const QString& f) { m_filePath = f; saveFileFromUI(); }
 void DRSZoneEditorModule::onActivation()
 {
-    m_statusLabel->setText("Active");
+    m_statusLabel->setText(tr("Active"));
 }
 
 void DRSZoneEditorModule::onDeactivation()
 {
-    m_statusLabel->setText("Inactive");
+    m_statusLabel->setText(tr("Inactive"));
 }
 
 void DRSZoneEditorModule::onZoneSelected(int r) { if (r >= 0 && r < m_zones.size()) { m_selectedIndex = r; selectZone(r); } }
@@ -121,8 +123,8 @@ void DRSZoneEditorModule::onEndLineZChanged(double v) { if (m_selectedIndex >= 0
 void DRSZoneEditorModule::onDetectionPointChanged(double v) { if (m_selectedIndex >= 0) m_zones[m_selectedIndex].detectionPoint = v; }
 void DRSZoneEditorModule::onActivationPointChanged(double v) { if (m_selectedIndex >= 0) m_zones[m_selectedIndex].activationPoint = v; }
 
-void DRSZoneEditorModule::onLoadFile() { QString p = QFileDialog::getOpenFileName(this, "Open drs_zones.ini", QString(), "DRS INI (*.ini)"); if (!p.isEmpty()) { m_filePath = p; loadFileToUI(); } }
-void DRSZoneEditorModule::onSaveFile() { QString p = m_filePath.isEmpty() ? QFileDialog::getSaveFileName(this, "Save drs_zones.ini", QString(), "DRS INI (*.ini)") : m_filePath; if (!p.isEmpty()) { m_filePath = p; saveFileFromUI(); } }
+void DRSZoneEditorModule::onLoadFile() { QString p = QFileDialog::getOpenFileName(this, tr("Open drs_zones.ini"), QString(), tr("DRS INI (*.ini)")); if (!p.isEmpty()) { m_filePath = p; loadFileToUI(); } }
+void DRSZoneEditorModule::onSaveFile() { QString p = m_filePath.isEmpty() ? QFileDialog::getSaveFileName(this, tr("Save drs_zones.ini"), QString(), tr("DRS INI (*.ini)")) : m_filePath; if (!p.isEmpty()) { m_filePath = p; saveFileFromUI(); } }
 void DRSZoneEditorModule::onResetDefaults()
 {
     m_zones.clear();
@@ -132,9 +134,9 @@ void DRSZoneEditorModule::onResetDefaults()
     m_zones.append(z2);
     m_selectedIndex = -1;
     updateTable();
-    m_statusLabel->setText("Reset to defaults (2 zones)");
+    m_statusLabel->setText(tr("Reset to defaults (2 zones)"));
 }
-void DRSZoneEditorModule::setupUi() { if (m_statusLabel) m_statusLabel->setText("UI Ready"); }
+void DRSZoneEditorModule::setupUi() { if (m_statusLabel) m_statusLabel->setText(tr("UI Ready")); }
 
 void DRSZoneEditorModule::loadFileToUI()
 {

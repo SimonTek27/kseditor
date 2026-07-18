@@ -9,6 +9,9 @@
 #include <QHeaderView>
 #include <QSplitter>
 #include <QTextStream>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 namespace ks {
 
@@ -18,13 +21,13 @@ CameraEditorModule::CameraEditorModule(QWidget* parent)
 }
 
 bool CameraEditorModule::initialize() { LOG_INFO("CameraEditorModule", "Initialized"); return true; }
-void CameraEditorModule::shutdown() { if (m_statusLabel) m_statusLabel->setText("Shut down"); }
+void CameraEditorModule::shutdown() { if (m_statusLabel) m_statusLabel->setText(tr("Shut down")); }
 
 QDockWidget* CameraEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
 {
     if (m_dockWidget) return m_dockWidget;
 
-    m_dockWidget = new QDockWidget("Camera Editor", mainWindow);
+    m_dockWidget = new QDockWidget(tr("Camera Editor"), mainWindow);
     m_dockWidget->setObjectName("CameraEditorDock");
 
     auto* centralWidget = new QWidget();
@@ -37,15 +40,15 @@ QDockWidget* CameraEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
     auto* tableLayout = new QVBoxLayout(tableWidget);
     m_cameraTable = new QTableWidget();
     m_cameraTable->setColumnCount(5);
-    m_cameraTable->setHorizontalHeaderLabels({"Index", "Position", "Target", "FOV", "Speed"});
+    m_cameraTable->setHorizontalHeaderLabels({tr("Index"), tr("Position"), tr("Target"), tr("FOV"), tr("Speed")});
     m_cameraTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     m_cameraTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     tableLayout->addWidget(m_cameraTable);
 
     auto* tableBtnLayout = new QHBoxLayout();
-    m_addCameraBtn = new QPushButton("Add");
-    m_removeCameraBtn = new QPushButton("Remove");
-    m_duplicateCameraBtn = new QPushButton("Duplicate");
+    m_addCameraBtn = new QPushButton(tr("Add"));
+    m_removeCameraBtn = new QPushButton(tr("Remove"));
+    m_duplicateCameraBtn = new QPushButton(tr("Duplicate"));
     tableBtnLayout->addWidget(m_addCameraBtn);
     tableBtnLayout->addWidget(m_removeCameraBtn);
     tableBtnLayout->addWidget(m_duplicateCameraBtn);
@@ -59,59 +62,59 @@ QDockWidget* CameraEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
     auto* propsLayout = new QGridLayout(propsWidget);
 
     m_cameraTypeCombo = new QComboBox();
-    m_cameraTypeCombo->addItems({"TV", "Onboard", "Chase", "Hood", "Bumper", "Trackside"});
-    propsLayout->addWidget(new QLabel("Type:"), 0, 0);
+    m_cameraTypeCombo->addItems({tr("TV"), tr("Onboard"), tr("Chase"), tr("Hood"), tr("Bumper"), tr("Trackside")});
+    propsLayout->addWidget(new QLabel(tr("Type:")), 0, 0);
     propsLayout->addWidget(m_cameraTypeCombo, 0, 1);
 
     m_posXSpin = new QDoubleSpinBox();
     m_posXSpin->setRange(-100000, 100000);
-    propsLayout->addWidget(new QLabel("Pos X:"), 1, 0);
+    propsLayout->addWidget(new QLabel(tr("Pos X:")), 1, 0);
     propsLayout->addWidget(m_posXSpin, 1, 1);
 
     m_posYSpin = new QDoubleSpinBox();
     m_posYSpin->setRange(-100000, 100000);
-    propsLayout->addWidget(new QLabel("Pos Y:"), 2, 0);
+    propsLayout->addWidget(new QLabel(tr("Pos Y:")), 2, 0);
     propsLayout->addWidget(m_posYSpin, 2, 1);
 
     m_posZSpin = new QDoubleSpinBox();
     m_posZSpin->setRange(-100000, 100000);
-    propsLayout->addWidget(new QLabel("Pos Z:"), 3, 0);
+    propsLayout->addWidget(new QLabel(tr("Pos Z:")), 3, 0);
     propsLayout->addWidget(m_posZSpin, 3, 1);
 
     m_targetXSpin = new QDoubleSpinBox();
     m_targetXSpin->setRange(-100000, 100000);
-    propsLayout->addWidget(new QLabel("Target X:"), 4, 0);
+    propsLayout->addWidget(new QLabel(tr("Target X:")), 4, 0);
     propsLayout->addWidget(m_targetXSpin, 4, 1);
 
     m_targetYSpin = new QDoubleSpinBox();
     m_targetYSpin->setRange(-100000, 100000);
-    propsLayout->addWidget(new QLabel("Target Y:"), 5, 0);
+    propsLayout->addWidget(new QLabel(tr("Target Y:")), 5, 0);
     propsLayout->addWidget(m_targetYSpin, 5, 1);
 
     m_targetZSpin = new QDoubleSpinBox();
     m_targetZSpin->setRange(-100000, 100000);
-    propsLayout->addWidget(new QLabel("Target Z:"), 6, 0);
+    propsLayout->addWidget(new QLabel(tr("Target Z:")), 6, 0);
     propsLayout->addWidget(m_targetZSpin, 6, 1);
 
     m_fovSpin = new QDoubleSpinBox();
     m_fovSpin->setRange(1.0, 180.0);
     m_fovSpin->setValue(60.0);
-    propsLayout->addWidget(new QLabel("FOV:"), 7, 0);
+    propsLayout->addWidget(new QLabel(tr("FOV:")), 7, 0);
     propsLayout->addWidget(m_fovSpin, 7, 1);
 
     m_nearSpin = new QDoubleSpinBox();
     m_nearSpin->setRange(0.01, 1000.0);
-    propsLayout->addWidget(new QLabel("Near:"), 8, 0);
+    propsLayout->addWidget(new QLabel(tr("Near:")), 8, 0);
     propsLayout->addWidget(m_nearSpin, 8, 1);
 
     m_farSpin = new QDoubleSpinBox();
     m_farSpin->setRange(1.0, 100000.0);
-    propsLayout->addWidget(new QLabel("Far:"), 9, 0);
+    propsLayout->addWidget(new QLabel(tr("Far:")), 9, 0);
     propsLayout->addWidget(m_farSpin, 9, 1);
 
     m_speedSpin = new QDoubleSpinBox();
     m_speedSpin->setRange(0.0, 100.0);
-    propsLayout->addWidget(new QLabel("Speed:"), 10, 0);
+    propsLayout->addWidget(new QLabel(tr("Speed:")), 10, 0);
     propsLayout->addWidget(m_speedSpin, 10, 1);
 
     splitter->addWidget(propsWidget);
@@ -119,17 +122,17 @@ QDockWidget* CameraEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
 
     // Action buttons
     auto* actionLayout = new QHBoxLayout();
-    m_loadBtn = new QPushButton("Load cameras.ini");
-    m_saveBtn = new QPushButton("Save cameras.ini");
-    m_resetBtn = new QPushButton("Reset Defaults");
-    m_moveBtn = new QPushButton("Move to Position");
+    m_loadBtn = new QPushButton(tr("Load cameras.ini"));
+    m_saveBtn = new QPushButton(tr("Save cameras.ini"));
+    m_resetBtn = new QPushButton(tr("Reset Defaults"));
+    m_moveBtn = new QPushButton(tr("Move to Position"));
     actionLayout->addWidget(m_loadBtn);
     actionLayout->addWidget(m_saveBtn);
     actionLayout->addWidget(m_resetBtn);
     actionLayout->addWidget(m_moveBtn);
     mainLayout->addLayout(actionLayout);
 
-    m_statusLabel = new QLabel("Ready");
+    m_statusLabel = new QLabel(tr("Ready"));
     mainLayout->addWidget(m_statusLabel);
 
     // Connections
@@ -171,7 +174,7 @@ void CameraEditorModule::onActivation()
     connect(m_nearSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &CameraEditorModule::onNearChanged);
     connect(m_farSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &CameraEditorModule::onFarChanged);
     connect(m_speedSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &CameraEditorModule::onSpeedChanged);
-    m_statusLabel->setText("Active");
+    m_statusLabel->setText(tr("Active"));
 }
 
 void CameraEditorModule::onDeactivation()
@@ -180,7 +183,7 @@ void CameraEditorModule::onDeactivation()
     m_targetXSpin->disconnect(); m_targetYSpin->disconnect(); m_targetZSpin->disconnect();
     m_fovSpin->disconnect(); m_nearSpin->disconnect(); m_farSpin->disconnect();
     m_speedSpin->disconnect();
-    m_statusLabel->setText("Inactive");
+    m_statusLabel->setText(tr("Inactive"));
 }
 
 void CameraEditorModule::onCameraSelected(int row) { if (row >= 0 && row < m_cameras.size()) { m_selectedCameraIndex = row; selectCamera(row); } }
@@ -198,19 +201,19 @@ void CameraEditorModule::onFovChanged(double v) { if (m_selectedCameraIndex >= 0
 void CameraEditorModule::onNearChanged(double v) { if (m_selectedCameraIndex >= 0) m_cameras[m_selectedCameraIndex].nearPlane = v; }
 void CameraEditorModule::onFarChanged(double v) { if (m_selectedCameraIndex >= 0) m_cameras[m_selectedCameraIndex].farPlane = v; }
 void CameraEditorModule::onSpeedChanged(double v) { if (m_selectedCameraIndex >= 0) m_cameras[m_selectedCameraIndex].speed = v; }
-void CameraEditorModule::onMoveToPosition() { m_statusLabel->setText("Move to position: camera preview updated"); }
+void CameraEditorModule::onMoveToPosition() { m_statusLabel->setText(tr("Move to position: camera preview updated")); }
 
 void CameraEditorModule::onLoadFile()
 {
-    QString path = QFileDialog::getOpenFileName(this, "Open cameras.ini", QString(), "Cameras INI (*.ini);;All Files (*)");
-    if (!path.isEmpty()) { m_filePath = path; loadFileToUI(); m_statusLabel->setText("Loaded: " + path); }
+    QString path = QFileDialog::getOpenFileName(this, tr("Open cameras.ini"), QString(), tr("Cameras INI (*.ini);;All Files (*)"));
+    if (!path.isEmpty()) { m_filePath = path; loadFileToUI(); m_statusLabel->setText(tr("Loaded: %1").arg(path)); }
 }
 
 void CameraEditorModule::onSaveFile()
 {
     QString path = m_filePath.isEmpty() ?
-        QFileDialog::getSaveFileName(this, "Save cameras.ini", QString(), "Cameras INI (*.ini)") : m_filePath;
-    if (!path.isEmpty()) { m_filePath = path; saveFileFromUI(); m_statusLabel->setText("Saved: " + path); }
+        QFileDialog::getSaveFileName(this, tr("Save cameras.ini"), QString(), tr("Cameras INI (*.ini)")) : m_filePath;
+    if (!path.isEmpty()) { m_filePath = path; saveFileFromUI(); m_statusLabel->setText(tr("Saved: %1").arg(path)); }
 }
 
 void CameraEditorModule::onResetDefaults()
@@ -219,10 +222,10 @@ void CameraEditorModule::onResetDefaults()
         CameraEditorData c; c.pos[0] = 0; c.pos[1] = 5; c.pos[2] = -10; c.fov = 60;
     m_cameras.append(c);
     updateCameraTable();
-    m_statusLabel->setText("Reset to defaults");
+    m_statusLabel->setText(tr("Reset to defaults"));
 }
 
-void CameraEditorModule::setupUi() { if (m_statusLabel) m_statusLabel->setText("UI Ready"); }
+void CameraEditorModule::setupUi() { if (m_statusLabel) m_statusLabel->setText(tr("UI Ready")); }
 
 void CameraEditorModule::loadFileToUI()
 {

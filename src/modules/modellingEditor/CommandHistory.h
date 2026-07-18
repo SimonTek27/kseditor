@@ -4,6 +4,7 @@
 #include <QString>
 #include <QVector>
 #include <QVariantMap>
+#include <QJsonObject>
 #include <QVector3D>
 #include <memory>
 #include <functional>
@@ -252,7 +253,8 @@ public:
 private:
 	int m_objectId;
 	QString m_objectName;
-	QVariantMap m_savedState; // Salviamo lo stato per ripristino
+	QJsonObject m_savedState;
+	int m_createdId = -1;
 };
 
 /**

@@ -1,11 +1,13 @@
 #include "CharacterEditor.h"
 #include "core/mesh/WeightPainting.h"
+#include "core/Graphics/SceneMesh.h"
 #include "modules/modellingEditor/3DModelingQmlBridge.h"
 #include <QDebug>
 #include <QtMath>
 #include <cmath>
 
 namespace ks {
+using namespace graphics;
 
 CharacterEditor* CharacterEditor::s_instance = nullptr;
 
@@ -229,7 +231,7 @@ QVector<QPair<QVector3D, QVector3D>> CharacterEditor::getBoneSegments() const
     for (const Bone& bone : m_skeleton.bones) {
         QVector3D worldHead = (bone.worldMatrix * QVector4D(bone.head, 1.0f)).toVector3D();
         QVector3D worldTail = (bone.worldMatrix * QVector4D(bone.tail, 1.0f)).toVector3D();
-        segments.append(qMakePair(worldHead, worldTail));
+        segments.append(std::make_pair(worldHead, worldTail));
     }
     
     return segments;
@@ -303,12 +305,12 @@ void CharacterEditor::bindToMesh(const QString& meshId)
     if (!obj || !obj->mesh()) return;
 
     // Extract mesh geometry
-    auto& verts = obj->mesh()->vertices();
-    auto& idxs = obj->mesh()->indices();
+    auto& verts = obj->mesh()->geometry().vertices;
+    auto& idxs = obj->mesh()->geometry().indices;
     QVector<QVector3D> positions;
     QVector<QVector<int>> faces;
     for (const auto& sv : verts)
-        positions.append(QVector3D(sv.position.x, sv.position.y, sv.position.z));
+        positions.append(QVector3D(sv.position.x(), sv.position.y(), sv.position.z()));
     for (int i = 0; i + 2 < idxs.size(); i += 3) {
         QVector<int> tri;
         tri.append((int)idxs[i]);

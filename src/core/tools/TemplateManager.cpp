@@ -7,6 +7,7 @@
 #include <QJsonArray>
 #include <QStandardPaths>
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDebug>
 
 namespace ks {
@@ -40,7 +41,7 @@ public:
         }
 
         m_initialized = true;
-        qDebug() << "[TemplateManager] Initialized with" << m_templates.size() << "templates";
+        qDebug() << "[TemplateManager] Initialized with" << m_templateData.size() << "templates";
     }
 
     bool isInitialized() const override { return m_initialized; }
@@ -69,10 +70,35 @@ public:
 
     QJsonObject createNewTemplate(const QString& name, const QString& description, const QString& type) override
     {
-        Q_UNUSED(name)
-        Q_UNUSED(description)
-        Q_UNUSED(type)
-        return {};
+        QString id = name.toLower().trimmed();
+        id.replace(' ', '_');
+        for (int i = 0; i < id.size(); ++i)
+            if (!id[i].isLetterOrNumber() && id[i] != '_' && id[i] != '-')
+                id[i] = '_';
+        if (id.isEmpty() || m_templateData.contains(id))
+            id = "template_" + QString::number(QDateTime::currentMSecsSinceEpoch());
+
+        QString dir = getTemplateDirectory() + "/" + id;
+        QDir().mkpath(dir);
+
+        QJsonObject obj;
+        obj["id"] = id;
+        obj["name"] = name;
+        obj["description"] = description;
+        obj["type"] = type;
+        obj["version"] = "1.0";
+        obj["created"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+        obj["lastModified"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+
+        QFile file(dir + "/project.json");
+        if (!file.open(QIODevice::WriteOnly)) return {};
+        file.write(QJsonDocument(obj).toJson());
+        file.close();
+
+        m_templateData[id] = obj;
+        m_templatePaths[id] = dir;
+        emit templateAdded(id);
+        return obj;
     }
 
     QString getTemplatePath(const QString& id) const override
@@ -143,15 +169,21 @@ public:
 
     bool exportTemplate(const QString& templateId, const QString& outputPath) override
     {
-        Q_UNUSED(templateId)
-        Q_UNUSED(outputPath)
-        return false;
+        if (!m_templatePaths.contains(templateId)) return false;
+        return copyDirectory(m_templatePaths[templateId], outputPath + "/" + templateId);
     }
 
     bool importTemplate(const QString& inputPath) override
     {
-        Q_UNUSED(inputPath)
-        return false;
+        QFileInfo fi(inputPath);
+        if (!fi.exists()) return false;
+        QString targetDir = getTemplateDirectory() + "/" + fi.fileName();
+        QDir().mkpath(targetDir);
+        if (!copyDirectory(inputPath, targetDir)) return false;
+        QString projectFile = targetDir + "/project.json";
+        if (!QFile::exists(projectFile)) return false;
+        loadTemplate(targetDir, projectFile);
+        return true;
     }
 
     TemplateInfo getTemplateInfo(const QString& id) const override

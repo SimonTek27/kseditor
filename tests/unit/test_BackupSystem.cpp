@@ -46,15 +46,16 @@ void TestBackupSystem::test_createBackup()
     QString projDir = tmpDir.path() + "/project";
     QDir().mkpath(projDir);
 
-    QFile projFile(projDir + "/test.txt");
+    QString filePath = projDir + "/test.txt";
+    QFile projFile(filePath);
     QVERIFY(projFile.open(QIODevice::WriteOnly));
     projFile.write("test data");
     projFile.close();
 
-    QString backupId = bm->createBackup(projDir, "test backup");
+    QString backupId = bm->createBackup(filePath, "test backup");
     QVERIFY(!backupId.isEmpty());
 
-    auto backups = bm->getBackups(projDir);
+    auto backups = bm->getBackups(filePath);
     QCOMPARE(backups.size(), 1);
     QCOMPARE(backups[0].description, QString("test backup"));
 

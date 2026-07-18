@@ -17,18 +17,17 @@ SettingsManager::~SettingsManager() = default;
 QVariant SettingsManager::value(const QString& key, const QVariant& defaultValue) const
 {
     if (m_overrides.contains(key)) return m_overrides.value(key);
-    QString fullKey = m_currentGroup.isEmpty() ? key : m_currentGroup + "/" + key;
-    return m_settings->value(fullKey, defaultValue);
+    return m_settings->value(key, defaultValue);
 }
 
 void SettingsManager::setValue(const QString& key, const QVariant& value)
 {
-    QString fullKey = m_currentGroup.isEmpty() ? key : m_currentGroup + "/" + key;
-    QVariant oldValue = m_settings->value(fullKey);
+    QVariant oldValue = m_settings->value(key);
 
     if (oldValue.isValid() && oldValue == value) return;
 
-    m_settings->setValue(fullKey, value);
+    m_settings->setValue(key, value);
+    QString fullKey = m_currentGroup.isEmpty() ? key : m_currentGroup + "/" + key;
     emit settingChanged(fullKey, value);
 }
 
@@ -80,8 +79,7 @@ QString SettingsManager::group() const
 bool SettingsManager::contains(const QString& key) const
 {
     if (m_overrides.contains(key)) return true;
-    QString fullKey = m_currentGroup.isEmpty() ? key : m_currentGroup + "/" + key;
-    return m_settings->contains(fullKey);
+    return m_settings->contains(key);
 }
 
 void SettingsManager::remove(const QString& key)
@@ -101,8 +99,8 @@ QStringList SettingsManager::childGroups() const
 
 void SettingsManager::reset(const QString& key)
 {
+    m_settings->remove(key);
     QString fullKey = m_currentGroup.isEmpty() ? key : m_currentGroup + "/" + key;
-    m_settings->remove(fullKey);
     emit settingChanged(fullKey, QVariant());
 }
 

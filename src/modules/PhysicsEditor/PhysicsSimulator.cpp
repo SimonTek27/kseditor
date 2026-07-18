@@ -235,6 +235,12 @@ phys_Simulator::phys_Simulator(QObject* parent)
 
     // Initialize differential with clutch LSD
     m_diffModel.setConfig(DifferentialModel::getLSDClutch());
+
+    // Initialize ERS with F1 2014 preset
+    m_hybridSystem.setConfig(HybridSystem::getF1_2014());
+
+    // Store base CD for DRS
+    m_drsBaseCd = m_cd;
 }
 
 phys_Simulator* phys_Simulator::instance() {
@@ -281,6 +287,12 @@ void phys_Simulator::reset() {
     m_engineModel.reset();
     m_diffModel.reset();
     m_brakeModel.reset();
+    m_hybridSystem.reset();
+    m_drsActive = false;
+    m_cd = m_drsBaseCd;
+    m_damage = DamageState();
+    m_aquaplaningRisk = 0.0;
+    m_trackGripReduction = 0.0;
     m_lapTimer.reset();
     emit stateUpdated(m_state);
 }
@@ -540,13 +552,14 @@ double phys_Simulator::calculateSlipRatio(int wheel) const {
 }
 
 void phys_Simulator::updateWeightTransfer(double longitudinalAccel, double lateralAccel) {
-    double FzTotal = m_mass * 9.81;
+    double effectiveMass = getEffectiveMass();
+    double FzTotal = effectiveMass * 9.81;
 
     // Longitudinal weight transfer: dFz = m * a * h / L
-    double longTransfer = m_mass * longitudinalAccel * m_cgHeight / m_wheelBase;
+    double longTransfer = effectiveMass * longitudinalAccel * m_cgHeight / m_wheelBase;
 
     // Lateral weight transfer: dFz = m * ay * h / T
-    double latTransfer = m_mass * lateralAccel * m_cgHeight / m_trackWidth;
+    double latTransfer = effectiveMass * lateralAccel * m_cgHeight / m_trackWidth;
 
     // Static distribution (front/rear split based on axle distances)
     double frontStatic = FzTotal * m_rearAxleDist / m_wheelBase;
@@ -628,16 +641,53 @@ void phys_Simulator::updatePhysics(double dt) {
 
     // --- Differential torque split ---
     prof->beginSubsystem(PhysicsProfiler::Differential);
+
+    // Add ERS torque (deploy adds to axle, regen subtracts)
+    double ersNetTorque = getErsDeployTorque() - getErsRegenTorque();
+    axleTorque += ersNetTorque;
+
+    // Center differential for AWD
+    double frontAxleTorque = 0.0;
+    double rearAxleTorque = 0.0;
+
+    if (m_driveLayout == DriveLayout::AWD && m_centerDiffPower > 0) {
+        // Split torque between front and rear axles via center diff
+        double frontRatio = m_centerDiffPower;
+        double rearRatio = 1.0 - frontRatio;
+
+        // Account for wheel speed difference (center diff action)
+        double frontAvgSpeed = (m_wheels[0].angularVelocity + m_wheels[1].angularVelocity) / 2.0;
+        double rearAvgSpeed = (m_wheels[2].angularVelocity + m_wheels[3].angularVelocity) / 2.0;
+        double centerSlip = std::abs(frontAvgSpeed - rearAvgSpeed);
+
+        // Preload resists slip
+        double preloadTorque = std::min(m_centerDiffPreload, centerSlip * 100.0);
+        frontAxleTorque = axleTorque * frontRatio + preloadTorque * 0.5;
+        rearAxleTorque = axleTorque * rearRatio - preloadTorque * 0.5;
+    } else if (m_driveLayout == DriveLayout::FWD) {
+        frontAxleTorque = axleTorque;
+        rearAxleTorque = 0.0;
+    } else {
+        // RWD (default)
+        frontAxleTorque = 0.0;
+        rearAxleTorque = axleTorque;
+    }
+
+    // Rear differential
     double leftWheelSpeed = m_wheels[2].angularVelocity;
     double rightWheelSpeed = m_wheels[3].angularVelocity;
-    m_diffModel.update(dt, axleTorque, leftWheelSpeed, rightWheelSpeed);
+    m_diffModel.update(dt, rearAxleTorque, leftWheelSpeed, rightWheelSpeed);
 
     double leftDriveTorque = m_diffModel.getLeftTorque();
     double rightDriveTorque = m_diffModel.getRightTorque();
 
-    // For RWD: rear wheels get drive torque, front wheels get 0
-    m_wheels[0].driveTorque = 0.0;
-    m_wheels[1].driveTorque = 0.0;
+    // Front differential (simple open diff for front)
+    double frontLeftTorque = frontAxleTorque * 0.5;
+    double frontRightTorque = frontAxleTorque * 0.5;
+
+    // Assign drive torque per wheel based on drive layout
+    m_wheels[0].driveTorque = frontLeftTorque;
+    m_wheels[1].driveTorque = frontRightTorque;
     m_wheels[2].driveTorque = leftDriveTorque;
     m_wheels[3].driveTorque = rightDriveTorque;
     prof->endSubsystem(PhysicsProfiler::Differential);
@@ -714,17 +764,24 @@ void phys_Simulator::updatePhysics(double dt) {
 
     // --- Vehicle dynamics ---
     prof->beginSubsystem(PhysicsProfiler::VehicleDynamics);
-    double dragForce = 0.5 * 1.225 * m_cd * m_frontalArea * m_state.speed * m_state.speed;
-    double rollingResistance = m_mass * 9.81 * 0.015;
 
+    // Effective drag: base CD * (1 - DRS reduction) * (1 + aero damage factor)
+    double drsFactor = m_drsActive ? (1.0 - m_drsDragReduction) : 1.0;
+    double aeroDamageFactor = 1.0 + m_damage.aeroDamage * 0.3;
+    double effectiveCd = m_cd * drsFactor * aeroDamageFactor;
+
+    double dragForce = 0.5 * m_weather.airDensity * effectiveCd * m_frontalArea * m_state.speed * m_state.speed;
+    double rollingResistance = getEffectiveMass() * 9.81 * 0.015;
+
+    double effectiveMass = getEffectiveMass();
     double netLongitudinalForce = totalLongitudinalForce - dragForce - rollingResistance
                                   - aeroForces.drag;
 
-    double longitudinalAccel = netLongitudinalForce / m_mass;
-    double lateralAccel = totalLateralForce / m_mass;
+    double longitudinalAccel = netLongitudinalForce / effectiveMass;
+    double lateralAccel = totalLateralForce / effectiveMass;
 
-    // Yaw dynamics (bicycle model)
-    double yawInertia = m_mass * (m_wheelBase * m_wheelBase + m_trackWidth * m_trackWidth) / 12.0;
+    // Yaw dynamics (bicycle model) - use effective mass with fuel
+    double yawInertia = effectiveMass * (m_wheelBase * m_wheelBase + m_trackWidth * m_trackWidth) / 12.0;
     double yawTorque = 0.0;
     double frontLateralForce = m_wheels[0].lateralForce + m_wheels[1].lateralForce;
     double rearLateralForce = m_wheels[2].lateralForce + m_wheels[3].lateralForce;
@@ -748,12 +805,25 @@ void phys_Simulator::updatePhysics(double dt) {
     m_lateralAccel = lateralAccel;
     prof->endSubsystem(PhysicsProfiler::VehicleDynamics);
 
-    // --- Fuel consumption ---
+    // --- Fuel consumption (with weight dynamics) ---
     prof->beginSubsystem(PhysicsProfiler::Fuel);
-    float fuelFlow = m_engineModel.calculateFuelFlow(m_engineModel.calculatePower(engineRpm));
-    m_fuelKg -= fuelFlow * dt / 3600.0 * 0.75;
-    m_fuelKg = std::max(0.0, m_fuelKg);
+    updateFuelWeight(dt);
     prof->endSubsystem(PhysicsProfiler::Fuel);
+
+    // --- ERS/Hybrid System ---
+    prof->beginSubsystem(PhysicsProfiler::ERS_Hybrid);
+    updateErsAndDrs(dt);
+    prof->endSubsystem(PhysicsProfiler::ERS_Hybrid);
+
+    // --- Damage Model ---
+    prof->beginSubsystem(PhysicsProfiler::DamageModel);
+    updateDamageModel(dt);
+    prof->endSubsystem(PhysicsProfiler::DamageModel);
+
+    // --- Weather Effects ---
+    prof->beginSubsystem(PhysicsProfiler::WeatherPhysics);
+    updateWeatherEffects(dt);
+    prof->endSubsystem(PhysicsProfiler::WeatherPhysics);
 
     // --- Update lap timer ---
     prof->beginSubsystem(PhysicsProfiler::LapTimer);
@@ -791,6 +861,9 @@ void phys_Simulator::updatePhysics(double dt) {
         m_state.currentLapDistance = 0.0;
         m_lapTimer.startLap();
         m_lapTimeHistory.append(m_lapTimer.lastLapTime());
+
+        // Reset per-lap ERS energy counter
+        m_hybridSystem.resetLap();
     }
 }
 
@@ -831,7 +904,25 @@ void phys_Simulator::updatePerWheelForces(double dt) {
         double tempEffect = m_pacejkaModel.calculateTemperatureEffect(w.temperature);
         double wearEffect = m_pacejkaModel.calculateWearEffect(w.wear);
         double pressureEffect = m_pacejkaModel.calculatePressureEffect(w.pressure);
-        double effectiveGrip = tempEffect * wearEffect * pressureEffect;
+
+        // Weather grip reduction (track wetness)
+        double weatherEffect = 1.0 - m_trackGripReduction;
+
+        // Aquaplaning: near-total grip loss at high risk
+        if (m_aquaplaningRisk > 0.5) {
+            double aquaFactor = (m_aquaplaningRisk - 0.5) / 0.45;
+            weatherEffect *= (1.0 - aquaFactor * 0.9);
+        }
+
+        // Damage effect on suspension (reduced grip on damaged corners)
+        double suspensionEffect = 1.0 - m_damage.suspensionDamage[i] * 0.5;
+
+        // Tire graining and blistering effects
+        double grainingEffect = 1.0 - m_tireGraining[i] * 0.3;
+        double blisteringEffect = 1.0 - m_tireBlistering[i] * 0.5;
+
+        double effectiveGrip = tempEffect * wearEffect * pressureEffect * weatherEffect
+                               * suspensionEffect * grainingEffect * blisteringEffect;
 
         // Calculate combined slip forces using full Pacejka model
         PacejkaTireModel::TireForces forces = m_pacejkaModel.calculateCombinedSlip(
@@ -901,6 +992,244 @@ void phys_Simulator::updateTireModel(double dt) {
         double wearRate = 1e-8 * m_tireModel.peakLateralMu * Fz * totalSlip * std::max(v, 1.0) / (Tcar + 50.0);
         m_tireWear[i] = std::min(1.0, m_tireWear[i] + wearRate * dt);
         w.wear = m_tireWear[i];
+
+        // Tire graining: mechanical wear of tread surface at moderate temps with high slip
+        // Grain increases with slip and wear, decreases at high temp
+        double grainingRate = 5e-6 * totalSlip * (1.0 - Tcar / 120.0) * std::max(v, 1.0);
+        m_tireGraining[i] = std::min(1.0, m_tireGraining[i] + grainingRate * dt);
+
+        // Tire blistering: thermal degradation at very high temps
+        // Blisters form when carcass temp exceeds critical threshold
+        if (Tcar > 100.0) {
+            double blisterRisk = (Tcar - 100.0) / 30.0;
+            double blisterRate = 2e-5 * blisterRisk * totalSlip * std::max(v, 1.0);
+            m_tireBlistering[i] = std::min(1.0, m_tireBlistering[i] + blisterRate * dt);
+        }
+    }
+}
+
+// ============================================================================
+// ERS/Hybrid system update
+// ============================================================================
+
+void phys_Simulator::updateErsAndDrs(double dt) {
+    // --- ERS/Hybrid system update ---
+    if (m_hybridSystem.isEnabled()) {
+        EngineModel::EngineConfig engConfig = m_engineModel.getConfig();
+        double engineRpm = m_state.rpm;
+        double totalGearRatio = m_gearRatios[m_currentGear - 1] * m_finalDriveRatio;
+
+        // Get turbo boost and lag from engine model
+        float turboBoost = engConfig.turbo.enabled
+            ? m_engineModel.calculateTurboBoost(engineRpm, m_throttle) : 0.0f;
+
+        m_hybridSystem.update(dt, engineRpm, m_throttle, m_brake, m_state.speed,
+                               totalGearRatio, 0.0, turboBoost, 0.0f);
+
+        m_ersDeployTorque = m_hybridSystem.getDeployTorque();
+        m_ersRegenTorque = m_hybridSystem.getRegenTorque();
+    } else {
+        m_ersDeployTorque = 0.0;
+        m_ersRegenTorque = 0.0;
+    }
+
+    // --- DRS (Drag Reduction System) ---
+    if (m_drsEnabled) {
+        if (m_drsAutoActivate) {
+            bool inDrsZone = true;
+            if (m_drsZoneEnd > m_drsZoneStart) {
+                double lapDist = m_state.currentLapDistance;
+                inDrsZone = (lapDist >= m_drsZoneStart && lapDist <= m_drsZoneEnd);
+            }
+
+            bool aboveSpeedThreshold = m_state.speed * 3.6 > m_drsSpeedThreshold;
+            bool offBrake = m_brake < 0.1;
+            bool onThrottle = m_throttle > 0.1;
+
+            m_drsActive = inDrsZone && aboveSpeedThreshold && offBrake && onThrottle
+                          && !m_damage.isEliminated;
+        }
+    } else {
+        m_drsActive = false;
+    }
+}
+
+void phys_Simulator::setErsEnabled(bool enabled) {
+    if (enabled && !m_hybridSystem.isEnabled()) {
+        m_hybridSystem.setConfig(HybridSystem::getF1_2014());
+    } else if (!enabled) {
+        m_hybridSystem.setConfig(HybridSystem::getDisabled());
+    }
+}
+
+void phys_Simulator::setErsMode(HybridSystem::ErsMode mode) {
+    m_hybridSystem.setDeploymentMode(mode);
+}
+
+void phys_Simulator::activateErsAttackMode() {
+    m_hybridSystem.activateAttackMode();
+}
+
+void phys_Simulator::setDrsAutoActivate(bool autoActivate) {
+    m_drsAutoActivate = autoActivate;
+    if (!autoActivate) m_drsActive = false;
+}
+
+// ============================================================================
+// Damage Model
+// ============================================================================
+
+void phys_Simulator::applyCollisionDamage(double impactForce) {
+    if (!m_damageEnabled || impactForce < 1000.0) return;
+
+    m_damage.collisionCount++;
+    m_damage.accumulatedImpact += impactForce;
+
+    double normalizedForce = std::min(impactForce / 50000.0, 1.0);
+
+    // Body damage from all impacts
+    m_damage.bodyDamage = std::min(1.0, m_damage.bodyDamage + normalizedForce * 0.3);
+
+    // Aero damage
+    if (impactForce > 5000.0) {
+        m_damage.aeroDamage = std::min(1.0, m_damage.aeroDamage + normalizedForce * 0.7);
+    }
+
+    // Suspension damage
+    for (int i = 0; i < 4; ++i) {
+        if (impactForce > 3000.0) {
+            m_damage.suspensionDamage[i] = std::min(1.0,
+                m_damage.suspensionDamage[i] + normalizedForce * 0.4 * (0.5 + (rand() % 100) / 200.0));
+        }
+    }
+
+    // Engine damage from heavy impacts
+    if (impactForce > 15000.0) {
+        m_damage.engineDamage = std::min(1.0, m_damage.engineDamage + normalizedForce * 0.6);
+    }
+
+    // Gearbox damage
+    if (impactForce > 10000.0) {
+        m_damage.gearboxDamage = std::min(1.0, m_damage.gearboxDamage + normalizedForce * 0.4);
+    }
+
+    if (m_damage.bodyDamage >= 1.0 || m_damage.engineDamage >= 1.0) {
+        m_damage.isEliminated = true;
+    }
+}
+
+void phys_Simulator::updateDamageModel(double dt) {
+    if (!m_damageEnabled) return;
+
+    // Engine damage from over-revving
+    EngineModel::EngineConfig engConfig = m_engineModel.getConfig();
+    if (m_state.rpm > engConfig.revLimiter * 1.15) {
+        double overRevDamage = (m_state.rpm - engConfig.revLimiter * 1.15) / 1000.0 * dt;
+        m_damage.engineDamage = std::min(1.0, m_damage.engineDamage + overRevDamage);
+    }
+
+    // Gearbox damage from missed shifts / high stress
+    if (m_damage.gearboxDamage > 0) {
+        if (rand() % 1000 < static_cast<int>(m_damage.gearboxDamage * 10)) {
+            m_state.rpm *= 0.7;
+        }
+    }
+
+    // Aero damage affects drag and downforce
+    if (m_damage.aeroDamage > 0) {
+        // Drag increases, downforce decreases with aero damage
+        m_drsBaseCd = m_cd * (1.0 + m_damage.aeroDamage * 0.3);
+    }
+
+    // Suspension damage affects cornering
+    double totalSuspDamage = 0.0;
+    for (int i = 0; i < 4; ++i) {
+        totalSuspDamage += m_damage.suspensionDamage[i];
+    }
+
+    if (m_damage.isEliminated) {
+        m_state.speed *= 0.99;
+        m_state.rpm = std::max(1000.0, m_state.rpm - 500.0 * dt);
+    }
+}
+
+void phys_Simulator::resetDamage() {
+    m_damage = DamageState();
+}
+
+// ============================================================================
+// Weather-Dependent Physics
+// ============================================================================
+
+void phys_Simulator::setWeatherState(const WeatherState& weather) {
+    m_weather = weather;
+    m_ambientTemp = weather.ambientTemp;
+}
+
+void phys_Simulator::setTrackWetness(double wetness) {
+    m_weather.trackWetness = std::clamp(wetness, 0.0, 1.0);
+    m_trackGripReduction = m_weather.trackWetness * 0.4;
+}
+
+void phys_Simulator::setRainIntensity(double mmh) {
+    m_weather.rainIntensity = std::max(0.0, mmh);
+}
+
+void phys_Simulator::updateWeatherEffects(double dt) {
+    // Track grip reduction based on wetness
+    m_trackGripReduction = m_weather.trackWetness * 0.4;  // Up to 40% grip loss
+
+    // Aquaplaning risk increases with speed, wetness, and tire wear
+    if (m_weather.trackWetness > 0.3 && m_state.speed > 30.0) {
+        double avgWear = 0.0;
+        for (int i = 0; i < 4; ++i) avgWear += m_tireWear[i];
+        avgWear /= 4.0;
+
+        double speedFactor = (m_state.speed - 30.0) / 60.0;
+        double wetnessFactor = (m_weather.trackWetness - 0.3) / 0.7;
+
+        m_aquaplaningRisk = std::clamp(speedFactor * wetnessFactor * (1.0 + avgWear), 0.0, 0.95);
+    } else {
+        m_aquaplaningRisk = 0.0;
+    }
+
+    // Track temperature changes with ambient and time
+    m_weather.trackTemp += (m_weather.ambientTemp + 10.0 - m_weather.trackTemp) * dt * 0.01;
+
+    // Air density changes with temp and altitude (simplified)
+    m_weather.airDensity = 1.225 * (293.15 / (m_weather.ambientTemp + 273.15));
+}
+
+// ============================================================================
+// Fuel Weight Dynamics
+// ============================================================================
+
+void phys_Simulator::updateFuelWeight(double dt) {
+    if (!m_fuelConsumptionEnabled) return;
+
+    EngineModel::EngineConfig engConfig = m_engineModel.getConfig();
+    float enginePower = m_engineModel.calculatePower(m_state.rpm);
+    float fuelFlow = m_engineModel.calculateFuelFlow(enginePower);
+
+    // Fuel consumption: flow (g/kWh) -> kg reduction
+    // flow is in liters per kWh, fuel density converts to kg
+    double consumedKg = fuelFlow * enginePower * dt / 3600.0 * engConfig.fuelDensity;
+    m_fuelKg = std::max(0.0, m_fuelKg - consumedKg);
+}
+
+// ============================================================================
+// AWD center differential
+// ============================================================================
+
+void phys_Simulator::setFrontRearTorqueSplit(double frontRatio) {
+    m_frontTorqueSplit = std::clamp(frontRatio, 0.0, 1.0);
+    if (frontRatio > 0.001 && frontRatio < 0.999) {
+        m_driveLayout = DriveLayout::AWD;
+        m_centerDiffPower = frontRatio;
+    } else if (frontRatio < 0.001) {
+        m_driveLayout = DriveLayout::RWD;
+    } else {
+        m_driveLayout = DriveLayout::FWD;
     }
 }
 
@@ -976,6 +1305,20 @@ phys_Simulator::ValidationMetrics phys_Simulator::validateAgainstTelemetry(
         replaySim.m_tireTempCore[w] = m_tireTempCore[w];
     }
     replaySim.m_ambientTemp = m_ambientTemp;
+    replaySim.m_weather = m_weather;
+    replaySim.m_damage = m_damage;
+    replaySim.m_damageEnabled = m_damageEnabled;
+    replaySim.m_drsEnabled = m_drsEnabled;
+    replaySim.m_drsAutoActivate = m_drsAutoActivate;
+    replaySim.m_hybridSystem = m_hybridSystem;
+    replaySim.m_fuelKg = m_fuelKg;
+    replaySim.m_fuelConsumptionEnabled = m_fuelConsumptionEnabled;
+    replaySim.m_trackGripReduction = m_trackGripReduction;
+    replaySim.m_aquaplaningRisk = m_aquaplaningRisk;
+    replaySim.m_drsBaseCd = m_drsBaseCd;
+    replaySim.m_drsDragReduction = m_drsDragReduction;
+    replaySim.m_drsSpeedThreshold = m_drsSpeedThreshold;
+    replaySim.m_drsActive = m_drsActive;
 
     for (int i = 0; i < n; ++i) {
         double dt = (i == 0) ? 0.01 : (timestamps[i] - timestamps[i - 1]);

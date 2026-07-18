@@ -11,12 +11,12 @@ namespace ks {
 
 SkinIniEditorModule::SkinIniEditorModule(QWidget* parent) : EditorModule(parent) {}
 bool SkinIniEditorModule::initialize() { LOG_INFO("SkinIniEditorModule", "Initialized"); return true; }
-void SkinIniEditorModule::shutdown() { if (m_statusLabel) m_statusLabel->setText("Shut down"); }
+void SkinIniEditorModule::shutdown() { if (m_statusLabel) m_statusLabel->setText(tr("Shut down")); }
 
 QDockWidget* SkinIniEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
 {
     if (m_dockWidget) return m_dockWidget;
-    m_dockWidget = new QDockWidget("Skin INI Editor", mainWindow);
+    m_dockWidget = new QDockWidget(tr("Skin INI Editor"), mainWindow);
     m_dockWidget->setObjectName("SkinIniEditorDock");
 
     auto* centralWidget = new QWidget();
@@ -27,28 +27,28 @@ QDockWidget* SkinIniEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
     // Driver tab
     auto* driverWidget = new QWidget();
     auto* driverLayout = new QGridLayout(driverWidget);
-    m_suitEdit = new QLineEdit(); driverLayout->addWidget(new QLabel("Suit:"), 0, 0); driverLayout->addWidget(m_suitEdit, 0, 1);
-    m_glovesEdit = new QLineEdit(); driverLayout->addWidget(new QLabel("Gloves:"), 1, 0); driverLayout->addWidget(m_glovesEdit, 1, 1);
-    m_helmetEdit = new QLineEdit(); driverLayout->addWidget(new QLabel("Helmet:"), 2, 0); driverLayout->addWidget(m_helmetEdit, 2, 1);
-    m_brandEdit = new QLineEdit(); driverLayout->addWidget(new QLabel("Brand:"), 3, 0); driverLayout->addWidget(m_brandEdit, 3, 1);
-    m_tabWidget->addTab(driverWidget, "Driver");
+    m_suitEdit = new QLineEdit(); driverLayout->addWidget(new QLabel(tr("Suit:")), 0, 0); driverLayout->addWidget(m_suitEdit, 0, 1);
+    m_glovesEdit = new QLineEdit(); driverLayout->addWidget(new QLabel(tr("Gloves:")), 1, 0); driverLayout->addWidget(m_glovesEdit, 1, 1);
+    m_helmetEdit = new QLineEdit(); driverLayout->addWidget(new QLabel(tr("Helmet:")), 2, 0); driverLayout->addWidget(m_helmetEdit, 2, 1);
+    m_brandEdit = new QLineEdit(); driverLayout->addWidget(new QLabel(tr("Brand:")), 3, 0); driverLayout->addWidget(m_brandEdit, 3, 1);
+    m_tabWidget->addTab(driverWidget, tr("Driver"));
 
     // Crew tab
     auto* crewWidget = new QWidget();
     auto* crewLayout = new QGridLayout(crewWidget);
-    m_crewSuitEdit = new QLineEdit(); crewLayout->addWidget(new QLabel("Suit:"), 0, 0); crewLayout->addWidget(m_crewSuitEdit, 0, 1);
-    m_crewHelmetEdit = new QLineEdit(); crewLayout->addWidget(new QLabel("Helmet:"), 1, 0); crewLayout->addWidget(m_crewHelmetEdit, 1, 1);
-    m_tabWidget->addTab(crewWidget, "Crew");
+    m_crewSuitEdit = new QLineEdit(); crewLayout->addWidget(new QLabel(tr("Suit:")), 0, 0); crewLayout->addWidget(m_crewSuitEdit, 0, 1);
+    m_crewHelmetEdit = new QLineEdit(); crewLayout->addWidget(new QLabel(tr("Helmet:")), 1, 0); crewLayout->addWidget(m_crewHelmetEdit, 1, 1);
+    m_tabWidget->addTab(crewWidget, tr("Crew"));
 
     mainLayout->addWidget(m_tabWidget);
 
     auto* actionLayout = new QHBoxLayout();
-    m_loadBtn = new QPushButton("Load skin.ini");
-    m_saveBtn = new QPushButton("Save skin.ini");
+    m_loadBtn = new QPushButton(tr("Load skin.ini"));
+    m_saveBtn = new QPushButton(tr("Save skin.ini"));
     actionLayout->addWidget(m_loadBtn); actionLayout->addWidget(m_saveBtn);
     mainLayout->addLayout(actionLayout);
 
-    m_statusLabel = new QLabel("Ready");
+    m_statusLabel = new QLabel(tr("Ready"));
     mainLayout->addWidget(m_statusLabel);
 
     connect(m_loadBtn, &QPushButton::clicked, this, &SkinIniEditorModule::onLoadFile);
@@ -62,27 +62,27 @@ void SkinIniEditorModule::importFile(const QString& f) { m_filePath = f; loadFil
 void SkinIniEditorModule::exportFile(const QString& f) { m_filePath = f; saveFileFromUI(); }
 void SkinIniEditorModule::onActivation()
 {
-    m_statusLabel->setText("Active");
+    m_statusLabel->setText(tr("Active"));
 }
 
 void SkinIniEditorModule::onDeactivation()
 {
-    m_statusLabel->setText("Inactive");
+    m_statusLabel->setText(tr("Inactive"));
 }
 
 void SkinIniEditorModule::onLoadFile()
 {
-    QString path = QFileDialog::getOpenFileName(this, "Open skin.ini", QString(), "Skin INI (*.ini)");
-    if (!path.isEmpty()) { m_filePath = path; loadFileToUI(); m_statusLabel->setText("Loaded: " + path); }
+    QString path = QFileDialog::getOpenFileName(this, tr("Open skin.ini"), QString(), tr("Skin INI (*.ini)"));
+    if (!path.isEmpty()) { m_filePath = path; loadFileToUI(); m_statusLabel->setText(tr("Loaded: %1").arg(path)); }
 }
 
 void SkinIniEditorModule::onSaveFile()
 {
-    QString path = m_filePath.isEmpty() ? QFileDialog::getSaveFileName(this, "Save skin.ini", QString(), "Skin INI (*.ini)") : m_filePath;
-    if (!path.isEmpty()) { m_filePath = path; saveFileFromUI(); m_statusLabel->setText("Saved: " + path); }
+    QString path = m_filePath.isEmpty() ? QFileDialog::getSaveFileName(this, tr("Save skin.ini"), QString(), tr("Skin INI (*.ini)")) : m_filePath;
+    if (!path.isEmpty()) { m_filePath = path; saveFileFromUI(); m_statusLabel->setText(tr("Saved: %1").arg(path)); }
 }
 
-void SkinIniEditorModule::setupUi() { if (m_statusLabel) m_statusLabel->setText("UI Ready"); }
+void SkinIniEditorModule::setupUi() { if (m_statusLabel) m_statusLabel->setText(tr("UI Ready")); }
 
 void SkinIniEditorModule::loadFileToUI()
 {

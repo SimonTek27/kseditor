@@ -7,10 +7,12 @@
 #include <QVariant>
 #include <QVector3D>
 #include <QJsonDocument>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QDataStream>
 
 namespace ks {
+using namespace graphics;
 
 // ============================================================================
 // CommandHistory Implementation
@@ -138,13 +140,13 @@ void ModelPropertyCommand::applyValue(const QVariant& value) {
 	if (!obj) return;
 
 	if (m_propertyName == "position") {
-		QVector3D v = value.toVector3D();
-		obj->setTranslation(v);
+		QVector3D v = value.value<QVector3D>();
+		obj->setPosition(v);
 	} else if (m_propertyName == "rotation") {
-		QVector3D v = value.toVector3D();
+		QVector3D v = value.value<QVector3D>();
 		obj->setRotationEuler(v);
 	} else if (m_propertyName == "scale") {
-		QVector3D v = value.toVector3D();
+		QVector3D v = value.value<QVector3D>();
 		obj->setScale(v);
 	} else if (m_propertyName == "visible") {
 		obj->setVisible(value.toBool());
@@ -292,7 +294,7 @@ void CreateObjectCommand::redo() {
 	else if (m_type == "Camera") objType = SceneObject::Type::Camera;
 	else if (m_type == "Bone") objType = SceneObject::Type::Bone;
 
-	SceneObject* obj = sg->createObject(objType, m_name);
+	SceneObject* obj = sg->createObject(m_name, objType);
 	if (obj) {
 		m_createdId = obj->id();
 	}
@@ -328,7 +330,7 @@ void DeleteObjectCommand::undo() {
 	auto* sg = modeler.sceneGraph();
 	if (!sg) return;
 
-	SceneObject* obj = sg->createObject(SceneObject::Type::Node, m_objectName);
+	SceneObject* obj = sg->createObject(m_objectName, SceneObject::Type::Node);
 	if (obj) {
 		obj->deserialize(m_savedState);
 		m_createdId = obj->id();
@@ -377,21 +379,19 @@ void MeshEditCommand::undo() {
 	QDataStream ds(m_originalMeshData);
 	quint32 vCount, iCount;
 	ds >> vCount;
-	obj->mesh()->vertices().resize(vCount);
+	obj->mesh()->geometry().vertices.resize(vCount);
 		for (quint32 i = 0; i < vCount; ++i) {
-		SceneVertex& v = obj->mesh()->vertices()[i];
-		ds >> v.position.x >> v.position.y >> v.position.z;
-		ds >> v.normal.x >> v.normal.y >> v.normal.z;
-		ds >> v.color.x >> v.color.y >> v.color.z;
-		ds >> v.uv.x >> v.uv.y;
+		SceneVertex& v = obj->mesh()->geometry().vertices[i];
+		ds >> v.position;
+		ds >> v.normal;
+		ds >> v.color;
+		ds >> v.uv;
 	}
 	ds >> iCount;
-	obj->mesh()->indices().resize(iCount);
+	obj->mesh()->geometry().indices.resize(iCount);
 	for (quint32 i = 0; i < iCount; ++i) {
-		ds >> obj->mesh()->indices()[i];
+		ds >> obj->mesh()->geometry().indices[i];
 	}
-	obj->mesh()->calculateBounds();
-	obj->mesh()->calculateNormals();
 }
 
 void MeshEditCommand::redo() {
@@ -406,21 +406,19 @@ void MeshEditCommand::redo() {
 	QDataStream ds(m_modifiedMeshData);
 	quint32 vCount, iCount;
 	ds >> vCount;
-	obj->mesh()->vertices().resize(vCount);
+	obj->mesh()->geometry().vertices.resize(vCount);
 	for (quint32 i = 0; i < vCount; ++i) {
-		SceneVertex& v = obj->mesh()->vertices()[i];
-		ds >> v.position.x >> v.position.y >> v.position.z;
-		ds >> v.normal.x >> v.normal.y >> v.normal.z;
-		ds >> v.color.x >> v.color.y >> v.color.z;
-		ds >> v.uv.x >> v.uv.y;
+		SceneVertex& v = obj->mesh()->geometry().vertices[i];
+		ds >> v.position;
+		ds >> v.normal;
+		ds >> v.color;
+		ds >> v.uv;
 	}
 	ds >> iCount;
-	obj->mesh()->indices().resize(iCount);
+	obj->mesh()->geometry().indices.resize(iCount);
 	for (quint32 i = 0; i < iCount; ++i) {
-		ds >> obj->mesh()->indices()[i];
+		ds >> obj->mesh()->geometry().indices[i];
 	}
-	obj->mesh()->calculateBounds();
-	obj->mesh()->calculateNormals();
 }
 
 QString MeshEditCommand::description() const {

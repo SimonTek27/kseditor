@@ -8,6 +8,7 @@
 #include <QMessageBox>
 #include <QHeaderView>
 #include <QSplitter>
+#include <QJsonArray>
 
 namespace ks {
 

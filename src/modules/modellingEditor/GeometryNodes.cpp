@@ -844,12 +844,12 @@ MeshData GeometryNodeExecutor::executeSetShadeSmooth(Node* node, const MeshData&
         // Average normals at shared vertices for smooth shading
         QMap<QPair<float, float>, QVector3D> normalAccum;
         for (const auto& v : result.vertices) {
-            auto key = qMakePair(qRound(v.position.x() * 1000) / 1000.0f,
+            auto key = std::make_pair(qRound(v.position.x() * 1000) / 1000.0f,
                                   qRound(v.position.y() * 1000) / 1000.0f);
             normalAccum[key] += v.normal;
         }
         for (auto& v : result.vertices) {
-            auto key = qMakePair(qRound(v.position.x() * 1000) / 1000.0f,
+            auto key = std::make_pair(qRound(v.position.x() * 1000) / 1000.0f,
                                   qRound(v.position.y() * 1000) / 1000.0f);
             if (normalAccum.contains(key)) {
                 v.normal = normalAccum[key].normalized();

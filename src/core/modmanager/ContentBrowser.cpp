@@ -398,15 +398,15 @@ QMap<QString, QPair<QString, QString>> ContentBrowser::compareContent(
     ContentItem item2 = getItemInfo(path2);
 
     if (item1.name != item2.name) {
-        differences["name"] = qMakePair(item1.name, item2.name);
+        differences["name"] = std::make_pair(item1.name, item2.name);
     }
 
     if (item1.author != item2.author) {
-        differences["author"] = qMakePair(item1.author, item2.author);
+        differences["author"] = std::make_pair(item1.author, item2.author);
     }
 
     if (item1.version != item2.version) {
-        differences["version"] = qMakePair(item1.version, item2.version);
+        differences["version"] = std::make_pair(item1.version, item2.version);
     }
 
     return differences;

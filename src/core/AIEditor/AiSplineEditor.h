@@ -1,7 +1,9 @@
 #pragma once
 
+#include <QObject>
 #include <QString>
 #include <QVector>
+#include <QVector3D>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QFile>
@@ -128,12 +130,17 @@ private:
 /**
  * @brief AI Spline Manager - High-level interface
  */
-class AiSplineManager {
+class AiSplineManager : public QObject {
+    Q_OBJECT
 public:
-    explicit AiSplineManager(const QString& trackPath);
+    explicit AiSplineManager(QObject* parent = nullptr);
 
-    bool load();
-    bool save();
+    bool loadSpline(const QString& filePath);
+    bool saveSpline(const QString& filePath);
+    bool hasSpline() const { return m_data.hasFastLane(); }
+    QString getSplineInfo() const;
+    bool smoothSpline(int iterations, int targetPoints);
+    bool resampleSpline(int targetPoints);
 
     // Access
     AiSplineEditor::AiTrackData& data() { return m_data; }
@@ -161,7 +168,27 @@ public:
     // Validation
     bool validate(QString* error = nullptr) const;
 
+    // Convenience accessors for spline control points as QVector3D
+    QVector<QVector3D> getSplinePoints() const {
+        QVector<QVector3D> result;
+        if (!m_data.hasFastLane()) return result;
+        for (const auto& p : m_data.fastLane.points) {
+            result.append(QVector3D(p.x, p.y, p.z));
+        }
+        return result;
+    }
+
+    void setSplinePoints(const QVector<QVector3D>& pts) {
+        QVector<AiSplineEditor::AiSplinePoint> sp;
+        sp.reserve(pts.size());
+        for (const auto& p : pts) {
+            sp.append(AiSplineEditor::AiSplinePoint(p.x(), p.y(), p.z()));
+        }
+        m_data.fastLane.points = sp;
+    }
+
 private:
     QString m_trackPath;
     AiSplineEditor::AiTrackData m_data;
+    QString m_currentSplinePath;
 };

@@ -258,8 +258,8 @@ void ConformalUnwrapper::computeCotanWeights(const QVector<QVector3D>& vertices,
             float cotanA = QVector3D::dotProduct(e1, e2) / QVector3D::crossProduct(e1, e2).length();
             float cotanB = QVector3D::dotProduct(e0, e2) / QVector3D::crossProduct(e0, e2).length();
 
-            QPair<int, int> edge1 = qMakePair(qMin(v0, v1), qMax(v0, v1));
-            QPair<int, int> edge2 = qMakePair(qMin(v1, v2), qMax(v1, v2));
+            QPair<int, int> edge1 = std::make_pair(qMin(v0, v1), qMax(v0, v1));
+            QPair<int, int> edge2 = std::make_pair(qMin(v1, v2), qMax(v1, v2));
 
             weights[edge1] = weights.value(edge1, 0.0f) + cotanA * 0.5f;
             weights[edge2] = weights.value(edge2, 0.0f) + cotanB * 0.5f;
@@ -288,8 +288,8 @@ bool ConformalUnwrapper::solveHarmonicMap(const QVector<QVector3D>& vertices, co
                         int prev = face[(j - 1 + face.size()) % face.size()];
                         int next = face[(j + 1) % face.size()];
 
-                        QPair<int, int> e1 = qMakePair(qMin(i, prev), qMax(i, prev));
-                        QPair<int, int> e2 = qMakePair(qMin(i, next), qMax(i, next));
+                        QPair<int, int> e1 = std::make_pair(qMin(i, prev), qMax(i, prev));
+                        QPair<int, int> e2 = std::make_pair(qMin(i, next), qMax(i, next));
 
                         float w1 = weights.value(e1, 1.0f);
                         float w2 = weights.value(e2, 1.0f);
@@ -407,7 +407,7 @@ bool LSCMUnwrapper::unwrap(const QVector<QVector3D>& vertices, const QVector<QVe
             int v1 = face[i];
             int v2 = face[(i + 1) % face.size()];
 
-            QPair<int, int> edge = qMakePair(qMin(v1, v2), qMax(v1, v2));
+            QPair<int, int> edge = std::make_pair(qMin(v1, v2), qMax(v1, v2));
             if (seams.contains(edge)) continue;
 
             int v0 = face[(i - 1 + face.size()) % face.size()];
@@ -518,8 +518,8 @@ void LSCMUnwrapper::buildMatrix(const QVector<QVector3D>& vertices, const QVecto
             int v2 = face[(i + 1) % face.size()];
             
             // Check if edge is not a seam
-            QPair<int, int> edge1 = qMakePair(qMin(v1, v2), qMax(v1, v2));
-            QPair<int, int> edge2 = qMakePair(qMin(v2, v1), qMax(v2, v1));
+            QPair<int, int> edge1 = std::make_pair(qMin(v1, v2), qMax(v1, v2));
+            QPair<int, int> edge2 = std::make_pair(qMin(v2, v1), qMax(v2, v1));
             if (seams.contains(edge1) || seams.contains(edge2)) {
                 continue;
             }
@@ -743,7 +743,7 @@ QVector<QPair<int, int>> UVIslandDetector::findSeamsFromAngle(const QVector<QVec
             if (it.value() < angleThreshold) {
                 int v1 = qMin(i, it.key());
                 int v2 = qMax(i, it.key());
-                seams.append(qMakePair(v1, v2));
+                seams.append(std::make_pair(v1, v2));
             }
         }
     }
@@ -761,7 +761,7 @@ bool UVIslandDetector::isEdgeSeam(const QVector<int>& f1, const QVector<int>& f2
     for (int i = 0; i < f1.size(); ++i) {
         int v1 = f1[i];
         int v2 = f1[(i + 1) % f1.size()];
-        QPair<int, int> edge = qMakePair(qMin(v1, v2), qMax(v1, v2));
+        QPair<int, int> edge = std::make_pair(qMin(v1, v2), qMax(v1, v2));
         if (seamEdges.contains(edge)) return true;
     }
     return false;

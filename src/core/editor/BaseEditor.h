@@ -41,8 +41,19 @@
 #include <algorithm>
 
 #include "../Math/MathCore.h"
-#include "Graphics/SceneGraph.h"
-#include "Graphics/SceneObject.h"
+
+namespace ks {
+class SceneGraph; // SceneGraph is directly in namespace ks
+namespace graphics {
+class SceneObject;
+} }
+
+namespace ks {
+using graphics::SceneObject;
+}
+
+using ks::SceneGraph;
+using ks::SceneObject;
 
 namespace ks {
 

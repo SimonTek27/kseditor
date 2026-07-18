@@ -268,7 +268,12 @@ Rectangle {
                         Layout.fillHeight: true
                         cellWidth: 64
                         cellHeight: 64
-                        model: 96  // placeholder: ASCII da 32 a 127
+                        model: {
+                            if (!FontCreator) return 96;
+                            var glyphs = FontCreator.getGlyphs();
+                            if (glyphs && glyphs.length > 0) return glyphs.length;
+                            return 96; // fallback to ASCII 32-127
+                        }
 
                         delegate: Rectangle {
                             width: 60
@@ -290,14 +295,32 @@ Rectangle {
 
                                     Text {
                                         anchors.centerIn: parent
-                                        text: String.fromCharCode(32 + index)
+                                        text: {
+                                            if (FontCreator) {
+                                                var glyphs = FontCreator.getGlyphs();
+                                                if (glyphs && index < glyphs.length) {
+                                                    var cp = glyphs[index].codepoint || (32 + index);
+                                                    return String.fromCharCode(cp);
+                                                }
+                                            }
+                                            return String.fromCharCode(32 + index);
+                                        }
                                         color: "#ffffff"
                                         font.pixelSize: 20
                                     }
                                 }
 
                                 Text {
-                                    text: "U+" + (32 + index).toString(16).toUpperCase()
+                                    text: {
+                                        if (FontCreator) {
+                                            var glyphs = FontCreator.getGlyphs();
+                                            if (glyphs && index < glyphs.length) {
+                                                var cp = glyphs[index].codepoint || (32 + index);
+                                                return "U+" + cp.toString(16).toUpperCase();
+                                            }
+                                        }
+                                        return "U+" + (32 + index).toString(16).toUpperCase();
+                                    }
                                     color: "#aaaaaa"
                                     font.pixelSize: 8
                                     horizontalAlignment: Text.AlignHCenter

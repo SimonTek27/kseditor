@@ -1,5 +1,5 @@
 #include <QtTest/QtTest>
-#include "core/mesh/PhysicsMeshGenerator.h"
+#include "core/mesh/PhysicsCollisionSystem.h"
 #include "core/mesh/MeshOperations.h"
 using namespace ks;
 
@@ -19,7 +19,7 @@ private slots:
 
 void TestPhysicsMeshGenerator::testBoxCollision()
 {
-    MeshData box = PhysicsMeshGenerator::createBoxCollision(QVector3D(1, 2, 3));
+    MeshData box = PhysicsCollisionSystem::createBoxCollision(QVector3D(1, 2, 3));
     QVERIFY(!box.vertices.isEmpty());
     QVERIFY(!box.faces.isEmpty());
     QVERIFY(box.faces.size() >= 6);
@@ -33,7 +33,7 @@ void TestPhysicsMeshGenerator::testBoxCollision()
 
 void TestPhysicsMeshGenerator::testSphereCollision()
 {
-    MeshData sphere = PhysicsMeshGenerator::createSphereCollision(5.0f);
+    MeshData sphere = PhysicsCollisionSystem::createSphereCollision(5.0f);
     QVERIFY(!sphere.vertices.isEmpty());
     QVERIFY(!sphere.faces.isEmpty());
 
@@ -47,7 +47,7 @@ void TestPhysicsMeshGenerator::testSphereCollision()
 
 void TestPhysicsMeshGenerator::testCapsuleCollision()
 {
-    MeshData cap = PhysicsMeshGenerator::createCapsuleCollision(2.0f, 6.0f);
+    MeshData cap = PhysicsCollisionSystem::createCapsuleCollision(2.0f, 6.0f);
     QVERIFY(!cap.vertices.isEmpty());
     QVERIFY(!cap.faces.isEmpty());
 
@@ -66,7 +66,7 @@ void TestPhysicsMeshGenerator::testCapsuleCollision()
 
 void TestPhysicsMeshGenerator::testCylinderCollision()
 {
-    MeshData cyl = PhysicsMeshGenerator::createCylinderCollision(3.0f, 8.0f);
+    MeshData cyl = PhysicsCollisionSystem::createCylinderCollision(3.0f, 8.0f);
     QVERIFY(!cyl.vertices.isEmpty());
     QVERIFY(!cyl.faces.isEmpty());
 
@@ -80,35 +80,35 @@ void TestPhysicsMeshGenerator::testCylinderCollision()
 
 void TestPhysicsMeshGenerator::testComputeVolume()
 {
-    MeshData box = PhysicsMeshGenerator::createBoxCollision(QVector3D(1, 1, 1));
-    float vol = PhysicsMeshGenerator::computeMeshVolume(box);
+    MeshData box = PhysicsCollisionSystem::createBoxCollision(QVector3D(1, 1, 1));
+    float vol = PhysicsCollisionSystem::computeMeshVolume(box);
     QVERIFY(qAbs(vol - 8.0f) < 1.0f);
 }
 
 void TestPhysicsMeshGenerator::testComputeCenter()
 {
-    MeshData box = PhysicsMeshGenerator::createBoxCollision(QVector3D(1, 2, 3));
-    QVector3D center = PhysicsMeshGenerator::computeMeshCenter(box);
+    MeshData box = PhysicsCollisionSystem::createBoxCollision(QVector3D(1, 2, 3));
+    QVector3D center = PhysicsCollisionSystem::computeMeshCenter(box);
     QVERIFY(center.length() < 0.01f);
 }
 
 void TestPhysicsMeshGenerator::testValidateCollisionMesh()
 {
-    MeshData box = PhysicsMeshGenerator::createBoxCollision(QVector3D(1, 1, 1));
+    MeshData box = PhysicsCollisionSystem::createBoxCollision(QVector3D(1, 1, 1));
     QString error;
-    QVERIFY(PhysicsMeshGenerator::validateCollisionMesh(box, &error));
+    QVERIFY(PhysicsCollisionSystem::validateCollisionMesh(box, &error));
 
     MeshData empty;
-    QVERIFY(!PhysicsMeshGenerator::validateCollisionMesh(empty));
+    QVERIFY(!PhysicsCollisionSystem::validateCollisionMesh(empty));
 }
 
 void TestPhysicsMeshGenerator::testSingleConvexHull()
 {
-    MeshData box = PhysicsMeshGenerator::createBoxCollision(QVector3D(1, 1, 1));
-    ConvexHullResult hull = PhysicsMeshGenerator::generateSingleConvexHull(box);
-    QVERIFY(hull.success || !hull.errorMessage.isEmpty());
-    if (hull.success) {
-        QVERIFY(hull.hulls.size() >= 1);
+    MeshData box = PhysicsCollisionSystem::createBoxCollision(QVector3D(1, 1, 1));
+    PhysicsResult result = PhysicsCollisionSystem::generate(box);
+    QVERIFY(result.success || !result.errorMessage.isEmpty());
+    if (result.success) {
+        QVERIFY(result.hulls.size() >= 1);
     }
 }
 

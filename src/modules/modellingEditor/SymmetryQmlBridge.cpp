@@ -6,6 +6,8 @@
 
 namespace ks {
 
+using namespace graphics;
+
 SymmetryQmlBridge::SymmetryQmlBridge(QObject* parent)
     : QObject(parent)
 {
@@ -62,7 +64,7 @@ void SymmetryQmlBridge::setPreviewVisible(bool v) {
 }
 
 SceneObject* SymmetryQmlBridge::getSelectedMeshObject() {
-    SceneGraph* scene = m_scene ? m_scene : KSModelerQml::instance().sceneGraph();
+    ks::SceneGraph* scene = m_scene ? m_scene : KSModelerQml::instance().sceneGraph();
     if (!scene) return nullptr;
     auto allObjs = scene->allObjects();
     for (SceneObject* obj : allObjs) {
@@ -76,14 +78,14 @@ SceneObject* SymmetryQmlBridge::getSelectedMeshObject() {
 MeshData SymmetryQmlBridge::sceneMeshToMeshData(SceneObject* obj) {
     MeshData md;
     if (!obj || !obj->mesh()) return md;
-    auto& verts = obj->mesh()->vertices();
+    auto& verts = obj->mesh()->geometry().vertices;
     for (const auto& sv : verts) {
         Vertex v;
-        v.position = QVector3D(sv.position.x, sv.position.y, sv.position.z);
-        v.color = QVector4D(sv.color.x, sv.color.y, sv.color.z, 1.0f);
+        v.position = QVector3D(sv.position.x(), sv.position.y(), sv.position.z());
+        v.color = QVector4D(sv.color.x(), sv.color.y(), sv.color.z(), sv.color.w());
         md.vertices.append(v);
     }
-    auto& idxs = obj->mesh()->indices();
+    auto& idxs = obj->mesh()->geometry().indices;
     for (int i = 0; i + 2 < idxs.size(); i += 3)
         md.faces.append(Face({ (int)idxs[i], (int)idxs[i+1], (int)idxs[i+2] }));
     md.computeNormals();
@@ -92,20 +94,20 @@ MeshData SymmetryQmlBridge::sceneMeshToMeshData(SceneObject* obj) {
 }
 
 bool SymmetryQmlBridge::meshDataToScene(MeshData& md, const QString& name) {
-    SceneGraph* scene = m_scene ? m_scene : KSModelerQml::instance().sceneGraph();
+    ks::SceneGraph* scene = m_scene ? m_scene : KSModelerQml::instance().sceneGraph();
     if (!scene || md.vertices.isEmpty()) return false;
     SceneObject* obj = scene->createObject(name, SceneObject::Type::Mesh);
     if (!obj) return false;
     SceneMesh* sm = new SceneMesh();
     for (const auto& v : md.vertices) {
         SceneVertex sv;
-        sv.position = Vec3(v.position.x(), v.position.y(), v.position.z());
-        sv.color = Vec3(v.color.x(), v.color.y(), v.color.z());
-        sm->vertices().append(sv);
+        sv.position = QVector3D(v.position.x(), v.position.y(), v.position.z());
+        sv.color = QVector4D(v.color.x(), v.color.y(), v.color.z(), v.color.w());
+        sm->geometry().vertices.append(sv);
     }
     for (const auto& f : md.faces) {
         for (int idx : f.indices)
-            sm->indices().append((uint32_t)idx);
+            sm->geometry().indices.append((uint32_t)idx);
     }
     obj->setMesh(sm);
     return true;
@@ -147,7 +149,7 @@ void SymmetryQmlBridge::applySymmetry() {
         return;
     }
 
-    SceneGraph* scene = m_scene ? m_scene : KSModelerQml::instance().sceneGraph();
+    ks::SceneGraph* scene = m_scene ? m_scene : KSModelerQml::instance().sceneGraph();
 
     if (m_mergeMode == SymmetryManager::MergeMode::NewObject) {
         QString newName = objName + "_sym";
@@ -161,13 +163,13 @@ void SymmetryQmlBridge::applySymmetry() {
         SceneMesh* sm = new SceneMesh();
         for (const auto& v : result.result.vertices) {
             SceneVertex sv;
-            sv.position = Vec3(v.position.x(), v.position.y(), v.position.z());
-            sv.color = Vec3(v.color.x(), v.color.y(), v.color.z());
-            sm->vertices().append(sv);
+            sv.position = QVector3D(v.position.x(), v.position.y(), v.position.z());
+            sv.color = QVector4D(v.color.x(), v.color.y(), v.color.z(), v.color.w());
+            sm->geometry().vertices.append(sv);
         }
         for (const auto& f : result.result.faces) {
             for (int idx : f.indices)
-                sm->indices().append((uint32_t)idx);
+                sm->geometry().indices.append((uint32_t)idx);
         }
         obj->setMesh(sm);
     }
@@ -201,7 +203,7 @@ void SymmetryQmlBridge::previewSymmetry() {
 
     if (!previewResult.success) return;
 
-    SceneGraph* scene = m_scene ? m_scene : KSModelerQml::instance().sceneGraph();
+    ks::SceneGraph* scene = m_scene ? m_scene : KSModelerQml::instance().sceneGraph();
     if (!scene) return;
 
     clearPreview();
@@ -213,13 +215,13 @@ void SymmetryQmlBridge::previewSymmetry() {
     SceneMesh* sm = new SceneMesh();
     for (const auto& v : previewResult.result.vertices) {
         SceneVertex sv;
-        sv.position = Vec3(v.position.x(), v.position.y(), v.position.z());
-        sv.color = Vec3(0, 1, 0);
-        sm->vertices().append(sv);
+        sv.position = QVector3D(v.position.x(), v.position.y(), v.position.z());
+        sv.color = QVector4D(0, 1, 0, 1);
+        sm->geometry().vertices.append(sv);
     }
     for (const auto& f : previewResult.result.faces) {
         for (int idx : f.indices)
-            sm->indices().append((uint32_t)idx);
+            sm->geometry().indices.append((uint32_t)idx);
     }
     prevObj->setMesh(sm);
     m_previewObjectId = prevObj->id();
@@ -233,7 +235,7 @@ void SymmetryQmlBridge::previewSymmetry() {
 }
 
 void SymmetryQmlBridge::clearPreview() {
-    SceneGraph* scene = m_scene ? m_scene : KSModelerQml::instance().sceneGraph();
+    ks::SceneGraph* scene = m_scene ? m_scene : KSModelerQml::instance().sceneGraph();
     if (!scene) return;
 
     if (m_previewObjectId >= 0) {

@@ -17,19 +17,40 @@
 #include <QStandardPaths>
 #include <QCursor>
 #include <QDebug>
+#include <QIcon>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
 
 static QString getWelcomePath() { return ":/assets/welcome.png"; }
 
-WelcomeScreen::WelcomeScreen(QWidget* parent) : QDialog(parent) {
+// Returns false instantly for drives that are disconnected, empty (no media)
+// or otherwise unavailable, avoiding the multi-second hang QDir::exists()
+// would suffer on such paths (e.g. an empty optical/removable drive D:).
+static bool isPathDriveReady(const QString& path) {
+#ifdef Q_OS_WIN
+    if (path.length() >= 2 && path[1] == QChar(':')) {
+        const QString root = path.left(2) + "\\";
+        const UINT type = GetDriveTypeW(root.toStdWString().c_str());
+        if (type == DRIVE_NO_ROOT_DIR || type == DRIVE_UNKNOWN)
+            return false;
+    }
+#endif
+    return true;
+}
+
+WelcomeScreen::WelcomeScreen(QWidget* parent) : QDialog(parent, Qt::Dialog | Qt::FramelessWindowHint) {
     setWindowTitle("ksEditor 1.16");
     setMinimumSize(600, 550);
-    setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
     setupUI();
     populateRecentProjects();
 }
 
 void WelcomeScreen::onNewClicked() { selectedAction = New; accept(); }
+void WelcomeScreen::onNewBlankClicked() { selectedAction = NewBlank; accept(); }
 void WelcomeScreen::onOpenClicked() { selectedAction = Open; accept(); }
+void WelcomeScreen::onHelpClicked() { selectedAction = Help; accept(); }
 
 void WelcomeScreen::onRecentDoubleClicked(QListWidgetItem* item) {
     selectedAction = Recent;
@@ -72,15 +93,32 @@ void WelcomeScreen::setupUI() {
     titleLayout->addWidget(title);
     titleLayout->addStretch();
 
-    QPushButton* minBtn = new QPushButton("─");
+    QPushButton* settingsBtn = new QPushButton();
+    settingsBtn->setFixedSize(36, 28);
+    settingsBtn->setIcon(QIcon(":/icons/settings.svg"));
+    settingsBtn->setIconSize(QSize(18, 18));
+    settingsBtn->setStyleSheet("background: transparent; border: none; color: #cccccc;");
+    settingsBtn->setToolTip("Settings");
+    connect(settingsBtn, &QPushButton::clicked, this, [this]() {
+        selectedAction = Help; // Reuse Help for now, could add separate Settings action
+        accept();
+    });
+    titleLayout->addWidget(settingsBtn);
+
+    QPushButton* minBtn = new QPushButton();
     minBtn->setFixedSize(36, 28);
-    minBtn->setStyleSheet("background: transparent; border: none; color: #888; font-size: 14px;");
+    minBtn->setIcon(QIcon(":/icons/window-minimize.svg"));
+    minBtn->setIconSize(QSize(14, 14));
+    minBtn->setStyleSheet("background: transparent; border: none; border-radius: 4px;");
     connect(minBtn, &QPushButton::clicked, this, &QWidget::showMinimized);
     titleLayout->addWidget(minBtn);
 
-    QPushButton* closeBtn = new QPushButton("✕");
+    QPushButton* closeBtn = new QPushButton();
     closeBtn->setFixedSize(36, 28);
-    closeBtn->setStyleSheet("background: transparent; border: none; color: #888; font-size: 14px;");
+    closeBtn->setIcon(QIcon(":/icons/window-close.svg"));
+    closeBtn->setIconSize(QSize(14, 14));
+    closeBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #c0392b; }");
+    closeBtn->setObjectName("welcomeCloseBtn");
     connect(closeBtn, &QPushButton::clicked, this, &QDialog::reject);
     titleLayout->addWidget(closeBtn);
 
@@ -118,15 +156,35 @@ void WelcomeScreen::setupUI() {
 
     QPushButton* newBtn = new QPushButton("New Project");
     newBtn->setMinimumWidth(140);
+    newBtn->setIcon(QIcon(":/icons/document-new.svg"));
+    newBtn->setIconSize(QSize(18, 18));
     newBtn->setStyleSheet("QPushButton { background: #007acc; color: white; border: none; padding: 12px 20px; border-radius: 4px; font-weight: bold; } QPushButton:hover { background: #005a9e; }");
     connect(newBtn, &QPushButton::clicked, this, &WelcomeScreen::onNewClicked);
     buttonRow->addWidget(newBtn);
 
+    QPushButton* newBlankBtn = new QPushButton("New Project (blank)");
+    newBlankBtn->setMinimumWidth(160);
+    newBlankBtn->setIcon(QIcon(":/icons/add.svg"));
+    newBlankBtn->setIconSize(QSize(18, 18));
+    newBlankBtn->setStyleSheet("QPushButton { background: #3e3e42; color: white; border: 1px solid #555; padding: 12px 20px; border-radius: 4px; } QPushButton:hover { background: #4e4e52; }");
+    connect(newBlankBtn, &QPushButton::clicked, this, &WelcomeScreen::onNewBlankClicked);
+    buttonRow->addWidget(newBlankBtn);
+
     QPushButton* openBtn = new QPushButton("Open...");
     openBtn->setMinimumWidth(140);
+    openBtn->setIcon(QIcon(":/icons/document-open.svg"));
+    openBtn->setIconSize(QSize(18, 18));
     openBtn->setStyleSheet("QPushButton { background: #3e3e42; color: white; border: 1px solid #555; padding: 12px 20px; border-radius: 4px; } QPushButton:hover { background: #4e4e52; }");
     connect(openBtn, &QPushButton::clicked, this, &WelcomeScreen::onOpenClicked);
     buttonRow->addWidget(openBtn);
+
+    QPushButton* helpBtn = new QPushButton("Help");
+    helpBtn->setMinimumWidth(140);
+    helpBtn->setIcon(QIcon(":/icons/help.svg"));
+    helpBtn->setIconSize(QSize(18, 18));
+    helpBtn->setStyleSheet("QPushButton { background: #3e3e42; color: white; border: 1px solid #555; padding: 12px 20px; border-radius: 4px; } QPushButton:hover { background: #4e4e52; }");
+    connect(helpBtn, &QPushButton::clicked, this, &WelcomeScreen::onHelpClicked);
+    buttonRow->addWidget(helpBtn);
 
     buttonRow->addStretch();
     contentLayout->addLayout(buttonRow);
@@ -181,6 +239,8 @@ void WelcomeScreen::populateRecentProjects() {
     searchPaths.append(steamPaths);
 
     for (const QString& basePath : searchPaths) {
+        if (!isPathDriveReady(basePath))
+            continue;
         QDir baseDir(basePath);
         if (baseDir.exists()) {
             QStringList subfolders = {"cars", "tracks", "drivers", "objects3d", "showroom", "fonts"};

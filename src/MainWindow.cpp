@@ -35,6 +35,7 @@
 #include <QKeyEvent>
 #include <QDragEnterEvent>
 #include <QDropEvent>
+#include <QEvent>
 #include <QMimeData>
 #include <QFileInfo>
 #include <QDir>
@@ -48,6 +49,7 @@
 #include <QUndoView>
 #include <QStandardPaths>
 #include <QFontComboBox>
+#include <QLibraryInfo>
 #include <QProcess>
 #include <QPushButton>
 #include <QListWidget>
@@ -125,8 +127,14 @@ void MainWindow::setupRibbon() {
     setupSoundTab();
     setupFontTab();
     
-    // Replace menu bar
-    setMenuWidget(m_ribbonBar);
+    // Add ribbon bar to central widget layout (below title bar)
+    QWidget* central = centralWidget();
+    if (central) {
+        QVBoxLayout* mainLayout = qobject_cast<QVBoxLayout*>(central->layout());
+        if (mainLayout) {
+            mainLayout->insertWidget(1, m_ribbonBar);
+        }
+    }
     
     // Connect theme changes
     connect(m_ribbonBar, &ks::editor::RibbonBar::currentChanged,
@@ -145,6 +153,13 @@ void MainWindow::setupRibbon() {
             // Apply theme to window frame
             ks::editor::RibbonThemeManager::instance().applyWindowFrame(this, themeKey);
             
+            // Apply theme to custom title bar
+            const auto& theme = ks::editor::RibbonThemeManager::instance().theme(themeKey);
+            if (m_customTitleBar) {
+                m_customTitleBar->applyTheme(theme.background, theme.borderColor, theme.titleBarText,
+                                             theme.buttonHover, theme.buttonPressed, QColor("#E81123"));
+            }
+            
             // Update window title color
             updateWindowTitle();
         }
@@ -153,18 +168,25 @@ void MainWindow::setupRibbon() {
     // Initial theme (CAR = index 0)
     m_ribbonBar->applyTheme("car");
     ks::editor::RibbonThemeManager::instance().applyWindowFrame(this, "car");
+    
+    // Apply theme to custom title bar
+    const auto& initialTheme = ks::editor::RibbonThemeManager::instance().theme("car");
+    if (m_customTitleBar) {
+        m_customTitleBar->applyTheme(initialTheme.background, initialTheme.borderColor, initialTheme.titleBarText,
+                                     initialTheme.buttonHover, initialTheme.buttonPressed, QColor("#E81123"));
+    }
 }
 
 void MainWindow::setupCarTab() {
-    auto* carTab = new ks::editor::RibbonTab("CAR", this);
+    auto* carTab = new ks::editor::RibbonTab("CAR", QIcon(":/icons/modeler.svg"), this);
     
-    // Panel: 3D Model
-    auto* modelPanel = carTab->addPanel("3D Model");
-    auto* modelGroup = modelPanel->addGroup("Actions");
-    
-    auto* importModelBtn = modelGroup->addButton(QIcon(":/icons/import.svg"), "Import FBX");
-    importModelBtn->setStyle(ks::editor::RibbonButton::Style::Primary);
-    connect(importModelBtn, &QToolButton::clicked, this, [this]() {
+    // === SUB-TAB: MODEL ===
+    auto* modelSubTab = carTab->addSubTab("Model", QIcon(":/icons/modeler.svg"));
+    auto* importPanel = modelSubTab->addPanel("Import/Export");
+    auto* importGroup = importPanel->addGroup("Model");
+    auto* importBtn = importGroup->addButton(QIcon(":/icons/import.svg"), "Import FBX");
+    importBtn->setStyle(ks::editor::RibbonButton::Style::Primary);
+    connect(importBtn, &QToolButton::clicked, this, [this]() {
         QStringList files = QFileDialog::getOpenFileNames(this, tr("Import 3D models"),
             QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
             tr("FBX Files (*.fbx);;All Files (*)"));
@@ -172,23 +194,69 @@ void MainWindow::setupCarTab() {
             for (const QString &f : files) m_moduleManager->importFile(f);
         }
     });
-    
-    auto* exportKn5Btn = modelGroup->addButton(QIcon(":/icons/export.svg"), "Export KN5");
-    connect(exportKn5Btn, &QToolButton::clicked, this, [this]() {
+    auto* exportBtn = importGroup->addButton(QIcon(":/icons/export.svg"), "Export KN5");
+    connect(exportBtn, &QToolButton::clicked, this, [this]() {
         QString folder = QFileDialog::getExistingDirectory(this, tr("Select export folder"),
             QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation));
         if (!folder.isEmpty()) m_moduleManager->exportFile(folder);
     });
     
-    // Panel: Physics
-    auto* physPanel = carTab->addPanel("Physics");
-    auto* physGroup = physPanel->addGroup("Setup");
+    auto* meshPanel = modelSubTab->addPanel("Mesh");
+    auto* meshGroup = meshPanel->addGroup("Operations");
+    auto* weldBtn = meshGroup->addButton(QIcon(":/icons/mesh.svg"), "Weld Vertices");
+    auto* splitBtn = meshGroup->addButton(QIcon(":/icons/modifier.svg"), "Split Mesh");
+    auto* uvBtn = meshGroup->addButton(QIcon(":/icons/uv.svg"), "UV Unwrap");
     
-    auto* suspBtn = physGroup->addButton(QIcon(":/icons/suspension.svg"), "Suspension");
-    auto* aeroBtn = physGroup->addButton(QIcon(":/icons/aero.svg"), "Aerodynamics");
-    auto* engineBtn = physGroup->addButton(QIcon(":/icons/engine.svg"), "Engine");
+    auto* lodPanel = modelSubTab->addPanel("LOD");
+    auto* lodGroup = lodPanel->addGroup("Levels");
+    auto* genLodBtn = lodGroup->addButton(QIcon(":/icons/lod.svg"), "Generate LODs");
+    auto* lodSettingsBtn = lodGroup->addButton(QIcon(":/icons/settings.svg"), "LOD Settings");
     
-    connect(suspBtn, &QToolButton::clicked, this, [this]() {
+    // === SUB-TAB: TEXTURE ===
+    auto* textureSubTab = carTab->addSubTab("Texture", QIcon(":/icons/texture.svg"));
+    auto* matPanel = textureSubTab->addPanel("Materials");
+    auto* matGroup = matPanel->addGroup("Shaders");
+    auto* bodyMatBtn = matGroup->addButton(QIcon(":/icons/material.svg"), "Body Paint");
+    auto* glassMatBtn = matGroup->addButton(QIcon(":/icons/glass.svg"), "Glass");
+    auto* chromeMatBtn = matGroup->addButton(QIcon(":/icons/chrome.svg"), "Chrome");
+    auto* carbonMatBtn = matGroup->addButton(QIcon(":/icons/carbon.svg"), "Carbon Fiber");
+    
+    auto* texPanel = textureSubTab->addPanel("Textures");
+    auto* texGroup = texPanel->addGroup("Maps");
+    auto* diffBtn = texGroup->addButton(QIcon(":/icons/texture.svg"), "Diffuse");
+    auto* normBtn = texGroup->addButton(QIcon(":/icons/normal.svg"), "Normal");
+    auto* specBtn = texGroup->addButton(QIcon(":/icons/specular.svg"), "Specular");
+    auto* emissBtn = texGroup->addButton(QIcon(":/icons/emissive.svg"), "Emissive");
+    
+    auto* liveryPanel2 = textureSubTab->addPanel("Liveries");
+    auto* liveryGroup2 = liveryPanel2->addGroup("Skins");
+    auto* newSkinBtn2 = liveryGroup2->addButton(QIcon(":/icons/skin.svg"), "New Skin");
+    newSkinBtn2->setStyle(ks::editor::RibbonButton::Style::Success);
+    auto* skinEditorBtn2 = liveryGroup2->addButton(QIcon(":/icons/edit.svg"), "Skin Editor");
+    connect(newSkinBtn2, &QToolButton::clicked, this, [this]() {
+        bool ok;
+        QString name = QInputDialog::getText(this, tr("New Skin"), tr("Skin name:"), QLineEdit::Normal, QString(), &ok);
+        if (ok && !name.isEmpty()) {
+            ks::LiveryEditor::instance()->createSkin(name);
+        }
+    });
+    connect(skinEditorBtn2, &QToolButton::clicked, this, [this]() {
+        for (auto* mod : m_moduleManager->modules()) {
+            if (auto* livery = qobject_cast<ks::LiveryEditorModule*>(mod)) {
+                m_moduleManager->setCurrentModule(m_moduleManager->moduleIndex(livery->getModuleName()));
+                return;
+            }
+        }
+    });
+    
+    // === SUB-TAB: PHYSICS ===
+    auto* physicsSubTab = carTab->addSubTab("Physics", QIcon(":/icons/physics.svg"));
+    auto* suspPanel = physicsSubTab->addPanel("Suspension");
+    auto* suspGroup = suspPanel->addGroup("Geometry");
+    auto* suspGeoBtn = suspGroup->addButton(QIcon(":/icons/suspension.svg"), "Suspension Geometry");
+    auto* wheelBtn = suspGroup->addButton(QIcon(":/icons/wheel.svg"), "Wheels");
+    auto* springBtn = suspGroup->addButton(QIcon(":/icons/spring.svg"), "Springs/Dampers");
+    connect(suspGeoBtn, &QToolButton::clicked, this, [this]() {
         for (auto* mod : m_moduleManager->modules()) {
             if (auto* phys = qobject_cast<ks::PhysicsEditorModule*>(mod)) {
                 phys->onShowSuspGeometry();
@@ -197,7 +265,13 @@ void MainWindow::setupCarTab() {
             }
         }
     });
-    connect(aeroBtn, &QToolButton::clicked, this, [this]() {
+    
+    auto* aeroPanel = physicsSubTab->addPanel("Aerodynamics");
+    auto* aeroGroup = aeroPanel->addGroup("Aero");
+    auto* wingBtn = aeroGroup->addButton(QIcon(":/icons/aero.svg"), "Wings");
+    auto* bodyAeroBtn = aeroGroup->addButton(QIcon(":/icons/bodyaero.svg"), "Body Aero");
+    auto* dragBtn = aeroGroup->addButton(QIcon(":/icons/drag.svg"), "Drag/Downforce");
+    connect(wingBtn, &QToolButton::clicked, this, [this]() {
         for (auto* mod : m_moduleManager->modules()) {
             if (auto* phys = qobject_cast<ks::PhysicsEditorModule*>(mod)) {
                 phys->onShowFfbPreview();
@@ -206,7 +280,13 @@ void MainWindow::setupCarTab() {
             }
         }
     });
-    connect(engineBtn, &QToolButton::clicked, this, [this]() {
+    
+    auto* enginePanel = physicsSubTab->addPanel("Powertrain");
+    auto* engineGroup = enginePanel->addGroup("Engine");
+    auto* curveBtn = engineGroup->addButton(QIcon(":/icons/engine.svg"), "Torque Curve");
+    auto* gearboxBtn = engineGroup->addButton(QIcon(":/icons/gearbox.svg"), "Gearbox");
+    auto* differentialBtn = engineGroup->addButton(QIcon(":/icons/diff.svg"), "Differential");
+    connect(curveBtn, &QToolButton::clicked, this, [this]() {
         for (auto* mod : m_moduleManager->modules()) {
             if (auto* phys = qobject_cast<ks::PhysicsEditorModule*>(mod)) {
                 phys->onShowEngineCurve();
@@ -216,72 +296,77 @@ void MainWindow::setupCarTab() {
         }
     });
     
-    // Panel: Liveries
-    auto* liveryPanel = carTab->addPanel("Liveries");
-    auto* liveryGroup = liveryPanel->addGroup("Skins");
+    auto* brakePanel = physicsSubTab->addPanel("Brakes");
+    auto* brakeGroup = brakePanel->addGroup("System");
+    auto* brakeBiasBtn = brakeGroup->addButton(QIcon(":/icons/brake.svg"), "Brake Bias");
+    auto* brakeTempBtn = brakeGroup->addButton(QIcon(":/icons/temperature.svg"), "Thermals");
     
-    auto* newSkinBtn = liveryGroup->addButton(QIcon(":/icons/skin.svg"), "New Skin");
-    newSkinBtn->setStyle(ks::editor::RibbonButton::Style::Success);
+    auto* tyrePanel = physicsSubTab->addPanel("Tyres");
+    auto* tyreGroup = tyrePanel->addGroup("Model");
+    auto* pacejkaBtn = tyreGroup->addButton(QIcon(":/icons/tire.svg"), "Pacejka Editor");
+    auto* tyrePressBtn = tyreGroup->addButton(QIcon(":/icons/pressure.svg"), "Pressure");
+    auto* tyreTempBtn = tyreGroup->addButton(QIcon(":/icons/temperature.svg"), "Temperature");
     
-    auto* skinEditorBtn = liveryGroup->addButton(QIcon(":/icons/edit.svg"), "Skin Editor");
+    // === SUB-TAB: DISPLAY ===
+    auto* displaySubTab = carTab->addSubTab("Display", QIcon(":/icons/ui.svg"));
+    auto* dashPanel = displaySubTab->addPanel("Dashboard");
+    auto* dashGroup = dashPanel->addGroup("Instruments");
+    auto* rpmBtn = dashGroup->addButton(QIcon(":/icons/rpm.svg"), "RPM Gauge");
+    auto* speedBtn = dashGroup->addButton(QIcon(":/icons/speed.svg"), "Speedometer");
+    auto* gearIndicatorBtn = dashGroup->addButton(QIcon(":/icons/gear.svg"), "Gear Indicator");
+    auto* fuelBtn = dashGroup->addButton(QIcon(":/icons/fuel.svg"), "Fuel Gauge");
     
-    connect(newSkinBtn, &QToolButton::clicked, this, [this]() {
-        bool ok;
-        QString name = QInputDialog::getText(this, tr("New Skin"), tr("Skin name:"), QLineEdit::Normal, QString(), &ok);
-        if (ok && !name.isEmpty()) {
-            ks::LiveryEditor::instance()->createSkin(name);
-        }
-    });
-    connect(skinEditorBtn, &QToolButton::clicked, this, [this]() {
-        for (auto* mod : m_moduleManager->modules()) {
-            if (auto* livery = qobject_cast<ks::LiveryEditorModule*>(mod)) {
-                m_moduleManager->setCurrentModule(m_moduleManager->moduleIndex(livery->getModuleName()));
-                return;
-            }
-        }
-    });
+    auto* lcdPanel = displaySubTab->addPanel("LCD");
+    auto* lcdGroup = lcdPanel->addGroup("Pages");
+    auto* lapBtn = lcdGroup->addButton(QIcon(":/icons/lap.svg"), "Lap Times");
+    auto* deltaBtn = lcdGroup->addButton(QIcon(":/icons/delta.svg"), "Delta");
+    auto* tyreInfoBtn = lcdGroup->addButton(QIcon(":/icons/tyreinfo.svg"), "Tyre Info");
+    auto* engineInfoBtn = lcdGroup->addButton(QIcon(":/icons/engineinfo.svg"), "Engine Data");
     
-    // Panel: Data
-    auto* dataPanel = carTab->addPanel("Data");
-    auto* dataGroup = dataPanel->addGroup("Files");
+    auto* mirrorPanel = displaySubTab->addPanel("Mirrors");
+    auto* mirrorGroup = mirrorPanel->addGroup("Setup");
+    auto* rearBtn = mirrorGroup->addButton(QIcon(":/icons/mirror.svg"), "Rear View");
+    auto* sideBtn = mirrorGroup->addButton(QIcon(":/icons/sidemirror.svg"), "Side Mirrors");
+    auto* virtualBtn = mirrorGroup->addButton(QIcon(":/icons/virtualmirror.svg"), "Virtual Mirror");
     
-    auto* editAcdBtn = dataGroup->addButton(QIcon(":/icons/code.svg"), "Edit data.acd");
-    auto* editUiBtn = dataGroup->addButton(QIcon(":/icons/ui.svg"), "Edit UI");
+    // === SUB-TAB: SOUND ===
+    auto* soundSubTab = carTab->addSubTab("Sound", QIcon(":/icons/sound.svg"));
+    auto* engSoundPanel = soundSubTab->addPanel("Engine");
+    auto* engSoundGroup = engSoundPanel->addGroup("Audio");
+    auto* intakBtn = engSoundGroup->addButton(QIcon(":/icons/intake.svg"), "Intake");
+    auto* exhaustBtn = engSoundGroup->addButton(QIcon(":/icons/exhaust.svg"), "Exhaust");
+    auto* backfireBtn = engSoundGroup->addButton(QIcon(":/icons/backfire.svg"), "Backfire");
+    auto* limiterBtn = engSoundGroup->addButton(QIcon(":/icons/limiter.svg"), "Limiter");
     
-    connect(editAcdBtn, &QToolButton::clicked, this, [this]() {
-        for (auto* mod : m_moduleManager->modules()) {
-            if (auto* phys = qobject_cast<ks::PhysicsEditorModule*>(mod)) {
-                phys->onShowAcdBrowser();
-                m_moduleManager->setCurrentModule(m_moduleManager->moduleIndex(phys->moduleName()));
-                return;
-            }
-        }
-    });
-    connect(editUiBtn, &QToolButton::clicked, this, [this]() {
-        QString iniPath = QFileDialog::getOpenFileName(this, tr("Open Display Config"),
-            QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
-            tr("Display INI (*.ini);;All Files (*)"));
-        if (!iniPath.isEmpty()) {
-            auto* bridge = ks::DisplayEditorQmlBridge::instance();
-            if (bridge->loadFromFile(iniPath)) {
-                bridge->editorRequested();
-            }
-        }
-    });
+    auto* transSoundPanel = soundSubTab->addPanel("Transmission");
+    auto* transSoundGroup = transSoundPanel->addGroup("Sounds");
+    auto* shiftSndBtn = transSoundGroup->addButton(QIcon(":/icons/shift.svg"), "Shift");
+    auto* clutchSndBtn = transSoundGroup->addButton(QIcon(":/icons/clutch.svg"), "Clutch");
+    auto* whineBtn = transSoundGroup->addButton(QIcon(":/icons/whine.svg"), "Gear Whine");
+    
+    auto* tyreSoundPanel = soundSubTab->addPanel("Tyres");
+    auto* tyreSoundGroup = tyreSoundPanel->addGroup("Surfaces");
+    auto* scrubBtn = tyreSoundGroup->addButton(QIcon(":/icons/tire.svg"), "Scrub");
+    auto* gravelSndBtn = tyreSoundGroup->addButton(QIcon(":/icons/gravel.svg"), "Gravel");
+    auto* curbSndBtn = tyreSoundGroup->addButton(QIcon(":/icons/curb.svg"), "Curbs");
+    
+    // Set default active sub-tab
+    carTab->setCurrentSubTabIndex(0);
     
     m_ribbonBar->addTab(carTab);
 }
 
 void MainWindow::setupTrackTab() {
-    auto* trackTab = new ks::editor::RibbonTab("TRACK", this);
+    auto* trackTab = new ks::editor::RibbonTab("TRACK", QIcon(":/icons/track.svg"), this);
     
-    auto* trackPanel = trackTab->addPanel("Track");
-    auto* trackGroup = trackPanel->addGroup("Creation");
-    
-    auto* newTrackBtn = trackGroup->addButton(QIcon(":/icons/track.svg"), "New Track");
+    // === SUB-TAB: LAYOUT ===
+    auto* layoutSubTab = trackTab->addSubTab("Layout", QIcon(":/icons/track.svg"));
+    auto* createPanel = layoutSubTab->addPanel("Creation");
+    auto* createGroup = createPanel->addGroup("Project");
+    auto* newTrackBtn = createGroup->addButton(QIcon(":/icons/track.svg"), "New Track");
     newTrackBtn->setStyle(ks::editor::RibbonButton::Style::Primary);
-    
-    auto* importTrackBtn = trackGroup->addButton(QIcon(":/icons/import.svg"), "Import");
+    auto* importTrackBtn = createGroup->addButton(QIcon(":/icons/import.svg"), "Import");
+    auto* exportTrackBtn = createGroup->addButton(QIcon(":/icons/export.svg"), "Export");
     
     connect(newTrackBtn, &QToolButton::clicked, this, [this]() {
         bool ok;
@@ -300,14 +385,42 @@ void MainWindow::setupTrackTab() {
             if (trackModule) trackModule->loadProject(path);
         }
     });
+    connect(exportTrackBtn, &QToolButton::clicked, this, [this]() {
+        QString path = QFileDialog::getSaveFileName(this, tr("Export Track Project"),
+            QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
+            tr("Track Project (*.json);;All Files (*)"));
+        if (!path.isEmpty()) {
+            auto* trackModule = ks::track::TrackBuilderModule::instance();
+            if (trackModule) trackModule->saveProject(path);
+        }
+    });
     
-    auto* terrainPanel = trackTab->addPanel("Terrain");
-    auto* terrainGroup = terrainPanel->addGroup("Surface");
+    auto* roadPanel = layoutSubTab->addPanel("Road");
+    auto* roadGroup = roadPanel->addGroup("Mesh");
+    auto* addRoadBtn = roadGroup->addButton(QIcon(":/icons/road.svg"), "Add Road");
+    auto* editRoadBtn = roadGroup->addButton(QIcon(":/icons/edit.svg"), "Edit Spline");
+    auto* roadPropsBtn = roadGroup->addButton(QIcon(":/icons/properties.svg"), "Properties");
+    connect(addRoadBtn, &QToolButton::clicked, this, [this]() {
+        auto* trackModule = ks::track::TrackBuilderModule::instance();
+        if (trackModule) trackModule->addRoad();
+    });
     
-    auto* surfBtn = terrainGroup->addButton(QIcon(":/icons/surface.svg"), "Surfaces");
-    auto* roadBtn = terrainGroup->addButton(QIcon(":/icons/road.svg"), "Road Mesh");
+    auto* sectorPanel = layoutSubTab->addPanel("Sectors");
+    auto* sectorGroup = sectorPanel->addGroup("Timing");
+    auto* splitBtn = sectorGroup->addButton(QIcon(":/icons/split.svg"), "Split Points");
+    auto* sectorBtn = sectorGroup->addButton(QIcon(":/icons/sector.svg"), "Sectors");
+    auto* startFinishBtn = sectorGroup->addButton(QIcon(":/icons/startfinish.svg"), "Start/Finish");
     
-    connect(surfBtn, &QToolButton::clicked, this, [this]() {
+    // === SUB-TAB: TERRAIN ===
+    auto* terrainSubTab = trackTab->addSubTab("Terrain", QIcon(":/icons/terrain.svg"));
+    auto* surfacePanel = terrainSubTab->addPanel("Surfaces");
+    auto* surfaceGroup = surfacePanel->addGroup("Materials");
+    auto* asphaltBtn = surfaceGroup->addButton(QIcon(":/icons/surface.svg"), "Asphalt");
+    auto* grassBtn = surfaceGroup->addButton(QIcon(":/icons/grass.svg"), "Grass");
+    auto* gravelBtn = surfaceGroup->addButton(QIcon(":/icons/gravel.svg"), "Gravel");
+    auto* sandBtn = surfaceGroup->addButton(QIcon(":/icons/sand.svg"), "Sand");
+    auto* curbBtn = surfaceGroup->addButton(QIcon(":/icons/curb.svg"), "Curbs");
+    connect(asphaltBtn, &QToolButton::clicked, this, [this]() {
         for (auto* mod : m_moduleManager->modules()) {
             if (qobject_cast<ks::TrackSurfaceEditorModule*>(mod)) {
                 m_moduleManager->setCurrentModule(m_moduleManager->moduleIndex(mod->getModuleName()));
@@ -315,41 +428,92 @@ void MainWindow::setupTrackTab() {
             }
         }
     });
-    connect(roadBtn, &QToolButton::clicked, this, [this]() {
-        auto* trackModule = ks::track::TrackBuilderModule::instance();
-        if (trackModule) trackModule->addRoad();
-    });
     
-    auto* aiPanel = trackTab->addPanel("AI");
-    auto* aiGroup = aiPanel->addGroup("Paths");
+    auto* terrainPanel = terrainSubTab->addPanel("Terrain");
+    auto* terrainGroup = terrainPanel->addGroup("Tools");
+    auto* sculptBtn = terrainGroup->addButton(QIcon(":/icons/sculpt.svg"), "Sculpt");
+    auto* flattenBtn = terrainGroup->addButton(QIcon(":/icons/flatten.svg"), "Flatten");
+    auto* smoothBtn = terrainGroup->addButton(QIcon(":/icons/smooth.svg"), "Smooth");
+    auto* noiseBtn = terrainGroup->addButton(QIcon(":/icons/noise.svg"), "Noise");
     
-    auto* aiLineBtn = aiGroup->addButton(QIcon(":/icons/ai.svg"), "AI Line");
-    auto* pitBtn = aiGroup->addButton(QIcon(":/icons/pit.svg"), "Pit Lane");
+    auto* objectPanel = terrainSubTab->addPanel("Objects");
+    auto* objectGroup = objectPanel->addGroup("Placement");
+    auto* treeBtn = objectGroup->addButton(QIcon(":/icons/tree.svg"), "Trees");
+    auto* rockBtn = objectGroup->addButton(QIcon(":/icons/rock.svg"), "Rocks");
+    auto* grassPlaceBtn = objectGroup->addButton(QIcon(":/icons/grass2.svg"), "Grass Patches");
     
-    connect(aiLineBtn, &QToolButton::clicked, this, [this]() {
+    // === SUB-TAB: AI ===
+    auto* aiSubTab = trackTab->addSubTab("AI", QIcon(":/icons/ai.svg"));
+    auto* aiLinePanel = aiSubTab->addPanel("AI Lines");
+    auto* aiLineGroup = aiLinePanel->addGroup("Paths");
+    auto* genLineBtn = aiLineGroup->addButton(QIcon(":/icons/ai.svg"), "Generate Line");
+    auto* editLineBtn = aiLineGroup->addButton(QIcon(":/icons/edit.svg"), "Edit Line");
+    auto* hintBtn = aiLineGroup->addButton(QIcon(":/icons/hint.svg"), "Hints");
+    connect(genLineBtn, &QToolButton::clicked, this, [this]() {
         auto* trackModule = ks::track::TrackBuilderModule::instance();
         if (trackModule) trackModule->autoGenerateAILine();
     });
-    connect(pitBtn, &QToolButton::clicked, this, [this]() {
+    
+    auto* pitPanel = aiSubTab->addPanel("Pits");
+    auto* pitGroup = pitPanel->addGroup("Positions");
+    auto* pitLaneBtn = pitGroup->addButton(QIcon(":/icons/pit.svg"), "Pit Lane");
+    auto* pitEntryBtn = pitGroup->addButton(QIcon(":/icons/pitentry.svg"), "Entry");
+    auto* pitExitBtn = pitGroup->addButton(QIcon(":/icons/pitexit.svg"), "Exit");
+    auto* pitBoxBtn = pitGroup->addButton(QIcon(":/icons/pitbox.svg"), "Pit Boxes");
+    connect(pitLaneBtn, &QToolButton::clicked, this, [this]() {
         auto* trackModule = ks::track::TrackBuilderModule::instance();
         if (trackModule) trackModule->addPitPosition(0, 0, 0, 0);
     });
     
+    auto* camPanel = aiSubTab->addPanel("Cameras");
+    auto* camGroup = camPanel->addGroup("Track Cameras");
+    auto* addCamBtn = camGroup->addButton(QIcon(":/icons/camera.svg"), "Add Camera");
+    auto* camTrackBtn = camGroup->addButton(QIcon(":/icons/camtrack.svg"), "Camera Track");
+    
+    // === SUB-TAB: LIGHTING ===
+    auto* lightingSubTab = trackTab->addSubTab("Lighting", QIcon(":/icons/lighting.svg"));
+    auto* lightPanel = lightingSubTab->addPanel("Lights");
+    auto* lightGroup = lightPanel->addGroup("Setup");
+    auto* sunBtn = lightGroup->addButton(QIcon(":/icons/sun.svg"), "Sun");
+    auto* ambientBtn = lightGroup->addButton(QIcon(":/icons/ambient.svg"), "Ambient");
+    auto* fogBtn = lightGroup->addButton(QIcon(":/icons/fog.svg"), "Fog");
+    auto* shadowBtn = lightGroup->addButton(QIcon(":/icons/shadow.svg"), "Shadows");
+    
+    auto* timePanel = lightingSubTab->addPanel("Time");
+    auto* timeGroup = timePanel->addGroup("Cycle");
+    auto* timeBtn = timeGroup->addButton(QIcon(":/icons/time.svg"), "Time of Day");
+    auto* weatherBtn = timeGroup->addButton(QIcon(":/icons/weather.svg"), "Weather");
+    
+    // === SUB-TAB: OBJECTS ===
+    auto* objectsSubTab = trackTab->addSubTab("Objects", QIcon(":/icons/object.svg"));
+    auto* staticPanel = objectsSubTab->addPanel("Static");
+    auto* staticGroup = staticPanel->addGroup("Meshes");
+    auto* buildingBtn = staticGroup->addButton(QIcon(":/icons/building.svg"), "Buildings");
+    auto* fenceBtn = staticGroup->addButton(QIcon(":/icons/fence.svg"), "Fences");
+    auto* barrierBtn = staticGroup->addButton(QIcon(":/icons/barrier.svg"), "Barriers");
+    auto* bridgeBtn = staticGroup->addButton(QIcon(":/icons/bridge.svg"), "Bridges");
+    
+    auto* dynamicPanel = objectsSubTab->addPanel("Dynamic");
+    auto* dynamicGroup = dynamicPanel->addGroup("Animated");
+    auto* flagBtn = dynamicGroup->addButton(QIcon(":/icons/flag.svg"), "Flags");
+    auto* bannerBtn = dynamicGroup->addButton(QIcon(":/icons/banner.svg"), "Banners");
+    auto* crowdBtn = dynamicGroup->addButton(QIcon(":/icons/crowd.svg"), "Crowd");
+    auto* smokeBtn = dynamicGroup->addButton(QIcon(":/icons/smoke.svg"), "Smoke/Fire");
+    
+    trackTab->setCurrentSubTabIndex(0);
     m_ribbonBar->addTab(trackTab);
 }
 
 void MainWindow::setupCharacterTab() {
-    auto* charTab = new ks::editor::RibbonTab("CHARACTER", this);
+    auto* charTab = new ks::editor::RibbonTab("CHARACTER", QIcon(":/icons/character.svg"), this);
     
-    auto* driverPanel = charTab->addPanel("Driver");
-    auto* driverGroup = driverPanel->addGroup("Model");
-    
-    auto* importDriverBtn = driverGroup->addButton(QIcon(":/icons/character.svg"), "Import Model");
-    importDriverBtn->setStyle(ks::editor::RibbonButton::Style::Primary);
-    
-    auto* rigBtn = driverGroup->addButton(QIcon(":/icons/rig.svg"), "Rigging");
-    
-    connect(importDriverBtn, &QToolButton::clicked, this, [this]() {
+    // === SUB-TAB: MODEL ===
+    auto* modelSubTab = charTab->addSubTab("Model", QIcon(":/icons/character.svg"));
+    auto* importPanel = modelSubTab->addPanel("Import/Export");
+    auto* importGroup = importPanel->addGroup("Model");
+    auto* importBtn = importGroup->addButton(QIcon(":/icons/import.svg"), "Import Model");
+    importBtn->setStyle(ks::editor::RibbonButton::Style::Primary);
+    connect(importBtn, &QToolButton::clicked, this, [this]() {
         QStringList files = QFileDialog::getOpenFileNames(this, tr("Import Character Model"),
             QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
             tr("3D Files (*.fbx *.obj *.glb *.kn5);;All Files (*)"));
@@ -357,6 +521,14 @@ void MainWindow::setupCharacterTab() {
             for (const QString &f : files) m_moduleManager->importFile(f);
         }
     });
+    auto* exportBtn = importGroup->addButton(QIcon(":/icons/export.svg"), "Export");
+    
+    auto* rigPanel = modelSubTab->addPanel("Rigging");
+    auto* rigGroup = rigPanel->addGroup("Skeleton");
+    auto* rigBtn = rigGroup->addButton(QIcon(":/icons/rig.svg"), "Auto Rig");
+    auto* boneBtn = rigGroup->addButton(QIcon(":/icons/bone.svg"), "Edit Bones");
+    auto* weightBtn = rigGroup->addButton(QIcon(":/icons/weight.svg"), "Weight Paint");
+    auto* ikBtn = rigGroup->addButton(QIcon(":/icons/ik.svg"), "IK Setup");
     connect(rigBtn, &QToolButton::clicked, this, [this]() {
         for (auto* mod : m_moduleManager->modules()) {
             if (qobject_cast<ks::DriverEditorModule*>(mod)) {
@@ -366,13 +538,19 @@ void MainWindow::setupCharacterTab() {
         }
     });
     
-    auto* animPanel = charTab->addPanel("Animation");
-    auto* animGroup = animPanel->addGroup("Motions");
+    auto* lodPanel = modelSubTab->addPanel("LOD");
+    auto* lodGroup = lodPanel->addGroup("Levels");
+    auto* genLodBtn = lodGroup->addButton(QIcon(":/icons/lod.svg"), "Generate LODs");
+    auto* lodSettingsBtn = lodGroup->addButton(QIcon(":/icons/settings.svg"), "LOD Settings");
     
-    auto* steeringBtn = animGroup->addButton(QIcon(":/icons/steering.svg"), "Steering");
-    auto* shiftingBtn = animGroup->addButton(QIcon(":/icons/shift.svg"), "Shifting");
-    auto* idleBtn = animGroup->addButton(QIcon(":/icons/idle.svg"), "Idle");
-    
+    // === SUB-TAB: ANIMATION ===
+    auto* animSubTab = charTab->addSubTab("Animation", QIcon(":/icons/animation.svg"));
+    auto* motionPanel = animSubTab->addPanel("Motions");
+    auto* motionGroup = motionPanel->addGroup("Driving");
+    auto* steeringBtn = motionGroup->addButton(QIcon(":/icons/steering.svg"), "Steering");
+    auto* shiftingBtn = motionGroup->addButton(QIcon(":/icons/shift.svg"), "Shifting");
+    auto* idleBtn = motionGroup->addButton(QIcon(":/icons/idle.svg"), "Idle");
+    auto* lookBtn = motionGroup->addButton(QIcon(":/icons/look.svg"), "Head Look");
     connect(steeringBtn, &QToolButton::clicked, this, [this]() {
         QString path = QFileDialog::getOpenFileName(this, tr("Import Steering Animation"),
             QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
@@ -392,47 +570,89 @@ void MainWindow::setupCharacterTab() {
         if (!path.isEmpty()) m_moduleManager->importFile(path);
     });
     
-    auto* texPanel = charTab->addPanel("Textures");
-    auto* texGroup = texPanel->addGroup("Materials");
+    auto* extraPanel = animSubTab->addPanel("Extra");
+    auto* extraGroup = extraPanel->addGroup("Animations");
+    auto* enterBtn = extraGroup->addButton(QIcon(":/icons/enter.svg"), "Enter Car");
+    auto* exitBtn = extraGroup->addButton(QIcon(":/icons/exit.svg"), "Exit Car");
+    auto* crashBtn = extraGroup->addButton(QIcon(":/icons/crash.svg"), "Crash");
+    auto* victoryBtn = extraGroup->addButton(QIcon(":/icons/victory.svg"), "Victory");
     
-    auto* suitBtn = texGroup->addButton(QIcon(":/icons/suit.svg"), "Suit");
-    auto* helmetBtn = texGroup->addButton(QIcon(":/icons/helmet.svg"), "Helmet");
-    auto* glovesBtn = texGroup->addButton(QIcon(":/icons/gloves.svg"), "Gloves");
+    auto* timelinePanel = animSubTab->addPanel("Timeline");
+    auto* timelineGroup = timelinePanel->addGroup("Editor");
+    auto* openTimelineBtn = timelineGroup->addButton(QIcon(":/icons/timeline.svg"), "Open Timeline");
+    auto* blendBtn = timelineGroup->addButton(QIcon(":/icons/blend.svg"), "Blend Tree");
     
-    connect(suitBtn, &QToolButton::clicked, this, [this]() {
+    // === SUB-TAB: TEXTURES ===
+    auto* texSubTab = charTab->addSubTab("Textures", QIcon(":/icons/texture.svg"));
+    auto* suitPanel = texSubTab->addPanel("Suit");
+    auto* suitGroup = suitPanel->addGroup("Materials");
+    auto* suitMatBtn = suitGroup->addButton(QIcon(":/icons/suit.svg"), "Suit Material");
+    auto* suitTexBtn = suitGroup->addButton(QIcon(":/icons/texture.svg"), "Suit Texture");
+    auto* logoBtn = suitGroup->addButton(QIcon(":/icons/logo.svg"), "Logos");
+    connect(suitTexBtn, &QToolButton::clicked, this, [this]() {
         QString path = QFileDialog::getOpenFileName(this, tr("Import Suit Texture"),
             QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
             tr("Image Files (*.png *.jpg *.dds);;All Files (*)"));
         if (!path.isEmpty()) m_moduleManager->importFile(path);
     });
-    connect(helmetBtn, &QToolButton::clicked, this, [this]() {
+    
+    auto* helmetPanel = texSubTab->addPanel("Helmet");
+    auto* helmetGroup = helmetPanel->addGroup("Design");
+    auto* helmetMatBtn = helmetGroup->addButton(QIcon(":/icons/helmet.svg"), "Helmet Material");
+    auto* helmetTexBtn = helmetGroup->addButton(QIcon(":/icons/texture.svg"), "Helmet Texture");
+    auto* visorBtn = helmetGroup->addButton(QIcon(":/icons/visor.svg"), "Visor");
+    connect(helmetTexBtn, &QToolButton::clicked, this, [this]() {
         QString path = QFileDialog::getOpenFileName(this, tr("Import Helmet Texture"),
             QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
             tr("Image Files (*.png *.jpg *.dds);;All Files (*)"));
         if (!path.isEmpty()) m_moduleManager->importFile(path);
     });
-    connect(glovesBtn, &QToolButton::clicked, this, [this]() {
+    
+    auto* glovesPanel = texSubTab->addPanel("Gloves");
+    auto* glovesGroup = glovesPanel->addGroup("Materials");
+    auto* glovesMatBtn = glovesGroup->addButton(QIcon(":/icons/gloves.svg"), "Gloves Material");
+    auto* glovesTexBtn = glovesGroup->addButton(QIcon(":/icons/texture.svg"), "Gloves Texture");
+    connect(glovesTexBtn, &QToolButton::clicked, this, [this]() {
         QString path = QFileDialog::getOpenFileName(this, tr("Import Gloves Texture"),
             QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
             tr("Image Files (*.png *.jpg *.dds);;All Files (*)"));
         if (!path.isEmpty()) m_moduleManager->importFile(path);
     });
     
+    auto* bootsPanel = texSubTab->addPanel("Boots");
+    auto* bootsGroup = bootsPanel->addGroup("Materials");
+    auto* bootsMatBtn = bootsGroup->addButton(QIcon(":/icons/boots.svg"), "Boots Material");
+    auto* bootsTexBtn = bootsGroup->addButton(QIcon(":/icons/texture.svg"), "Boots Texture");
+    
+    // === SUB-TAB: PHYSICS ===
+    auto* physSubTab = charTab->addSubTab("Physics", QIcon(":/icons/physics.svg"));
+    auto* ragdollPanel = physSubTab->addPanel("Ragdoll");
+    auto* ragdollGroup = ragdollPanel->addGroup("Setup");
+    auto* ragdollBtn = ragdollGroup->addButton(QIcon(":/icons/ragdoll.svg"), "Configure Ragdoll");
+    auto* collisionBtn = ragdollGroup->addButton(QIcon(":/icons/collision.svg"), "Collision Capsules");
+    auto* jointBtn = ragdollGroup->addButton(QIcon(":/icons/joint.svg"), "Joint Limits");
+    
+    auto* massPanel = physSubTab->addPanel("Mass");
+    auto* massGroup = massPanel->addGroup("Distribution");
+    auto* massBtn = massGroup->addButton(QIcon(":/icons/mass.svg"), "Mass Centers");
+    auto* inertiaBtn = massGroup->addButton(QIcon(":/icons/inertia.svg"), "Inertia Tensor");
+    
+    charTab->setCurrentSubTabIndex(0);
     m_ribbonBar->addTab(charTab);
 }
 
 void MainWindow::setupShowroomTab() {
-    auto* showroomTab = new ks::editor::RibbonTab("SHOWROOM", this);
+    auto* showroomTab = new ks::editor::RibbonTab("SHOWROOM", QIcon(":/icons/scene.svg"), this);
     
-    auto* scenePanel = showroomTab->addPanel("Scene");
-    auto* sceneGroup = scenePanel->addGroup("Setup");
-    
-    auto* newSceneBtn = sceneGroup->addButton(QIcon(":/icons/scene.svg"), "New Scene");
+    // === SUB-TAB: SCENE ===
+    auto* sceneSubTab = showroomTab->addSubTab("Scene", QIcon(":/icons/scene.svg"));
+    auto* setupPanel = sceneSubTab->addPanel("Setup");
+    auto* setupGroup = setupPanel->addGroup("Environment");
+    auto* newSceneBtn = setupGroup->addButton(QIcon(":/icons/scene.svg"), "New Scene");
     newSceneBtn->setStyle(ks::editor::RibbonButton::Style::Primary);
-    
-    auto* bgBtn = sceneGroup->addButton(QIcon(":/icons/background.svg"), "Background");
-    auto* floorBtn = sceneGroup->addButton(QIcon(":/icons/floor.svg"), "Floor");
-    
+    auto* bgBtn = setupGroup->addButton(QIcon(":/icons/background.svg"), "Background");
+    auto* floorBtn = setupGroup->addButton(QIcon(":/icons/floor.svg"), "Floor");
+    auto* skyBtn = setupGroup->addButton(QIcon(":/icons/sky.svg"), "Skybox");
     connect(newSceneBtn, &QToolButton::clicked, this, [this]() {
         for (auto* mod : m_moduleManager->modules()) {
             if (qobject_cast<ks::ShowroomEditorModule*>(mod)) {
@@ -458,13 +678,21 @@ void MainWindow::setupShowroomTab() {
         }
     });
     
-    auto* lightPanel = showroomTab->addPanel("Lighting");
-    auto* lightGroup = lightPanel->addGroup("Lights");
+    auto* objectPanel = sceneSubTab->addPanel("Objects");
+    auto* objectGroup = objectPanel->addGroup("Placement");
+    auto* carBtn = objectGroup->addButton(QIcon(":/icons/car.svg"), "Car");
+    auto* propBtn = objectGroup->addButton(QIcon(":/icons/prop.svg"), "Props");
+    auto* decalBtn = objectGroup->addButton(QIcon(":/icons/decal.svg"), "Decals");
     
+    // === SUB-TAB: LIGHTING ===
+    auto* lightingSubTab = showroomTab->addSubTab("Lighting", QIcon(":/icons/lighting.svg"));
+    auto* lightPanel = lightingSubTab->addPanel("Lights");
+    auto* lightGroup = lightPanel->addGroup("Setup");
     auto* ambientBtn = lightGroup->addButton(QIcon(":/icons/ambient.svg"), "Ambient");
     auto* spotBtn = lightGroup->addButton(QIcon(":/icons/spotlight.svg"), "Spot");
     auto* hdriBtn = lightGroup->addButton(QIcon(":/icons/hdri.svg"), "HDRI");
-    
+    auto* sunBtn = lightGroup->addButton(QIcon(":/icons/sun.svg"), "Sun");
+    auto* areaBtn = lightGroup->addButton(QIcon(":/icons/arealight.svg"), "Area");
     connect(ambientBtn, &QToolButton::clicked, this, [this]() {
         for (auto* mod : m_moduleManager->modules()) {
             if (auto* showroom = qobject_cast<ks::ShowroomEditorModule*>(mod)) {
@@ -490,14 +718,27 @@ void MainWindow::setupShowroomTab() {
         }
     });
     
-    auto* cameraPanel = showroomTab->addPanel("Camera");
-    auto* cameraGroup = cameraPanel->addGroup("Views");
+    auto* shadowPanel = lightingSubTab->addPanel("Shadows");
+    auto* shadowGroup = shadowPanel->addGroup("Quality");
+    auto* cascadeBtn = shadowGroup->addButton(QIcon(":/icons/cascade.svg"), "Cascades");
+    auto* contactBtn = shadowGroup->addButton(QIcon(":/icons/contact.svg"), "Contact");
+    auto* filterBtn = shadowGroup->addButton(QIcon(":/icons/filter.svg"), "Filtering");
     
-    auto* orbitBtn = cameraGroup->addButton(QIcon(":/icons/orbit.svg"), "Orbit");
-    auto* turntableBtn = cameraGroup->addButton(QIcon(":/icons/turntable.svg"), "Turntable");
-    auto* renderBtn = cameraGroup->addButton(QIcon(":/icons/render.svg"), "Render");
-    renderBtn->setStyle(ks::editor::RibbonButton::Style::Success);
+    auto* ppPanel = lightingSubTab->addPanel("Post Process");
+    auto* ppGroup = ppPanel->addGroup("Effects");
+    auto* bloomBtn = ppGroup->addButton(QIcon(":/icons/bloom.svg"), "Bloom");
+    auto* tonemapBtn = ppGroup->addButton(QIcon(":/icons/tonemap.svg"), "Tone Mapping");
+    auto* colorBtn = ppGroup->addButton(QIcon(":/icons/colorgrading.svg"), "Color Grading");
+    auto* vignetteBtn = ppGroup->addButton(QIcon(":/icons/vignette.svg"), "Vignette");
     
+    // === SUB-TAB: CAMERA ===
+    auto* cameraSubTab = showroomTab->addSubTab("Camera", QIcon(":/icons/camera.svg"));
+    auto* viewPanel = cameraSubTab->addPanel("Views");
+    auto* viewGroup = viewPanel->addGroup("Presets");
+    auto* orbitBtn = viewGroup->addButton(QIcon(":/icons/orbit.svg"), "Orbit");
+    auto* turntableBtn = viewGroup->addButton(QIcon(":/icons/turntable.svg"), "Turntable");
+    auto* freeBtn = viewGroup->addButton(QIcon(":/icons/freecam.svg"), "Free Camera");
+    auto* dollyBtn = viewGroup->addButton(QIcon(":/icons/dolly.svg"), "Dolly");
     connect(orbitBtn, &QToolButton::clicked, this, [this]() {
         for (auto* mod : m_moduleManager->modules()) {
             if (auto* showroom = qobject_cast<ks::ShowroomEditorModule*>(mod)) {
@@ -514,6 +755,34 @@ void MainWindow::setupShowroomTab() {
             }
         }
     });
+    
+    auto* pathPanel = cameraSubTab->addPanel("Paths");
+    auto* pathGroup = pathPanel->addGroup("Animation");
+    auto* keyframeBtn = pathGroup->addButton(QIcon(":/icons/keyframe.svg"), "Keyframes");
+    auto* splineBtn = pathGroup->addButton(QIcon(":/icons/spline.svg"), "Spline");
+    auto* speedBtn = pathGroup->addButton(QIcon(":/icons/speed.svg"), "Speed Curve");
+    
+    auto* dofPanel = cameraSubTab->addPanel("Depth of Field");
+    auto* dofGroup = dofPanel->addGroup("Settings");
+    auto* enableDofBtn = dofGroup->addButton(QIcon(":/icons/dof.svg"), "Enable DOF");
+    auto* focusBtn = dofGroup->addButton(QIcon(":/icons/focus.svg"), "Focus Distance");
+    auto* apertureBtn = dofGroup->addButton(QIcon(":/icons/aperture.svg"), "Aperture");
+    
+    // === SUB-TAB: RENDER ===
+    auto* renderSubTab = showroomTab->addSubTab("Render", QIcon(":/icons/render.svg"));
+    auto* outputPanel = renderSubTab->addPanel("Output");
+    auto* outputGroup = outputPanel->addGroup("Settings");
+    auto* resolutionBtn = outputGroup->addButton(QIcon(":/icons/resolution.svg"), "Resolution");
+    auto* formatBtn = outputGroup->addButton(QIcon(":/icons/format.svg"), "Format");
+    auto* aaBtn = outputGroup->addButton(QIcon(":/icons/aa.svg"), "Anti-Aliasing");
+    auto* samplesBtn = outputGroup->addButton(QIcon(":/icons/samples.svg"), "Samples");
+    
+    auto* renderPanel = renderSubTab->addPanel("Render");
+    auto* renderGroup = renderPanel->addGroup("Actions");
+    auto* renderBtn = renderGroup->addButton(QIcon(":/icons/render.svg"), "Render Image");
+    renderBtn->setStyle(ks::editor::RibbonButton::Style::Success);
+    auto* batchBtn = renderGroup->addButton(QIcon(":/icons/batch.svg"), "Batch Render");
+    auto* previewBtn = renderGroup->addButton(QIcon(":/icons/preview.svg"), "Preview");
     connect(renderBtn, &QToolButton::clicked, this, [this]() {
         for (auto* mod : m_moduleManager->modules()) {
             if (auto* showroom = qobject_cast<ks::ShowroomEditorModule*>(mod)) {
@@ -524,21 +793,30 @@ void MainWindow::setupShowroomTab() {
         }
     });
     
+    auto* composePanel = renderSubTab->addPanel("Compositing");
+    auto* composeGroup = composePanel->addGroup("Layers");
+    auto* layersBtn = composeGroup->addButton(QIcon(":/icons/layers.svg"), "Layers");
+    auto* maskBtn = composeGroup->addButton(QIcon(":/icons/mask.svg"), "Masks");
+    auto* exportBtn = composeGroup->addButton(QIcon(":/icons/export.svg"), "Export EXR");
+    
+    showroomTab->setCurrentSubTabIndex(0);
     m_ribbonBar->addTab(showroomTab);
 }
 
 void MainWindow::setupSoundTab() {
-    auto* soundTab = new ks::editor::RibbonTab("SOUND", this);
+    auto* soundTab = new ks::editor::RibbonTab("SOUND", QIcon(":/icons/sound.svg"), this);
     
-    auto* enginePanel = soundTab->addPanel("Engine");
-    auto* engineGroup = enginePanel->addGroup("Audio");
-    
+    // === SUB-TAB: ENGINE ===
+    auto* engineSubTab = soundTab->addSubTab("Engine", QIcon(":/icons/engine.svg"));
+    auto* enginePanel = engineSubTab->addPanel("Engine");
+    auto* engineGroup = enginePanel->addGroup("Samples");
     auto* importEngineBtn = engineGroup->addButton(QIcon(":/icons/engine.svg"), "Engine Sound");
     importEngineBtn->setStyle(ks::editor::RibbonButton::Style::Primary);
-    
     auto* exhaustBtn = engineGroup->addButton(QIcon(":/icons/exhaust.svg"), "Exhaust");
     auto* intakeBtn = engineGroup->addButton(QIcon(":/icons/intake.svg"), "Intake");
-    
+    auto* turboBtn = engineGroup->addButton(QIcon(":/icons/turbo.svg"), "Turbo");
+    auto* backfireBtn = engineGroup->addButton(QIcon(":/icons/fire.svg"), "Backfire");
+    auto* limiterBtn = engineGroup->addButton(QIcon(":/icons/limiter.svg"), "Limiter");
     connect(importEngineBtn, &QToolButton::clicked, this, [this]() {
         QString path = QFileDialog::getOpenFileName(this, tr("Import Engine Sound"),
             QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
@@ -558,13 +836,21 @@ void MainWindow::setupSoundTab() {
         if (!path.isEmpty()) m_moduleManager->importFile(path);
     });
     
-    auto* gearPanel = soundTab->addPanel("Transmission");
-    auto* gearGroup = gearPanel->addGroup("Sounds");
+    auto* engineTunePanel = engineSubTab->addPanel("Tuning");
+    auto* engineTuneGroup = engineTunePanel->addGroup("Parameters");
+    auto* rpmRangeBtn = engineTuneGroup->addButton(QIcon(":/icons/rpm.svg"), "RPM Range");
+    auto* loadBtn = engineTuneGroup->addButton(QIcon(":/icons/load.svg"), "Load Curves");
+    auto* volumeBtn = engineTuneGroup->addButton(QIcon(":/icons/volume.svg"), "Volume Curves");
+    auto* pitchBtn = engineTuneGroup->addButton(QIcon(":/icons/pitch.svg"), "Pitch Curves");
     
+    // === SUB-TAB: TRANSMISSION ===
+    auto* transSubTab = soundTab->addSubTab("Transmission", QIcon(":/icons/gearbox.svg"));
+    auto* gearPanel = transSubTab->addPanel("Gearbox");
+    auto* gearGroup = gearPanel->addGroup("Sounds");
     auto* shiftBtn = gearGroup->addButton(QIcon(":/icons/shift.svg"), "Shift");
     auto* clutchBtn = gearGroup->addButton(QIcon(":/icons/clutch.svg"), "Clutch");
-    auto* backfireBtn = gearGroup->addButton(QIcon(":/icons/fire.svg"), "Backfire");
-    
+    auto* whineBtn = gearGroup->addButton(QIcon(":/icons/whine.svg"), "Gear Whine");
+    auto* neutralBtn = gearGroup->addButton(QIcon(":/icons/neutral.svg"), "Neutral");
     connect(shiftBtn, &QToolButton::clicked, this, [this]() {
         QString path = QFileDialog::getOpenFileName(this, tr("Import Shift Sound"),
             QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
@@ -584,13 +870,19 @@ void MainWindow::setupSoundTab() {
         if (!path.isEmpty()) m_moduleManager->importFile(path);
     });
     
-    auto* surfacePanel = soundTab->addPanel("Surfaces");
-    auto* surfaceGroup = surfacePanel->addGroup("Road");
+    auto* diffPanel = transSubTab->addPanel("Differential");
+    auto* diffGroup = diffPanel->addGroup("Sounds");
+    auto* lsdBtn = diffGroup->addButton(QIcon(":/icons/diff.svg"), "LSD Whine");
+    auto* lockBtn = diffGroup->addButton(QIcon(":/icons/lock.svg"), "Lock");
     
-    auto* tireBtn = surfaceGroup->addButton(QIcon(":/icons/tire.svg"), "Tire Scrub");
-    auto* gravelBtn = surfaceGroup->addButton(QIcon(":/icons/gravel.svg"), "Gravel");
-    auto* curbBtn = surfaceGroup->addButton(QIcon(":/icons/curb.svg"), "Curbs");
-    
+    // === SUB-TAB: SURFACES ===
+    auto* surfSubTab = soundTab->addSubTab("Surfaces", QIcon(":/icons/tire.svg"));
+    auto* tyrePanel = surfSubTab->addPanel("Tyres");
+    auto* tyreGroup = tyrePanel->addGroup("Road");
+    auto* tireBtn = tyreGroup->addButton(QIcon(":/icons/tire.svg"), "Tire Scrub");
+    auto* gravelBtn = tyreGroup->addButton(QIcon(":/icons/gravel.svg"), "Gravel");
+    auto* curbBtn = tyreGroup->addButton(QIcon(":/icons/curb.svg"), "Curbs");
+    auto* wetBtn = tyreGroup->addButton(QIcon(":/icons/wet.svg"), "Wet");
     connect(tireBtn, &QToolButton::clicked, this, [this]() {
         QString path = QFileDialog::getOpenFileName(this, tr("Import Tire Scrub Sound"),
             QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
@@ -610,18 +902,21 @@ void MainWindow::setupSoundTab() {
         if (!path.isEmpty()) m_moduleManager->importFile(path);
     });
     
-    auto* audioStudioPanel = soundTab->addPanel("ksAudioStudio");
-    auto* audioStudioGroup = audioStudioPanel->addGroup("Tools");
-
-    auto* bankBtn = audioStudioGroup->addButton(QIcon(":/icons/bank.svg"), "Build Audio Bank");
+    auto* skidPanel = surfSubTab->addPanel("Skidmarks");
+    auto* skidGroup = skidPanel->addGroup("Audio");
+    auto* skidBtn = skidGroup->addButton(QIcon(":/icons/skid.svg"), "Skid Sound");
+    auto* smokeBtn = skidGroup->addButton(QIcon(":/icons/smoke.svg"), "Smoke Puff");
+    
+    // === SUB-TAB: STUDIO ===
+    auto* studioSubTab = soundTab->addSubTab("Studio", QIcon(":/icons/studio.svg"));
+    auto* studioPanel = studioSubTab->addPanel("ksAudioStudio");
+    auto* studioGroup = studioPanel->addGroup("Tools");
+    auto* bankBtn = studioGroup->addButton(QIcon(":/icons/bank.svg"), "Build Audio Bank");
     bankBtn->setStyle(ks::editor::RibbonButton::Style::Warning);
-
-    auto* eventsBtn = audioStudioGroup->addButton(QIcon(":/icons/events.svg"), "Events");
-    auto* paramsBtn = audioStudioGroup->addButton(QIcon(":/icons/params.svg"), "Parameters");
-
-    auto* recordStudioBtn = audioStudioGroup->addButton(QIcon(":/icons/record.svg"), "Recording Studio");
+    auto* eventsBtn = studioGroup->addButton(QIcon(":/icons/events.svg"), "Events");
+    auto* paramsBtn = studioGroup->addButton(QIcon(":/icons/params.svg"), "Parameters");
+    auto* recordStudioBtn = studioGroup->addButton(QIcon(":/icons/record.svg"), "Recording Studio");
     recordStudioBtn->setStyle(ks::editor::RibbonButton::Style::Primary);
-
     connect(bankBtn, &QToolButton::clicked, this, [this]() {
         auto* audio = ks::AudioEditorModule::instance();
         if (audio) audio->onBuildBanks();
@@ -634,35 +929,29 @@ void MainWindow::setupSoundTab() {
         auto* audio = ks::AudioEditorModule::instance();
         if (audio) audio->onNewProject();
     });
-
+    
+    auto* mixerPanel = studioSubTab->addPanel("Mixer");
+    auto* mixerGroup = mixerPanel->addGroup("Channels");
+    auto* mixerBtn = mixerGroup->addButton(QIcon(":/icons/mixer.svg"), "Open Mixer");
+    auto* routeBtn = mixerGroup->addButton(QIcon(":/icons/route.svg"), "Routing");
+    auto* fxBtn = mixerGroup->addButton(QIcon(":/icons/fx.svg"), "Effects");
+    
+    soundTab->setCurrentSubTabIndex(0);
     m_ribbonBar->addTab(soundTab);
 }
 
 void MainWindow::setupFontTab() {
-    auto* fontTab = new ks::editor::RibbonTab("FONT", this);
+    auto* fontTab = new ks::editor::RibbonTab("FONT", QIcon(":/icons/font.svg"), this);
     
-    auto* typePanel = fontTab->addPanel("Typeface");
+    // === SUB-TAB: TYPEFACE ===
+    auto* typefaceSubTab = fontTab->addSubTab("Typeface", QIcon(":/icons/font.svg"));
+    auto* typePanel = typefaceSubTab->addPanel("Typeface");
     auto* typeGroup = typePanel->addGroup("Font");
-    
     auto* newFontBtn = typeGroup->addButton(QIcon(":/icons/font.svg"), "New Font");
     newFontBtn->setStyle(ks::editor::RibbonButton::Style::Primary);
-    
     auto* importFontBtn = typeGroup->addButton(QIcon(":/icons/import.svg"), "Import");
     auto* exportFontBtn = typeGroup->addButton(QIcon(":/icons/export.svg"), "Export");
-    
-    auto* glyphPanel = fontTab->addPanel("Glyphs");
-    auto* glyphGroup = glyphPanel->addGroup("Editor");
-    
-    auto* editGlyphBtn = glyphGroup->addButton(QIcon(":/icons/glyph.svg"), "Edit Glyph");
-    auto* metricsBtn = glyphGroup->addButton(QIcon(":/icons/metrics.svg"), "Metrics");
-    auto* kerningBtn = glyphGroup->addButton(QIcon(":/icons/kerning.svg"), "Kerning");
-    
-    auto* previewPanel = fontTab->addPanel("Preview");
-    auto* previewGroup = previewPanel->addGroup("View");
-    
-    auto* previewBtn = previewGroup->addButton(QIcon(":/icons/preview.svg"), "Preview");
-    previewBtn->setStyle(ks::editor::RibbonButton::Style::Success);
-    
+    auto* familyBtn = typeGroup->addButton(QIcon(":/icons/family.svg"), "Family");
     connect(newFontBtn, &QToolButton::clicked, this, [this]() {
         auto* fontBridge = ks::FontCreatorQmlBridge::instance();
         if (fontBridge) {
@@ -688,7 +977,7 @@ void MainWindow::setupFontTab() {
         if (!fontBridge) return;
         QString path = QFileDialog::getSaveFileName(this, tr("Export Font"),
             QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
-            tr("Font Atlas (*.png);;AC Font (*.acf);;All Files (*)"));
+            tr("Font Atlas (*.png);;AC Font (*.acf);;All Files (* )"));
         if (!path.isEmpty()) {
             if (path.endsWith(".acf"))
                 fontBridge->savePreset(path);
@@ -696,6 +985,22 @@ void MainWindow::setupFontTab() {
                 fontBridge->generateAtlas(path);
         }
     });
+    
+    auto* stylePanel = typefaceSubTab->addPanel("Styles");
+    auto* styleGroup = stylePanel->addGroup("Variants");
+    auto* boldBtn = styleGroup->addButton(QIcon(":/icons/bold.svg"), "Bold");
+    auto* italicBtn = styleGroup->addButton(QIcon(":/icons/italic.svg"), "Italic");
+    auto* weightBtn = styleGroup->addButton(QIcon(":/icons/weight.svg"), "Weight");
+    auto* widthBtn = styleGroup->addButton(QIcon(":/icons/width.svg"), "Width");
+    
+    // === SUB-TAB: GLYPHS ===
+    auto* glyphSubTab = fontTab->addSubTab("Glyphs", QIcon(":/icons/glyph.svg"));
+    auto* glyphPanel = glyphSubTab->addPanel("Glyphs");
+    auto* glyphGroup = glyphPanel->addGroup("Editor");
+    auto* editGlyphBtn = glyphGroup->addButton(QIcon(":/icons/glyph.svg"), "Edit Glyph");
+    auto* metricsBtn = glyphGroup->addButton(QIcon(":/icons/metrics.svg"), "Metrics");
+    auto* kerningBtn = glyphGroup->addButton(QIcon(":/icons/kerning.svg"), "Kerning");
+    auto* ligatureBtn = glyphGroup->addButton(QIcon(":/icons/ligature.svg"), "Ligatures");
     connect(editGlyphBtn, &QToolButton::clicked, this, [this]() {
         // Toggle glyph editor mode - the QML UI handles this
     });
@@ -713,6 +1018,23 @@ void MainWindow::setupFontTab() {
             setStatusMessage(tr("Extracted kerning pairs from current font"));
         }
     });
+    
+    auto* setPanel = glyphSubTab->addPanel("Character Sets");
+    auto* setGroup = setPanel->addGroup("Unicode");
+    auto* latinBtn = setGroup->addButton(QIcon(":/icons/latin.svg"), "Basic Latin");
+    auto* extBtn = setGroup->addButton(QIcon(":/icons/extended.svg"), "Extended");
+    auto* cyrillicBtn = setGroup->addButton(QIcon(":/icons/cyrillic.svg"), "Cyrillic");
+    auto* customBtn = setGroup->addButton(QIcon(":/icons/custom.svg"), "Custom Range");
+    
+    // === SUB-TAB: PREVIEW ===
+    auto* previewSubTab = fontTab->addSubTab("Preview", QIcon(":/icons/preview.svg"));
+    auto* previewPanel = previewSubTab->addPanel("Preview");
+    auto* previewGroup = previewPanel->addGroup("View");
+    auto* previewBtn = previewGroup->addButton(QIcon(":/icons/preview.svg"), "Preview");
+    previewBtn->setStyle(ks::editor::RibbonButton::Style::Success);
+    auto* textBtn = previewGroup->addButton(QIcon(":/icons/text.svg"), "Sample Text");
+    auto* sizeBtn = previewGroup->addButton(QIcon(":/icons/size.svg"), "Sizes");
+    auto* colorBtn = previewGroup->addButton(QIcon(":/icons/color.svg"), "Colors");
     connect(previewBtn, &QToolButton::clicked, this, [this]() {
         auto* fontBridge = ks::FontCreatorQmlBridge::instance();
         if (fontBridge) {
@@ -721,13 +1043,21 @@ void MainWindow::setupFontTab() {
         }
     });
     
+    auto* exportPanel = previewSubTab->addPanel("Export");
+    auto* exportGroup = exportPanel->addGroup("Output");
+    auto* atlasBtn = exportGroup->addButton(QIcon(":/icons/atlas.svg"), "Texture Atlas");
+    auto* sdfBtn = exportGroup->addButton(QIcon(":/icons/sdf.svg"), "SDF");
+    auto* msdfBtn = exportGroup->addButton(QIcon(":/icons/msdf.svg"), "MSDF");
+    auto* jsonBtn = exportGroup->addButton(QIcon(":/icons/json.svg"), "JSON Metadata");
+    
+    fontTab->setCurrentSubTabIndex(0);
     m_ribbonBar->addTab(fontTab);
 }
 
 // ==================== Constructor / Destructor ====================
 
 MainWindow::MainWindow(const QString& projectPath, QWidget* parent)
-    : QMainWindow(parent)
+    : QMainWindow(parent, Qt::Window | Qt::FramelessWindowHint)
     , m_moduleManager(new ModuleManager(this))
     , m_settings(new SettingsManager(this))
     , m_undoStack(new QUndoStack(this))
@@ -751,8 +1081,9 @@ MainWindow::MainWindow(const QString& projectPath, QWidget* parent)
 
     // Setup UI
     setupUI();
-    setupMenuBar();
+    setupCustomTitleBar();
     setupRibbon();
+    setupMenuBar();
     setupToolBar();
     setupStatusBar();
     setupDockWidgets();
@@ -819,9 +1150,56 @@ MainWindow::~MainWindow()
 
 // ==================== Setup Methods ====================
 
+void MainWindow::setupCustomTitleBar()
+{
+    // Create custom title bar with KDE-style menu button
+    m_customTitleBar = new CustomTitleBar(this);
+    connect(m_customTitleBar, &CustomTitleBar::menuRequested, this, [this]() {
+        if (m_helpBrowser) {
+            m_helpBrowser->show();
+            m_helpBrowser->raise();
+            m_helpBrowser->activateWindow();
+        } else {
+            ks::HelpSystem::instance()->showHelp();
+        }
+    });
+    connect(m_customTitleBar, &CustomTitleBar::minimizeRequested, this, &QWidget::showMinimized);
+    connect(m_customTitleBar, &CustomTitleBar::maximizeRequested, this, [this]() {
+        if (isMaximized()) {
+            showNormal();
+        } else {
+            showMaximized();
+        }
+    });
+    connect(m_customTitleBar, &CustomTitleBar::closeRequested, this, &QWidget::close);
+    
+    m_customTitleBar->setTitle(windowTitle());
+    m_customTitleBar->setWindowIcon(windowIcon());
+    
+    // Add to the central widget layout at position 0 (top)
+    QWidget* central = centralWidget();
+    if (central) {
+        QVBoxLayout* mainLayout = qobject_cast<QVBoxLayout*>(central->layout());
+        if (mainLayout) {
+            mainLayout->insertWidget(0, m_customTitleBar);
+        }
+    }
+}
+
 void MainWindow::setupUI()
 {
-    setCentralWidget(m_moduleManager);
+    // Create a central widget with vertical layout: title bar -> ribbon -> module manager
+    QWidget* central = new QWidget(this);
+    QVBoxLayout* mainLayout = new QVBoxLayout(central);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
+    
+    // Title bar will be added by setupCustomTitleBar
+    // Ribbon bar will be added by setupRibbon
+    // Module manager goes at the bottom
+    mainLayout->addWidget(m_moduleManager, 1);
+    
+    setCentralWidget(central);
 }
 
 void MainWindow::setupMenuBar()
@@ -1086,7 +1464,41 @@ void MainWindow::setupHelpMenu()
 
     QAction* docsAct = new QAction(tr("&Documentation"), this);
     docsAct->setShortcut(Qt::Key_F1);
+    connect(docsAct, &QAction::triggered, this, &MainWindow::showDocumentation);
     helpMenu->addAction(docsAct);
+
+    helpMenu->addSeparator();
+
+    QAction* quickStartAct = new QAction(tr("&Quick Start Guide"), this);
+    connect(quickStartAct, &QAction::triggered, this, [this]() {
+        ks::HelpSystem::instance()->startQuickStartGuide();
+    });
+    helpMenu->addAction(quickStartAct);
+
+    QAction* tutorialAct = new QAction(tr("&Tutorials"), this);
+    QMenu* tutorialSubMenu = new QMenu(tr("&Tutorials"), this);
+    tutorialAct->setMenu(tutorialSubMenu);
+
+    auto addTutorial = [this, tutorialSubMenu](const QString& name, ks::TutorialSystem::TutorialPage page) {
+        QAction* act = new QAction(name, this);
+        connect(act, &QAction::triggered, this, [this, page]() {
+            ks::HelpSystem::instance()->startTutorial(page);
+        });
+        tutorialSubMenu->addAction(act);
+    };
+
+    addTutorial(tr("Welcome"), ks::TutorialSystem::Welcome);
+    addTutorial(tr("Quick Start"), ks::TutorialSystem::QuickStart);
+    tutorialSubMenu->addSeparator();
+    addTutorial(tr("Creating a Project"), ks::TutorialSystem::CreatingProject);
+    addTutorial(tr("Importing 3D Models"), ks::TutorialSystem::Importing3D);
+    addTutorial(tr("Working with 3D"), ks::TutorialSystem::WorkingWith3D);
+    addTutorial(tr("Exporting"), ks::TutorialSystem::Exporting);
+    addTutorial(tr("Settings"), ks::TutorialSystem::Settings);
+    addTutorial(tr("Advanced Features"), ks::TutorialSystem::AdvancedFeatures);
+    addTutorial(tr("Troubleshooting"), ks::TutorialSystem::Troubleshooting);
+
+    helpMenu->addAction(tutorialAct);
 }
 
 void MainWindow::setupToolBar()
@@ -1360,6 +1772,30 @@ void MainWindow::setupConnections()
 
     connect(m_projectBuilder, &ProjectBuilder::progressUpdated, this, &MainWindow::onBuildProgress);
     connect(m_projectBuilder, &ProjectBuilder::buildComplete, this, &MainWindow::onBuildComplete);
+
+    // Register help contexts for main modules
+    auto* help = ks::HelpSystem::instance();
+    help->registerHelp("3DModeler", "viewport", "Main 3D viewport for modeling and preview. Orbit: left-drag, Pan: right-drag, Zoom: scroll", "F1");
+    help->registerHelp("3DModeler", "import", "Import 3D models (FBX, OBJ, GLB, KN5, DAE)", "Ctrl+I");
+    help->registerHelp("3DModeler", "export", "Export models to game-ready formats (KN5, FBX, OBJ)", "Ctrl+E");
+    help->registerHelp("3DModeler", "sculpt", "Sculpting mode with brushes for organic modeling", "S");
+    help->registerHelp("3DModeler", "boolean", "CSG boolean operations: union, difference, intersection");
+    help->registerHelp("AudioEditor", "mixer", "Multi-track audio mixer with channel strips and effects", "F2");
+    help->registerHelp("AudioEditor", "effects", "Audio effects rack: EQ, Compressor, Reverb, Delay and more");
+    help->registerHelp("AudioEditor", "spectrum", "Real-time spectrum analyzer and oscilloscope");
+    help->registerHelp("PhysicsEditor", "simulator", "Vehicle dynamics simulator with 14-DOF physics", "F3");
+    help->registerHelp("PhysicsEditor", "tires", "Pacejka tire model editor with temperature and wear simulation");
+    help->registerHelp("PhysicsEditor", "aero", "Aerodynamics editor: downforce, drag, DRS, active aero");
+    help->registerHelp("PhysicsEditor", "ers", "ERS/Hybrid system: MGU-K, MGU-H, battery deployment");
+    help->registerHelp("ShowroomEditor", "viewport", "3D showroom preview with configurable lighting and cameras");
+    help->registerHelp("ShowroomEditor", "config", "Showroom configuration: camera, lighting, background");
+    help->registerHelp("LiveryEditor", "painting", "Car livery painting with DDS export and decal import");
+    help->registerHelp("DisplayEditor", "segments", "7/14/16-segment display editor for AC dashboards");
+    help->registerHelp("FontCreator", "glyphs", "Bitmap glyph editor for font atlas generation");
+    help->registerHelp("ScriptConsole", "console", "JavaScript console with auto-complete and history", "F12");
+    help->registerHelp("ModManager", "manager", "Content organization, installation, and conflict resolution");
+    help->registerHelp("General", "ribbon", "Context-sensitive ribbon toolbar for current module");
+    help->registerHelp("General", "statusbar", "Status bar showing current module, file info, and operations");
 }
 
 void MainWindow::createActions()
@@ -2085,6 +2521,17 @@ void MainWindow::showSettings()
     themeCombo->setCurrentIndex(m_settings->integer("ui/theme", 0));
     appearanceLayout->addRow(tr("Theme:"), themeCombo);
 
+    QComboBox* langCombo = new QComboBox(appearanceTab);
+    langCombo->addItem(tr("English"), "en");
+    langCombo->addItem(tr("German"), "de");
+    langCombo->addItem(tr("Italian"), "it");
+    langCombo->addItem(tr("Japanese"), "ja");
+    langCombo->addItem(tr("System Default"), "system");
+    QString currentLang = m_settings->string("ui/language", "system");
+    int langIdx = langCombo->findData(currentLang);
+    if (langIdx >= 0) langCombo->setCurrentIndex(langIdx);
+    appearanceLayout->addRow(tr("Language:"), langCombo);
+
     QFontComboBox* fontCombo = new QFontComboBox(appearanceTab);
     fontCombo->setCurrentFont(QFont(m_settings->string("ui/font", "Segoe UI")));
     appearanceLayout->addRow(tr("Font:"), fontCombo);
@@ -2133,6 +2580,7 @@ void MainWindow::showSettings()
         m_settings->setValue("editor/autoSave", autoSaveCheck->isChecked());
         m_settings->setValue("editor/autoSaveInterval", autoSaveInterval->value());
         m_settings->setValue("ui/theme", themeCombo->currentIndex());
+        m_settings->setValue("ui/language", langCombo->currentData().toString());
         m_settings->setValue("ui/font", fontCombo->currentFont().family());
         m_settings->setValue("ui/fontSize", fontSizeSpin->value());
         m_settings->setValue("editor/defaultGizmo", gizmoCombo->currentIndex());
@@ -2150,11 +2598,60 @@ void MainWindow::showSettings()
         }
 
         emit simPathChanged(m_simPath);
+        loadLanguage(m_settings->string("ui/language", "system"));
         dlg.accept();
     });
     connect(buttons, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
 
     dlg.exec();
+}
+
+void MainWindow::loadLanguage(const QString& langCode)
+{
+    QString code = langCode;
+    if (code == "system") {
+        code = QLocale::system().name();
+    }
+    
+    // Remove old translators
+    qApp->removeTranslator(&m_appTranslator);
+    qApp->removeTranslator(&m_qtTranslator);
+    
+    // Load Qt translations
+    if (m_qtTranslator.load("qt_" + code, QLibraryInfo::path(QLibraryInfo::LibraryLocation::TranslationsPath))) {
+        qApp->installTranslator(&m_qtTranslator);
+    }
+    
+    // Load app translations
+    QStringList searchPaths = {
+        QCoreApplication::applicationDirPath() + "/i18n",
+        QCoreApplication::applicationDirPath() + "/../i18n",
+        ":/i18n"
+    };
+    for (const QString& path : searchPaths) {
+        if (m_appTranslator.load(path + "/kseditor_" + code)) {
+            qApp->installTranslator(&m_appTranslator);
+            break;
+        }
+    }
+    
+    m_settings->setValue("ui/language", code);
+    m_settings->sync();
+}
+
+void MainWindow::onLanguageChanged(const QString& langCode)
+{
+    loadLanguage(langCode);
+}
+
+void MainWindow::showDocumentation()
+{
+    if (!m_helpBrowser) {
+        m_helpBrowser = new ks::HelpBrowser(this);
+    }
+    m_helpBrowser->show();
+    m_helpBrowser->raise();
+    m_helpBrowser->activateWindow();
 }
 
 void MainWindow::showAbout()
@@ -2215,6 +2712,10 @@ void MainWindow::updateWindowTitle()
     }
 
     setWindowTitle(title);
+    
+    if (m_customTitleBar) {
+        m_customTitleBar->setTitle(title);
+    }
 }
 
 // ==================== Status Bar ====================
@@ -2518,6 +3019,22 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
     }
 
     QMainWindow::keyPressEvent(event);
+}
+
+bool MainWindow::event(QEvent* event)
+{
+    if (event->type() == QEvent::EnterWhatsThisMode) {
+        // Show help browser when ? button is clicked
+        if (m_helpBrowser) {
+            m_helpBrowser->show();
+            m_helpBrowser->raise();
+            m_helpBrowser->activateWindow();
+        } else {
+            ks::HelpSystem::instance()->showHelp();
+        }
+        return true;
+    }
+    return QMainWindow::event(event);
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* event)

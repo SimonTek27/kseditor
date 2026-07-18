@@ -149,7 +149,7 @@ QVariantMap CspConfigHandler::mergeConfigs(const QVariantMap& base, const QVaria
 }
 
 QString CspConfigHandler::resolveIncludePath(const QString& basePath, const QString& includePath) {
-    if (QFileInfo::isAbsolutePath(includePath))
+    if (QFileInfo(includePath).isAbsolute())
         return includePath;
     return QDir(basePath).absoluteFilePath(includePath);
 }

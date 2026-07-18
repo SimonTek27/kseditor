@@ -26,10 +26,14 @@
 #include "Graphics/VulkanRenderer.h"
 #endif
 
-namespace ks {
-
+namespace ks { namespace graphics {
 class SceneObject;
 class SceneMesh;
+} }
+
+namespace ks {
+using graphics::SceneObject;
+using graphics::SceneMesh;
 
 // ── Vulkan Fallback Widget (OpenGL-based) ──────────────────────────────────
 // Provides basic OpenGL rendering with camera orbit/pan/zoom and grid overlay.
@@ -238,6 +242,7 @@ public:
     void setShowAxes(bool show);
     void resetCamera();
     void focusOnPoint(const QVector3D& point, float distance = 5.0f);
+    void setCameraOrbit(float azimuthDeg, float elevationDeg, float distance);
 
     void setGizmoMode(GizmoMode mode);
     GizmoMode gizmoMode() const { return m_gizmoMode; }

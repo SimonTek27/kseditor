@@ -189,7 +189,7 @@ void WeightPainter::limitWeights(QVector<WeightVertex>& weights, int maxCount) {
 
         QList<QPair<int, float>> sorted;
         for (auto it = wv.weights.constBegin(); it != wv.weights.constEnd(); ++it) {
-            sorted.append(qMakePair(it.key(), it.value()));
+            sorted.append(std::make_pair(it.key(), it.value()));
         }
         std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) {
             return a.second > b.second;

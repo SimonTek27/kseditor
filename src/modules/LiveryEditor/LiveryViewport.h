@@ -1,13 +1,13 @@
 #pragma once
 
 #include <QWidget>
-#include <QVulkanWindow>
-#include <QMatrix4x4>
+#include <QImage>
 #include <QVector3D>
-#include <QMouseEvent>
-#include <QWheelEvent>
 
-#include "core/mesh/Viewport3DSystem.h"
+#include "../../core/mesh/Viewport3DSystem.h"
+#include "../../core/mesh/MeshRenderer.h"
+#include "../../core/Graphics/SceneObject.h"
+#include "../../core/Graphics/SceneMesh.h"
 #include "LiveryEditorModule.h"
 
 namespace ks {
@@ -23,31 +23,23 @@ public:
     void focusOnModel();
     void setViewMode(const QString& mode);
 
+    void applyLiveryTexture(const QImage& texture);
+
 signals:
     void partSelected(const QString& partId);
 
-protected:
-    void mousePressEvent(QMouseEvent* e) override;
-    void mouseMoveEvent(QMouseEvent* e) override;
-    void mouseReleaseEvent(QMouseEvent* e) override;
-    void wheelEvent(QWheelEvent* e) override;
-
 private:
-    void updateCamera();
+    void convertToScene();
+    void loadMesh(const QString& filePath);
 
     LiveryEditor* m_liveryEditor;
-    VulkanViewportWidget* m_vulkanViewport = nullptr;
+    Viewport3DWidget* m_viewport = nullptr;
+    MeshRenderer* m_meshRenderer = nullptr;
+    SceneObject* m_sceneRoot = nullptr;
 
-    float m_camYaw = 45.0f;
-    float m_camPitch = 30.0f;
-    float m_camDist = 10.0f;
-    QVector3D m_camTarget = QVector3D(0, 0, 0);
-
-    QPoint m_lastMouse;
-    bool m_lmbDown = false;
-    bool m_rmbDown = false;
-
+    QString m_carPath;
     QString m_viewMode = "perspective";
+    QImage m_liveryTexture;
 };
 
 } // namespace ks

@@ -388,8 +388,14 @@ QJsonObject CrashRecovery::getSessionState() const
     return obj;
 }
 
+CrashRecovery::Session CrashRecovery::getSession() const
+{
+    return m_currentSession;
+}
+
 bool CrashRecovery::hasSession() const
 {
+    if (!m_currentSession.id.isEmpty()) return true;
     return !getAbandonedSessions().isEmpty();
 }
 

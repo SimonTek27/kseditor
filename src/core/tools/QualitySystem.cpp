@@ -134,6 +134,11 @@ void ValidationManager::clearResults()
     emit resultsCleared();
 }
 
+void ValidationManager::clearRules()
+{
+    m_rules.clear();
+}
+
 void ValidationManager::registerBuiltinRules()
 {
     registerRule("GEO_001", "Mesh must have at least one vertex", ValidationCategory::Geometry,

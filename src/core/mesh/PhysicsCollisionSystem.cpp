@@ -424,7 +424,7 @@ MeshData PhysicsCollisionSystem::createCapsuleCollision(float radius, float heig
         for (int j = 0; j <= segments; ++j) {
             float u = (float)j / segments;
             float phi = u * 2.0f * M_PI;
-            float yPos = (v < 0.5f) ? (cosT * radius - halfH) : (cosT * radius + halfH);
+            float yPos = (v < 0.5f) ? (-halfH - cosT * radius) : (halfH - cosT * radius);
             Vertex vert;
             vert.position = QVector3D(sinT * cosf(phi) * radius, yPos, sinT * sinf(phi) * radius);
             result.vertices.append(vert);
@@ -619,7 +619,7 @@ float PhysicsCollisionSystem::computeMeshVolume(const MeshData& mesh) {
         const auto& a = mesh.vertices[face.indices[0]].position;
         const auto& b = mesh.vertices[face.indices[1]].position;
         const auto& c = mesh.vertices[face.indices[2]].position;
-        volume += a.x() * (b.y() * c.z() - c.y() * b.z());
+        volume += QVector3D::dotProduct(a, QVector3D::crossProduct(b, c));
     }
     return static_cast<float>(std::abs(volume) / 6.0);
 }
@@ -822,7 +822,7 @@ void PhysicsCollisionSystem::computeConvexHullIndexed(const QVector<QVector3D>& 
                         if (he.first == b && he.second == a) { found = true; break; }
                     }
                     if (!found)
-                        horizonEdges.append(qMakePair(a, b));
+                        horizonEdges.append(std::make_pair(a, b));
                 }
             }
         }

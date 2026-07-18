@@ -239,7 +239,7 @@ MeshData DecimateModifier::apply(const MeshData& input) {
                 int b = face.indices[(i + 1) % face.indices.size()];
                 if (a < 0 || b < 0 || a >= result.vertices.size() || b >= result.vertices.size())
                     continue;
-                QPair<int,int> key = qMin(a,b) < qMax(a,b) ? qMakePair(qMin(a,b), qMax(a,b)) : qMakePair(qMax(a,b), qMin(a,b));
+                QPair<int,int> key = qMin(a,b) < qMax(a,b) ? std::make_pair(qMin(a,b), qMax(a,b)) : std::make_pair(qMax(a,b), qMin(a,b));
                 float len = (result.vertices[a].position - result.vertices[b].position).length();
                 if (!edgeMap.contains(key) || len < edgeMap[key])
                     edgeMap[key] = len;
@@ -587,7 +587,7 @@ MeshData RemeshModifier::apply(const MeshData& input) {
                 if (a >= result.vertices.size() || b >= result.vertices.size()) continue;
                 float len = (result.vertices[a].position - result.vertices[b].position).length();
                 if (len > threshold) {
-                    QPair<int,int> key = qMakePair(qMin(a,b), qMax(a,b));
+                    QPair<int,int> key = std::make_pair(qMin(a,b), qMax(a,b));
                     auto& count = edgeCount[key];
                     if (count == 0) {
                         EdgeSplit es;

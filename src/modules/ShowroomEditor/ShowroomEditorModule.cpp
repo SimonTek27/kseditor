@@ -16,6 +16,8 @@
 #include <QBrush>
 #include <QFont>
 #include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
 #include <cmath>
 
 namespace ks {
@@ -124,14 +126,14 @@ protected:
 
             painter.setPen(QColor(200, 200, 200));
             painter.setFont(QFont("Segoe UI", 8));
-            painter.drawText(QPointF(cx + 8, cy - 4), QString("Cam %1").arg(i + 1));
+            painter.drawText(QPointF(cx + 8, cy - 4), tr("Cam %1").arg(i + 1));
         }
 
         // Info overlay
         painter.setPen(QColor(180, 180, 180));
         painter.setFont(QFont("Segoe UI", 9));
-        painter.drawText(10, 16, QString("Cameras: %1 | Lights: %2").arg(m_cameras.size()).arg(m_lights.size()));
-        painter.drawText(10, 30, QString("FOV: %1 | Dist: %2 | Height: %3")
+        painter.drawText(10, 16, tr("Cameras: %1 | Lights: %2").arg(m_cameras.size()).arg(m_lights.size()));
+        painter.drawText(10, 30, tr("FOV: %1 | Dist: %2 | Height: %3")
             .arg(m_config.cameraFov, 0, 'f', 1)
             .arg(m_config.cameraDistance, 0, 'f', 1)
             .arg(m_config.cameraHeight, 0, 'f', 1));
@@ -169,7 +171,7 @@ void ShowroomEditorModule::shutdown()
 QDockWidget* ShowroomEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
 {
     if (!m_dockWidget) {
-        m_dockWidget = new QDockWidget("Showroom Editor", mainWindow);
+        m_dockWidget = new QDockWidget(tr("Showroom Editor"), mainWindow);
         m_dockWidget->setAllowedAreas(Qt::AllDockWidgetAreas);
         m_centralWidget = new QWidget(m_dockWidget);
         setupUi();
@@ -196,10 +198,10 @@ void ShowroomEditorModule::setupUi()
     m_previewTabs->setMinimumWidth(300);
 
     m_previewWidget = new ShowroomPreviewWidget();
-    m_previewTabs->addTab(m_previewWidget, "2D Layout");
+    m_previewTabs->addTab(m_previewWidget, tr("2D Layout"));
 
     m_viewport3D = new ShowroomViewport3D();
-    m_previewTabs->addTab(m_viewport3D, "3D Preview");
+    m_previewTabs->addTab(m_viewport3D, tr("3D Preview"));
     m_previewTabs->setCurrentIndex(1); // default to 3D
 
     topLayout->addWidget(m_previewTabs, 2);
@@ -213,47 +215,47 @@ void ShowroomEditorModule::setupUi()
     settingsLayout->setContentsMargins(4, 4, 4, 4);
 
     // Camera group
-    QGroupBox* cameraGroup = new QGroupBox("Camera");
+    QGroupBox* cameraGroup = new QGroupBox(tr("Camera"));
     QFormLayout* cameraForm = new QFormLayout(cameraGroup);
 
     m_cameraDistanceSpin = new QDoubleSpinBox();
     m_cameraDistanceSpin->setRange(0.5, 50.0);
     m_cameraDistanceSpin->setSingleStep(0.5);
     m_cameraDistanceSpin->setValue(m_config.cameraDistance);
-    cameraForm->addRow("Distance:", m_cameraDistanceSpin);
+    cameraForm->addRow(tr("Distance:"), m_cameraDistanceSpin);
 
     m_cameraHeightSpin = new QDoubleSpinBox();
     m_cameraHeightSpin->setRange(0.0, 20.0);
     m_cameraHeightSpin->setSingleStep(0.25);
     m_cameraHeightSpin->setValue(m_config.cameraHeight);
-    cameraForm->addRow("Height:", m_cameraHeightSpin);
+    cameraForm->addRow(tr("Height:"), m_cameraHeightSpin);
 
     m_cameraAngleSpin = new QDoubleSpinBox();
     m_cameraAngleSpin->setRange(0.0, 360.0);
     m_cameraAngleSpin->setSingleStep(5.0);
     m_cameraAngleSpin->setValue(m_config.cameraAngle);
-    cameraForm->addRow("Angle:", m_cameraAngleSpin);
+    cameraForm->addRow(tr("Angle:"), m_cameraAngleSpin);
 
     m_cameraFovSpin = new QDoubleSpinBox();
     m_cameraFovSpin->setRange(10.0, 170.0);
     m_cameraFovSpin->setSingleStep(5.0);
     m_cameraFovSpin->setValue(m_config.cameraFov);
-    cameraForm->addRow("FOV:", m_cameraFovSpin);
+    cameraForm->addRow(tr("FOV:"), m_cameraFovSpin);
 
     m_rotateSpeedSpin = new QDoubleSpinBox();
     m_rotateSpeedSpin->setRange(0.0, 5.0);
     m_rotateSpeedSpin->setSingleStep(0.1);
     m_rotateSpeedSpin->setValue(m_config.rotateSpeed);
-    cameraForm->addRow("Rotate Speed:", m_rotateSpeedSpin);
+    cameraForm->addRow(tr("Rotate Speed:"), m_rotateSpeedSpin);
 
-    m_autoRotateCheck = new QCheckBox("Auto Rotate");
+    m_autoRotateCheck = new QCheckBox(tr("Auto Rotate"));
     m_autoRotateCheck->setChecked(m_config.autoRotate);
     cameraForm->addRow("", m_autoRotateCheck);
 
     settingsLayout->addWidget(cameraGroup);
 
     // Lighting group
-    QGroupBox* lightGroup = new QGroupBox("Lighting");
+    QGroupBox* lightGroup = new QGroupBox(tr("Lighting"));
     QFormLayout* lightForm = new QFormLayout(lightGroup);
 
     QHBoxLayout* sunColorLayout = new QHBoxLayout();
@@ -262,13 +264,13 @@ void ShowroomEditorModule::setupUi()
     m_sunColorBtn->setStyleSheet("background-color: " + m_config.sunColor.name() + "; border: 1px solid #555;");
     sunColorLayout->addWidget(m_sunColorBtn);
     sunColorLayout->addStretch();
-    lightForm->addRow("Sun Color:", sunColorLayout);
+    lightForm->addRow(tr("Sun Color:"), sunColorLayout);
 
     m_sunIntensitySpin = new QDoubleSpinBox();
     m_sunIntensitySpin->setRange(0.0, 5.0);
     m_sunIntensitySpin->setSingleStep(0.1);
     m_sunIntensitySpin->setValue(m_config.sunIntensity);
-    lightForm->addRow("Sun Intensity:", m_sunIntensitySpin);
+    lightForm->addRow(tr("Sun Intensity:"), m_sunIntensitySpin);
 
     QHBoxLayout* ambientColorLayout = new QHBoxLayout();
     m_ambientColorBtn = new QPushButton();
@@ -276,18 +278,18 @@ void ShowroomEditorModule::setupUi()
     m_ambientColorBtn->setStyleSheet("background-color: " + m_config.ambientColor.name() + "; border: 1px solid #555;");
     ambientColorLayout->addWidget(m_ambientColorBtn);
     ambientColorLayout->addStretch();
-    lightForm->addRow("Ambient Color:", ambientColorLayout);
+    lightForm->addRow(tr("Ambient Color:"), ambientColorLayout);
 
     m_ambientIntensitySpin = new QDoubleSpinBox();
     m_ambientIntensitySpin->setRange(0.0, 5.0);
     m_ambientIntensitySpin->setSingleStep(0.1);
     m_ambientIntensitySpin->setValue(m_config.ambientIntensity);
-    lightForm->addRow("Ambient Intensity:", m_ambientIntensitySpin);
+    lightForm->addRow(tr("Ambient Intensity:"), m_ambientIntensitySpin);
 
     settingsLayout->addWidget(lightGroup);
 
     // Cameras list
-    QGroupBox* camListGroup = new QGroupBox("Cameras");
+    QGroupBox* camListGroup = new QGroupBox(tr("Cameras"));
     QVBoxLayout* camListLayout = new QVBoxLayout(camListGroup);
 
     m_cameraList = new QListWidget();
@@ -307,7 +309,7 @@ void ShowroomEditorModule::setupUi()
     settingsLayout->addWidget(camListGroup);
 
     // Lights list
-    QGroupBox* lightListGroup = new QGroupBox("Lights");
+    QGroupBox* lightListGroup = new QGroupBox(tr("Lights"));
     QVBoxLayout* lightListLayout = new QVBoxLayout(lightListGroup);
 
     m_lightList = new QListWidget();
@@ -326,14 +328,26 @@ void ShowroomEditorModule::setupUi()
 
     settingsLayout->addWidget(lightListGroup);
 
+    // Car model loading
+    QGroupBox* carGroup = new QGroupBox(tr("Car Model"));
+    QVBoxLayout* carLayout = new QVBoxLayout(carGroup);
+
+    QHBoxLayout* carPathLayout = new QHBoxLayout();
+    m_loadCarBtn = new QPushButton(tr("Load Car..."));
+    carPathLayout->addWidget(m_loadCarBtn);
+    carPathLayout->addStretch();
+    carLayout->addLayout(carPathLayout);
+
+    settingsLayout->addWidget(carGroup);
+
     // Action buttons
-    QGroupBox* actionGroup = new QGroupBox("Actions");
+    QGroupBox* actionGroup = new QGroupBox(tr("Actions"));
     QVBoxLayout* actionLayout = new QVBoxLayout(actionGroup);
 
-    m_loadBtn = new QPushButton("Load Config");
-    m_saveBtn = new QPushButton("Save Config");
-    m_previewBtn = new QPushButton("Generate Preview");
-    m_resetBtn = new QPushButton("Reset Defaults");
+    m_loadBtn = new QPushButton(tr("Load Config"));
+    m_saveBtn = new QPushButton(tr("Save Config"));
+    m_previewBtn = new QPushButton(tr("Generate Preview"));
+    m_resetBtn = new QPushButton(tr("Reset Defaults"));
     actionLayout->addWidget(m_loadBtn);
     actionLayout->addWidget(m_saveBtn);
     actionLayout->addWidget(m_previewBtn);
@@ -341,7 +355,7 @@ void ShowroomEditorModule::setupUi()
 
     settingsLayout->addWidget(actionGroup);
 
-    m_statusLabel = new QLabel("Ready");
+    m_statusLabel = new QLabel(tr("Ready"));
     m_statusLabel->setStyleSheet("color: #aaa; padding: 4px;");
     settingsLayout->addWidget(m_statusLabel);
 
@@ -368,6 +382,7 @@ void ShowroomEditorModule::setupUi()
     connect(m_lightList, &QListWidget::currentRowChanged, this, &ShowroomEditorModule::onLightSelected);
     connect(m_addLightBtn, &QPushButton::clicked, this, &ShowroomEditorModule::onAddLight);
     connect(m_removeLightBtn, &QPushButton::clicked, this, &ShowroomEditorModule::onRemoveLight);
+    connect(m_loadCarBtn, &QPushButton::clicked, this, &ShowroomEditorModule::onLoadCarModel);
     connect(m_loadBtn, &QPushButton::clicked, this, &ShowroomEditorModule::onLoadConfig);
     connect(m_saveBtn, &QPushButton::clicked, this, &ShowroomEditorModule::onSaveConfig);
     connect(m_previewBtn, &QPushButton::clicked, this, &ShowroomEditorModule::onGeneratePreview);
@@ -452,7 +467,7 @@ void ShowroomEditorModule::onAmbientIntensityChanged(double v) { m_config.ambien
 
 void ShowroomEditorModule::onSunColorClicked()
 {
-    QColor color = QColorDialog::getColor(m_config.sunColor, m_centralWidget, "Sun Color");
+    QColor color = QColorDialog::getColor(m_config.sunColor, m_centralWidget, tr("Sun Color"));
     if (color.isValid()) {
         m_config.sunColor = color;
         m_sunColorBtn->setStyleSheet("background-color: " + color.name() + "; border: 1px solid #555;");
@@ -462,7 +477,7 @@ void ShowroomEditorModule::onSunColorClicked()
 
 void ShowroomEditorModule::onAmbientColorClicked()
 {
-    QColor color = QColorDialog::getColor(m_config.ambientColor, m_centralWidget, "Ambient Color");
+    QColor color = QColorDialog::getColor(m_config.ambientColor, m_centralWidget, tr("Ambient Color"));
     if (color.isValid()) {
         m_config.ambientColor = color;
         m_ambientColorBtn->setStyleSheet("background-color: " + color.name() + "; border: 1px solid #555;");
@@ -484,11 +499,11 @@ void ShowroomEditorModule::onCameraSelected(int index)
 void ShowroomEditorModule::onAddCamera()
 {
     ShowroomSystem::ShowroomCamera cam;
-    cam.name = QString("Camera %1").arg(m_cameras.size() + 1);
+    cam.name = tr("Camera %1").arg(m_cameras.size() + 1);
     m_cameras.append(cam);
     m_cameraList->addItem(cam.name);
     updatePreview();
-    m_statusLabel->setText("Added camera: " + cam.name);
+    m_statusLabel->setText(tr("Added camera: %1").arg(cam.name));
 }
 
 void ShowroomEditorModule::onRemoveCamera()
@@ -499,19 +514,19 @@ void ShowroomEditorModule::onRemoveCamera()
     m_cameras.removeAt(row);
     delete m_cameraList->takeItem(row);
     updatePreview();
-    m_statusLabel->setText("Removed camera: " + name);
+    m_statusLabel->setText(tr("Removed camera: %1").arg(name));
 }
 
 void ShowroomEditorModule::onLightSelected(int index)
 {
     if (index < 0 || index >= m_lights.size()) return;
-    m_statusLabel->setText(QString("Selected light: %1").arg(m_lights[index].name));
+    m_statusLabel->setText(tr("Selected light: %1").arg(m_lights[index].name));
 }
 
 void ShowroomEditorModule::onAddLight()
 {
     ShowroomSystem::ShowroomLight light;
-    light.name = QString("Light %1").arg(m_lights.size() + 1);
+    light.name = tr("Light %1").arg(m_lights.size() + 1);
     light.type = "point";
     light.position[0] = 0; light.position[1] = 3; light.position[2] = 0;
     light.intensity = 1.0f;
@@ -520,7 +535,7 @@ void ShowroomEditorModule::onAddLight()
     m_lights.append(light);
     m_lightList->addItem(light.name);
     updatePreview();
-    m_statusLabel->setText("Added light: " + light.name);
+    m_statusLabel->setText(tr("Added light: %1").arg(light.name));
 }
 
 void ShowroomEditorModule::onRemoveLight()
@@ -531,13 +546,13 @@ void ShowroomEditorModule::onRemoveLight()
     m_lights.removeAt(row);
     delete m_lightList->takeItem(row);
     updatePreview();
-    m_statusLabel->setText("Removed light: " + name);
+    m_statusLabel->setText(tr("Removed light: %1").arg(name));
 }
 
 void ShowroomEditorModule::onLoadConfig()
 {
-    QString path = QFileDialog::getOpenFileName(m_centralWidget, "Load Showroom Config",
-        QString(), "INI Files (*.ini);;All Files (*)");
+    QString path = QFileDialog::getOpenFileName(m_centralWidget, tr("Load Showroom Config"),
+        QString(), tr("INI Files (*.ini);;All Files (*)"));
     if (path.isEmpty()) return;
 
     m_configPath = path;
@@ -545,15 +560,15 @@ void ShowroomEditorModule::onLoadConfig()
     m_cameras = ShowroomSystem::loadCameras(path);
     m_lights = ShowroomSystem::loadLights(path);
     loadConfigToUI();
-    m_statusLabel->setText("Loaded: " + QFileInfo(path).fileName());
+    m_statusLabel->setText(tr("Loaded: %1").arg(QFileInfo(path).fileName()));
 }
 
 void ShowroomEditorModule::onSaveConfig()
 {
     QString path = m_configPath;
     if (path.isEmpty()) {
-        path = QFileDialog::getSaveFileName(m_centralWidget, "Save Showroom Config",
-            QString(), "INI Files (*.ini)");
+        path = QFileDialog::getSaveFileName(m_centralWidget, tr("Save Showroom Config"),
+            QString(), tr("INI Files (*.ini)"));
         if (path.isEmpty()) return;
         m_configPath = path;
     }
@@ -562,7 +577,7 @@ void ShowroomEditorModule::onSaveConfig()
     bool ok = ShowroomSystem::saveConfig(m_config, path);
     ok &= ShowroomSystem::saveCameras(m_cameras, path);
     ok &= ShowroomSystem::saveLights(m_lights, path);
-    m_statusLabel->setText(ok ? "Saved: " + QFileInfo(path).fileName() : "Save failed!");
+    m_statusLabel->setText(ok ? tr("Saved: %1").arg(QFileInfo(path).fileName()) : tr("Save failed!"));
 }
 
 void ShowroomEditorModule::onGeneratePreview()
@@ -574,13 +589,38 @@ void ShowroomEditorModule::onGeneratePreview()
     previewConfig.cameraAngle = m_config.cameraAngle;
     previewConfig.fov = m_config.cameraFov;
 
-    QString outputPath = QFileDialog::getSaveFileName(m_centralWidget, "Save Preview",
-        QString(), "PNG Image (*.png)");
+    QString outputPath = QFileDialog::getSaveFileName(m_centralWidget, tr("Save Preview"),
+        QString(), tr("PNG Image (*.png)"));
     if (outputPath.isEmpty()) return;
 
     previewConfig.outputPath = outputPath;
-    bool ok = ShowroomSystem::generatePreview(QString(), previewConfig);
-    m_statusLabel->setText(ok ? "Preview saved: " + QFileInfo(outputPath).fileName() : "Preview generation failed");
+    bool ok = ShowroomSystem::generatePreview(m_carPath, previewConfig);
+    m_statusLabel->setText(ok ? tr("Preview saved: %1").arg(QFileInfo(outputPath).fileName()) : tr("Preview generation failed"));
+}
+
+void ShowroomEditorModule::onLoadCarModel()
+{
+    QString filter = tr("3D Models (*.obj *.kn5 *.gltf *.glb);;All Files (*)");
+    QString path = QFileDialog::getOpenFileName(m_centralWidget, tr("Load Car Model"),
+        m_carPath.isEmpty() ? QString() : QFileInfo(m_carPath).absolutePath(), filter);
+    if (path.isEmpty()) return;
+
+    m_carPath = path;
+    if (m_viewport3D) {
+        m_viewport3D->loadCarMesh(path);
+    }
+    m_statusLabel->setText(tr("Loaded: %1").arg(QFileInfo(path).fileName()));
+}
+
+void ShowroomEditorModule::onCarPathChanged(const QString& path)
+{
+    m_carPath = path;
+    if (m_viewport3D && !path.isEmpty()) {
+        if (QFileInfo(path).isDir())
+            m_viewport3D->loadCarFromFolder(path);
+        else
+            m_viewport3D->loadCarMesh(path);
+    }
 }
 
 void ShowroomEditorModule::onResetDefaults()
@@ -590,7 +630,7 @@ void ShowroomEditorModule::onResetDefaults()
     m_cameras.append(ShowroomSystem::getDefaultCamera());
     m_lights = ShowroomSystem::getDefaultLights();
     loadConfigToUI();
-    m_statusLabel->setText("Reset to defaults");
+    m_statusLabel->setText(tr("Reset to defaults"));
 }
 
 void ShowroomEditorModule::importFile(const QString& filePath)
@@ -704,10 +744,10 @@ void ShowroomEditorModule::deserializeProject(const QJsonObject& data)
             cam.fov = static_cast<float>(camObj["fov"].toDouble(60.0));
             cam.isActive = camObj["isActive"].toBool(true);
             QJsonArray pos = camObj["position"].toArray();
-            for (int i = 0; i < qMin(3, pos.size()); ++i)
+            for (int i = 0; i < qMin(3, (int)pos.size()); ++i)
                 cam.position[i] = static_cast<float>(pos[i].toDouble());
             QJsonArray target = camObj["target"].toArray();
-            for (int i = 0; i < qMin(3, target.size()); ++i)
+            for (int i = 0; i < qMin(3, (int)target.size()); ++i)
                 cam.target[i] = static_cast<float>(target[i].toDouble());
             m_cameras.append(cam);
         }
@@ -725,10 +765,10 @@ void ShowroomEditorModule::deserializeProject(const QJsonObject& data)
             light.range = static_cast<float>(lightObj["range"].toDouble(10.0));
             light.isActive = lightObj["isActive"].toBool(true);
             QJsonArray pos = lightObj["position"].toArray();
-            for (int i = 0; i < qMin(3, pos.size()); ++i)
+            for (int i = 0; i < qMin(3, (int)pos.size()); ++i)
                 light.position[i] = static_cast<float>(pos[i].toDouble());
             QJsonArray dir = lightObj["direction"].toArray();
-            for (int i = 0; i < qMin(3, dir.size()); ++i)
+            for (int i = 0; i < qMin(3, (int)dir.size()); ++i)
                 light.direction[i] = static_cast<float>(dir[i].toDouble());
             m_lights.append(light);
         }

@@ -5,6 +5,8 @@
 #include <QStringList>
 #include <QVariantMap>
 #include <QVariantList>
+#include <QImage>
+#include <QList>
 #include "../../core/editor/EditorModule.h"
 
 namespace ks {
@@ -19,6 +21,8 @@ class FontCreatorQmlBridge : public QObject {
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
 
 public:
+    ~FontCreatorQmlBridge();
+
     static FontCreatorQmlBridge* instance();
 
     QString currentFont() const { return m_currentFont; }
@@ -33,8 +37,8 @@ public:
 
     Q_INVOKABLE QStringList getSystemFonts();
     Q_INVOKABLE bool generateAtlas(const QString& outputPngPath);
-    Q_INVOKABLE bool generateSDFAtlas(const QString& outputPngPath, int spread = 8);
-    Q_INVOKABLE bool generateMSDFAtlas(const QString& outputPngPath, int spread = 8);
+    Q_INVOKABLE bool generateSDFAtlas(const QString& outputPngPath, int spread);
+    Q_INVOKABLE bool generateMSDFAtlas(const QString& outputPngPath, int spread);
     Q_INVOKABLE bool saveAtlas(const QString& pngPath, const QString& acfPath);
     Q_INVOKABLE bool loadPreset(const QString& acfPath);
     Q_INVOKABLE bool savePreset(const QString& acfPath);
@@ -56,26 +60,18 @@ public:
     Q_INVOKABLE bool importFromJSON(const QString& jsonPath);
     Q_INVOKABLE QVariantMap getDefaultConfig();
     Q_INVOKABLE QStringList getCommonCharsets();
-
-    // Unicode range selection
     Q_INVOKABLE QStringList getAvailableRanges();
     Q_INVOKABLE void enableRange(const QString& rangeName, bool enable);
     Q_INVOKABLE QStringList getEnabledRanges();
     Q_INVOKABLE bool applyCombinedCharset();
     Q_INVOKABLE void clearRanges();
-
-    // Font validation
     Q_INVOKABLE QVariantMap validateCoverage();
-
-    // kerning
     Q_INVOKABLE QVariantList getKerningPairs();
     Q_INVOKABLE void setKerningPair(uint left, uint right, int kerning);
     Q_INVOKABLE void removeKerningPair(uint left, uint right);
     Q_INVOKABLE void extractKerning();
     Q_INVOKABLE void clearKerningPairs();
     Q_INVOKABLE int getKerningOffset(uint left, uint right);
-
-    // hinting
     Q_INVOKABLE void setHintingEnabled(bool enabled);
     Q_INVOKABLE bool isHintingEnabled() const;
     Q_INVOKABLE void setHintingLevel(int level);
@@ -84,13 +80,9 @@ public:
     Q_INVOKABLE bool isGridFitting() const;
     Q_INVOKABLE void setSubpixelHinting(bool enabled);
     Q_INVOKABLE bool isSubpixelHinting() const;
-
-    // anti-aliasing
     Q_INVOKABLE void setAntiAliasMode(int mode);
     Q_INVOKABLE int antiAliasMode() const;
     Q_INVOKABLE QStringList antiAliasModeNames() const;
-
-    // metrics optimizer
     Q_INVOKABLE QVariantMap analyzeMetrics();
     Q_INVOKABLE void applyOptimizedMetrics(const QVariantMap& suggestion);
 
@@ -104,6 +96,7 @@ signals:
     void presetLoaded(const QString& acfPath);
     void presetSaved(const QString& acfPath);
     void generationProgress(int percent);
+    void fontLoaded(const QString& fontPath);
 
 private:
     static FontCreatorQmlBridge* s_instance;
@@ -130,6 +123,8 @@ private:
     bool m_gridFitting = true;
     bool m_subpixelHinting = false;
     int m_antiAliasMode = 1; // Standard
+    QList<int> m_loadedFonts;
+    QImage m_lastAtlas;
 };
 
 class FontCreatorEditorModule : public EditorModule {

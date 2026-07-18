@@ -1,6 +1,7 @@
 #include "LiveryEditorWidget.h"
 #include "LiveryPainter.h"
 #include <QHBoxLayout>
+#include <QSplitter>
 #include <QLabel>
 #include <QCheckBox>
 #include <QFileDialog>
@@ -19,10 +20,22 @@ LiveryEditorWidget::LiveryEditorWidget(QWidget* parent)
     setupUI();
 
     connect(m_editor, &LiveryEditor::skinListChanged, this, &LiveryEditorWidget::refreshSkinList);
-    connect(m_editor, &LiveryEditor::skinLoaded, this, [this](const QString&) {
+    connect(m_editor, &LiveryEditor::skinLoaded, this, [this](const QString& skinName) {
         refreshLayerList();
+        if (m_viewport3D && !m_editor->carPath().isEmpty()) {
+            m_viewport3D->setCarPath(m_editor->carPath());
+            m_viewport3D->focusOnModel();
+        }
     });
     connect(m_editor, &LiveryEditor::liveryModified, this, &LiveryEditorWidget::liveryModified);
+    connect(m_editor, &LiveryEditor::textureLoaded, this, [this](const QImage& tex) {
+        if (m_painterWidget) {
+            m_painterWidget->setTexture(tex);
+        }
+        if (m_viewport3D) {
+            m_viewport3D->applyLiveryTexture(tex);
+        }
+    });
 }
 
 void LiveryEditorWidget::setCarPath(const QString& path)
@@ -36,6 +49,12 @@ void LiveryEditorWidget::setupUI()
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(4, 4, 4, 4);
     mainLayout->setSpacing(4);
+
+    QSplitter* splitter = new QSplitter(Qt::Vertical, this);
+
+    m_viewport3D = new LiveryViewport(this);
+    m_viewport3D->setMinimumHeight(250);
+    splitter->addWidget(m_viewport3D);
 
     QScrollArea* scrollArea = new QScrollArea(this);
     scrollArea->setWidgetResizable(true);
@@ -55,18 +74,68 @@ void LiveryEditorWidget::setupUI()
     QHBoxLayout* actionsLayout = new QHBoxLayout(actionsWidget);
     actionsLayout->setContentsMargins(0, 0, 0, 0);
 
-    m_saveSkinBtn = new QPushButton("Save Skin", actionsWidget);
+    m_saveSkinBtn = new QPushButton(tr("Save Skin"), actionsWidget);
     m_saveSkinBtn->setStyleSheet("QPushButton { background: #3a6a3a; color: #fff; border: 1px solid #4a7a4a; padding: 6px; }");
     actionsLayout->addWidget(m_saveSkinBtn);
 
-    m_refreshBtn = new QPushButton("Refresh", actionsWidget);
+    m_refreshBtn = new QPushButton(tr("Refresh"), actionsWidget);
     m_refreshBtn->setStyleSheet("QPushButton { background: #4a4a4a; color: #fff; border: 1px solid #555; padding: 6px; }");
     actionsLayout->addWidget(m_refreshBtn);
 
+    m_exportDdsBtn = new QPushButton(tr("Export DDS"), actionsWidget);
+    m_exportDdsBtn->setStyleSheet("QPushButton { background: #5a5a8a; color: #fff; border: 1px solid #6a6a9a; padding: 6px; }");
+    m_exportDdsBtn->setToolTip(tr("Export livery texture as DDS (AC format)"));
+    actionsLayout->addWidget(m_exportDdsBtn);
+
+    m_importDecalBtn = new QPushButton(tr("Import Decal"), actionsWidget);
+    m_importDecalBtn->setStyleSheet("QPushButton { background: #5a5a8a; color: #fff; border: 1px solid #6a6a9a; padding: 6px; }");
+    actionsLayout->addWidget(m_importDecalBtn);
+
+    m_templateBtn = new QPushButton(tr("Template..."), actionsWidget);
+    m_templateBtn->setStyleSheet("QPushButton { background: #8a7a4a; color: #fff; border: 1px solid #9a8a5a; padding: 6px; }");
+    m_templateBtn->setToolTip(tr("Create new skin from template"));
+    actionsLayout->addWidget(m_templateBtn);
+
+    m_undoBtn = new QPushButton(tr("Undo"), actionsWidget);
+    m_undoBtn->setStyleSheet("QPushButton { background: #6a5a3a; color: #fff; border: 1px solid #7a6a4a; padding: 6px; }");
+    m_undoBtn->setEnabled(false);
+    actionsLayout->addWidget(m_undoBtn);
+
+    m_redoBtn = new QPushButton(tr("Redo"), actionsWidget);
+    m_redoBtn->setStyleSheet("QPushButton { background: #6a5a3a; color: #fff; border: 1px solid #7a6a4a; padding: 6px; }");
+    m_redoBtn->setEnabled(false);
+    actionsLayout->addWidget(m_redoBtn);
+
     formLayout->addRow("", actionsWidget);
 
+    // Color palette row
+    QWidget* paletteWidget = new QWidget(scrollContent);
+    QHBoxLayout* paletteLayout = new QHBoxLayout(paletteWidget);
+    paletteLayout->setContentsMargins(0, 0, 0, 0);
+    paletteLayout->setSpacing(2);
+
+    auto defaultPalette = LiverySystem::getDefaultPalette();
+    m_paletteCount = qMin(defaultPalette.size(), 10);
+    for (int i = 0; i < m_paletteCount; ++i) {
+        QPushButton* btn = new QPushButton(paletteWidget);
+        btn->setFixedSize(22, 22);
+        btn->setStyleSheet(QString("QPushButton { background: %1; border: 1px solid #666; border-radius: 3px; }")
+                           .arg(defaultPalette[i].color.name()));
+        btn->setToolTip(defaultPalette[i].name);
+        m_paletteBtns[i] = btn;
+        paletteLayout->addWidget(btn);
+
+        connect(btn, &QPushButton::clicked, this, [this, i]() {
+            auto palette = LiverySystem::getDefaultPalette();
+            if (i < palette.size()) onPaletteColorSelected(palette[i].color);
+        });
+    }
+    paletteLayout->addStretch();
+    formLayout->addRow(tr("Colors:"), paletteWidget);
+
     scrollArea->setWidget(scrollContent);
-    mainLayout->addWidget(scrollArea);
+    splitter->addWidget(scrollArea);
+    mainLayout->addWidget(splitter);
 
     connect(m_createSkinBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onCreateSkin);
     connect(m_deleteSkinBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onDeleteSkin);
@@ -89,6 +158,17 @@ void LiveryEditorWidget::setupUI()
     connect(m_generatePlateBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onLicensePlateGenerate);
     connect(m_saveSkinBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onSaveSkin);
     connect(m_refreshBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onRefreshSkins);
+    connect(m_exportDdsBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onExportDDS);
+    connect(m_importDecalBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onImportDecal);
+    connect(m_templateBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onCreateFromTemplate);
+    connect(m_undoBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onUndo);
+    connect(m_redoBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onRedo);
+
+    // Update undo/redo button states
+    connect(m_editor, &LiveryEditor::liveryModified, this, [this]() {
+        m_undoBtn->setEnabled(LiverySystem::canUndo());
+        m_redoBtn->setEnabled(LiverySystem::canRedo());
+    });
 
     refreshSkinList();
     clearLayerUI();
@@ -96,7 +176,7 @@ void LiveryEditorWidget::setupUI()
 
 void LiveryEditorWidget::setupSkinPanel(QWidget* parent, QFormLayout* layout)
 {
-    m_skinsGroup = new QGroupBox("Skins", parent);
+    m_skinsGroup = new QGroupBox(tr("Skins"), parent);
     m_skinsGroup->setStyleSheet(
         "QGroupBox { color: #aaaaaa; border: 1px solid #444; font-size: 11px; margin-top: 4px; }"
     );
@@ -140,7 +220,7 @@ void LiveryEditorWidget::setupSkinPanel(QWidget* parent, QFormLayout* layout)
 
 void LiveryEditorWidget::setupLayerPanel(QWidget* parent, QFormLayout* layout)
 {
-    m_layersGroup = new QGroupBox("Layers", parent);
+    m_layersGroup = new QGroupBox(tr("Layers"), parent);
     m_layersGroup->setStyleSheet(
         "QGroupBox { color: #aaaaaa; border: 1px solid #444; font-size: 11px; margin-top: 4px; }"
     );
@@ -189,7 +269,7 @@ void LiveryEditorWidget::setupLayerPanel(QWidget* parent, QFormLayout* layout)
     listLayout->addWidget(btnCol);
     layerLayout->addWidget(listRow);
 
-    m_layerPropsGroup = new QGroupBox("Layer Properties", m_layersGroup);
+    m_layerPropsGroup = new QGroupBox(tr("Layer Properties"), m_layersGroup);
     m_layerPropsGroup->setStyleSheet(
         "QGroupBox { color: #aaaaaa; border: 1px solid #444; font-size: 11px; margin-top: 4px; }"
     );
@@ -199,12 +279,12 @@ void LiveryEditorWidget::setupLayerPanel(QWidget* parent, QFormLayout* layout)
 
     m_layerNameEdit = new QLineEdit(m_layerPropsGroup);
     m_layerNameEdit->setStyleSheet("background: #2d2d2d; color: #fff; border: 1px solid #444; padding: 2px;");
-    propsLayout->addRow("Name:", m_layerNameEdit);
+    propsLayout->addRow(tr("Name:"), m_layerNameEdit);
 
     m_layerTypeCombo = new QComboBox(m_layerPropsGroup);
     m_layerTypeCombo->addItems({"decal", "paint", "texture"});
     m_layerTypeCombo->setStyleSheet("background: #2d2d2d; color: #fff; border: 1px solid #444; padding: 2px;");
-    propsLayout->addRow("Type:", m_layerTypeCombo);
+    propsLayout->addRow(tr("Type:"), m_layerTypeCombo);
 
     QWidget* opacityWidget = new QWidget(m_layerPropsGroup);
     QHBoxLayout* opacityLayout = new QHBoxLayout(opacityWidget);
@@ -216,9 +296,9 @@ void LiveryEditorWidget::setupLayerPanel(QWidget* parent, QFormLayout* layout)
     m_opacityLabel->setFixedWidth(35);
     opacityLayout->addWidget(m_opacitySlider);
     opacityLayout->addWidget(m_opacityLabel);
-    propsLayout->addRow("Opacity:", opacityWidget);
+    propsLayout->addRow(tr("Opacity:"), opacityWidget);
 
-    m_visibleCheck = new QCheckBox("Visible", m_layerPropsGroup);
+    m_visibleCheck = new QCheckBox(tr("Visible"), m_layerPropsGroup);
     m_visibleCheck->setChecked(true);
     propsLayout->addRow("", m_visibleCheck);
 
@@ -228,7 +308,7 @@ void LiveryEditorWidget::setupLayerPanel(QWidget* parent, QFormLayout* layout)
 
 void LiveryEditorWidget::setupPaintPanel(QWidget* parent, QFormLayout* layout)
 {
-    m_paintGroup = new QGroupBox("Paint Tools", parent);
+    m_paintGroup = new QGroupBox(tr("Paint Tools"), parent);
     m_paintGroup->setStyleSheet(
         "QGroupBox { color: #aaaaaa; border: 1px solid #444; font-size: 11px; margin-top: 4px; }"
     );
@@ -236,9 +316,9 @@ void LiveryEditorWidget::setupPaintPanel(QWidget* parent, QFormLayout* layout)
     paintLayout->setContentsMargins(6, 10, 6, 6);
     paintLayout->setSpacing(4);
 
-    m_colorBtn = new QPushButton("Color", m_paintGroup);
+    m_colorBtn = new QPushButton(tr("Color"), m_paintGroup);
     m_colorBtn->setStyleSheet("QPushButton { background: #cc0000; color: #fff; border: 1px solid #555; padding: 4px; }");
-    paintLayout->addRow("Brush Color:", m_colorBtn);
+    paintLayout->addRow(tr("Brush Color:"), m_colorBtn);
 
     QWidget* sizeWidget = new QWidget(m_paintGroup);
     QHBoxLayout* sizeLayout = new QHBoxLayout(sizeWidget);
@@ -250,7 +330,7 @@ void LiveryEditorWidget::setupPaintPanel(QWidget* parent, QFormLayout* layout)
     m_brushSizeLabel->setFixedWidth(30);
     sizeLayout->addWidget(m_brushSizeSlider);
     sizeLayout->addWidget(m_brushSizeLabel);
-    paintLayout->addRow("Brush Size:", sizeWidget);
+    paintLayout->addRow(tr("Brush Size:"), sizeWidget);
 
     QWidget* hardnessWidget = new QWidget(m_paintGroup);
     QHBoxLayout* hardnessLayout = new QHBoxLayout(hardnessWidget);
@@ -262,14 +342,24 @@ void LiveryEditorWidget::setupPaintPanel(QWidget* parent, QFormLayout* layout)
     m_brushHardnessLabel->setFixedWidth(35);
     hardnessLayout->addWidget(m_brushHardnessSlider);
     hardnessLayout->addWidget(m_brushHardnessLabel);
-    paintLayout->addRow("Hardness:", hardnessWidget);
+    paintLayout->addRow(tr("Hardness:"), hardnessWidget);
+
+    m_painterWidget = new LiveryPainterWidget(this);
+    m_painterWidget->setMinimumHeight(200);
+    m_painterWidget->setStyleSheet("background: #222; border: 1px solid #444;");
+    paintLayout->addRow(tr("Canvas:"), m_painterWidget);
+
+    connect(m_painterWidget, &LiveryPainterWidget::textureChanged, this, [this](const QImage& tex) {
+        if (m_viewport3D)
+            m_viewport3D->applyLiveryTexture(tex);
+    });
 
     layout->addRow("", m_paintGroup);
 }
 
 void LiveryEditorWidget::setupLicensePlatePanel(QWidget* parent, QFormLayout* layout)
 {
-    m_plateGroup = new QGroupBox("License Plate", parent);
+    m_plateGroup = new QGroupBox(tr("License Plate"), parent);
     m_plateGroup->setStyleSheet(
         "QGroupBox { color: #aaaaaa; border: 1px solid #444; font-size: 11px; margin-top: 4px; }"
     );
@@ -279,15 +369,15 @@ void LiveryEditorWidget::setupLicensePlatePanel(QWidget* parent, QFormLayout* la
 
     m_plateText = new QLineEdit(m_plateGroup);
     m_plateText->setStyleSheet("background: #2d2d2d; color: #fff; border: 1px solid #444; padding: 2px;");
-    m_plateText->setPlaceholderText("Enter plate text");
-    plateLayout->addRow("Text:", m_plateText);
+    m_plateText->setPlaceholderText(tr("Enter plate text"));
+    plateLayout->addRow(tr("Text:"), m_plateText);
 
     m_plateCountry = new QComboBox(m_plateGroup);
     m_plateCountry->addItems(LiverySystem::getSupportedCountries());
     m_plateCountry->setStyleSheet("background: #2d2d2d; color: #fff; border: 1px solid #444; padding: 2px;");
-    plateLayout->addRow("Country:", m_plateCountry);
+    plateLayout->addRow(tr("Country:"), m_plateCountry);
 
-    m_generatePlateBtn = new QPushButton("Generate", m_plateGroup);
+    m_generatePlateBtn = new QPushButton(tr("Generate"), m_plateGroup);
     m_generatePlateBtn->setStyleSheet("QPushButton { background: #4a4a6a; color: #fff; border: 1px solid #557; padding: 4px; }");
     plateLayout->addRow("", m_generatePlateBtn);
 
@@ -310,7 +400,7 @@ void LiveryEditorWidget::refreshLayerList()
     for (int i = 0; i < config.layers.size(); ++i) {
         const auto& layer = config.layers[i];
         QString label = QString("[%1] %2").arg(layer.type).arg(layer.name);
-        if (!layer.visible) label += " (hidden)";
+        if (!layer.visible) label += tr(" (hidden)");
         m_layerList->addItem(label);
     }
 }
@@ -326,7 +416,7 @@ void LiveryEditorWidget::onSkinSelected(QListWidgetItem* current)
 void LiveryEditorWidget::onCreateSkin()
 {
     bool ok;
-    QString name = QInputDialog::getText(this, "Create Skin", "Skin name:", QLineEdit::Normal, QString(), &ok);
+    QString name = QInputDialog::getText(this, tr("Create Skin"), tr("Skin name:"), QLineEdit::Normal, QString(), &ok);
     if (ok && !name.isEmpty()) {
         m_editor->createSkin(name);
     }
@@ -338,8 +428,8 @@ void LiveryEditorWidget::onDeleteSkin()
     if (!item) return;
 
     QMessageBox::StandardButton reply = QMessageBox::question(
-        this, "Delete Skin",
-        QString("Delete skin '%1'?").arg(item->text()),
+        this, tr("Delete Skin"),
+        tr("Delete skin '%1'?").arg(item->text()),
         QMessageBox::Yes | QMessageBox::No
     );
 
@@ -354,7 +444,7 @@ void LiveryEditorWidget::onDuplicateSkin()
     if (!item) return;
 
     bool ok;
-    QString name = QInputDialog::getText(this, "Duplicate Skin", "New name:", QLineEdit::Normal, item->text() + "_copy", &ok);
+    QString name = QInputDialog::getText(this, tr("Duplicate Skin"), tr("New name:"), QLineEdit::Normal, item->text() + "_copy", &ok);
     if (ok && !name.isEmpty()) {
         m_editor->duplicateSkin(item->text(), name);
     }
@@ -381,17 +471,41 @@ void LiveryEditorWidget::onAddLayer()
     layer.size[1] = 1.0f;
     layer.visible = true;
 
+    // Record undo
+    LiverySystem::UndoAction action;
+    action.type = LiverySystem::UndoAction::LayerAdd;
+    action.layerIndex = m_editor->currentConfig().layers.size();
+    action.newLayer = layer;
+    action.description = tr("Add layer: %1").arg(layer.name);
+    LiverySystem::pushUndo(action);
+
     m_editor->addLayer(layer);
     refreshLayerList();
+    m_undoBtn->setEnabled(true);
+    m_redoBtn->setEnabled(false);
 }
 
 void LiveryEditorWidget::onRemoveLayer()
 {
     int row = m_layerList->currentRow();
     if (row < 0) return;
+
+    auto& config = m_editor->currentConfig();
+    if (row < config.layers.size()) {
+        // Record undo
+        LiverySystem::UndoAction action;
+        action.type = LiverySystem::UndoAction::LayerRemove;
+        action.layerIndex = row;
+        action.oldLayer = config.layers[row];
+        action.description = tr("Remove layer: %1").arg(config.layers[row].name);
+        LiverySystem::pushUndo(action);
+    }
+
     m_editor->removeLayer(row);
     refreshLayerList();
     clearLayerUI();
+    m_undoBtn->setEnabled(true);
+    m_redoBtn->setEnabled(false);
 }
 
 void LiveryEditorWidget::onMoveLayerUp()
@@ -455,7 +569,7 @@ void LiveryEditorWidget::onBrushHardnessChanged(int value)
 
 void LiveryEditorWidget::onColorSelected()
 {
-    QColor color = QColorDialog::getColor(Qt::red, this, "Brush Color");
+    QColor color = QColorDialog::getColor(Qt::red, this, tr("Brush Color"));
     if (color.isValid()) {
         m_colorBtn->setStyleSheet(QString("QPushButton { background: %1; color: #fff; border: 1px solid #555; padding: 4px; }").arg(color.name()));
     }
@@ -467,12 +581,12 @@ void LiveryEditorWidget::onLicensePlateGenerate()
     QString country = m_plateCountry->currentText();
 
     if (text.isEmpty()) {
-        QMessageBox::warning(this, "License Plate", "Please enter plate text.");
+        QMessageBox::warning(this, tr("License Plate"), tr("Please enter plate text."));
         return;
     }
 
     if (!LiverySystem::isValidPlateText(text, country)) {
-        QMessageBox::warning(this, "License Plate", "Invalid plate text for selected country.");
+        QMessageBox::warning(this, tr("License Plate"), tr("Invalid plate text for selected country."));
         return;
     }
 
@@ -519,6 +633,169 @@ void LiveryEditorWidget::clearLayerUI()
     m_opacityLabel->setText("100%");
     m_visibleCheck->setChecked(true);
     m_updatingUI = false;
+}
+
+void LiveryEditorWidget::onExportDDS()
+{
+    QString skinName = m_editor->currentSkin();
+    if (skinName.isEmpty()) {
+        QMessageBox::warning(this, tr("Export DDS"), tr("No skin selected."));
+        return;
+    }
+
+    QString carPath = m_editor->carPath();
+    QString skinPath = carPath + "/skins/" + skinName;
+
+    QString outputPath = QFileDialog::getSaveFileName(this, tr("Export Livery as DDS"),
+        skinPath + "/livery.dds",
+        tr("DDS files (*.dds)"));
+    if (outputPath.isEmpty()) return;
+
+    if (LiverySystem::exportSkinAsDDS(skinPath, outputPath)) {
+        QMessageBox::information(this, tr("Export DDS"), tr("Livery exported as DDS:\n%1").arg(outputPath));
+    } else {
+        QMessageBox::warning(this, tr("Export DDS"), tr("Failed to export DDS. Check that a livery texture exists."));
+    }
+}
+
+void LiveryEditorWidget::onImportDecal()
+{
+    QString decalPath = QFileDialog::getOpenFileName(this, tr("Import Decal"),
+        QString(),
+        LiverySystem::getSupportedDecalFormats().join(";;"));
+    if (decalPath.isEmpty()) return;
+
+    QString skinName = m_editor->currentSkin();
+    if (skinName.isEmpty()) {
+        QMessageBox::warning(this, tr("Import Decal"), tr("No skin selected."));
+        return;
+    }
+
+    QString skinPath = m_editor->carPath() + "/skins/" + skinName;
+    if (!LiverySystem::importDecal(decalPath, skinPath)) {
+        QMessageBox::warning(this, tr("Import Decal"), tr("Failed to import decal."));
+        return;
+    }
+
+    QFileInfo fi(decalPath);
+    LiverySystem::LiveryLayer layer;
+    layer.name = fi.completeBaseName();
+    layer.type = "decal";
+    layer.opacity = 1.0f;
+    layer.texturePath = skinPath + "/" + fi.fileName();
+    layer.size[0] = 0.3f;
+    layer.size[1] = 0.3f;
+    layer.visible = true;
+
+    m_editor->addLayer(layer);
+    refreshLayerList();
+    QMessageBox::information(this, tr("Import Decal"), tr("Decal imported: %1").arg(fi.fileName()));
+}
+
+void LiveryEditorWidget::onCreateFromTemplate()
+{
+    auto templates = LiverySystem::getBuiltinTemplates();
+    QStringList names;
+    for (const auto& t : templates) names << t.name;
+
+    bool ok;
+    QString selected = QInputDialog::getItem(this, tr("Create from Template"),
+        tr("Choose livery template:"), names, 0, false, &ok);
+    if (!ok || selected.isEmpty()) return;
+
+    int idx = names.indexOf(selected);
+    if (idx < 0 || idx >= templates.size()) return;
+
+    QString skinName = QInputDialog::getText(this, tr("Skin Name"),
+        tr("Enter name for new skin:"), QLineEdit::Normal, selected.replace(" ", "_"), &ok);
+    if (!ok || skinName.isEmpty()) return;
+
+    QString carPath = m_editor->carPath();
+    if (carPath.isEmpty()) {
+        QMessageBox::warning(this, tr("Template"), tr("No car loaded. Set car path first."));
+        return;
+    }
+
+    LiverySystem::createSkinFromTemplate(carPath, skinName, templates[idx]);
+    m_editor->loadSkins();
+    refreshSkinList();
+    QMessageBox::information(this, tr("Template"), tr("Skin created from template: %1").arg(skinName));
+}
+
+void LiveryEditorWidget::onUndo()
+{
+    if (!LiverySystem::canUndo()) return;
+
+    auto action = LiverySystem::undoLast();
+    auto& config = m_editor->currentConfig();
+
+    switch (action.type) {
+    case LiverySystem::UndoAction::LayerAdd:
+        if (action.layerIndex >= 0 && action.layerIndex < config.layers.size()) {
+            config.layers.removeAt(action.layerIndex);
+        }
+        break;
+    case LiverySystem::UndoAction::LayerRemove:
+        if (action.layerIndex >= 0) {
+            config.layers.insert(action.layerIndex, action.oldLayer);
+        }
+        break;
+    case LiverySystem::UndoAction::LayerModify:
+        if (action.layerIndex >= 0 && action.layerIndex < config.layers.size()) {
+            config.layers[action.layerIndex] = action.oldLayer;
+        }
+        break;
+    case LiverySystem::UndoAction::LayerMove:
+        break;
+    default:
+        break;
+    }
+
+    m_editor->saveCurrentSkin();
+    refreshLayerList();
+    m_undoBtn->setEnabled(LiverySystem::canUndo());
+    m_redoBtn->setEnabled(LiverySystem::canRedo());
+}
+
+void LiveryEditorWidget::onRedo()
+{
+    if (!LiverySystem::canRedo()) return;
+
+    auto action = LiverySystem::redoLast();
+    auto& config = m_editor->currentConfig();
+
+    switch (action.type) {
+    case LiverySystem::UndoAction::LayerAdd:
+        if (action.layerIndex >= 0) {
+            config.layers.insert(action.layerIndex, action.newLayer);
+        }
+        break;
+    case LiverySystem::UndoAction::LayerRemove:
+        if (action.layerIndex >= 0 && action.layerIndex < config.layers.size()) {
+            config.layers.removeAt(action.layerIndex);
+        }
+        break;
+    case LiverySystem::UndoAction::LayerModify:
+        if (action.layerIndex >= 0 && action.layerIndex < config.layers.size()) {
+            config.layers[action.layerIndex] = action.newLayer;
+        }
+        break;
+    default:
+        break;
+    }
+
+    m_editor->saveCurrentSkin();
+    refreshLayerList();
+    m_undoBtn->setEnabled(LiverySystem::canUndo());
+    m_redoBtn->setEnabled(LiverySystem::canRedo());
+}
+
+void LiveryEditorWidget::onPaletteColorSelected(const QColor& color)
+{
+    Q_UNUSED(color);
+    // Apply selected palette color to the brush
+    m_colorBtn->setStyleSheet(QString("QPushButton { background: %1; color: #fff; border: 1px solid #555; padding: 4px; }")
+                              .arg(color.name()));
 }
 
 } // namespace ks

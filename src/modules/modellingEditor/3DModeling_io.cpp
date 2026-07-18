@@ -15,9 +15,9 @@
 #include <unordered_map>
 #include "core/FileFormat/FBXParser.h"
 #if HAS_QT3D
-#include <Qt3DRender/QGeometryRenderer>
-#include <Qt3DRender/QAttribute>
-#include <Qt3DRender/QBuffer>
+#include <Qt3DRender/qgeometryrenderer.h>
+#include <Qt3DCore/qattribute.h>
+#include <Qt3DCore/qbuffer.h>
 #else
 namespace Qt3DCore { class QEntity; }
 #endif

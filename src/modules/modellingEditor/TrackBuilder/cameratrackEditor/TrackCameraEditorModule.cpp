@@ -9,6 +9,8 @@
 #include <QSplitter>
 #include <QTextStream>
 #include <QFormLayout>
+#include <QJsonArray>
+#include <QJsonObject>
 
 namespace ks {
 
@@ -433,7 +435,7 @@ QJsonObject TrackCameraEditorModule::serializeProject() const
     for (const auto& cam : m_cameras) {
         QJsonObject obj;
         obj["id"] = cam.id;
-        obj["type"] = cam.type;
+        obj["type"] = static_cast<int>(cam.type);
         obj["name"] = cam.name;
         obj["fov"] = static_cast<double>(cam.fov);
         obj["nearClip"] = static_cast<double>(cam.nearClip);

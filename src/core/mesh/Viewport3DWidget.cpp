@@ -46,13 +46,22 @@ static const char* meshVertexShader = R"(
     #version 330 core
     layout(location = 0) in vec3 aPos;
     layout(location = 1) in vec3 aColor;
+    layout(location = 2) in vec3 aNormal;
     uniform mat4 uView;
     uniform mat4 uProj;
     uniform mat4 uModel;
+    uniform vec3 uLightDir;
+    uniform vec3 uAmbient;
+    uniform float uSunIntensity;
+    uniform float uAmbientIntensity;
     out vec3 vColor;
     void main() {
+        vec3 worldPos = vec3(uModel * vec4(aPos, 1.0));
+        vec3 worldNormal = normalize(mat3(transpose(inverse(uModel))) * aNormal);
+        float ndotl = max(0.0, dot(worldNormal, normalize(uLightDir)));
+        vec3 lit = uAmbient * uAmbientIntensity + aColor * (uSunIntensity * ndotl + uAmbientIntensity * 0.3);
         gl_Position = uProj * uView * uModel * vec4(aPos, 1.0);
-        vColor = aColor;
+        vColor = lit;
     }
 )";
 
@@ -294,11 +303,7 @@ void Viewport3DWidget::rebuildSceneGLData()
             QVector<SceneObject*> chain;
             while (p) { chain.prepend(p); p = p->parent(); }
             for (SceneObject* c : chain) {
-                const Matrix4& m = c->localTransform();
-                QMatrix4x4 qm;
-                for (int row = 0; row < 4; ++row)
-                    for (int col = 0; col < 4; ++col)
-                        qm(row, col) = m.m[row][col];
+                QMatrix4x4 qm = c->transform();
                 worldMat = worldMat * qm;
             }
 
@@ -316,20 +321,23 @@ void Viewport3DWidget::rebuildSceneGLData()
 
 void Viewport3DWidget::uploadMeshToGL(MeshGLData& data, const SceneMesh* mesh, const QMatrix4x4& transform)
 {
-    const auto& verts = mesh->vertices();
-    const auto& idx = mesh->indices();
+    const auto& verts = mesh->geometry().vertices;
+    const auto& idx = mesh->geometry().indices;
     if (verts.isEmpty() || idx.isEmpty()) return;
 
-    // Pack position (3) + color (3) per vertex
+    // Pack position (3) + color (3) + normal (3) per vertex
     QVector<float> packed;
-    packed.reserve(verts.size() * 6);
+    packed.reserve(verts.size() * 9);
     for (const auto& v : verts) {
-        packed.append(v.position.x);
-        packed.append(v.position.y);
-        packed.append(v.position.z);
-        packed.append(v.color.x);
-        packed.append(v.color.y);
-        packed.append(v.color.z);
+        packed.append(v.position.x());
+        packed.append(v.position.y());
+        packed.append(v.position.z());
+        packed.append(v.color.x());
+        packed.append(v.color.y());
+        packed.append(v.color.z());
+        packed.append(v.normal.x());
+        packed.append(v.normal.y());
+        packed.append(v.normal.z());
     }
 
     data.indexCount = idx.size();
@@ -343,10 +351,12 @@ void Viewport3DWidget::uploadMeshToGL(MeshGLData& data, const SceneMesh* mesh, c
     glBindBuffer(GL_ARRAY_BUFFER, data.vbo);
     glBufferData(GL_ARRAY_BUFFER, packed.size() * sizeof(float), packed.constData(), GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), nullptr);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), nullptr);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), reinterpret_cast<void*>(3 * sizeof(float)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), reinterpret_cast<void*>(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), reinterpret_cast<void*>(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, data.ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx.size() * sizeof(uint32_t), idx.constData(), GL_STATIC_DRAW);
@@ -406,6 +416,10 @@ void Viewport3DWidget::drawSceneMeshes()
     m_meshShader.setUniformValue("uView", viewMatrix());
     m_meshShader.setUniformValue("uProj", projectionMatrix());
     m_meshShader.setUniformValue("uWireframe", m_renderMode == Wireframe);
+    m_meshShader.setUniformValue("uLightDir", QVector3D(0.5f, 1.0f, 0.5f).normalized());
+    m_meshShader.setUniformValue("uAmbient", QVector3D(0.25f, 0.25f, 0.30f));
+    m_meshShader.setUniformValue("uSunIntensity", 1.0f);
+    m_meshShader.setUniformValue("uAmbientIntensity", 0.3f);
 
     bool wireframe = (m_renderMode == Wireframe);
     if (wireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -578,6 +592,15 @@ void Viewport3DWidget::focusOnPoint(const QVector3D& point, float distance)
     update();
 }
 
+void Viewport3DWidget::setCameraOrbit(float azimuthDeg, float elevationDeg, float distance)
+{
+    m_azimuth = azimuthDeg;
+    m_elevation = qBound(-89.0f, elevationDeg, 89.0f);
+    m_camDistance = qMax(1.0f, distance);
+    updateCameraFromMode();
+    update();
+}
+
 // ── Gizmo Rendering ──────────────────────────────────────────────────────
 
 void Viewport3DWidget::setupGizmo()
@@ -590,7 +613,7 @@ void Viewport3DWidget::drawGizmo()
 {
     if (!m_selectedObject || m_gizmoMode == GizmoMode::None) return;
 
-    QMatrix4x4 model = m_selectedObject->worldTransform().toQMatrix4x4();
+    QMatrix4x4 model = m_selectedObject->worldTransform();
     QVector3D pos(model(0,3), model(1,3), model(2,3));
 
     m_gizmoShader.bind();
@@ -721,8 +744,8 @@ void Viewport3DWidget::handleGizmoInteraction(QMouseEvent* event)
         else if (m_activeAxis == GizmoAxis::Z) axisDir = QVector3D(0, 0, 1);
 
         QMatrix4x4 view = viewMatrix();
-        QVector3D right = view.inverted().mapVector(QVector3D(1, 0, 0)).normalized();
-        QVector3D up = view.inverted().mapVector(QVector3D(0, 1, 0)).normalized();
+        QVector3D right = view.inverted().map(QVector3D(1, 0, 0)).normalized();
+        QVector3D up = view.inverted().map(QVector3D(0, 1, 0)).normalized();
         float screenFactor = QVector3D::dotProduct(axisDir, right) * delta.x() +
                              QVector3D::dotProduct(axisDir, up) * (-delta.y());
         screenFactor *= m_camDistance * 0.002f;
@@ -785,21 +808,15 @@ SceneObject* Viewport3DWidget::pickObject(const QPoint& screenPos)
         if (obj->type() == SceneObject::Type::Mesh && obj->hasMesh() && obj->isVisible()) {
             auto* mesh = obj->mesh();
             if (mesh) {
-                const Vec3& bminV3 = mesh->boundsMin();
-                const Vec3& bmaxV3 = mesh->boundsMax();
-                QVector3D bmin(bminV3.x, bminV3.y, bminV3.z);
-                QVector3D bmax(bmaxV3.x, bmaxV3.y, bmaxV3.z);
+                QVector3D bmin = mesh->boundsMin();
+                QVector3D bmax = mesh->boundsMax();
 
                 QMatrix4x4 worldMat;
                 SceneObject* p = obj;
                 QVector<SceneObject*> chain;
                 while (p) { chain.prepend(p); p = p->parent(); }
                 for (SceneObject* c : chain) {
-                    const Matrix4& m = c->localTransform();
-                    QMatrix4x4 qm;
-                    for (int row = 0; row < 4; ++row)
-                        for (int col = 0; col < 4; ++col)
-                            qm(row, col) = m.m[row][col];
+                    QMatrix4x4 qm = c->transform();
                     worldMat = worldMat * qm;
                 }
 

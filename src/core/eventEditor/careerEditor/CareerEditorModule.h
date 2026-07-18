@@ -37,6 +37,9 @@ private slots:
     void onSeriesSelected(int row);
     void onLoadDir();
     void onSeriesNameChanged(const QString& t);
+    void onSeriesInfoChanged();
+    void onAddSeries();
+    void onRemoveSeries();
 
 private:
     void setupUi();
@@ -47,6 +50,8 @@ private:
     QLineEdit* m_seriesNameEdit = nullptr;
     QTextEdit* m_seriesInfoEdit = nullptr;
     QPushButton* m_loadBtn = nullptr;
+    QPushButton* m_addBtn = nullptr;
+    QPushButton* m_removeBtn = nullptr;
     QLabel* m_statusLabel = nullptr;
     QVector<QPair<QString, QString>> m_series;
     int m_selectedIndex = -1;

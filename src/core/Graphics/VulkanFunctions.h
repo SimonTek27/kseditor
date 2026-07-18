@@ -61,6 +61,7 @@ struct VulkanFunctionTable {
     PFN_vkCmdEndRenderPass cmdEndRenderPass = nullptr;
     PFN_vkCmdBindPipeline cmdBindPipeline = nullptr;
     PFN_vkCmdBindDescriptorSets cmdBindDescriptorSets = nullptr;
+    PFN_vkCmdDispatch cmdDispatch = nullptr;
     PFN_vkCmdDraw cmdDraw = nullptr;
     PFN_vkCmdDrawIndexed cmdDrawIndexed = nullptr;
     PFN_vkAllocateCommandBuffers allocateCommandBuffers = nullptr;
@@ -188,6 +189,7 @@ inline bool loadInstanceFunctions(VkInstance inst) {
     resolveInstance(g_vk, inst, g_vk.cmdEndRenderPass, "vkCmdEndRenderPass");
     resolveInstance(g_vk, inst, g_vk.cmdBindPipeline, "vkCmdBindPipeline");
     resolveInstance(g_vk, inst, g_vk.cmdBindDescriptorSets, "vkCmdBindDescriptorSets");
+    resolveInstance(g_vk, inst, g_vk.cmdDispatch, "vkCmdDispatch");
     resolveInstance(g_vk, inst, g_vk.cmdDraw, "vkCmdDraw");
     resolveInstance(g_vk, inst, g_vk.cmdDrawIndexed, "vkCmdDrawIndexed");
     resolveInstance(g_vk, inst, g_vk.allocateCommandBuffers, "vkAllocateCommandBuffers");

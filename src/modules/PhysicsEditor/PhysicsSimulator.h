@@ -12,6 +12,7 @@
 #include "aero_AeroModel.h"
 #include "dt_DifferentialModel.h"
 #include "mech_BrakeThermalModel.h"
+#include "ers_HybridSystem.h"
 
 namespace ks {
 
@@ -197,6 +198,88 @@ public:
     float getBrakePadTemp(int wheel) const;
     float getBrakeFade(int wheel) const;
 
+    // ERS/Hybrid system access
+    HybridSystem& hybridSystem() { return m_hybridSystem; }
+    const HybridSystem& hybridSystem() const { return m_hybridSystem; }
+    void setErsEnabled(bool enabled);
+    bool ersEnabled() const { return m_hybridSystem.isEnabled(); }
+    void setErsMode(HybridSystem::ErsMode mode);
+    void activateErsAttackMode();
+
+    // Drive layout
+    enum class DriveLayout { RWD, FWD, AWD };
+    void setDriveLayout(DriveLayout layout) { m_driveLayout = layout; }
+    DriveLayout driveLayout() const { return m_driveLayout; }
+    void setCenterDiffPreload(double nm) { m_centerDiffPreload = nm; }
+    double centerDiffPreload() const { return m_centerDiffPreload; }
+    void setCenterDiffPower(double power) { m_centerDiffPower = power; } // 0-1 front bias
+    double centerDiffPower() const { return m_centerDiffPower; }
+    void setFrontRearTorqueSplit(double frontRatio); // 0=all rear, 1=all front
+    float getErsDeployTorque() const { return m_ersDeployTorque; }
+    float getErsRegenTorque() const { return m_ersRegenTorque; }
+    float getErsBatterySoc() const { return m_hybridSystem.getSoc(); }
+    float getErsBatteryTemp() const { return m_hybridSystem.getBatteryTemp(); }
+
+    // DRS (Drag Reduction System)
+    void setDrsEnabled(bool enabled) { m_drsEnabled = enabled; }
+    bool drsEnabled() const { return m_drsEnabled; }
+    void setDrsAutoActivate(bool autoActivate);
+    bool drsAutoActivate() const { return m_drsAutoActivate; }
+    void setDrsSpeedThreshold(double kmh) { m_drsSpeedThreshold = kmh; }
+    double drsSpeedThreshold() const { return m_drsSpeedThreshold; }
+    void setDrsZoneStart(double dist) { m_drsZoneStart = dist; }
+    void setDrsZoneEnd(double dist) { m_drsZoneEnd = dist; }
+    bool isDrsActive() const { return m_drsActive; }
+    double getDrsDragReduction() const { return m_drsDragReduction; }
+    void setDrsDragReduction(double factor) { m_drsDragReduction = std::clamp(factor, 0.0, 1.0); }
+
+    // Damage model
+    struct DamageState {
+        double aeroDamage = 0.0;       // 0-1
+        double suspensionDamage[4] = {0,0,0,0};
+        double engineDamage = 0.0;
+        double gearboxDamage = 0.0;
+        double bodyDamage = 0.0;       // 0-1
+        double tyreDamage[4] = {0,0,0,0};
+        bool isEliminated = false;
+        double accumulatedImpact = 0.0;
+        int collisionCount = 0;
+    };
+    const DamageState& damageState() const { return m_damage; }
+    DamageState& damageState() { return m_damage; }
+    void applyCollisionDamage(double impactForce);
+    void resetDamage();
+    void enableDamageModel(bool enabled) { m_damageEnabled = enabled; }
+    bool isDamageModelEnabled() const { return m_damageEnabled; }
+
+    // Weather-dependent physics
+    struct WeatherState {
+        double trackWetness = 0.0;        // 0=dry, 1=fully wet
+        double rainIntensity = 0.0;       // mm/h
+        double ambientTemp = 26.0;
+        double trackTemp = 30.0;
+        double airDensity = 1.225;
+        double windSpeed = 0.0;
+        double windDirection = 0.0;       // degrees
+    };
+    void setWeatherState(const WeatherState& weather);
+    const WeatherState& weatherState() const { return m_weather; }
+    WeatherState& weatherState() { return m_weather; }
+    void setTrackWetness(double wetness);
+    void setRainIntensity(double mmh);
+    double getAquaplaningRisk() const { return m_aquaplaningRisk; }
+    double getTrackGripReduction() const { return m_trackGripReduction; }
+    void setAirDensity(double density) { m_weather.airDensity = std::max(0.8, density); }
+
+    // Fuel weight dynamics
+    void setFuelConsumptionEnabled(bool enabled) { m_fuelConsumptionEnabled = enabled; }
+    bool isFuelConsumptionEnabled() const { return m_fuelConsumptionEnabled; }
+    double getFuelKg() const { return m_fuelKg; }
+    void setFuelKg(double kg) { m_fuelKg = std::max(0.0, kg); }
+    double getFuelCapacity() const { return m_fuelCapacity; }
+    void setFuelCapacity(double liters) { m_fuelCapacity = liters; }
+    double getEffectiveMass() const { return m_mass + m_fuelKg; }
+
     // Vehicle parameter loading from AC INI files
     void loadVehicleParams(const QString& carPath);
     void loadEngineFromIni(const QString& engineIniPath);
@@ -267,6 +350,10 @@ private:
     void updateTireModel(double dt);
     void updateWeightTransfer(double longitudinalAccel, double lateralAccel);
     void updatePerWheelForces(double dt);
+    void updateErsAndDrs(double dt);
+    void updateDamageModel(double dt);
+    void updateWeatherEffects(double dt);
+    void updateFuelWeight(double dt);
     double calculateSlipAngle(int wheel, double steeringAngle, double speed, double yawRate) const;
     double calculateSlipRatio(int wheel) const;
 
@@ -321,6 +408,10 @@ private:
     double m_yawRate = 0.0;
     double m_lateralAccel = 0.0;
 
+    // Tire graining/blistering state
+    double m_tireGraining[4] = {0.0, 0.0, 0.0, 0.0};
+    double m_tireBlistering[4] = {0.0, 0.0, 0.0, 0.0};
+
     // Thermal tire model state
     double m_tireTempSurface[4] = {30.0, 30.0, 30.0, 30.0};
     double m_tireTempCarcass[4] = {35.0, 35.0, 35.0, 35.0};
@@ -328,6 +419,40 @@ private:
     double m_tirePressure[4] = {2.4, 2.4, 2.4, 2.4};
     double m_tireWear[4] = {0.0, 0.0, 0.0, 0.0};
     double m_ambientTemp = 26.0;
+
+    // ERS/Hybrid system
+    HybridSystem m_hybridSystem;
+    double m_ersDeployTorque = 0.0;
+    double m_ersRegenTorque = 0.0;
+
+    // DRS
+    bool m_drsEnabled = false;
+    bool m_drsAutoActivate = false;
+    bool m_drsActive = false;
+    double m_drsSpeedThreshold = 80.0;
+    double m_drsZoneStart = 0.0;
+    double m_drsZoneEnd = 0.0;
+    double m_drsDragReduction = 0.25;
+    double m_drsBaseCd = 0.35;
+
+    // Damage model
+    bool m_damageEnabled = false;
+    DamageState m_damage;
+
+    // Weather-dependent physics
+    WeatherState m_weather;
+    double m_aquaplaningRisk = 0.0;
+    double m_trackGripReduction = 0.0;
+
+    // Drive layout
+    DriveLayout m_driveLayout = DriveLayout::RWD;
+    double m_centerDiffPreload = 0.0;
+    double m_centerDiffPower = 0.5; // 0.5 = 50% front bias (default center)
+    double m_frontTorqueSplit = 0.0; // 0 = all rear
+
+    // Fuel consumption
+    bool m_fuelConsumptionEnabled = true;
+    double m_fuelCapacity = 80.0;
 
     // Lap timer
     phys_LapTimer m_lapTimer;

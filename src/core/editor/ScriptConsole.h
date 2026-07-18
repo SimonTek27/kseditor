@@ -139,6 +139,12 @@ private:
     QString m_fontFamily = "monospace";
     int m_fontSize = 12;
     int m_tabWidth = 4;
+
+    // Undo/redo
+    QVector<EditorState> m_undoHistory;
+    int m_undoIndex = 0;
+
+    void pushUndoState();
 };
 
 } // namespace ks

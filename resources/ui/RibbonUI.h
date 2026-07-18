@@ -96,14 +96,76 @@ private:
     QHBoxLayout* m_layout = nullptr;
 };
 
+class RibbonSubTab : public QWidget {
+    Q_OBJECT
+public:
+    explicit RibbonSubTab(QWidget* parent = nullptr);
+    RibbonSubTab(const QString& title, const QIcon& icon, QWidget* parent = nullptr);
+    ~RibbonSubTab() override;
+    void setTitle(const QString& title);
+    QString title() const { return m_title; }
+    void setIcon(const QIcon& icon);
+    QIcon icon() const { return m_icon; }
+    RibbonPanel* addPanel(const QString& title);
+    void addPanel(RibbonPanel* panel);
+    void insertPanel(int index, RibbonPanel* panel);
+    const QList<RibbonPanel*>& panels() const { return m_panels; }
+    int panelCount() const { return m_panels.size(); }
+    void setActive(bool active);
+    bool isActive() const { return m_active; }
+    void setTabColor(const QColor& color);
+    void applyTheme(const RibbonTheme& theme);
+signals:
+    void activated();
+protected:
+    void paintEvent(QPaintEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
+    void updateScrollArea();
+    void adjustPanelHeights();
+    QString m_title;
+    QIcon m_icon;
+    bool m_active = false;
+    QColor m_accentColor;
+    QColor m_tabColor;
+    QList<RibbonPanel*> m_panels;
+    QScrollArea* m_scrollArea = nullptr;
+    QWidget* m_contentWidget = nullptr;
+    QHBoxLayout* m_contentLayout = nullptr;
+};
+
+class RibbonSubTabBar : public QTabBar {
+    Q_OBJECT
+public:
+    explicit RibbonSubTabBar(QWidget* parent = nullptr);
+    void setTabIcon(int index, const QIcon& icon);
+    void applyTheme(const RibbonTheme& theme);
+signals:
+    void currentChanged(int index);
+    void subTabAdded(int index);
+    void subTabRemoved(int index);
+protected:
+    void paintEvent(QPaintEvent* event) override;
+};
+
 class RibbonTab : public QWidget {
     Q_OBJECT
 public:
     explicit RibbonTab(QWidget* parent = nullptr);
     RibbonTab(const QString& title, QWidget* parent = nullptr);
+    RibbonTab(const QString& title, const QIcon& icon, QWidget* parent = nullptr);
     ~RibbonTab() override;
     void setTitle(const QString& title);
     QString title() const { return m_title; }
+    void setIcon(const QIcon& icon);
+    QIcon icon() const { return m_icon; }
+    RibbonSubTabBar* subTabBar() const { return m_subTabBar; }
+    RibbonSubTab* addSubTab(const QString& title, const QIcon& icon = QIcon());
+    void insertSubTab(int index, RibbonSubTab* subTab);
+    void removeSubTab(int index);
+    RibbonSubTab* subTab(int index) const;
+    int subTabCount() const;
+    int currentSubTabIndex() const;
+    void setCurrentSubTabIndex(int index);
     RibbonPanel* addPanel(const QString& title);
     void addPanel(RibbonPanel* panel);
     void insertPanel(int index, RibbonPanel* panel);
@@ -114,14 +176,20 @@ public:
     void applyTheme(const RibbonTheme& theme);
 signals:
     void tabChanged();
+    void subTabChanged(int index);
 protected:
     void paintEvent(QPaintEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
     void updateScrollArea();
     void adjustPanelHeights();
+    void onSubTabChanged(int index);
     QString m_title;
+    QIcon m_icon;
     QColor m_tabColor;
     QList<RibbonPanel*> m_panels;
+    QList<RibbonSubTab*> m_subTabs;
+    RibbonSubTabBar* m_subTabBar = nullptr;
+    QStackedWidget* m_subTabStack = nullptr;
     QScrollArea* m_scrollArea = nullptr;
     QWidget* m_contentWidget = nullptr;
     QHBoxLayout* m_contentLayout = nullptr;
@@ -143,6 +211,7 @@ public:
     void setCurrentTab(RibbonTab* tab);
     void applyTheme(const QString& themeKey);
     void setTabHighlight(int index, bool highlight);
+    void setTabIcon(int index, const QIcon& icon);
 signals:
     void currentChanged(int index);
     void tabAdded(int index);

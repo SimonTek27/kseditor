@@ -14,6 +14,8 @@
 #include <QPlainTextEdit>
 #include <QLineEdit>
 #include <QTimer>
+#include <QTranslator>
+#include <QLocale>
 
 #include "core/ui/FileTreeWidget.h"
 #include "core/ui/ProjectSearchWidget.h"
@@ -26,6 +28,7 @@
 #include "core/tools/FileDiffEngine.h"
 #include "core/tools/AutoSave.h"
 #include "core/help/HelpSystem.h"
+#include "core/help/HelpBrowser.h"
 
 namespace Constants {
     inline const QString PROJECT_EXTENSION = ".ksep";
@@ -42,6 +45,8 @@ namespace Constants {
 namespace ks { class CrashRecovery; }
 class ProjectBuilder;
 class MainWindowPrivate;
+
+#include "core/ui/CustomTitleBar.h"
 
 class MainWindow : public QMainWindow
 {
@@ -127,6 +132,7 @@ public slots:
     // Settings
     void showSettings();
     void showAbout();
+    void showDocumentation();
     void runInSimulator();
     void runInAssettoCorsa() { runInSimulator(); }
 
@@ -151,10 +157,15 @@ public slots:
 protected:
     void closeEvent(QCloseEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
+    bool event(QEvent* event) override;
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dropEvent(QDropEvent* event) override;
 
 private slots:
+    void loadLanguage(const QString& langCode);
+    void onLanguageChanged(const QString& langCode);
+
+private:
     void updateWindowTitle();
     void onModuleChanged(int index);
     void onBuildProgress(int percent);
@@ -168,6 +179,7 @@ private:
     // UI Setup
     void setupUI();
     void setupMenuBar();
+    void setupCustomTitleBar();
     void setupFileMenu();
     void setupEditMenu();
     void setupViewMenu();
@@ -216,6 +228,10 @@ private:
     QString m_simPath;
     QString m_cspVersion;
     QString m_currentProjectPath;
+
+    // Translator for i18n
+    QTranslator m_appTranslator;
+    QTranslator m_qtTranslator;
 
     // Ribbon UI
     ks::editor::RibbonBar* m_ribbonBar = nullptr;
@@ -275,4 +291,6 @@ private:
     ks::CrashRecovery* m_crashRecovery = nullptr;
     ks::TemplateManager* m_templateManager = nullptr;
     ks::FileComparisonEngine* m_diffEngine = nullptr;
+    ks::HelpBrowser* m_helpBrowser = nullptr;
+    CustomTitleBar* m_customTitleBar = nullptr;
 };

@@ -44,6 +44,8 @@ struct Face {
     int vertexCount() const { return indices.size(); }
     int& operator[](int i) { return indices[i]; }
     int operator[](int i) const { return indices[i]; }
+    bool operator==(const Face& other) const { return indices == other.indices; }
+    bool operator!=(const Face& other) const { return !(*this == other); }
 };
 
 struct MeshData {
@@ -81,8 +83,12 @@ struct MeshData {
     void computeTangents();
     void flipFaces();
     void triangulate();
-    int getTriangleCount() const { return faces.size(); }
-    int getVertexCount() const { return vertices.size(); }
+    
+    int getTriangleCount() const;
+    int getVertexCount() const;
+    
+    geometry::GeoMeshData toGeoMesh() const;
+    static MeshData fromGeoMesh(const geometry::GeoMeshData& geo);
 };
 
 struct MeshUVIsland {

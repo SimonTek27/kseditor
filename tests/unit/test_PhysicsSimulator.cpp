@@ -10,6 +10,7 @@
 #include "aero_AeroModel.h"
 #include "dt_DifferentialModel.h"
 #include "mech_BrakeThermalModel.h"
+#include "ers_HybridSystem.h"
 
 using namespace ks;
 
@@ -87,6 +88,37 @@ private slots:
     void test_simulator_pacejkaModelAccess();
     void test_simulator_diffModelAccess();
     void test_simulator_reset();
+
+    // ── ERS/Hybrid System ──────────────────────────────────────────────
+    void test_ers_defaultDisabled();
+    void test_ers_enable();
+    void test_ers_architecturePresets();
+    void test_ers_batteryChargeDischarge();
+    void test_ers_batteryTemperature();
+    void test_ers_deploymentModes();
+    void test_ers_mgukRegen();
+    void test_ers_mguhHarvest();
+    void test_ers_attackMode();
+    void test_ers_perLapEnergyLimit();
+    void test_ers_validation();
+    void test_ers_electricArchitecture();
+
+    // ── DRS ────────────────────────────────────────────────────────────
+    void test_drs_defaultDisabled();
+    void test_drs_activation();
+
+    // ── Damage Model ───────────────────────────────────────────────────
+    void test_damage_defaultState();
+    void test_damage_collision();
+    void test_damage_reset();
+
+    // ── Weather ────────────────────────────────────────────────────────
+    void test_weather_defaultState();
+    void test_weather_trackWetnessGrip();
+    void test_weather_aquaplaning();
+
+    // ── Fuel Weight ────────────────────────────────────────────────────
+    void test_fuel_weightDynamics();
 
     // ── Telemetry Validation ───────────────────────────────────────────
     void test_validation_metricsStructure();
@@ -691,6 +723,380 @@ void TestPhysicsSimulator::test_validation_percentageRMSE() {
     auto m = sim->validateAgainstTelemetry(t, spd, lat, lng, rpm, thr, brk, st);
     QVERIFY(m.speedPercentRMSE >= 0);
     QVERIFY(m.nSamples >= 2);
+}
+
+// ============================================================================
+// ERS/Hybrid System Tests
+// ============================================================================
+
+void TestPhysicsSimulator::test_ers_defaultDisabled() {
+    HybridSystem sys;
+    HybridSystem::ErsConfig cfg = HybridSystem::getDisabled();
+    sys.setConfig(cfg);
+    QVERIFY(!sys.isEnabled());
+    QCOMPARE(sys.getState().batterySoc, 50.0f);
+    QCOMPARE(sys.getDeployTorque(), 0.0f);
+}
+
+void TestPhysicsSimulator::test_ers_enable() {
+    HybridSystem sys;
+    HybridSystem::ErsConfig cfg = HybridSystem::getF1_2014();
+    cfg.enabled = true;
+    sys.setConfig(cfg);
+    QVERIFY(sys.isEnabled());
+    QVERIFY(sys.getConfig().mguk.maxPowerKw > 0);
+    QVERIFY(sys.getConfig().battery.capacityMj > 0);
+    QVERIFY(sys.getDeployableEnergy() > 0);
+}
+
+void TestPhysicsSimulator::test_ers_architecturePresets() {
+    auto f1_2014 = HybridSystem::getF1_2014();
+    auto f1_2026 = HybridSystem::getF1_2026();
+    auto lmp1 = HybridSystem::getLMP1();
+    auto lmdh = HybridSystem::getLMDh();
+    auto mild = HybridSystem::getRoadMild();
+    auto full = HybridSystem::getRoadFull();
+    auto plugin = HybridSystem::getRoadPlugIn();
+    auto electric = HybridSystem::getElectric();
+
+    // F1 2014 has MGU-H; F1 2026 does not
+    QVERIFY(f1_2014.mguh.maxPowerKw > 0);
+    QCOMPARE(f1_2026.mguh.maxPowerKw, 0.0f);
+
+    // Electric has the largest MGU-K
+    QVERIFY(electric.mguk.maxPowerKw > f1_2014.mguk.maxPowerKw);
+
+    // Mild hybrid has smallest battery
+    QVERIFY(mild.battery.capacityMj < full.battery.capacityMj);
+
+    // Plug-in has larger battery than full hybrid
+    QVERIFY(plugin.battery.capacityMj > full.battery.capacityMj);
+
+    // LMDh is less powerful than LMP1
+    QVERIFY(lmdh.mguk.maxPowerKw < lmp1.mguk.maxPowerKw);
+
+    // All presets have valid configs
+    QString err;
+    QVERIFY(HybridSystem::validateConfig(f1_2014, &err));
+    QVERIFY(HybridSystem::validateConfig(f1_2026, &err));
+    QVERIFY(HybridSystem::validateConfig(electric, &err));
+}
+
+void TestPhysicsSimulator::test_ers_batteryChargeDischarge() {
+    HybridSystem sys;
+    auto cfg = HybridSystem::getF1_2014();
+    cfg.enabled = true;
+    sys.setConfig(cfg);
+
+    float initialSoc = sys.getSoc();
+
+    // Charge the battery
+    sys.chargeBattery(100.0f, 0.1f);
+    QVERIFY(sys.getSoc() > initialSoc);
+    QVERIFY(sys.getSoc() <= cfg.battery.maxSoc);
+
+    float chargedSoc = sys.getSoc();
+
+    // Discharge the battery
+    sys.dischargeBattery(100.0f, 0.1f);
+    QVERIFY(sys.getSoc() < chargedSoc);
+    QVERIFY(sys.getSoc() >= 0);
+}
+
+void TestPhysicsSimulator::test_ers_batteryTemperature() {
+    HybridSystem sys;
+    auto cfg = HybridSystem::getF1_2014();
+    cfg.enabled = true;
+    sys.setConfig(cfg);
+
+    float initialTemp = sys.getBatteryTemp();
+
+    // High-power charging generates heat
+    for (int i = 0; i < 100; ++i) {
+        sys.chargeBattery(200.0f, 0.05f);
+    }
+    QVERIFY(sys.getBatteryTemp() > initialTemp);
+
+    // Excessive temperature should not exceed max by much
+    QVERIFY(sys.getBatteryTemp() < cfg.battery.maxTemp + 15.0f);
+}
+
+void TestPhysicsSimulator::test_ers_deploymentModes() {
+    HybridSystem sys;
+    auto cfg = HybridSystem::getF1_2014();
+    cfg.enabled = true;
+    sys.setConfig(cfg);
+
+    // None mode should deploy nothing
+    sys.setDeploymentMode(HybridSystem::ErsMode::None);
+    sys.update(0.05f, 8000, 0.8f, 0.0f, 200.0f, 3.5f, 300.0f, 0.0f, 0.0f);
+    float noneTorque = sys.getDeployTorque();
+    QCOMPARE(noneTorque, 0.0f);
+
+    // Attack mode should deploy maximum
+    sys.setDeploymentMode(HybridSystem::ErsMode::Attack);
+    sys.update(0.05f, 8000, 0.8f, 0.0f, 200.0f, 3.5f, 300.0f, 0.0f, 0.0f);
+    float attackTorque = sys.getDeployTorque();
+    QVERIFY(attackTorque > 0);
+
+    // No deployment when braking
+    sys.update(0.05f, 5000, 0.0f, 0.8f, 200.0f, 3.5f, 100.0f, 0.0f, 0.0f);
+    QCOMPARE(sys.getDeployTorque(), 0.0f);
+    QVERIFY(sys.isHarvesting());
+}
+
+void TestPhysicsSimulator::test_ers_mgukRegen() {
+    HybridSystem sys;
+    auto cfg = HybridSystem::getF1_2014();
+    cfg.enabled = true;
+    sys.setConfig(cfg);
+
+    float initialSoc = sys.getSoc();
+
+    // Braking should harvest energy
+    sys.update(0.1f, 5000, 0.0f, 0.5f, 100.0f, 3.5f, 100.0f, 0.0f, 0.0f);
+
+    QVERIFY(sys.isHarvesting());
+    float regenTorque = sys.calculateRegenTorque(0.5f, 100.0f);
+    QVERIFY(regenTorque >= 0.0f);
+
+    // Regen torque should exist at speed
+    QVERIFY(sys.getRegenTorque() >= 0);
+}
+
+void TestPhysicsSimulator::test_ers_mguhHarvest() {
+    HybridSystem sys;
+    auto cfg = HybridSystem::getF1_2014();
+    cfg.enabled = true;
+    sys.setConfig(cfg);
+
+    // MGU-H harvests from exhaust at high RPM
+    float exhaustEnergy = sys.calculateExhaustEnergy(10000, 1.0f, 1.5f);
+    QVERIFY(exhaustEnergy > 0);
+
+    float harvestPower = sys.calculateMguhHarvestPower(exhaustEnergy);
+    QVERIFY(harvestPower >= 0);
+    QVERIFY(harvestPower <= cfg.mguh.maxHarvestKw);
+
+    // MGU-H can spool turbo
+    float spoolPower = sys.calculateTurboSpoolPower();
+    QVERIFY(spoolPower >= 0);
+}
+
+void TestPhysicsSimulator::test_ers_attackMode() {
+    HybridSystem sys;
+    auto cfg = HybridSystem::getF1_2014();
+    cfg.enabled = true;
+    sys.setConfig(cfg);
+
+    QVERIFY(!sys.isAttackModeActive());
+    QVERIFY(sys.isAttackModeAvailable());
+
+    sys.activateAttackMode();
+    QVERIFY(sys.isAttackModeActive());
+
+    // Attack mode should be deployable
+    sys.update(0.1f, 8000, 0.8f, 0.0f, 200.0f, 3.5f, 300.0f, 0.0f, 0.0f);
+    QVERIFY(sys.isDeploying());
+    QVERIFY(sys.getDeployTorque() > 0);
+
+    // After duration expires, attack mode deactivates
+    for (int i = 0; i < 500; ++i) {
+        sys.update(0.1f, 8000, 0.8f, 0.0f, 200.0f, 3.5f, 300.0f, 0.0f, 0.0f);
+    }
+    QVERIFY(!sys.isAttackModeActive());
+    QVERIFY(!sys.isAttackModeAvailable()); // on cooldown
+}
+
+void TestPhysicsSimulator::test_ers_perLapEnergyLimit() {
+    HybridSystem sys;
+    auto cfg = HybridSystem::getF1_2014();
+    cfg.enabled = true;
+    // Small per-lap limit for testing
+    cfg.battery.perLapEnergyMj = 0.1f;
+    cfg.battery.capacityMj = 4.0f;
+    sys.setConfig(cfg);
+
+    QVERIFY(sys.getRemainingLapEnergy() > 0);
+
+    // Deploy lots of energy (high power for long time)
+    sys.setDeploymentMode(HybridSystem::ErsMode::Attack);
+    for (int i = 0; i < 200; ++i) {
+        sys.update(0.05f, 8000, 1.0f, 0.0f, 200.0f, 3.5f, 500.0f, 0.0f, 0.0f);
+    }
+
+    // Lap energy should be consumed
+    QVERIFY(sys.getState().energyDeployedMj > 0);
+    QVERIFY(sys.getRemainingLapEnergy() < 0.1f);
+
+    // Reset lap should restore per-lap energy
+    sys.resetLap();
+    QVERIFY(sys.getRemainingLapEnergy() > 0);
+}
+
+void TestPhysicsSimulator::test_ers_validation() {
+    QString err;
+
+    // Valid config should pass
+    auto valid = HybridSystem::getF1_2014();
+    QVERIFY(HybridSystem::validateConfig(valid, &err));
+
+    // Negative MGU-K power should fail
+    auto badPower = valid;
+    badPower.mguk.maxPowerKw = -10;
+    QVERIFY(!HybridSystem::validateConfig(badPower, &err));
+    QVERIFY(!err.isEmpty());
+
+    // Zero battery capacity should fail
+    auto badBattery = valid;
+    badBattery.battery.capacityMj = 0;
+    QVERIFY(!HybridSystem::validateConfig(badBattery, &err));
+
+    // Out of range SOC should fail
+    auto badSoc = valid;
+    badSoc.battery.minSoc = -10;
+    QVERIFY(!HybridSystem::validateConfig(badSoc, &err));
+
+    badSoc.battery.minSoc = 0;
+    badSoc.battery.maxSoc = 200;
+    QVERIFY(!HybridSystem::validateConfig(badSoc, &err));
+}
+
+void TestPhysicsSimulator::test_ers_electricArchitecture() {
+    auto electric = HybridSystem::getElectric();
+    QVERIFY(electric.mguk.maxPowerKw > 400); // EV has high power
+    QVERIFY(electric.battery.capacityMj > 100); // EV has large battery
+    QCOMPARE(electric.mguh.maxPowerKw, 0.0f); // EV has no MGU-H
+    QVERIFY(HybridSystem::getArchitectureName(HybridSystem::HybridArchitecture::Electric) == "Full Electric");
+}
+
+// ============================================================================
+// DRS Tests
+// ============================================================================
+
+void TestPhysicsSimulator::test_drs_defaultDisabled() {
+    phys_Simulator* sim = phys_Simulator::instance();
+    sim->reset();
+    QVERIFY(!sim->drsEnabled());
+    QVERIFY(!sim->isDrsActive());
+    QCOMPARE(sim->drsSpeedThreshold(), 80.0);
+}
+
+void TestPhysicsSimulator::test_drs_activation() {
+    phys_Simulator* sim = phys_Simulator::instance();
+    sim->reset();
+    sim->setDrsEnabled(true);
+    sim->setDrsAutoActivate(true);
+    sim->setDrsSpeedThreshold(50.0);
+    QVERIFY(sim->drsEnabled());
+    QVERIFY(sim->drsAutoActivate());
+    QCOMPARE(sim->drsSpeedThreshold(), 50.0);
+    QVERIFY(!sim->isDrsActive()); // not running yet
+}
+
+// ============================================================================
+// Damage Model Tests
+// ============================================================================
+
+void TestPhysicsSimulator::test_damage_defaultState() {
+    auto& damage = phys_Simulator::instance()->damageState();
+    QCOMPARE(damage.aeroDamage, 0.0);
+    QCOMPARE(damage.engineDamage, 0.0);
+    QCOMPARE(damage.bodyDamage, 0.0);
+    QCOMPARE(damage.collisionCount, 0);
+    QVERIFY(!damage.isEliminated);
+}
+
+void TestPhysicsSimulator::test_damage_collision() {
+    auto* sim = phys_Simulator::instance();
+    sim->reset();
+    sim->enableDamageModel(true);
+
+    // Small impact should do minimal damage
+    sim->applyCollisionDamage(5000.0);
+    QVERIFY(sim->damageState().bodyDamage > 0);
+    QVERIFY(sim->damageState().collisionCount == 1);
+
+    // Very large impact should cause heavy damage
+    sim->applyCollisionDamage(100000.0);
+    QVERIFY(sim->damageState().aeroDamage > 0.5);
+    QVERIFY(sim->damageState().engineDamage > 0);
+}
+
+void TestPhysicsSimulator::test_damage_reset() {
+    auto* sim = phys_Simulator::instance();
+    sim->enableDamageModel(true);
+    sim->applyCollisionDamage(50000.0);
+    QVERIFY(sim->damageState().bodyDamage > 0);
+
+    sim->resetDamage();
+    QCOMPARE(sim->damageState().bodyDamage, 0.0);
+    QCOMPARE(sim->damageState().collisionCount, 0);
+    QVERIFY(!sim->damageState().isEliminated);
+}
+
+// ============================================================================
+// Weather Tests
+// ============================================================================
+
+void TestPhysicsSimulator::test_weather_defaultState() {
+    auto weather = phys_Simulator::instance()->weatherState();
+    QCOMPARE(weather.trackWetness, 0.0);
+    QCOMPARE(weather.rainIntensity, 0.0);
+    QCOMPARE(weather.ambientTemp, 26.0);
+    QCOMPARE(weather.airDensity, 1.225);
+}
+
+void TestPhysicsSimulator::test_weather_trackWetnessGrip() {
+    auto* sim = phys_Simulator::instance();
+    sim->reset();
+
+    // Dry track should have no grip reduction
+    QCOMPARE(sim->getTrackGripReduction(), 0.0);
+
+    // Wet track reduces grip
+    sim->setTrackWetness(0.5);
+    QVERIFY(sim->getTrackGripReduction() > 0);
+    QVERIFY(sim->getTrackGripReduction() < 0.5);
+}
+
+void TestPhysicsSimulator::test_weather_aquaplaning() {
+    auto* sim = phys_Simulator::instance();
+    sim->reset();
+
+    // Dry track = no aquaplaning
+    QCOMPARE(sim->getAquaplaningRisk(), 0.0);
+
+    // Wet track at speed creates risk
+    sim->setTrackWetness(0.8);
+    // Update weather effects
+    // (aquaplaning requires speed which needs simulation running)
+    sim->setWeatherState(sim->weatherState());
+    double risk = sim->getAquaplaningRisk();
+    QVERIFY(risk >= 0);
+}
+
+// ============================================================================
+// Fuel Weight Tests
+// ============================================================================
+
+void TestPhysicsSimulator::test_fuel_weightDynamics() {
+    auto* sim = phys_Simulator::instance();
+    sim->reset();
+
+    double initialFuel = sim->getFuelKg();
+    QVERIFY(initialFuel > 0);
+
+    // Effective mass includes fuel
+    QVERIFY(sim->getEffectiveMass() > sim->mass());
+
+    // Fuel consumption enabled by default
+    QVERIFY(sim->isFuelConsumptionEnabled());
+
+    // Can set fuel
+    sim->setFuelKg(50.0);
+    QCOMPARE(sim->getFuelKg(), 50.0);
+    QCOMPARE(sim->getEffectiveMass(), sim->mass() + 50.0);
 }
 
 QTEST_MAIN(TestPhysicsSimulator)

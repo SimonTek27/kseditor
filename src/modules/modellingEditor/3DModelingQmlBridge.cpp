@@ -35,6 +35,7 @@
 #include <QJsonArray>
 #include <QDataStream>
 #include <algorithm>
+#include <QSet>
 #include <cmath>
 #include <limits>
 
@@ -55,18 +56,19 @@ QQuaternion quatSlerp(const QQuaternion &q1, const QQuaternion &q2, float t) {
 } // anonymous namespace
 
 namespace ks {
+using namespace graphics;
 
 static MeshData sceneMeshToMeshData(SceneObject* obj) {
     MeshData md;
     if (!obj || !obj->mesh()) return md;
-    auto& verts = obj->mesh()->vertices();
+    auto& verts = obj->mesh()->geometry().vertices;
     for (const auto& sv : verts) {
         Vertex v;
-        v.position = QVector3D(sv.position.x, sv.position.y, sv.position.z);
-        v.color = QVector4D(sv.color.x, sv.color.y, sv.color.z, 1.0f);
+        v.position = QVector3D(sv.position.x(), sv.position.y(), sv.position.z());
+        v.color = QVector4D(sv.color.x(), sv.color.y(), sv.color.z(), sv.color.w());
         md.vertices.append(v);
     }
-    auto& idxs = obj->mesh()->indices();
+    auto& idxs = obj->mesh()->geometry().indices;
     for (int i = 0; i + 2 < idxs.size(); i += 3)
         md.faces.append(Face({ (int)idxs[i], (int)idxs[i+1], (int)idxs[i+2] }));
     md.computeNormals();
@@ -79,18 +81,18 @@ static void meshDataToSceneMesh(SceneObject* obj, const MeshData& md) {
     SceneMesh* sm = new SceneMesh();
     for (const auto& v : md.vertices) {
         SceneVertex sv;
-        sv.position = Vec3(v.position.x(), v.position.y(), v.position.z());
-        sv.color = Vec3(v.color.x(), v.color.y(), v.color.z());
-        sm->vertices().append(sv);
+        sv.position = QVector3D(v.position.x(), v.position.y(), v.position.z());
+        sv.color = QVector4D(v.color.x(), v.color.y(), v.color.z(), v.color.w());
+        sm->geometry().vertices.append(sv);
     }
     for (const auto& f : md.faces) {
         for (int idx : f.indices)
-            sm->indices().append((uint32_t)idx);
+            sm->geometry().indices.append((uint32_t)idx);
     }
     obj->setMesh(sm);
 }
 
-static bool importMeshDataToScene(SceneGraph* scene, const MeshData& meshData, const QString& name) {
+static bool importMeshDataToScene(ks::SceneGraph* scene, const MeshData& meshData, const QString& name) {
     if (!scene || meshData.vertices.isEmpty()) return false;
     
     SceneObject* obj = scene->createObject(name, SceneObject::Type::Mesh);
@@ -99,13 +101,13 @@ static bool importMeshDataToScene(SceneGraph* scene, const MeshData& meshData, c
     SceneMesh* sm = new SceneMesh();
     for (const auto& v : meshData.vertices) {
         SceneVertex sv;
-        sv.position = Vec3(v.position.x(), v.position.y(), v.position.z());
-        sv.color = Vec3(v.color.x(), v.color.y(), v.color.z());
-        sm->vertices().append(sv);
+        sv.position = QVector3D(v.position.x(), v.position.y(), v.position.z());
+        sv.color = QVector4D(v.color.x(), v.color.y(), v.color.z(), v.color.w());
+        sm->geometry().vertices.append(sv);
     }
     for (const auto& f : meshData.faces) {
         for (int idx : f.indices)
-            sm->indices().append((uint32_t)idx);
+            sm->geometry().indices.append((uint32_t)idx);
     }
     obj->setMesh(sm);
     return true;
@@ -122,7 +124,7 @@ KSModelerQml::KSModelerQml(QObject* parent)
     , m_commandHistory(new CommandHistory(this))
     , m_shortcutManager(new ShortcutManager(this))
 {
-    m_scene = new SceneGraph();
+    m_scene = new ks::SceneGraph();
     m_sceneModel->setSceneGraph(m_scene);
 }
 
@@ -133,7 +135,7 @@ KSModelerQml::~KSModelerQml() {
     if (m_shortcutManager) delete m_shortcutManager;
 }
 
-void KSModelerQml::setScene(SceneGraph* scene) {
+void KSModelerQml::setScene(ks::SceneGraph* scene) {
     m_scene = scene;
     if (m_sceneModel) m_sceneModel->setSceneGraph(scene);
     emit sceneChanged();
@@ -177,7 +179,7 @@ bool KSModelerQml::importKN5(const QString& path) {
     QString parseErr;
     auto kn5File = ::KN5Parser::KN5ParserImpl::parse(path, &parseErr);
     if (!kn5File.isValid()) { emit error("Failed to parse KN5 file: " + parseErr); return false; }
-    if (!m_scene) m_scene = new SceneGraph();
+    if (!m_scene) m_scene = new ks::SceneGraph();
     int count = 0;
     for (const auto& mesh : kn5File.meshes) {
         MeshData md;
@@ -214,7 +216,7 @@ bool KSModelerQml::importFBX(const QString& path) {
     emit statusMessage("Importing FBX: " + path);
     FBXParser parser;
     if (!parser.loadFromFile(path.toStdString())) { emit error("Failed to parse FBX file"); return false; }
-    if (!m_scene) m_scene = new SceneGraph();
+    if (!m_scene) m_scene = new ks::SceneGraph();
     int count = 0;
     for (const auto& mesh : parser.scene().meshes) {
         MeshData md;
@@ -247,7 +249,7 @@ bool KSModelerQml::importGLB(const QString& path) {
     emit statusMessage("Importing GLB: " + path);
     GLBParser parser;
     if (!parser.loadFromFile(path.toStdString())) { emit error("Failed to parse GLB file"); return false; }
-    if (!m_scene) m_scene = new SceneGraph();
+    if (!m_scene) m_scene = new ks::SceneGraph();
     const auto& scene = parser.scene();
     int count = 0;
     for (const auto& mesh : scene.meshes) {
@@ -296,7 +298,7 @@ bool KSModelerQml::importOBJ(const QString& path) {
     emit statusMessage("Importing OBJ: " + path);
     CADOBJParser parser;
     if (!parser.loadFromFile(path.toStdString())) { emit error("Failed to parse OBJ file"); return false; }
-    if (!m_scene) m_scene = new SceneGraph();
+    if (!m_scene) m_scene = new ks::SceneGraph();
     int count = 0;
     for (const auto& mesh : parser.scene().meshes) {
         MeshData md;
@@ -333,10 +335,10 @@ bool KSModelerQml::exportKN5(const QString& path) {
             ::KN5Parser::Mesh kn5Mesh;
             kn5Mesh.name = obj->name();
             if (obj->mesh()) {
-                auto& verts = obj->mesh()->vertices();
-                auto& idxs = obj->mesh()->indices();
+                auto& verts = obj->mesh()->geometry().vertices;
+                auto& idxs = obj->mesh()->geometry().indices;
                 for (const auto& v : verts) {
-                    float p[3] = { v.position.x, v.position.y, v.position.z };
+                    float p[3] = { v.position.x(), v.position.y(), v.position.z() };
                     kn5Mesh.vertexData.append(QByteArray((const char*)p, 12));
                     float n[3] = { 0.0f, 0.0f, 0.0f };
                     kn5Mesh.vertexData.append(QByteArray((const char*)n, 12));
@@ -394,14 +396,14 @@ bool KSModelerQml::exportGLB(const QString& path) {
         meshObj["name"] = obj->name();
         QJsonArray primitives;
         QJsonObject prim;
-        auto& verts = obj->mesh()->vertices();
+        auto& verts = obj->mesh()->geometry().vertices;
         int vCount = verts.size();
         int vByteOffset = binData.size();
         for (const auto& v : verts) {
-            float fv[] = { v.position.x, v.position.y, v.position.z };
+            float fv[] = { v.position.x(), v.position.y(), v.position.z() };
             binData.append(QByteArray((const char*)fv, 12));
         }
-        auto& idxs = obj->mesh()->indices();
+        auto& idxs = obj->mesh()->geometry().indices;
         int iByteOffset = binData.size();
         for (uint32_t idx : idxs)
             binData.append(QByteArray((const char*)&idx, 4));
@@ -519,7 +521,9 @@ void KSModelerQml::duplicateSelected() {
     QString newName = orig->name() + "_copy";
     SceneObject* newObj = m_scene->createObject(newName, orig->type());
     if (newObj) {
-        newObj->setTransform(orig->transform());
+        newObj->setPosition(orig->position());
+        newObj->setRotationEuler(orig->rotationEuler());
+        newObj->setScale(orig->scale());
         if (m_selectedObject) delete m_selectedObject;
         m_selectedObject = new SceneObjectQml(newObj);
         emit sceneChanged();
@@ -530,24 +534,24 @@ void KSModelerQml::duplicateSelected() {
 
 QVector3D KSModelerQml::gizmoPosition() const {
     if (m_selectedObject && m_selectedObject->object()) {
-        auto t = m_selectedObject->object()->transform().translation();
-        return QVector3D(t.x, t.y, t.z);
+        auto p = m_selectedObject->object()->position();
+        return QVector3D(p.x(), p.y(), p.z());
     }
     return QVector3D();
 }
 
 QVector3D KSModelerQml::gizmoRotation() const {
     if (m_selectedObject && m_selectedObject->object()) {
-        auto r = m_selectedObject->object()->transform().rotation();
-        return QVector3D(r.x, r.y, r.z);
+        auto r = m_selectedObject->object()->rotationEuler();
+        return QVector3D(r.x(), r.y(), r.z());
     }
     return QVector3D();
 }
 
 QVector3D KSModelerQml::gizmoScale() const {
     if (m_selectedObject && m_selectedObject->object()) {
-        auto s = m_selectedObject->object()->transform().scale();
-        return QVector3D(s.x, s.y, s.z);
+        auto s = m_selectedObject->object()->scale();
+        return QVector3D(s.x(), s.y(), s.z());
     }
     return QVector3D(1, 1, 1);
 }
@@ -564,10 +568,8 @@ void KSModelerQml::translateSelected(float x, float y, float z) {
     if (!m_selectedObject) return;
     SceneObject* obj = m_selectedObject->object();
     if (!obj) return;
-    Matrix4 t = obj->transform();
-    auto tr = t.translation();
-    t.setTranslation(Vec3(tr.x + x, tr.y + y, tr.z + z));
-    obj->setTransform(t);
+    QVector3D p = obj->position();
+    obj->setPosition(QVector3D(p.x() + x, p.y() + y, p.z() + z));
     emit sceneChanged();
     emit gizmoTransformChanged();
 }
@@ -576,22 +578,8 @@ void KSModelerQml::rotateSelected(float x, float y, float z) {
     if (!m_selectedObject) return;
     SceneObject* obj = m_selectedObject->object();
     if (!obj) return;
-    Matrix4 t = obj->transform();
-    auto tr = t.translation();
-    Vec3 s = t.scale();
-    float cx = cosf(x * 3.14159f / 180.0f), sx = sinf(x * 3.14159f / 180.0f);
-    float cy = cosf(y * 3.14159f / 180.0f), sy = sinf(y * 3.14159f / 180.0f);
-    float cz = cosf(z * 3.14159f / 180.0f), sz = sinf(z * 3.14159f / 180.0f);
-    Matrix4 r;
-    r.m[0][0] = cy*cz; r.m[0][1] = cy*sz; r.m[0][2] = -sy;
-    r.m[1][0] = sx*sy*cz - cx*sz; r.m[1][1] = sx*sy*sz + cx*cz; r.m[1][2] = sx*cy;
-    r.m[2][0] = cx*sy*cz + sx*sz; r.m[2][1] = cx*sy*sz - sx*cz; r.m[2][2] = cx*cy;
-    for (int i = 0; i < 3; i++)
-        for (int j = 0; j < 3; j++)
-            t.m[i][j] = r.m[i][j];
-    t.setTranslation(Vec3(tr.x, tr.y, tr.z));
-    t.setScale(s);
-    obj->setTransform(t);
+    QVector3D r = obj->rotationEuler();
+    obj->setRotationEuler(QVector3D(r.x() + x, r.y() + y, r.z() + z));
     emit sceneChanged();
     emit gizmoTransformChanged();
 }
@@ -600,10 +588,8 @@ void KSModelerQml::scaleSelected(float x, float y, float z) {
     if (!m_selectedObject) return;
     SceneObject* obj = m_selectedObject->object();
     if (!obj) return;
-    Matrix4 t = obj->transform();
-    Vec3 s = t.scale();
-    t.setScale(Vec3(s.x * x, s.y * y, s.z * z));
-    obj->setTransform(t);
+    QVector3D s = obj->scale();
+    obj->setScale(QVector3D(s.x() * x, s.y() * y, s.z() * z));
     emit sceneChanged();
     emit gizmoTransformChanged();
 }
@@ -640,14 +626,14 @@ int KSModelerQml::proportionalFalloffType() const { return m_propEdit.falloffTyp
 bool KSModelerQml::pickProportionalCenter(float pickX, float pickY, float pickZ) {
     if (!m_selectedObject || !m_selectedObject->object() || !m_selectedObject->object()->mesh())
         return false;
-    auto& verts = m_selectedObject->object()->mesh()->vertices();
+    auto& verts = m_selectedObject->object()->mesh()->geometry().vertices;
     if (verts.isEmpty()) return false;
 
     QVector3D pickPoint(pickX, pickY, pickZ);
     float minDist = std::numeric_limits<float>::max();
-    QVector3D closest(verts[0].position.x, verts[0].position.y, verts[0].position.z);
+    QVector3D closest(verts[0].position.x(), verts[0].position.y(), verts[0].position.z());
     for (const auto& v : verts) {
-        QVector3D pos(v.position.x, v.position.y, v.position.z);
+        QVector3D pos(v.position.x(), v.position.y(), v.position.z());
         float d = (pos - pickPoint).lengthSquared();
         if (d < minDist) { minDist = d; closest = pos; }
     }
@@ -694,23 +680,21 @@ void KSModelerQml::translateProportional(float x, float y, float z) {
     SceneObject* obj = m_selectedObject->object();
     if (!obj || !obj->mesh()) return;
 
-    auto& verts = obj->mesh()->vertices();
+    auto& verts = obj->mesh()->geometry().vertices;
     QVector3D delta(x, y, z);
     float radius = m_propEdit.radius;
     int falloff = m_propEdit.falloffType;
     QVector3D center = m_propEdit.center;
 
     for (auto& v : verts) {
-        QVector3D pos(v.position.x, v.position.y, v.position.z);
+        QVector3D pos(v.position.x(), v.position.y(), v.position.z());
         float dist = (pos - center).length();
         if (dist < radius) {
             float w = propFalloff(dist, radius, falloff);
-            v.position.x += delta.x() * w;
-            v.position.y += delta.y() * w;
-            v.position.z += delta.z() * w;
+            pos += QVector3D(delta.x() * w, delta.y() * w, delta.z() * w);
+            v.position = pos;
         }
     }
-    obj->mesh()->update();
     emit sceneChanged();
 }
 
@@ -720,7 +704,7 @@ void KSModelerQml::rotateProportional(float x, float y, float z) {
     SceneObject* obj = m_selectedObject->object();
     if (!obj || !obj->mesh()) return;
 
-    auto& verts = obj->mesh()->vertices();
+    auto& verts = obj->mesh()->geometry().vertices;
     float rx = qDegreesToRadians(x);
     float ry = qDegreesToRadians(y);
     float rz = qDegreesToRadians(z);
@@ -733,7 +717,7 @@ void KSModelerQml::rotateProportional(float x, float y, float z) {
     float cz = cosf(rz), sz = sinf(rz);
 
     for (auto& v : verts) {
-        QVector3D pos(v.position.x, v.position.y, v.position.z);
+        QVector3D pos(v.position.x(), v.position.y(), v.position.z());
         QVector3D rel = pos - center;
         float dist = rel.length();
         if (dist < radius) {
@@ -753,13 +737,9 @@ void KSModelerQml::rotateProportional(float x, float y, float z) {
             ny = sz * rx2 + cz * ry2;
             rx2 = nx; ry2 = ny;
 
-            v.position.x = center.x() + rx2;
-            v.position.y = center.y() + ry2;
-            v.position.z = center.z() + rz2;
+            v.position = QVector3D(center.x() + rx2, center.y() + ry2, center.z() + rz2);
         }
     }
-    obj->mesh()->update();
-    emit sceneChanged();
 }
 
 void KSModelerQml::scaleProportional(float x, float y, float z) {
@@ -768,27 +748,25 @@ void KSModelerQml::scaleProportional(float x, float y, float z) {
     SceneObject* obj = m_selectedObject->object();
     if (!obj || !obj->mesh()) return;
 
-    auto& verts = obj->mesh()->vertices();
+    auto& verts = obj->mesh()->geometry().vertices;
     float radius = m_propEdit.radius;
     int falloff = m_propEdit.falloffType;
     QVector3D center = m_propEdit.center;
 
     for (auto& v : verts) {
-        QVector3D pos(v.position.x, v.position.y, v.position.z);
+        QVector3D pos(v.position.x(), v.position.y(), v.position.z());
         QVector3D rel = pos - center;
         float dist = rel.length();
         if (dist < radius) {
             float w = propFalloff(dist, radius, falloff);
-            float sw = 1.0f + (w - 1.0f) * w; // weighted scale: full at center, falls off
             float sx = 1.0f + (x - 1.0f) * w;
             float sy = 1.0f + (y - 1.0f) * w;
             float sz = 1.0f + (z - 1.0f) * w;
-            v.position.x = center.x() + rel.x() * sx;
-            v.position.y = center.y() + rel.y() * sy;
-            v.position.z = center.z() + rel.z() * sz;
+            v.position.setX(center.x() + rel.x() * sx);
+            v.position.setY(center.y() + rel.y() * sy);
+            v.position.setZ(center.z() + rel.z() * sz);
         }
     }
-    obj->mesh()->update();
     emit sceneChanged();
 }
 
@@ -796,9 +774,7 @@ void KSModelerQml::setSelectedPosition(float x, float y, float z) {
     if (!m_selectedObject) return;
     SceneObject* obj = m_selectedObject->object();
     if (!obj) return;
-    Matrix4 t = obj->transform();
-    t.setTranslation(Vec3(x, y, z));
-    obj->setTransform(t);
+    obj->setPosition(QVector3D(x, y, z));
     emit sceneChanged();
     emit gizmoTransformChanged();
 }
@@ -807,22 +783,7 @@ void KSModelerQml::setSelectedRotation(float x, float y, float z) {
     if (!m_selectedObject) return;
     SceneObject* obj = m_selectedObject->object();
     if (!obj) return;
-    Matrix4 t = obj->transform();
-    auto tr = t.translation();
-    Vec3 s = t.scale();
-    float cx = cosf(x * 3.14159f / 180.0f), sx = sinf(x * 3.14159f / 180.0f);
-    float cy = cosf(y * 3.14159f / 180.0f), sy = sinf(y * 3.14159f / 180.0f);
-    float cz = cosf(z * 3.14159f / 180.0f), sz = sinf(z * 3.14159f / 180.0f);
-    Matrix4 r;
-    r.m[0][0] = cy*cz; r.m[0][1] = cy*sz; r.m[0][2] = -sy;
-    r.m[1][0] = sx*sy*cz - cx*sz; r.m[1][1] = sx*sy*sz + cx*cz; r.m[1][2] = sx*cy;
-    r.m[2][0] = cx*sy*cz + sx*sz; r.m[2][1] = cx*sy*sz - sx*cz; r.m[2][2] = cx*cy;
-    for (int i = 0; i < 3; i++)
-        for (int j = 0; j < 3; j++)
-            t.m[i][j] = r.m[i][j];
-    t.setTranslation(Vec3(tr.x, tr.y, tr.z));
-    t.setScale(s);
-    obj->setTransform(t);
+    obj->setRotationEuler(QVector3D(x, y, z));
     emit sceneChanged();
 }
 
@@ -830,9 +791,7 @@ void KSModelerQml::setSelectedScale(float x, float y, float z) {
     if (!m_selectedObject) return;
     SceneObject* obj = m_selectedObject->object();
     if (!obj) return;
-    Matrix4 t = obj->transform();
-    t.setScale(Vec3(x, y, z));
-    obj->setTransform(t);
+    obj->setScale(QVector3D(x, y, z));
     emit sceneChanged();
     emit gizmoTransformChanged();
 }
@@ -939,16 +898,16 @@ void KSModelerQml::mirrorMesh(int axis) {
     if (!m_selectedObject) return;
     SceneObject* obj = m_selectedObject->object();
     if (!obj || !obj->mesh()) return;
-    auto& verts = obj->mesh()->vertices();
+    auto& verts = obj->mesh()->geometry().vertices;
     int origCount = verts.size();
-    auto& idxs = obj->mesh()->indices();
+    auto& idxs = obj->mesh()->geometry().indices;
     int origIdxCount = idxs.size();
     float sign = (axis == 0) ? -1.0f : 1.0f;
     for (int i = 0; i < origCount; i++) {
         SceneVertex sv = verts[i];
-        if (axis == 0) sv.position.x = -sv.position.x;
-        else if (axis == 1) sv.position.y = -sv.position.y;
-        else sv.position.z = -sv.position.z;
+        if (axis == 0) sv.position.setX(-sv.position.x());
+        else if (axis == 1) sv.position.setY(-sv.position.y());
+        else sv.position.setZ(-sv.position.z());
         verts.append(sv);
     }
     for (int i = 0; i + 2 < origIdxCount; i += 3) {
@@ -1080,7 +1039,8 @@ void KSModelerQml::splitMeshes() {
         SceneObject* newObj = m_scene->createObject(obj->name() + QString("_part%1").arg(i), SceneObject::Type::Mesh);
         if (newObj) {
             meshDataToSceneMesh(newObj, parts[i]);
-            newObj->setTranslation(obj->translation() + QVector3D((i) * 2.0f, 0, 0));
+            QVector3D pos = obj->position();
+            newObj->setPosition(QVector3D(pos.x() + (i) * 2.0f, pos.y(), pos.z()));
         }
     }
     emit sceneChanged();
@@ -1088,7 +1048,7 @@ void KSModelerQml::splitMeshes() {
 }
 
 void KSModelerQml::addPrimitiveCube(float size) {
-    if (!m_scene) m_scene = new SceneGraph();
+    if (!m_scene) m_scene = new ks::SceneGraph();
     MeshData md = MeshOperations::createBox(size, size, size);
     SceneObject* obj = m_scene->createObject("Cube", SceneObject::Type::Mesh);
     meshDataToSceneMesh(obj, md);
@@ -1100,7 +1060,7 @@ void KSModelerQml::addPrimitiveCube(float size) {
 }
 
 void KSModelerQml::addPrimitiveSphere(float radius, int segments, int rings) {
-    if (!m_scene) m_scene = new SceneGraph();
+    if (!m_scene) m_scene = new ks::SceneGraph();
     MeshData md = MeshOperations::createSphere(radius, segments, rings);
     SceneObject* obj = m_scene->createObject("Sphere", SceneObject::Type::Mesh);
     meshDataToSceneMesh(obj, md);
@@ -1112,7 +1072,7 @@ void KSModelerQml::addPrimitiveSphere(float radius, int segments, int rings) {
 }
 
 void KSModelerQml::addPrimitiveCylinder(float radius, float height, int segments) {
-    if (!m_scene) m_scene = new SceneGraph();
+    if (!m_scene) m_scene = new ks::SceneGraph();
     MeshData md = MeshOperations::createCylinder(radius, height, segments);
     SceneObject* obj = m_scene->createObject("Cylinder", SceneObject::Type::Mesh);
     meshDataToSceneMesh(obj, md);
@@ -1124,7 +1084,7 @@ void KSModelerQml::addPrimitiveCylinder(float radius, float height, int segments
 }
 
 void KSModelerQml::addPrimitiveCone(float radius, float height, int segments) {
-    if (!m_scene) m_scene = new SceneGraph();
+    if (!m_scene) m_scene = new ks::SceneGraph();
     MeshData md = MeshOperations::createCone(radius, height, segments);
     SceneObject* obj = m_scene->createObject("Cone", SceneObject::Type::Mesh);
     meshDataToSceneMesh(obj, md);
@@ -1136,7 +1096,7 @@ void KSModelerQml::addPrimitiveCone(float radius, float height, int segments) {
 }
 
 void KSModelerQml::addPrimitiveTorus(float majorRadius, float minorRadius, int majorSegments, int minorSegments) {
-    if (!m_scene) m_scene = new SceneGraph();
+    if (!m_scene) m_scene = new ks::SceneGraph();
     MeshData md = MeshOperations::createTorus(majorRadius, minorRadius, majorSegments, minorSegments);
     SceneObject* obj = m_scene->createObject("Torus", SceneObject::Type::Mesh);
     meshDataToSceneMesh(obj, md);
@@ -1148,7 +1108,7 @@ void KSModelerQml::addPrimitiveTorus(float majorRadius, float minorRadius, int m
 }
 
 void KSModelerQml::addPrimitivePlane(float width, float height, int widthSegments, int heightSegments) {
-    if (!m_scene) m_scene = new SceneGraph();
+    if (!m_scene) m_scene = new ks::SceneGraph();
     MeshData md = MeshOperations::createPlane(width, height, widthSegments, heightSegments);
     SceneObject* obj = m_scene->createObject("Plane", SceneObject::Type::Mesh);
     meshDataToSceneMesh(obj, md);
@@ -1160,7 +1120,7 @@ void KSModelerQml::addPrimitivePlane(float width, float height, int widthSegment
 }
 
 int KSModelerQml::addTransformGroup(const QString& name) {
-    if (!m_scene) m_scene = new SceneGraph();
+    if (!m_scene) m_scene = new ks::SceneGraph();
     SceneObject* obj = m_scene->createObject(name, SceneObject::Type::Node);
     if (m_selectedObject) delete m_selectedObject;
     m_selectedObject = new SceneObjectQml(obj);
@@ -1171,7 +1131,7 @@ int KSModelerQml::addTransformGroup(const QString& name) {
 }
 
 int KSModelerQml::addCamera(const QString& name) {
-    if (!m_scene) m_scene = new SceneGraph();
+    if (!m_scene) m_scene = new ks::SceneGraph();
     SceneObject* obj = m_scene->createObject(name, SceneObject::Type::Camera);
     if (m_selectedObject) delete m_selectedObject;
     m_selectedObject = new SceneObjectQml(obj);
@@ -1182,7 +1142,7 @@ int KSModelerQml::addCamera(const QString& name) {
 }
 
 int KSModelerQml::addLight(const QString& name) {
-    if (!m_scene) m_scene = new SceneGraph();
+    if (!m_scene) m_scene = new ks::SceneGraph();
     SceneObject* obj = m_scene->createObject(name, SceneObject::Type::Light);
     if (m_selectedObject) delete m_selectedObject;
     m_selectedObject = new SceneObjectQml(obj);
@@ -1401,8 +1361,7 @@ void KSModelerQml::addBone(const QString& name, int parentId, float x, float y, 
         m_bones[parentId].children.append(m_bones.size() - 1);
     if (m_scene) {
         SceneObject* boneObj = m_scene->createObject(name, SceneObject::Type::Bone);
-        Matrix4 t; t.setTranslation(Vec3(x, y, z));
-        boneObj->setTransform(t);
+        boneObj->setPosition(QVector3D(x, y, z));
     }
     emit sceneChanged();
     m_boneVersion++;
@@ -1636,8 +1595,7 @@ void KSModelerQml::solveTwoBoneIK(float targetX, float targetY, float targetZ) {
         for (int i = 0; i < m_bones.size(); i++) {
             for (SceneObject* obj : allObjs) {
                 if (obj->name() == m_bones[i].name) {
-                    Matrix4 t; t.setTranslation(Vec3(m_bones[i].position.x(), m_bones[i].position.y(), m_bones[i].position.z()));
-                    obj->setTransform(t);
+                    obj->setPosition(m_bones[i].position);
                     break;
                 }
             }
@@ -1765,8 +1723,7 @@ void KSModelerQml::setBonePosition(int boneIdx, float x, float y, float z) {
     if (m_scene) {
         for (SceneObject* obj : m_scene->allObjects()) {
             if (obj->name() == m_bones[boneIdx].name) {
-                Matrix4 t; t.setTranslation(Vec3(x, y, z));
-                obj->setTransform(t);
+                obj->setPosition(QVector3D(x, y, z));
                 break;
             }
         }
@@ -1802,8 +1759,8 @@ void KSModelerQml::applyFKPose(int boneIdx, float x, float y, float z, float rx,
     if (m_scene) {
         for (SceneObject* obj : m_scene->allObjects()) {
             if (obj->name() == bone.name) {
-                Matrix4 t; t.setTranslation(Vec3(x, y, z));
-                obj->setTransform(t);
+                obj->setPosition(QVector3D(x, y, z));
+                obj->setRotationEuler(QVector3D(rx, ry, rz));
                 break;
             }
         }
@@ -1958,8 +1915,8 @@ void KSModelerQml::setCameraView(const QString& view) {
 
 void KSModelerQml::focusOnSelected() {
     if (m_selectedObject && m_selectedObject->object()) {
-        auto t = m_selectedObject->object()->transform().translation();
-        setCamTargetX(t.x); setCamTargetY(t.y); setCamTargetZ(t.z);
+        auto p = m_selectedObject->object()->position();
+        setCamTargetX(p.x()); setCamTargetY(p.y()); setCamTargetZ(p.z());
     }
 }
 
@@ -2076,10 +2033,9 @@ void KSModelerQml::addKeyframe(const QString& animName, float time, int boneId, 
 void KSModelerQml::addKeyframeForSelectedObject(const QString& animName) {
     if (!m_selectedObject || !m_selectedObject->object()) return;
     SceneObject* obj = m_selectedObject->object();
-    auto t = obj->transform().translation();
-    Vec3 pos = {t.x, t.y, t.z};
-    Vec3 rot = obj->transform().rotation();
-    addKeyframe(animName, m_animationTime, obj->id(), pos.x, pos.y, pos.z, rot.x, rot.y, rot.z);
+    QVector3D p = obj->position();
+    QVector3D rot = obj->rotationEuler();
+    addKeyframe(animName, m_animationTime, obj->id(), p.x(), p.y(), p.z(), rot.x(), rot.y(), rot.z());
 }
 
 void KSModelerQml::playAnimation(const QString& name) {
@@ -2121,6 +2077,39 @@ void KSModelerQml::togglePlayPause() {
 
 void KSModelerQml::setAnimationLoop(bool loop) {
     m_animLoop = loop;
+}
+
+QVariantList KSModelerQml::currentAnimationKeyframes() const {
+    QVariantList result;
+    if (m_currentAnimation < 0 || m_currentAnimation >= m_animations.size())
+        return result;
+
+    const Animation& anim = m_animations[m_currentAnimation];
+
+    // Collect unique times across all bones
+    QSet<float> timeSet;
+    for (const auto& kf : anim.keyframes) {
+        timeSet.insert(kf.time);
+    }
+
+    QList<float> sortedTimes = timeSet.values();
+    std::sort(sortedTimes.begin(), sortedTimes.end());
+
+    for (float t : sortedTimes) {
+        QVariantMap kfObj;
+        kfObj["time"] = t;
+        kfObj["normalizedTime"] = anim.duration > 0 ? t / anim.duration : 0;
+
+        // Count keyframes at this time
+        int count = 0;
+        for (const auto& kf : anim.keyframes) {
+            if (qFuzzyCompare(kf.time, t)) count++;
+        }
+        kfObj["boneCount"] = count;
+        result.append(kfObj);
+    }
+
+    return result;
 }
 
 void KSModelerQml::setAnimationTime(float time) {
@@ -2384,12 +2373,12 @@ bool KSModelerQml::exportTrackKN5(const QString& path) {
                 kn5Mesh.name = obj->name();
                 kn5Mesh.nodeIndex = obj->id();
                 if (obj->mesh()) {
-                    auto& verts = obj->mesh()->vertices();
-                    auto& idxs = obj->mesh()->indices();
+                    auto& verts = obj->mesh()->geometry().vertices;
+                    auto& idxs = obj->mesh()->geometry().indices;
                     for (const auto& v : verts) {
-                        float p[3] = { v.position.x, v.position.y, v.position.z };
+                        float p[3] = { v.position.x(), v.position.y(), v.position.z() };
                         kn5Mesh.vertexData.append(QByteArray((const char*)p, 12));
-                        float n[3] = { v.color.x, v.color.y, v.color.z };
+                        float n[3] = { v.color.x(), v.color.y(), v.color.z() };
                         kn5Mesh.vertexData.append(QByteArray((const char*)n, 12));
                     }
                     for (uint32_t idx : idxs) {
@@ -2572,7 +2561,7 @@ void KSModelerQml::addSectionKerb(int index, float height, float width) {
 }
 
 void KSModelerQml::generateTrackMesh() {
-    if (!m_scene) m_scene = new SceneGraph();
+    if (!m_scene) m_scene = new ks::SceneGraph();
     if (m_trackPoints.size() < 3) {
         emit statusMessage("Need at least 3 track points to generate mesh");
         return;
@@ -2608,10 +2597,14 @@ void KSModelerQml::generateTrackMesh() {
     SceneObject* obj = m_scene->createObject("TrackMesh", SceneObject::Type::Mesh);
     if (obj) {
         SceneMesh* sm = new SceneMesh();
-        for (const auto& v : mesh->vertices())
-            sm->vertices().append({ Vec3(v.x(), v.y(), v.z()), Vec3(1,1,1) });
+        for (const auto& v : mesh->vertices()) {
+            SceneVertex sv;
+            sv.position = QVector3D(v.x(), v.y(), v.z());
+            sv.color = QVector4D(1, 1, 1, 1);
+            sm->geometry().vertices.append(sv);
+        }
         for (auto idx : mesh->indices())
-            sm->indices().append(idx);
+            sm->geometry().indices.append(idx);
         obj->setMesh(sm);
         delete mesh;
         emit statusMessage("Track mesh generated with " + QString::number(verts.size()) + " vertices");
@@ -2620,7 +2613,7 @@ void KSModelerQml::generateTrackMesh() {
 }
 
 void KSModelerQml::generateTrackEdges() {
-    if (!m_scene) m_scene = new SceneGraph();
+    if (!m_scene) m_scene = new ks::SceneGraph();
     if (m_trackPoints.size() < 2) {
         emit statusMessage("Need at least 2 track points to generate edges");
         return;
@@ -2651,10 +2644,14 @@ void KSModelerQml::generateTrackEdges() {
     SceneObject* obj = m_scene->createObject("TrackEdges", SceneObject::Type::Mesh);
     if (obj) {
         SceneMesh* sm = new SceneMesh();
-        for (const auto& v : mesh->vertices())
-            sm->vertices().append({ Vec3(v.x(), v.y(), v.z()), Vec3(1,1,1) });
+        for (const auto& v : mesh->vertices()) {
+            SceneVertex sv;
+            sv.position = QVector3D(v.x(), v.y(), v.z());
+            sv.color = QVector4D(1, 1, 1, 1);
+            sm->geometry().vertices.append(sv);
+        }
         for (auto idx : mesh->indices())
-            sm->indices().append(idx);
+            sm->geometry().indices.append(idx);
         obj->setMesh(sm);
         delete mesh;
     }
@@ -2663,7 +2660,7 @@ void KSModelerQml::generateTrackEdges() {
 }
 
 void KSModelerQml::generateTerrain(float size, float maxHeight) {
-    if (!m_scene) m_scene = new SceneGraph();
+    if (!m_scene) m_scene = new ks::SceneGraph();
     if (size <= 0) size = 100.0f;
     if (maxHeight <= 0) maxHeight = 10.0f;
 
@@ -2701,10 +2698,14 @@ void KSModelerQml::generateTerrain(float size, float maxHeight) {
     SceneObject* obj = m_scene->createObject("Terrain", SceneObject::Type::Mesh);
     if (obj) {
         SceneMesh* sm = new SceneMesh();
-        for (const auto& v : mesh->vertices())
-            sm->vertices().append({ Vec3(v.x(), v.y(), v.z()), Vec3(1,1,1) });
+        for (const auto& v : mesh->vertices()) {
+            SceneVertex sv;
+            sv.position = QVector3D(v.x(), v.y(), v.z());
+            sv.color = QVector4D(1, 1, 1, 1);
+            sm->geometry().vertices.append(sv);
+        }
         for (auto idx : mesh->indices())
-            sm->indices().append(idx);
+            sm->geometry().indices.append(idx);
         obj->setMesh(sm);
         delete mesh;
         emit statusMessage("Terrain generated: " + QString::number(verts.size()) + " vertices");
@@ -2713,7 +2714,7 @@ void KSModelerQml::generateTerrain(float size, float maxHeight) {
 }
 
 void KSModelerQml::generateAILine() {
-    if (!m_scene) m_scene = new SceneGraph();
+    if (!m_scene) m_scene = new ks::SceneGraph();
     if (m_trackPoints.size() < 2) return;
 
     geometry::Mesh3D* mesh = new geometry::Mesh3D();
@@ -2726,8 +2727,12 @@ void KSModelerQml::generateAILine() {
     SceneObject* obj = m_scene->createObject("AILine", SceneObject::Type::Mesh);
     if (obj) {
         SceneMesh* sm = new SceneMesh();
-        for (const auto& v : mesh->vertices())
-            sm->vertices().append({ Vec3(v.x(), v.y(), v.z()), Vec3(1,1,1) });
+        for (const auto& v : mesh->vertices()) {
+            SceneVertex sv;
+            sv.position = QVector3D(v.x(), v.y(), v.z());
+            sv.color = QVector4D(1, 1, 1, 1);
+            sm->geometry().vertices.append(sv);
+        }
         obj->setMesh(sm);
         delete mesh;
     }
@@ -2754,10 +2759,9 @@ int KSModelerQml::cornerCount() const {
 }
 
 void KSModelerQml::addTrackCamera(const QString& name, float x, float y, float z, float targetX, float targetY, float targetZ) {
-    if (!m_scene) m_scene = new SceneGraph();
+    if (!m_scene) m_scene = new ks::SceneGraph();
     SceneObject* cam = m_scene->createObject(name, SceneObject::Type::Camera);
-    Matrix4 t; t.setTranslation(Vec3(x, y, z));
-    if (cam) cam->setTransform(t);
+    if (cam) cam->setPosition(QVector3D(x, y, z));
     emit sceneChanged();
     emit statusMessage(QString("Camera %1 added at (%2,%3,%4) targeting (%5,%6,%7)").arg(name).arg(x).arg(y).arg(z).arg(targetX).arg(targetY).arg(targetZ));
 }
@@ -2778,8 +2782,7 @@ void KSModelerQml::setCameraPosition(int index, float x, float y, float z) {
         int camIdx = 0;
         for (auto* obj : m_scene->allObjects()) {
             if (obj->type() == SceneObject::Type::Camera && camIdx++ == index) {
-                Matrix4 t; t.setTranslation(Vec3(x, y, z));
-                obj->setTransform(t);
+                obj->setPosition(QVector3D(x, y, z));
                 emit sceneChanged();
                 return;
             }
@@ -2791,22 +2794,15 @@ void KSModelerQml::setCameraTarget(int index, float x, float y, float z) {
         int camIdx = 0;
         for (auto* obj : m_scene->allObjects()) {
             if (obj->type() == SceneObject::Type::Camera && camIdx++ == index) {
-                // Store target as look-at position via scene object's transform
-                QVector3D currentPos(
-                    obj->transform().translation().x,
-                    obj->transform().translation().y,
-                    obj->transform().translation().z
-                );
+                QVector3D currentPos = obj->position();
                 QVector3D target(x, y, z);
                 QVector3D dir = (target - currentPos).normalized();
 
                 // Compute look-at rotation
                 float yaw = atan2(dir.x(), dir.z());
                 float pitch = -asin(dir.y());
-                Matrix4 t;
-                t.setTranslation(Vec3(currentPos.x(), currentPos.y(), currentPos.z()));
-                t.setRotation(Vec3(pitch, yaw, 0));
-                obj->setTransform(t);
+                obj->setPosition(currentPos);
+                obj->setRotationEuler(QVector3D(pitch, yaw, 0));
 
                 emit statusMessage(QString("Camera %1 target set to (%2,%3,%4)").arg(index).arg(x).arg(y).arg(z));
                 emit sceneChanged();
@@ -2837,17 +2833,17 @@ Mesh* KSModelerQml::getSelectedMesh() {
     if (!sm) return nullptr;
 
     Mesh* mesh = new Mesh();
-    mesh->vertices.reserve(sm->vertices().size());
-    for (const SceneVertex& sv : sm->vertices()) {
+    mesh->vertices.reserve(sm->geometry().vertices.size());
+    for (const SceneVertex& sv : sm->geometry().vertices) {
         VertexUV v;
-        v.x = sv.position.x; v.y = sv.position.y; v.z = sv.position.z;
-        v.nx = sv.color.x; v.ny = sv.color.y; v.nz = sv.color.z;
-        v.u = 0.0f; v.v = 0.0f;
-        v.r = 1.0f; v.g = 1.0f; v.b = 1.0f; v.a = 1.0f;
+        v.x = sv.position.x(); v.y = sv.position.y(); v.z = sv.position.z();
+        v.nx = sv.normal.x(); v.ny = sv.normal.y(); v.nz = sv.normal.z();
+        v.u = sv.uv.x(); v.v = sv.uv.y();
+        v.r = sv.color.x(); v.g = sv.color.y(); v.b = sv.color.z(); v.a = sv.color.w();
         mesh->vertices.push_back(v);
     }
-    mesh->indices.assign(sm->indices().begin(), sm->indices().end());
-    mesh->materialIds.resize(sm->indices().size() / 3, 0);
+    mesh->indices.assign(sm->geometry().indices.begin(), sm->geometry().indices.end());
+    mesh->materialIds.resize(sm->geometry().indices.size() / 3, 0);
     return mesh;
 }
 
@@ -2957,14 +2953,13 @@ void KSModelerQml::applyShapeKeys() {
         SceneObject* obj = m_selectedObject->object();
         SceneMesh* sm = obj->mesh();
         if (sm) {
-            for (int i = 0; i < sm->vertices().size() && i < n; ++i) {
-                sm->vertices()[i].position = Vec3(
+            for (int i = 0; i < sm->geometry().vertices.size() && i < n; ++i) {
+                sm->geometry().vertices[i].position = QVector3D(
                     m_shapeKeyMesh.vertices[i].position.x(),
                     m_shapeKeyMesh.vertices[i].position.y(),
                     m_shapeKeyMesh.vertices[i].position.z()
                 );
             }
-            sm->update();
         }
     }
     delete mesh;

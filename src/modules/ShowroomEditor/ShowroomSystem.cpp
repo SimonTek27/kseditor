@@ -1,4 +1,5 @@
 #include "ShowroomSystem.h"
+#include "ShowroomViewport3D.h"
 #include "../../core/FileFormat/INIParser.h"
 #include "../../core/sys/LogManager.h"
 #include <QFile>
@@ -13,6 +14,13 @@
 #include <QFileInfo>
 #include <cmath>
 #include "core/editor/EditorConfig.h"
+#include "ShowroomViewport3D.h"
+#include <QRandomGenerator>
+#include <QBuffer>
+
+// ============================================================================
+// ShowroomConfig - Extended with studio lighting, HDRI, etc.
+// ============================================================================
 
 ShowroomSystem::ShowroomConfig ShowroomSystem::loadConfig(const QString& configPath)
 {
@@ -37,6 +45,15 @@ ShowroomSystem::ShowroomConfig ShowroomSystem::loadConfig(const QString& configP
     config.sunColor = QColor(ini.string("LIGHTING", "SUN_COLOR", "#FFFAF0"));
     config.sunIntensity = static_cast<float>(ini.real("LIGHTING", "SUN_INTENSITY", 1.0));
     config.ambientIntensity = static_cast<float>(ini.real("LIGHTING", "AMBIENT_INTENSITY", 0.3));
+
+    // Extended lighting
+    config.useHDRI = ini.boolean("LIGHTING", "USE_HDRI", false);
+    config.hdriPath = ini.string("LIGHTING", "HDRI_PATH", "");
+    config.hdriIntensity = static_cast<float>(ini.real("LIGHTING", "HDRI_INTENSITY", 1.0));
+    config.hdriRotation = static_cast<float>(ini.real("LIGHTING", "HDRI_ROTATION", 0.0));
+    config.useAreaLights = ini.boolean("LIGHTING", "USE_AREA_LIGHTS", false);
+    config.useIESProfiles = ini.boolean("LIGHTING", "USE_IES_PROFILES", false);
+    config.iesProfilePath = ini.string("LIGHTING", "IES_PROFILE_PATH", "");
 
     LOG_INFO("ShowroomSystem", QString("Loaded showroom config from: %1").arg(configPath));
     return config;
@@ -64,6 +81,15 @@ bool ShowroomSystem::saveConfig(const ShowroomConfig& config, const QString& con
     ini.setValue("LIGHTING", "SUN_INTENSITY", static_cast<double>(config.sunIntensity));
     ini.setValue("LIGHTING", "AMBIENT_INTENSITY", static_cast<double>(config.ambientIntensity));
 
+    // Extended lighting
+    ini.setValue("LIGHTING", "USE_HDRI", config.useHDRI);
+    ini.setValue("LIGHTING", "HDRI_PATH", config.hdriPath);
+    ini.setValue("LIGHTING", "HDRI_INTENSITY", static_cast<double>(config.hdriIntensity));
+    ini.setValue("LIGHTING", "HDRI_ROTATION", static_cast<double>(config.hdriRotation));
+    ini.setValue("LIGHTING", "USE_AREA_LIGHTS", config.useAreaLights);
+    ini.setValue("LIGHTING", "USE_IES_PROFILES", config.useIESProfiles);
+    ini.setValue("LIGHTING", "IES_PROFILE_PATH", config.iesProfilePath);
+
     if (!ini.save(configPath)) {
         LOG_ERROR("ShowroomSystem", QString("Failed to save showroom config to: %1").arg(configPath));
         return false;
@@ -77,7 +103,7 @@ ShowroomSystem::ShowroomConfig ShowroomSystem::getDefaultConfig()
 {
     ShowroomConfig config;
     config.name = "Default Showroom";
-    config.description = EditorConfig::instance().showroomConfigDesc();
+    config.description = "";
     config.cameraDistance = 5.0f;
     config.cameraHeight = 2.0f;
     config.cameraAngle = 30.0f;
@@ -90,6 +116,58 @@ ShowroomSystem::ShowroomConfig ShowroomSystem::getDefaultConfig()
     config.sunIntensity = 1.0f;
     config.ambientIntensity = 0.3f;
     return config;
+}
+
+QVector<ShowroomSystem::ShowroomLight> ShowroomSystem::getDefaultLights()
+{
+    QVector<ShowroomLight> lights;
+
+    ShowroomLight sun;
+    sun.name = "Sun";
+    sun.type = "directional";
+    sun.position[0] = 5.0f;
+    sun.position[1] = 10.0f;
+    sun.position[2] = 5.0f;
+    sun.direction[0] = -0.5f;
+    sun.direction[1] = -1.0f;
+    sun.direction[2] = -0.5f;
+    sun.color = QColor(255, 250, 240);
+    sun.intensity = 1.0f;
+    sun.range = 100.0f;
+    sun.isActive = true;
+    lights.append(sun);
+
+    ShowroomLight ambient;
+    ambient.name = "Ambient";
+    ambient.type = "point";
+    ambient.position[0] = 0.0f;
+    ambient.position[1] = 3.0f;
+    ambient.position[2] = 0.0f;
+    ambient.direction[0] = 0.0f;
+    ambient.direction[1] = -1.0f;
+    ambient.direction[2] = 0.0f;
+    ambient.color = QColor(200, 200, 220);
+    ambient.intensity = 0.3f;
+    ambient.range = 20.0f;
+    ambient.isActive = true;
+    lights.append(ambient);
+
+    ShowroomLight fill;
+    fill.name = "Fill";
+    fill.type = "spot";
+    fill.position[0] = -3.0f;
+    fill.position[1] = 4.0f;
+    fill.position[2] = 2.0f;
+    fill.direction[0] = 0.3f;
+    fill.direction[1] = -0.8f;
+    fill.direction[2] = -0.2f;
+    fill.color = QColor(180, 200, 255);
+    fill.intensity = 0.5f;
+    fill.range = 15.0f;
+    fill.isActive = true;
+    lights.append(fill);
+
+    return lights;
 }
 
 QVector<ShowroomSystem::ShowroomCamera> ShowroomSystem::loadCameras(const QString& configPath)
@@ -240,213 +318,111 @@ bool ShowroomSystem::saveLights(const QVector<ShowroomLight>& lights, const QStr
     return ini.save(configPath);
 }
 
-QVector<ShowroomSystem::ShowroomLight> ShowroomSystem::getDefaultLights()
-{
-    QVector<ShowroomLight> lights;
-
-    ShowroomLight sun;
-    sun.name = "Sun";
-    sun.type = "directional";
-    sun.position[0] = 5.0f;
-    sun.position[1] = 10.0f;
-    sun.position[2] = 5.0f;
-    sun.direction[0] = -0.5f;
-    sun.direction[1] = -1.0f;
-    sun.direction[2] = -0.5f;
-    sun.color = QColor(255, 250, 240);
-    sun.intensity = 1.0f;
-    sun.range = 100.0f;
-    sun.isActive = true;
-    lights.append(sun);
-
-    ShowroomLight ambient;
-    ambient.name = "Ambient";
-    ambient.type = "point";
-    ambient.position[0] = 0.0f;
-    ambient.position[1] = 3.0f;
-    ambient.position[2] = 0.0f;
-    ambient.direction[0] = 0.0f;
-    ambient.direction[1] = -1.0f;
-    ambient.direction[2] = 0.0f;
-    ambient.color = QColor(200, 200, 220);
-    ambient.intensity = 0.3f;
-    ambient.range = 20.0f;
-    ambient.isActive = true;
-    lights.append(ambient);
-
-    ShowroomLight fill;
-    fill.name = "Fill";
-    fill.type = "spot";
-    fill.position[0] = -3.0f;
-    fill.position[1] = 4.0f;
-    fill.position[2] = 2.0f;
-    fill.direction[0] = 0.3f;
-    fill.direction[1] = -0.8f;
-    fill.direction[2] = -0.2f;
-    fill.color = QColor(180, 200, 255);
-    fill.intensity = 0.5f;
-    fill.range = 15.0f;
-    fill.isActive = true;
-    lights.append(fill);
-
-    return lights;
-}
-
 bool ShowroomSystem::generatePreview(const QString& carPath, const PreviewConfig& config)
 {
     if (carPath.isEmpty()) {
-        LOG_ERROR("ShowroomSystem", "Cannot generate preview: car path is empty");
-        return false;
+        LOG_WARNING("ShowroomSystem", "No car path provided, generating preview with default scene");
+        // Create a quick software-rendered preview with a test pattern
+        QImage img(config.width > 0 ? config.width : 1920,
+                  config.height > 0 ? config.height : 1080,
+                  QImage::Format_ARGB32);
+        img.fill(QColor(25, 25, 30));
+        QPainter p(&img);
+        p.setRenderHint(QPainter::Antialiasing);
+        // Draw a grid floor
+        p.setPen(QPen(QColor(50, 50, 55), 1));
+        int gridSpacing = qMax(10, img.height() / 25);
+        int groundY = img.height() * 0.6;
+        for (int y = groundY; y <= img.height(); y += gridSpacing)
+            p.drawLine(0, y, img.width(), y);
+        for (int x = 0; x <= img.width(); x += gridSpacing)
+            p.drawLine(x, groundY, x, img.height());
+        // Draw a simple car silhouette
+        p.setPen(QPen(QColor(180, 180, 200), 2));
+        p.setBrush(QColor(180, 180, 200, 80));
+        int cx = img.width() / 2, cy = groundY - img.height() / 6;
+        int cw = img.width() / 6, ch = img.height() / 8;
+        QPolygonF body;
+        body << QPointF(cx - cw, cy + ch) << QPointF(cx - cw * 0.8, cy - ch * 0.5)
+             << QPointF(cx - cw * 0.3, cy - ch) << QPointF(cx + cw * 0.3, cy - ch)
+             << QPointF(cx + cw * 0.5, cy - ch * 0.5) << QPointF(cx + cw * 0.7, cy)
+             << QPointF(cx + cw, cy + ch);
+        p.drawPolygon(body);
+        // Wheels
+        p.setBrush(QColor(40, 40, 40));
+        p.drawEllipse(QPointF(cx - cw * 0.6, cy + ch), ch * 0.3, ch * 0.3);
+        p.drawEllipse(QPointF(cx + cw * 0.6, cy + ch), ch * 0.3, ch * 0.3);
+        p.end();
+
+        QString outputPath = config.outputPath;
+        if (outputPath.isEmpty()) outputPath = "preview.png";
+        QDir().mkpath(QFileInfo(outputPath).absolutePath());
+        bool saved = img.save(outputPath, "PNG");
+        if (saved) LOG_INFO("ShowroomSystem", "Saved default preview: " + outputPath);
+        else LOG_ERROR("ShowroomSystem", "Failed to save default preview: " + outputPath);
+        return saved;
     }
 
-    LOG_INFO("ShowroomSystem", QString("Generating preview for: %1 (%2x%3)")
+    LOG_INFO("ShowroomSystem", QString("Generating PBR preview for: %1 (%2x%3)")
         .arg(carPath).arg(config.width).arg(config.height));
 
-    const int w = config.width;
-    const int h = config.height;
+    // Load the car mesh
+    QString meshPath;
+    QString lower = carPath.toLower();
+    
+    // Find the actual mesh file
+    QDir dir(carPath);
+    if (dir.exists()) {
+        QStringList patterns = {"*.obj", "*.kn5", "*.gltf", "*.glb"};
+        for (const auto& entry : dir.entryList(patterns, QDir::Files)) {
+            meshPath = dir.absoluteFilePath(entry);
+            break;
+        }
+        if (meshPath.isEmpty()) {
+            QDir dataDir(carPath + "/data");
+            if (dataDir.exists()) {
+                for (const auto& entry : dataDir.entryList(patterns, QDir::Files)) {
+                    meshPath = dataDir.absoluteFilePath(entry);
+                    break;
+                }
+            }
+        }
+    } else if (QFileInfo(carPath).isFile()) {
+        meshPath = carPath;
+    }
 
-    QImage image(w, h, QImage::Format_ARGB32);
-    image.fill(config.useTransparentBackground ? Qt::transparent : QColor(30, 30, 35));
-
-    QPainter painter(&image);
-    if (!painter.isActive()) {
-        LOG_ERROR("ShowroomSystem", "Failed to initialize QPainter");
+    if (meshPath.isEmpty()) {
+        LOG_ERROR("ShowroomSystem", QString("No 3D model found in: %1").arg(carPath));
         return false;
     }
-    painter.setRenderHint(QPainter::Antialiasing, true);
 
-    const int groundY = static_cast<int>(h * 0.65);
-    const float centerX = w / 2.0f;
-    const float lightScale = w / 20.0f;
+    // Use the viewport to render
+    ks::ShowroomViewport3D viewport;
+    viewport.loadCarMesh(meshPath);
 
-    // Draw grid floor
-    QPen gridPen(QColor(55, 55, 60), 1, Qt::SolidLine);
-    painter.setPen(gridPen);
-    int gridSpacing = qMax(8, h / 20);
-    for (int y = groundY; y <= h; y += gridSpacing) {
-        painter.drawLine(0, y, w, y);
-    }
-    for (int x = 0; x <= w; x += gridSpacing) {
-        painter.drawLine(x, groundY, x, h);
-    }
+    // Apply config to viewport
+    ShowroomConfig showroomConfig = getDefaultConfig();
+    showroomConfig.cameraDistance = config.cameraDistance;
+    showroomConfig.cameraHeight = config.cameraHeight;
+    showroomConfig.cameraAngle = config.cameraAngle;
+    showroomConfig.cameraFov = config.fov;
+    viewport.syncConfig(showroomConfig);
 
-    // Horizon line
-    painter.setPen(QPen(QColor(80, 80, 90), 2));
-    painter.drawLine(0, groundY, w, groundY);
-
-    // Draw light position indicators
-    QVector<ShowroomLight> lights = getDefaultLights();
-    for (const auto& light : lights) {
-        if (!light.isActive) continue;
-
-        float lx = centerX + light.position[0] * lightScale;
-        float ly = groundY - light.position[1] * (lightScale * 0.5f);
-        int radius = qBound(4, static_cast<int>(light.intensity * 8), 16);
-
-        // Glow effect
-        painter.setPen(Qt::NoPen);
-        QColor glowColor = light.color;
-        glowColor.setAlpha(50);
-        painter.setBrush(glowColor);
-        painter.drawEllipse(QPointF(lx, ly), radius * 2.5f, radius * 2.5f);
-
-        // Core dot
-        painter.setBrush(light.color);
-        painter.drawEllipse(QPointF(lx, ly), radius, radius);
-
-        // Light label
-        QFont labelFont("Segoe UI", 8);
-        painter.setFont(labelFont);
-        painter.setPen(QColor(180, 180, 180));
-        painter.drawText(QPointF(lx + radius + 4, ly + 3), light.name);
-    }
-
-    // Draw camera frustum
-    float camAngleRad = config.cameraAngle * 3.14159265f / 180.0f;
-    float camX = centerX + config.cameraDistance * sinf(camAngleRad) * lightScale;
-    float camY = groundY - config.cameraHeight * (lightScale * 0.5f);
-    float targetX = centerX;
-    float targetY = static_cast<float>(groundY);
-
-    float dirX = targetX - camX;
-    float dirY = targetY - camY;
-    float dirLen = sqrtf(dirX * dirX + dirY * dirY);
-    if (dirLen > 0.001f) { dirX /= dirLen; dirY /= dirLen; }
-
-    float perpX = -dirY;
-    float perpY = dirX;
-
-    float fovRad = config.fov * 3.14159265f / 180.0f;
-    float halfFov = fovRad * 0.5f;
-    float frustumLen = lightScale * 2.0f;
-
-    QPointF leftTip(camX + dirX * frustumLen + perpX * frustumLen * tanf(halfFov),
-                    camY + dirY * frustumLen + perpY * frustumLen * tanf(halfFov));
-    QPointF rightTip(camX + dirX * frustumLen - perpX * frustumLen * tanf(halfFov),
-                     camY + dirY * frustumLen - perpY * frustumLen * tanf(halfFov));
-
-    QPen camPen(Qt::white, 2);
-    painter.setPen(camPen);
-    painter.setBrush(QColor(255, 255, 255, 25));
-    QPolygonF frustum;
-    frustum << QPointF(camX, camY) << leftTip << rightTip;
-    painter.drawPolygon(frustum);
-
-    // Camera origin dot
-    painter.setPen(Qt::NoPen);
-    painter.setBrush(QColor(255, 255, 255, 200));
-    painter.drawEllipse(QPointF(camX, camY), 5, 5);
-
-    // Camera-to-target dashed line
-    painter.setPen(QPen(QColor(255, 255, 255, 80), 1, Qt::DashLine));
-    painter.setBrush(Qt::NoBrush);
-    painter.drawLine(QPointF(camX, camY), QPointF(targetX, targetY));
-
-    // Settings text overlay
-    QFont textFont("Segoe UI", 10);
-    painter.setFont(textFont);
-
-    int textMargin = 15;
-    int textBottom = h - 15;
-    int lineH = 18;
-
-    // Background panel
-    QRect panelRect(textMargin - 5, textBottom - 5 * lineH - 5, 340, 5 * lineH + 15);
-    painter.setPen(Qt::NoPen);
-    painter.setBrush(QColor(0, 0, 0, 120));
-    painter.drawRoundedRect(panelRect, 6, 6);
-
-    painter.setPen(QColor(220, 220, 220));
-    int ty = textBottom - 4 * lineH;
-    painter.drawText(textMargin, ty, QString("Camera: dist=%1  height=%2  angle=%3")
-        .arg(config.cameraDistance, 0, 'f', 1)
-        .arg(config.cameraHeight, 0, 'f', 1)
-        .arg(config.cameraAngle, 0, 'f', 1));
-    ty += lineH;
-    painter.drawText(textMargin, ty, QString("FOV: %1 deg").arg(config.fov, 0, 'f', 1));
-    ty += lineH;
-    painter.drawText(textMargin, ty, QString("Resolution: %1 x %2").arg(w).arg(h));
-    ty += lineH;
-    painter.drawText(textMargin, ty, QString("Lights: %1 active").arg(lights.size()));
-    ty += lineH;
-    painter.drawText(textMargin, ty, QString("Car: %1").arg(carPath));
-
-    painter.end();
-
-    // Save to output
     QString outputPath = config.outputPath;
     if (outputPath.isEmpty()) {
         outputPath = carPath + "/preview.png";
     }
     QDir().mkpath(QFileInfo(outputPath).absolutePath());
 
-    if (!image.save(outputPath, "PNG")) {
-        LOG_ERROR("ShowroomSystem", QString("Failed to save preview: %1").arg(outputPath));
-        return false;
+    bool success = viewport.generatePBRPreview(outputPath, config.width, config.height);
+
+    if (success) {
+        LOG_INFO("ShowroomSystem", QString("Saved PBR preview: %1").arg(outputPath));
+    } else {
+        LOG_ERROR("ShowroomSystem", QString("Failed to generate preview: %1").arg(outputPath));
     }
 
-    LOG_INFO("ShowroomSystem", QString("Saved preview: %1").arg(outputPath));
-    return true;
+    return success;
 }
 
 bool ShowroomSystem::generateThumbnail(const QString& carPath, const QString& outputPath)

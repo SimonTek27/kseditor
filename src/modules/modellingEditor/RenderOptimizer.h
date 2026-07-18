@@ -6,9 +6,12 @@
 #include <QString>
 #include <memory>
 
-namespace ks {
-
+namespace ks { namespace graphics {
 class SceneObject;
+} }
+
+namespace ks {
+using graphics::SceneObject;
 
 /**
  * @brief Configurazione per l'ottimizzazione del rendering
@@ -121,6 +124,7 @@ public:
 private:
 	RenderOptimizationConfig m_config;
 	RenderStats m_stats;
+	QMap<int, QVector<MeshBatch>> m_cache;
 
 	// Frustum culling
 	struct Frustum {

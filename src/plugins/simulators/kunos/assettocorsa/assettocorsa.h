@@ -8580,7 +8580,7 @@ public:
             int prevGear = buffer.frames[i - 1].gear;
 
             if (gear != prevGear && gear > 0 && prevGear > 0) {
-                changes.append(qMakePair(i, gear > prevGear ? gear : -gear));
+                changes.append(std::make_pair(i, gear > prevGear ? gear : -gear));
             }
         }
     }
@@ -8596,7 +8596,7 @@ public:
             if (brake > 0.5f && prevBrake <= 0.5f) {
                 start = i;
             } else if ((brake <= 0.1f || i == buffer.size() - 1) && start >= 0) {
-                zones.append(qMakePair(start, i));
+                zones.append(std::make_pair(start, i));
                 start = -1;
             }
         }
@@ -8613,7 +8613,7 @@ public:
             if (throttle > 0.9f && prevThrottle <= 0.9f) {
                 start = i;
             } else if ((throttle <= 0.1f || i == buffer.size() - 1) && start >= 0) {
-                zones.append(qMakePair(start, i));
+                zones.append(std::make_pair(start, i));
                 start = -1;
             }
         }

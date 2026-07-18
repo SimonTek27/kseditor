@@ -2,6 +2,10 @@
 #include <QDebug>
 #include <QElapsedTimer>
 #include <QtMath>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QFile>
+#include <QTextStream>
 #include <algorithm>
 #include <numeric>
 
@@ -1278,14 +1282,15 @@ QVector<PhysicsMeshGenerator::PhysicsMesh> PhysicsMeshGenerator::generateVHACDDe
     }
 
     VHACD::IVHACD::Parameters params;
-    params.m_maxConvexHulls = maxParts;
+    params.m_concavity = 0.001;
     params.m_resolution = 100000;
-    params.m_accuracy = m_config.convexDecompAccuracy;
+    params.m_maxNumVerticesPerCH = 64;
+    params.m_depth = 20;
 
     if (vhacd->Compute(vhacdVertices.data(), 3,
-                       vhacdTriangles.data(), 3,
-                       vhacdVertices.size() / 3,
-                       vhacdTriangles.size() / 3,
+                       static_cast<unsigned int>(vhacdVertices.size() / 3),
+                       reinterpret_cast<const int*>(vhacdTriangles.data()), 3,
+                       static_cast<unsigned int>(vhacdTriangles.size() / 3),
                        params)) {
 
         int nParts = vhacd->GetNConvexHulls();

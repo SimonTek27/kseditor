@@ -7,18 +7,45 @@
 #include <QLineEdit>
 #include <QGroupBox>
 #include <QPushButton>
+#include <QVector3D>
+#include <QList>
+#include <QMap>
 #include "core/Graphics/SceneData.h"
+#include "core/Graphics/SceneGraph.h"
 #include <core/sys/UndoStack.h>
 
 namespace Ks {
+
+enum class ColliderType { Box, Sphere, Capsule, Mesh, ConvexHull };
+
+struct PhysicsCollider {
+    ColliderType type = ColliderType::Box;
+    QVector3D center;
+    QVector3D halfExtents{0.5f, 0.5f, 0.5f};
+    float radius = 0.5f;
+    float height = 1.0f;
+    float friction = 0.7f;
+    float restitution = 0.3f;
+    bool isTrigger = false;
+    QString surfaceType;
+};
+
+struct PhysicsBody {
+    bool isStatic = true;
+    float mass = 1.0f;
+    float linearDamp = 0.0f;
+    float angularDamp = 0.0f;
+    QList<PhysicsCollider> colliders;
+};
 using ks::UndoStack;
+using ks::SceneGraph;
 
 class PhysicsPanel : public QWidget {
     Q_OBJECT
 public:
     explicit PhysicsPanel(UndoStack* undoStack, QWidget* parent = nullptr);
 
-    void setScene(Scene* scene);
+    void setScene(SceneGraph* scene);
     void setSelectedNode(const QString& nodeName);
     void refresh();
 
@@ -40,10 +67,12 @@ private:
     void loadCollider(int idx);
     void saveCurrentCollider();
 
-    Scene*       m_scene     = nullptr;
+    SceneGraph*       m_scene     = nullptr;
     UndoStack*   m_undo;
     QString      m_nodeName;
     int          m_currentCollider = -1;
+    QMap<QString, PhysicsBody> m_physicsBodies;
+    bool         m_isDirty = false;
 
     QComboBox*       m_bodyType;
     QDoubleSpinBox*  m_mass;

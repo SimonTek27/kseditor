@@ -31,13 +31,22 @@ private:
     void createProjectStructure();
     void createIniFile(const QString& path, const QString& content);
     void showStep1();
+    void applyTheme();
     QString detectAcRoot();
+    QPushButton* createProjectTypeButton(const QString& text, const QString& desc, const QString& iconName, ProjectType type);
 
     QVBoxLayout* m_mainLayout;
     QLabel* m_header;
     QWidget* m_contentWidget;
+    QWidget* m_titleBar;
     QPushButton* m_prevBtn;
     QPushButton* m_nextBtn;
     QLineEdit* m_nameEdit;
+    QPoint m_dragPos;
     int m_currentStep = 1;
+
+protected:
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
 };

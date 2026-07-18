@@ -42,6 +42,10 @@ public:
         Fuel,
         TireThermal,
         LapTimer,
+        ERS_Hybrid,
+        DRS_Logic,
+        DamageModel,
+        WeatherPhysics,
         Total
     };
 

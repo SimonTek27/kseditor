@@ -32,6 +32,15 @@ public:
         std::vector<UVIsland>& islands, uint32_t maxIterations = 10);
 
     static const char* methodName(UnwrapMethod method);
+
+private:
+    static UnwrapResult unwrapImpl(const GeoMeshData& mesh,
+        const std::vector<std::pair<uint32_t, uint32_t>>& seamEdges,
+        UnwrapMethod method);
+    static std::vector<uint32_t> extractBoundaryLoop(const GeoMeshData& mesh,
+        const std::vector<std::pair<uint32_t, uint32_t>>& seamEdges);
+    static std::vector<std::pair<uint32_t, uint32_t>> extractSeamEdges(const GeoMeshData& mesh,
+        const std::vector<std::pair<uint32_t, uint32_t>>& providedSeams);
 };
 
 } // namespace ks::geometry

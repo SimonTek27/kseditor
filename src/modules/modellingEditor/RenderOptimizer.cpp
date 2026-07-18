@@ -1,9 +1,11 @@
 #include "RenderOptimizer.h"
 #include "core/Graphics/SceneObject.h"
+#include "core/Graphics/SceneMesh.h"
 #include <QtMath>
 #include <algorithm>
 
 namespace ks {
+using namespace graphics;
 
 RenderOptimizer::RenderOptimizer()
 	: m_config()
@@ -77,7 +79,7 @@ QVector<MeshBatch> RenderOptimizer::optimizeBatches(const QVector<SceneObject*>&
 	for (const auto& obj : objects) {
 		if (!obj) continue;
 
-		QString matId = obj->mesh() ? obj->mesh()->materialName : QString("default_%1").arg(obj->id());
+		QString matId = obj->mesh() ? obj->name() : QString("default_%1").arg(obj->id());
 
 		if (!batchMap.contains(matId)) {
 			MeshBatch batch;
@@ -88,8 +90,8 @@ QVector<MeshBatch> RenderOptimizer::optimizeBatches(const QVector<SceneObject*>&
 		MeshBatch& batch = batchMap[matId];
 		batch.objectIds.append(obj->id());
 		if (obj->mesh()) {
-			batch.vertexCount += obj->mesh()->vertices().size();
-			batch.triangleCount += obj->mesh()->indices().size() / 3;
+			batch.vertexCount += obj->mesh()->geometry().vertices.size();
+			batch.triangleCount += obj->mesh()->geometry().indices.size() / 3;
 		}
 	}
 
@@ -105,11 +107,11 @@ QVector<MeshBatch> RenderOptimizer::optimizeBatches(const QVector<SceneObject*>&
 }
 
 void RenderOptimizer::invalidateCache(int objectId) {
-	invalidateEntry(objectId);
+	m_cache.remove(objectId);
 }
 
 void RenderOptimizer::invalidateAllCaches() {
-	invalidateAll();
+	m_cache.clear();
 }
 
 bool RenderOptimizer::isSphereInFrustum(const QVector3D& center, float radius) const {

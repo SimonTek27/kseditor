@@ -8,6 +8,8 @@
 #include <QJsonObject>
 #include <QLibrary>
 #include <QPluginLoader>
+#include <QFileInfo>
+#include <QTimer>
 #include "../../plugins/base/PluginBase.h"
 
 namespace ks {
@@ -89,6 +91,12 @@ public:
     void unloadQtPlugin(const QString& pluginId);
     void reloadPlugin(const QString& pluginId);
 
+    // Hot-reload support
+    void enableHotReload(bool enabled);
+    bool isHotReloadEnabled() const { return m_hotReloadEnabled; }
+    void setHotReloadInterval(int ms);
+    void checkForChanges();
+
     bool isPluginLoaded(const QString& pluginId) const;
     PluginInfo getPluginInfo(const QString& pluginId) const;
     QVector<PluginInfo> getAvailablePlugins() const;
@@ -114,11 +122,20 @@ signals:
     void scanComplete(int count);
     void importerRegistered(const QString& pluginId, const QStringList& extensions);
     void exporterRegistered(const QString& pluginId, const QStringList& extensions);
+    void pluginAboutToReload(const QString& pluginId);
+    void pluginReloaded(const QString& pluginId);
+    void pluginReloadFailed(const QString& pluginId, const QString& error);
 
 private:
     PluginInfo readManifest(const QString& dllPath) const;
+    void setupFileWatchers();
+    void onFileChanged(const QString& path);
 
     QString m_pluginDir;
+    bool m_hotReloadEnabled = false;
+    int m_hotReloadInterval = 1000;
+    QTimer* m_reloadTimer = nullptr;
+    QMap<QString, QFileInfo> m_watchedFiles;
 
     struct LoadedEntry {
         PluginInfo info;

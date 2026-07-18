@@ -90,7 +90,10 @@ bool AudioStudio::loadProject(const QString& path)
             bus.name = bo["name"].toString();
             bus.volume = static_cast<float>(bo["volume"].toDouble(1.0));
             bus.muted = bo["muted"].toBool(false);
-            bus.effectChain = bo["effectChain"].toStringList();
+            QJsonArray chainArr = bo["effectChain"].toArray();
+            QStringList chain;
+            for (const auto& c : chainArr) chain.append(c.toString());
+            bus.effectChain = chain;
             m_buses.append(bus);
         }
     }
@@ -149,7 +152,9 @@ bool AudioStudio::saveProject(const QString& path)
         bo["name"] = bus.name;
         bo["volume"] = static_cast<double>(bus.volume);
         bo["muted"] = bus.muted;
-        bo["effectChain"] = bus.effectChain;
+        QJsonArray chainArr;
+        for (const auto& e : bus.effectChain) chainArr.append(e);
+        bo["effectChain"] = chainArr;
         busArr.append(bo);
     }
     json["buses"] = busArr;

@@ -11,7 +11,7 @@ namespace ks {
 
 class VulkanViewportRenderer : public QVulkanWindowRenderer {
 public:
-    VulkanViewportRenderer(QVulkanWindow* w, SceneGraph* scene);
+    VulkanViewportRenderer(QVulkanWindow* w, ks::SceneGraph* scene);
 
     void initResources() override;
     void initSwapChainResources() override;
@@ -19,12 +19,12 @@ public:
     void releaseResources() override;
     void startNextFrame() override;
 
-    void setScene(SceneGraph* scene) { m_scene = scene; }
+    void setScene(ks::SceneGraph* scene) { m_scene = scene; }
     void updateViewportSize(int w, int h);
 
 private:
     QVulkanWindow* m_window = nullptr;
-    SceneGraph* m_scene = nullptr;
+    ks::SceneGraph* m_scene = nullptr;
 
     VkPipeline m_pipeline = VK_NULL_HANDLE;
     VkPipelineLayout m_layout = VK_NULL_HANDLE;

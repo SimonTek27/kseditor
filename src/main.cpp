@@ -9,6 +9,15 @@
 #include <QQmlEngine>
 #include <QJSEngine>
 #include <QQuickStyle>
+#include <QTranslator>
+#include <QLibraryInfo>
+#include <QLocale>
+#include <QDebug>
+#include <exception>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #include "MainWindow.h"
 #include "core/sys/ModuleManager.h"
@@ -30,6 +39,7 @@
 #include "core/tools/FormatToolsQmlBridge.h"
 #include "core/modmanager/ModManagerQmlBridge.h"
 #include "core/ppfiltersEditor/PPFiltersQmlBridge.h"
+#include "core/3dprint/ThreeDPrintQmlBridge.h"
 #include "core/FfbEditor/FfbEditorQmlBridge.h"
 #include "modules/displayEditor/DisplayEditorQmlBridge.h"
 #include "modules/LicensePlatesEditor/LicensePlatesQmlBridge.h"
@@ -45,6 +55,7 @@
 #include "core/assets/AssetsLibraryQmlBridge.h"
 #include "core/mesh/MeshDataBridge.h"
 #include "core/material/TexturePaintQmlBridge.h"
+#include "core/3dprint/ThreeDPrintQmlBridge.h"
 #include "core/mesh/MeshLoaderQML.h"
 #include "modules/modellingEditor/SceneMeshGeometry.h"
 #include "qml/modules/CspConfigQmlBridge.h"
@@ -53,12 +64,52 @@
 #include "core/network/CollabEditorQmlBridge.h"
 
 
-int main(int argc, char *argv[])
+static int runMainWindow(QApplication& app, const QString& projectPath)
+{
+    qDebug() << "Creating MainWindow with projectPath:" << projectPath;
+    MainWindow window(projectPath);
+    window.show();
+
+    QObject::connect(&app, &QApplication::aboutToQuit, [&]() {
+        ks::PluginManager::instance()->saveLoadedList();
+    });
+
+    return app.exec();
+}
+
+static int appMain(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     app.setApplicationName("ksEditor");
-    app.setApplicationVersion("2.1.0");
+    app.setApplicationVersion("1.0.0");
     app.setOrganizationName("ksEditor");
+
+    // Load translations
+    QTranslator qtTranslator;
+    if (qtTranslator.load("qt_" + QLocale::system().name(),
+            QLibraryInfo::path(QLibraryInfo::TranslationsPath))) {
+        app.installTranslator(&qtTranslator);
+    }
+
+    QTranslator appTranslator;
+    QString lang = QLocale::system().name(); // e.g. "de", "it", "ja"
+    QSettings s;
+    if (s.contains("ui/language")) {
+        QString savedLang = s.value("ui/language").toString();
+        if (savedLang != "system")
+            lang = savedLang;
+    }
+    QStringList searchPaths = {
+        QCoreApplication::applicationDirPath() + "/i18n",
+        QCoreApplication::applicationDirPath() + "/../i18n",
+        ":/i18n"
+    };
+    for (const QString& path : searchPaths) {
+        if (appTranslator.load(path + "/kseditor_" + lang)) {
+            app.installTranslator(&appTranslator);
+            break;
+        }
+    }
 
     // Register QML bridge types
     qmlRegisterSingletonType<ks::KSModelerQml>("ksEditor.Modeler", 1, 0, "Modeler",
@@ -132,6 +183,9 @@ int main(int argc, char *argv[])
             return ks::CharacterEditorQmlBridge::instance();
         });
 
+    // Register 3D Printing module
+    qmlRegisterType<ks::printing::ThreeDPrintQmlBridge>("ksEditor.Printing", 1, 0, "PrintManager");
+
     // Initialize plugin system
     ks::PluginManager::instance()->scan();
 
@@ -155,7 +209,7 @@ int main(int argc, char *argv[])
         }
         if (cmd == "-h" || cmd == "--help") {
             QMessageBox::information(nullptr, "ksEditor Help",
-                "ksEditor 2.1.0 - Assetto Corsa Modding Suite\n\n"
+                "ksEditor 1.0.0 - Assetto Corsa Modding Suite\n\n"
                 "Usage: kseditor.exe [options]\n\n"
                 "Options:\n"
                 "  -font, --font    Open font editor directly\n"
@@ -184,42 +238,85 @@ int main(int argc, char *argv[])
 
     SplashScreen::showSplash(app);
 
+    qDebug() << "Showing WelcomeScreen...";
     WelcomeScreen welcome;
-    if (welcome.exec() != QDialog::Accepted) {
+    bool accepted = false;
+    try {
+        accepted = (welcome.exec() == QDialog::Accepted);
+    } catch (...) {
+        qDebug() << "Exception during WelcomeScreen::exec()";
+        accepted = false;
+    }
+
+    if (!accepted) {
+        qDebug() << "WelcomeScreen rejected/closed, exiting";
         return 0;
     }
 
+    qDebug() << "WelcomeScreen accepted, action:" << welcome.selectedAction;
+
     QString projectPath;
-    if (welcome.selectedAction == WelcomeScreen::New) {
-        NewProjectDialog newDlg;
-        if (newDlg.exec() == QDialog::Accepted && !newDlg.projectPath.isEmpty()) {
-            projectPath = newDlg.projectPath;
+    try {
+        if (welcome.selectedAction == WelcomeScreen::New) {
+            NewProjectDialog newDlg;
+            if (newDlg.exec() == QDialog::Accepted && !newDlg.projectPath.isEmpty()) {
+                projectPath = newDlg.projectPath;
+            }
+        } else if (welcome.selectedAction == WelcomeScreen::NewBlank) {
+            // Start with blank project - MainWindow will show with empty project
+        } else if (welcome.selectedAction == WelcomeScreen::Open) {
+            projectPath = QFileDialog::getExistingDirectory(nullptr,
+                "Open Project Folder",
+                QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation));
+        } else if (welcome.selectedAction == WelcomeScreen::Recent) {
+            if (!welcome.recentPath.isEmpty() && QDir(welcome.recentPath).exists()) {
+                projectPath = welcome.recentPath;
+            }
+        } else if (welcome.selectedAction == WelcomeScreen::Help) {
+            // Show help - for now just start with empty project
         }
-    } else if (welcome.selectedAction == WelcomeScreen::Open) {
-        projectPath = QFileDialog::getExistingDirectory(nullptr,
-            "Open Project Folder",
-            QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation));
-    } else if (welcome.selectedAction == WelcomeScreen::Recent) {
-        if (!welcome.recentPath.isEmpty() && QDir(welcome.recentPath).exists()) {
-            projectPath = welcome.recentPath;
-        }
+    } catch (const std::exception& e) {
+        QMessageBox::critical(nullptr, "Error",
+            QString("An error occurred while processing your selection:\n%1").arg(e.what()));
+        return 1;
+    } catch (...) {
+        QMessageBox::critical(nullptr, "Error",
+            "An unknown error occurred while processing your selection.");
+        return 1;
     }
 
-    MainWindow window(projectPath);
-    window.show();
+    try {
+        return runMainWindow(app, projectPath);
+    } catch (const std::exception& e) {
+        QMessageBox::critical(nullptr, "Fatal Error",
+            QString("A fatal error occurred during startup:\n\n%1\n\n"
+                    "Please check the application log for details.").arg(e.what()));
+        return 1;
+    } catch (...) {
+        QMessageBox::critical(nullptr, "Fatal Error",
+            "An unknown fatal error occurred during startup.\n\n"
+            "Please check the application log for details.");
+        return 1;
+    }
+}
 
-    QObject::connect(&app, &QApplication::aboutToQuit, [&]() {
-        ks::PluginManager::instance()->saveLoadedList();
-    });
-
-    int exitCode = app.exec();
-
-    return exitCode;
+int main(int argc, char *argv[])
+{
+#ifdef _WIN32
+    __try {
+        return appMain(argc, argv);
+    } __except(1) {
+        QMessageBox::critical(nullptr, "Fatal Error",
+            "A system error (access violation) occurred.\n\n"
+            "The application encountered a critical error and must close.");
+        return 1;
+    }
+#else
+    return appMain(argc, argv);
+#endif
 }
 
 #ifdef _WIN32
-#include <windows.h>
-
 int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     extern int __argc;
     extern char** __argv;

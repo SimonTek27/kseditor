@@ -8,6 +8,9 @@
 
 namespace ks {
 
+// Forward declaration
+static bool writeMeshToKN5(const QString& path, const MeshData& mesh, const QString& meshName);
+
 bool LODExporter::exportLODs(const QString& basePath, const MeshData& highPoly, const LODSettings& settings) {
     QFileInfo fileInfo(basePath);
     QString baseName = fileInfo.baseName();
@@ -36,21 +39,21 @@ bool LODExporter::exportLODs(const QString& basePath, const MeshData& highPoly, 
     } else {
         QString combinedPath = outputDir + "/" + baseName + "_lods.kn5";
         KN5Parser::KN5File kn5;
-        kn5.header.magic = KN5_MAGIC;
-        kn5.header.version = KN5_VERSION;
+        kn5.header.magic = KN5Parser::KN5_MAGIC;
+        kn5.header.version = KN5Parser::KN5_VERSION;
 
-        KN5Parser::KN5File::Material mat;
+        KN5Parser::Material mat;
         mat.id = 0;
         mat.name = "LODMaterial";
         mat.shaderName = "ksPerPixel";
-        mat.type = KN5Parser::KN5File::Material::Type::Normal;
+        mat.type = KN5Parser::Material::Type::Normal;
         kn5.materials.append(mat);
 
         for (int i = 0; i < lodMeshes.size(); i++) {
             const auto& mesh = lodMeshes[i];
             QString meshName = QString("LOD_%1").arg(i);
 
-            KN5Parser::KN5File::Mesh kn5Mesh;
+            KN5Parser::Mesh kn5Mesh;
             kn5Mesh.name = meshName;
 
             for (const auto& v : mesh.vertices)
@@ -82,14 +85,14 @@ bool LODExporter::exportLODs(const QString& basePath, const MeshData& highPoly, 
                 kn5Mesh.boundingMax = {maxV.x(), maxV.y(), maxV.z()};
                 kn5Mesh.boundingRadius = (maxV - minV).length() * 0.5f;
 
-                KN5Parser::KN5File::SubMesh subMesh;
+                KN5Parser::SubMesh subMesh;
                 subMesh.materialIndex = 0;
                 subMesh.vertexOffset = 0;
                 subMesh.vertexCount = static_cast<quint32>(kn5Mesh.positions.size());
                 subMesh.indexOffset = 0;
                 subMesh.indexCount = static_cast<quint32>(mesh.faces.size() * 3);
-                subMesh.boundingMin = kn5Mesh.boundingMin;
-                subMesh.boundingMax = kn5Mesh.boundingMax;
+                subMesh.boundingMin = {kn5Mesh.boundingMin.x, kn5Mesh.boundingMin.y, kn5Mesh.boundingMin.z};
+                subMesh.boundingMax = {kn5Mesh.boundingMax.x, kn5Mesh.boundingMax.y, kn5Mesh.boundingMax.z};
                 kn5Mesh.subMeshes.append(subMesh);
             }
 
@@ -117,7 +120,7 @@ static bool writeMeshToKN5(const QString& path, const MeshData& mesh, const QStr
     kn5.header.magic = KN5_MAGIC;
     kn5.header.version = KN5_VERSION;
 
-    KN5Parser::KN5File::Mesh kn5Mesh;
+    KN5Parser::Mesh kn5Mesh;
     kn5Mesh.name = meshName;
 
     for (const auto& v : mesh.vertices)
@@ -149,24 +152,24 @@ static bool writeMeshToKN5(const QString& path, const MeshData& mesh, const QStr
         kn5Mesh.boundingMax = {maxV.x(), maxV.y(), maxV.z()};
         kn5Mesh.boundingRadius = (maxV - minV).length() * 0.5f;
 
-        KN5Parser::KN5File::SubMesh subMesh;
+        SubMesh subMesh;
         subMesh.materialIndex = 0;
         subMesh.vertexOffset = 0;
         subMesh.vertexCount = static_cast<quint32>(kn5Mesh.positions.size());
         subMesh.indexOffset = 0;
         subMesh.indexCount = static_cast<quint32>(mesh.faces.size() * 3);
-        subMesh.boundingMin = kn5Mesh.boundingMin;
-        subMesh.boundingMax = kn5Mesh.boundingMax;
+        subMesh.boundingMin = {kn5Mesh.boundingMin.x, kn5Mesh.boundingMin.y, kn5Mesh.boundingMin.z};
+        subMesh.boundingMax = {kn5Mesh.boundingMax.x, kn5Mesh.boundingMax.y, kn5Mesh.boundingMax.z};
         kn5Mesh.subMeshes.append(subMesh);
     }
 
     kn5.meshes.append(kn5Mesh);
 
-    KN5Parser::KN5File::Material mat;
+    Material mat;
     mat.id = 0;
     mat.name = "LODMaterial";
     mat.shaderName = "ksPerPixel";
-    mat.type = KN5Parser::KN5File::Material::Type::Normal;
+    mat.type = Material::Type::Normal;
     kn5.materials.append(mat);
 
     return KN5Parser::KN5ParserImpl::write(path, kn5);

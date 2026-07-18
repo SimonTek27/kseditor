@@ -29,7 +29,16 @@ QString CollectionManager::collectionsFilePath() const
 
 QStringList CollectionManager::listCollections() const
 {
-    return m_collections.keys();
+    QStringList ids = m_collections.keys();
+    // Return collections in creation order so callers (and tests) see a stable,
+    // deterministic sequence instead of an arbitrary QMap/UUID ordering.
+    std::sort(ids.begin(), ids.end(), [this](const QString& a, const QString& b) {
+        const QDateTime& ta = m_collections[a].created;
+        const QDateTime& tb = m_collections[b].created;
+        if (ta != tb) return ta < tb;
+        return a < b;
+    });
+    return ids;
 }
 
 bool CollectionManager::createCollection(const QString& name, const QString& description,

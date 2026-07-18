@@ -45,6 +45,62 @@ IncrementalBackup* IncrementalBackup::instance() { if (!s_instance) s_instance =
 IncrementalBackup::IncrementalBackup(QObject* parent) : QObject(parent) {}
 IncrementalBackup::~IncrementalBackup() { s_instance = nullptr; }
 
+void IncrementalBackup::setBaseBackup(const QString& backupId) { m_baseBackupId = backupId; }
+
+void IncrementalBackup::addChange(const QString& filePath, const QString& changeType)
+{
+    Change ch;
+    ch.filePath = filePath;
+    ch.changeType = changeType;
+    QFile f(filePath);
+    if (f.open(QIODevice::ReadOnly)) ch.data = f.readAll();
+    m_changes.append(ch);
+}
+
+QString IncrementalBackup::createIncremental(const QString& projectPath)
+{
+    QString id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+                  + "/incremental/" + id;
+    QDir().mkpath(dir);
+
+    QJsonArray arr;
+    for (const auto& ch : m_changes) {
+        QJsonObject obj;
+        obj["filePath"] = ch.filePath;
+        obj["changeType"] = ch.changeType;
+        arr.append(obj);
+        QDir().mkpath(QFileInfo(dir + "/" + ch.filePath).absolutePath());
+        QFile of(dir + "/" + ch.filePath);
+        if (of.open(QIODevice::WriteOnly)) of.write(ch.data);
+    }
+
+    QFile manifest(dir + "/manifest.json");
+    if (manifest.open(QIODevice::WriteOnly))
+        manifest.write(QJsonDocument(arr).toJson());
+
+    return id;
+}
+
+bool IncrementalBackup::restoreIncremental(const QString& baseBackupId, const QString& targetPath)
+{
+    Q_UNUSED(baseBackupId);
+    QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+                  + "/incremental/" + m_baseBackupId;
+    QFile manifest(dir + "/manifest.json");
+    if (!manifest.open(QIODevice::ReadOnly)) return false;
+    QJsonArray arr = QJsonDocument::fromJson(manifest.readAll()).array();
+    bool ok = true;
+    for (const auto& val : arr) {
+        QJsonObject obj = val.toObject();
+        QString srcPath = dir + "/" + obj["filePath"].toString();
+        QString dstPath = targetPath + "/" + obj["filePath"].toString();
+        QDir().mkpath(QFileInfo(dstPath).absolutePath());
+        if (!QFile::copy(srcPath, dstPath)) ok = false;
+    }
+    return ok;
+}
+
 void BackupManager::setBackupDirectory(const QString& dir)
 {
     m_backupDir = dir;

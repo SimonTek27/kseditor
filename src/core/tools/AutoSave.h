@@ -103,9 +103,12 @@ public:
     void setActiveDocument(const QString& path);
 
     void saveSession();
+    void saveSessionState(const QJsonObject& state);
     bool hasSession() const;
     Session getSession() const;
+    QJsonObject getSessionState() const;
     void clearSession();
+    bool recoverSessionState(const QJsonObject& sessionState);
 
     bool recover();
     bool recoverSession(const Session& session);

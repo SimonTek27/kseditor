@@ -1,3 +1,4 @@
+#include "core/animation/AnimationTimeline.h"
 #include "TimelineEditor.h"
 #include "animation/AnimationSystem.h"
 

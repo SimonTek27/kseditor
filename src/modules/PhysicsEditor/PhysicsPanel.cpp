@@ -143,7 +143,7 @@ void PhysicsPanel::buildUI()
     connect(m_surfaceType, QOverload<const QString&>::of(&QComboBox::currentTextChanged), this, &PhysicsPanel::onSurfaceTypeChanged);
 }
 
-void PhysicsPanel::setScene(Scene* scene) {
+void PhysicsPanel::setScene(SceneGraph* scene) {
     m_scene = scene;
     m_nodeName.clear();
     m_currentCollider = -1;
@@ -164,7 +164,7 @@ void PhysicsPanel::setSelectedNode(const QString& nodeName) {
 void PhysicsPanel::refresh() {
     if (!m_scene || m_nodeName.isEmpty()) return;
 
-    PhysicsBody& body = m_scene->physicsBodies[m_nodeName];
+    PhysicsBody& body = m_physicsBodies[m_nodeName];
 
     m_bodyType->setCurrentIndex(body.isStatic ? 0 : 1);
     m_mass->setValue(body.mass);
@@ -177,7 +177,7 @@ void PhysicsPanel::refresh() {
 void PhysicsPanel::populateColliderList() {
     m_colliderList->clear();
     if (!m_scene || m_nodeName.isEmpty()) return;
-    const PhysicsBody& body = m_scene->physicsBodies.value(m_nodeName);
+    const PhysicsBody& body = m_physicsBodies.value(m_nodeName);
     for (int i = 0; i < body.colliders.size(); ++i) {
         const PhysicsCollider& col = body.colliders[i];
         static const QStringList typeNames = {"Box","Sphere","Capsule","Mesh","ConvexHull"};
@@ -188,7 +188,7 @@ void PhysicsPanel::populateColliderList() {
 
 void PhysicsPanel::loadCollider(int idx) {
     if (!m_scene || m_nodeName.isEmpty()) return;
-    const PhysicsBody& body = m_scene->physicsBodies.value(m_nodeName);
+    const PhysicsBody& body = m_physicsBodies.value(m_nodeName);
     if (idx < 0 || idx >= body.colliders.size()) return;
     const PhysicsCollider& col = body.colliders[idx];
 
@@ -207,7 +207,7 @@ void PhysicsPanel::loadCollider(int idx) {
 
 void PhysicsPanel::saveCurrentCollider() {
     if (!m_scene || m_nodeName.isEmpty() || m_currentCollider < 0) return;
-    PhysicsBody& body = m_scene->physicsBodies[m_nodeName];
+    PhysicsBody& body = m_physicsBodies[m_nodeName];
     if (m_currentCollider >= body.colliders.size()) return;
 
     PhysicsCollider& col = body.colliders[m_currentCollider];
@@ -220,15 +220,15 @@ void PhysicsPanel::saveCurrentCollider() {
     col.restitution  = (float)m_restitution->value();
     col.isTrigger    = m_isTrigger->isChecked();
     col.surfaceType  = m_surfaceType->currentText();
-    m_scene->isDirty = true;
+    m_isDirty = true;
 }
 
 void PhysicsPanel::onAddCollider() {
     if (!m_scene || m_nodeName.isEmpty()) return;
     PhysicsCollider col;
     col.type = ColliderType::Box;
-    m_scene->physicsBodies[m_nodeName].colliders.append(col);
-    m_scene->isDirty = true;
+    m_physicsBodies[m_nodeName].colliders.append(col);
+    m_isDirty = true;
     populateColliderList();
     m_colliderList->setCurrentRow(m_colliderList->count()-1);
     emit physicsChanged();
@@ -236,9 +236,9 @@ void PhysicsPanel::onAddCollider() {
 
 void PhysicsPanel::onRemoveCollider() {
     if (!m_scene || m_nodeName.isEmpty() || m_currentCollider < 0) return;
-    m_scene->physicsBodies[m_nodeName].colliders.removeAt(m_currentCollider);
+    m_physicsBodies[m_nodeName].colliders.removeAt(m_currentCollider);
     m_currentCollider = -1;
-    m_scene->isDirty = true;
+    m_isDirty = true;
     populateColliderList();
     emit physicsChanged();
 }
@@ -262,19 +262,19 @@ void PhysicsPanel::onColliderTypeChanged(int idx) {
 void PhysicsPanel::onBodyTypeChanged(int idx) {
     if (!m_scene || m_nodeName.isEmpty()) return;
     bool isStatic = (idx == 0);
-    m_scene->physicsBodies[m_nodeName].isStatic = isStatic;
+    m_physicsBodies[m_nodeName].isStatic = isStatic;
     m_mass->setEnabled(!isStatic);
-    m_scene->isDirty = true;
+    m_isDirty = true;
     emit physicsChanged();
 }
 
 void PhysicsPanel::onParamChanged() {
     saveCurrentCollider();
     if (m_scene) {
-        m_scene->physicsBodies[m_nodeName].mass       = (float)m_mass->value();
-        m_scene->physicsBodies[m_nodeName].linearDamp = (float)m_linDamp->value();
-        m_scene->physicsBodies[m_nodeName].angularDamp= (float)m_angDamp->value();
-        m_scene->isDirty = true;
+        m_physicsBodies[m_nodeName].mass       = (float)m_mass->value();
+        m_physicsBodies[m_nodeName].linearDamp = (float)m_linDamp->value();
+        m_physicsBodies[m_nodeName].angularDamp= (float)m_angDamp->value();
+        m_isDirty = true;
     }
     emit physicsChanged();
 }

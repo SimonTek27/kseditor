@@ -47,6 +47,36 @@ struct CarPhysicsConfig {
     // Transmission
     int transmissionType = 0;
     int gearCount = 7;
+
+    // ERS/Hybrid
+    struct Ers {
+        bool enabled = false;
+        int architecture = 0;       // HybridArchitecture enum
+        int deploymentMode = 7;     // ErsMode (auto = 7)
+        float mgukPowerKw = 120.0f;
+        float mgukRegenKw = 120.0f;
+        float mguhPowerKw = 120.0f;
+        float batteryCapacityMj = 4.0f;
+        float batterySoc = 50.0f;
+        float perLapEnergyMj = 4.0f;
+        bool attackModeAvailable = false;
+    } ers;
+
+    // Damage
+    struct Damage {
+        bool enabled = false;
+        float aeroDamage = 0.0f;
+        float engineHealth = 100.0f;
+        float bodyHealth = 100.0f;
+    } damage;
+
+    // Weather
+    struct Weather {
+        float trackWetness = 0.0f;
+        float rainIntensity = 0.0f;
+        float ambientTemp = 26.0f;
+        float trackTemp = 30.0f;
+    } weather;
 };
 
 namespace ks {
@@ -60,7 +90,6 @@ class PhysicsQmlBridge : public QObject {
     Q_PROPERTY(float frontDownforce READ frontDownforce WRITE setFrontDownforce NOTIFY aeroChanged)
     Q_PROPERTY(float rearDownforce READ rearDownforce WRITE setRearDownforce NOTIFY aeroChanged)
     Q_PROPERTY(float drag READ drag WRITE setDrag NOTIFY aeroChanged)
-    Q_PROPERTY(bool drsEnabled READ drsEnabled WRITE setDrsEnabled NOTIFY aeroChanged)
     Q_PROPERTY(float brakeBalance READ brakeBalance WRITE setBrakeBalance NOTIFY brakesChanged)
     Q_PROPERTY(bool absEnabled READ absEnabled WRITE setAbsEnabled NOTIFY brakesChanged)
     Q_PROPERTY(int redlineRPM READ redlineRPM WRITE setRedlineRPM NOTIFY engineChanged)
@@ -105,6 +134,48 @@ class PhysicsQmlBridge : public QObject {
     Q_PROPERTY(int transmissionType READ transmissionType WRITE setTransmissionType NOTIFY drivetrainChanged)
     Q_PROPERTY(int gearCount READ gearCount WRITE setGearCount NOTIFY drivetrainChanged)
 
+    // ERS/Hybrid
+    Q_PROPERTY(bool ersEnabled READ ersEnabled WRITE setErsEnabled NOTIFY ersChanged)
+    Q_PROPERTY(int ersArchitecture READ ersArchitecture WRITE setErsArchitecture NOTIFY ersChanged)
+    Q_PROPERTY(int ersDeploymentMode READ ersDeploymentMode WRITE setErsDeploymentMode NOTIFY ersChanged)
+    Q_PROPERTY(float ersMgukPower READ ersMgukPower WRITE setErsMgukPower NOTIFY ersChanged)
+    Q_PROPERTY(float ersMgukRegen READ ersMgukRegen WRITE setErsMgukRegen NOTIFY ersChanged)
+    Q_PROPERTY(float ersMguhPower READ ersMguhPower WRITE setErsMguhPower NOTIFY ersChanged)
+    Q_PROPERTY(float ersBatteryCapacity READ ersBatteryCapacity WRITE setErsBatteryCapacity NOTIFY ersChanged)
+    Q_PROPERTY(float ersBatterySoc READ ersBatterySoc NOTIFY ersStateChanged)
+    Q_PROPERTY(float ersBatteryTemp READ ersBatteryTemp NOTIFY ersStateChanged)
+    Q_PROPERTY(float ersPerLapEnergy READ ersPerLapEnergy WRITE setErsPerLapEnergy NOTIFY ersChanged)
+    Q_PROPERTY(float ersEnergyDeployed READ ersEnergyDeployed NOTIFY ersStateChanged)
+    Q_PROPERTY(bool ersAttackAvailable READ ersAttackAvailable NOTIFY ersStateChanged)
+    Q_PROPERTY(bool ersAttackActive READ ersAttackActive NOTIFY ersStateChanged)
+
+    // DRS
+    Q_PROPERTY(bool drsEnabled READ drsEnabled WRITE setDrsEnabled NOTIFY drsChanged)
+    Q_PROPERTY(bool drsAutoActivate READ drsAutoActivate WRITE setDrsAutoActivate NOTIFY drsChanged)
+    Q_PROPERTY(float drsSpeedThreshold READ drsSpeedThreshold WRITE setDrsSpeedThreshold NOTIFY drsChanged)
+    Q_PROPERTY(bool drsActive READ drsActive NOTIFY drsStateChanged)
+    Q_PROPERTY(float drsDragReduction READ drsDragReduction WRITE setDrsDragReduction NOTIFY drsChanged)
+
+    // Damage Model
+    Q_PROPERTY(bool damageEnabled READ damageEnabled WRITE setDamageEnabled NOTIFY damageChanged)
+    Q_PROPERTY(float aeroDamage READ aeroDamage NOTIFY damageStateChanged)
+    Q_PROPERTY(float engineDamage READ engineDamage NOTIFY damageStateChanged)
+    Q_PROPERTY(float bodyDamage READ bodyDamage NOTIFY damageStateChanged)
+    Q_PROPERTY(bool isEliminated READ isEliminated NOTIFY damageStateChanged)
+
+    // Weather
+    Q_PROPERTY(float trackWetness READ trackWetness WRITE setTrackWetness NOTIFY weatherChanged)
+    Q_PROPERTY(float rainIntensity READ rainIntensity WRITE setRainIntensity NOTIFY weatherChanged)
+    Q_PROPERTY(float ambientTemp READ ambientTemp WRITE setAmbientTemp NOTIFY weatherChanged)
+    Q_PROPERTY(float trackTemp READ trackTemp NOTIFY weatherChanged)
+    Q_PROPERTY(float aquaplaningRisk READ aquaplaningRisk NOTIFY weatherStateChanged)
+    Q_PROPERTY(float trackGrip READ trackGrip NOTIFY weatherStateChanged)
+
+    // Fuel
+    Q_PROPERTY(float fuelKg READ fuelKg WRITE setFuelKg NOTIFY fuelChanged)
+    Q_PROPERTY(float fuelCapacity READ fuelCapacity WRITE setFuelCapacity NOTIFY fuelChanged)
+    Q_PROPERTY(bool fuelConsumptionEnabled READ fuelConsumptionEnabled WRITE setFuelConsumptionEnabled NOTIFY fuelChanged)
+
 signals:
     void carNameChanged(const QString& name);
     void massChanged();
@@ -124,6 +195,15 @@ signals:
     void steeringChanged();
     void driverChanged();
     void aiChanged();
+    void ersChanged();
+    void ersStateChanged();
+    void drsChanged();
+    void drsStateChanged();
+    void damageChanged();
+    void damageStateChanged();
+    void weatherChanged();
+    void weatherStateChanged();
+    void fuelChanged();
 
 public:
     explicit PhysicsQmlBridge(QObject* parent = nullptr);
@@ -156,7 +236,7 @@ public:
     void setDrag(float d) { m_config.aero.drag = d; emit aeroChanged(); }
 
     bool drsEnabled() const { return m_config.aero.drsEnabled; }
-    void setDrsEnabled(bool e) { m_config.aero.drsEnabled = e; emit aeroChanged(); }
+    void setDrsEnabled(bool e);
 
     float brakeBalance() const { return m_config.brakes.brakeBalance; }
     void setBrakeBalance(float b) { m_config.brakes.brakeBalance = b; emit brakesChanged(); }
@@ -251,6 +331,67 @@ public:
     int gearCount() const { return m_config.gearCount; }
     void setGearCount(int v) { m_config.gearCount = v; emit drivetrainChanged(); }
 
+    // ERS
+    bool ersEnabled() const { return m_config.ers.enabled; }
+    void setErsEnabled(bool e);
+    int ersArchitecture() const { return m_config.ers.architecture; }
+    void setErsArchitecture(int v);
+    int ersDeploymentMode() const { return m_config.ers.deploymentMode; }
+    void setErsDeploymentMode(int v);
+    float ersMgukPower() const { return m_config.ers.mgukPowerKw; }
+    void setErsMgukPower(float v);
+    float ersMgukRegen() const { return m_config.ers.mgukRegenKw; }
+    void setErsMgukRegen(float v);
+    float ersMguhPower() const { return m_config.ers.mguhPowerKw; }
+    void setErsMguhPower(float v);
+    float ersBatteryCapacity() const { return m_config.ers.batteryCapacityMj; }
+    void setErsBatteryCapacity(float v);
+    float ersBatterySoc() const;
+    float ersBatteryTemp() const;
+    float ersPerLapEnergy() const { return m_config.ers.perLapEnergyMj; }
+    void setErsPerLapEnergy(float v);
+    float ersEnergyDeployed() const;
+    bool ersAttackAvailable() const;
+    bool ersAttackActive() const;
+    Q_INVOKABLE void activateErsAttack();
+
+    // DRS
+    bool drsAutoActivate() const;
+    void setDrsAutoActivate(bool v);
+    float drsSpeedThreshold() const;
+    void setDrsSpeedThreshold(float v);
+    bool drsActive() const;
+    float drsDragReduction() const;
+    void setDrsDragReduction(float v);
+
+    // Damage
+    bool damageEnabled() const { return m_config.damage.enabled; }
+    void setDamageEnabled(bool e);
+    float aeroDamage() const;
+    float engineDamage() const;
+    float bodyDamage() const;
+    bool isEliminated() const;
+    Q_INVOKABLE void resetDamage();
+
+    // Weather
+    float trackWetness() const { return m_config.weather.trackWetness; }
+    void setTrackWetness(float v);
+    float rainIntensity() const { return m_config.weather.rainIntensity; }
+    void setRainIntensity(float v);
+    float ambientTemp() const { return m_config.weather.ambientTemp; }
+    void setAmbientTemp(float v);
+    float trackTemp() const;
+    float aquaplaningRisk() const;
+    float trackGrip() const;
+
+    // Fuel
+    float fuelKg() const { return m_fuelKg; }
+    void setFuelKg(float v);
+    float fuelCapacity() const { return m_fuelCapacity; }
+    void setFuelCapacity(float v);
+    bool fuelConsumptionEnabled() const { return m_fuelConsumptionEnabled; }
+    void setFuelConsumptionEnabled(bool v);
+
     void loadFromConfig(const CarPhysicsConfig& config);
     void saveToConfig(CarPhysicsConfig& config) const;
     Q_INVOKABLE bool validate();
@@ -291,6 +432,9 @@ private:
     CarPhysicsConfig m_config;
     float m_damping = 0.1f;
     float m_rideHeight = 0.1f;
+    float m_fuelKg = 80.0f;
+    float m_fuelCapacity = 80.0f;
+    bool m_fuelConsumptionEnabled = true;
     QString m_currentCategory;
     QString m_currentFile;
     bool m_isSimulating = false;

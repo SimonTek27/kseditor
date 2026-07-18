@@ -12,6 +12,7 @@
 #include <CGAL/Polygon_mesh_processing/repair.h>
 #include <CGAL/Polygon_mesh_processing/orientation.h>
 #include <CGAL/Polygon_mesh_processing/triangulate_faces.h>
+#include <CGAL/boost/graph/helpers.h>
 #include <CGAL/IO/STL.h>
 #include <CGAL/IO/PLY.h>
 #include <CGAL/IO/OBJ.h>
@@ -90,19 +91,9 @@ BoolOpResult BooleanOperations::performOperationImpl(
         // Create CGAL meshes
         Triangle_mesh cgalMeshA, cgalMeshB, cgalResult;
 
-        // Manual mesh building: create vertices and add faces one by one
-        auto buildMesh = [&](Triangle_mesh& out, const std::vector<Point_3>& verts, const std::vector<std::vector<size_t>>& faces) {
-            for (const auto& p : verts)
-                out.add_vertex(p);
-            for (const auto& f : faces) {
-                std::vector<Triangle_mesh::Vertex_index> tri;
-                for (auto idx : f)
-                    tri.push_back(Triangle_mesh::Vertex_index(idx));
-                out.add_face(tri);
-            }
-        };
-        buildMesh(cgalMeshA, cgalVerticesA, cgalFacesA);
-        buildMesh(cgalMeshB, cgalVerticesB, cgalFacesB);
+        // Build CGAL meshes robustly from polygon soups
+        PMP::polygon_soup_to_polygon_mesh(cgalVerticesA, cgalFacesA, cgalMeshA);
+        PMP::polygon_soup_to_polygon_mesh(cgalVerticesB, cgalFacesB, cgalMeshB);
 
         if (cgalMeshA.is_empty() || cgalMeshB.is_empty()) {
             result.status = BoolOpResult::InvalidInput;
@@ -111,13 +102,16 @@ BoolOpResult BooleanOperations::performOperationImpl(
             return result;
         }
 
-        if (!PMP::is_outward_oriented(cgalMeshA)) {
-            PMP::reverse_face_orientations(cgalMeshA);
-        }
-
-        if (!PMP::is_outward_oriented(cgalMeshB)) {
-            PMP::reverse_face_orientations(cgalMeshB);
-        }
+        // Ensure valid, closed, triangulated and consistently oriented inputs so
+        // the corefinement does not hit degenerate/non-manifold cases.
+        auto preprocess = [&](Triangle_mesh& m) {
+            PMP::remove_degenerate_faces(m);
+            PMP::triangulate_faces(m);
+            PMP::remove_isolated_vertices(m);
+            PMP::orient_to_bound_a_volume(m);
+        };
+        preprocess(cgalMeshA);
+        preprocess(cgalMeshB);
 
         bool opSuccess = false;
         if (op == Operation::Union) {
@@ -144,29 +138,29 @@ BoolOpResult BooleanOperations::performOperationImpl(
 
         result.result.clear();
 
+        PMP::triangulate_faces(cgalResult);
+
         for (auto vertex : cgalResult.vertices()) {
             const auto& p = cgalResult.point(vertex);
             GeoVertex v;
-            v.x = p.x();
-            v.y = p.y();
-            v.z = p.z();
+            v.x = CGAL::to_double(p.x());
+            v.y = CGAL::to_double(p.y());
+            v.z = CGAL::to_double(p.z());
             result.result.vertices.push_back(v);
         }
 
         for (auto face : cgalResult.faces()) {
-            auto hrange = cgalResult.halfedges_around_face(cgalResult.halfedge(face));
-            auto it = hrange.begin();
-            auto end = hrange.end();
-            if (it != end) {
-                GeoFace f;
-                f.v0 = cgalResult.source(*it);
-                f.v1 = cgalResult.target(*it);
-                ++it;
-                if (it != end) {
-                    f.v2 = cgalResult.target(*it);
-                }
-                result.result.faces.push_back(f);
-            }
+            auto h = cgalResult.halfedge(face);
+            if (h == Triangle_mesh::null_halfedge()) continue;
+            std::vector<size_t> idxs;
+            for (auto v : cgalResult.vertices_around_face(h))
+                idxs.push_back(static_cast<size_t>(v));
+            if (idxs.size() < 3) continue;
+            GeoFace f;
+            f.v0 = static_cast<uint32_t>(idxs[0]);
+            f.v1 = static_cast<uint32_t>(idxs[1]);
+            f.v2 = static_cast<uint32_t>(idxs[2]);
+            result.result.faces.push_back(f);
         }
 
         recalculateNormals(result.result);
@@ -307,43 +301,41 @@ GeoMeshData BooleanOperations::repairMesh(const GeoMeshData& mesh) {
         }
 
         Triangle_mesh cgalMesh;
-        qDebug() << "Repair input:" << cgalVertices.size() << "verts" << cgalFaces.size() << "faces";
-        PMP::polygon_soup_to_polygon_mesh(cgalVertices, cgalFaces, cgalMesh);
-        qDebug() << "After soup:" << cgalMesh.number_of_vertices() << "v" << cgalMesh.number_of_faces() << "f";
-
-        if (!PMP::remove_degenerate_faces(cgalMesh)) {
-            qWarning() << "Repair: degenerate faces removal failed";
+        // Drop degenerate faces (faces referencing the same vertex twice) so the
+        // soup can be turned into a valid polygon mesh.
+        std::vector<std::vector<size_t>> cleanFaces;
+        for (const auto& f : cgalFaces) {
+            bool degenerate = false;
+            for (size_t i = 0; i < f.size() && !degenerate; ++i)
+                for (size_t j = i + 1; j < f.size(); ++j)
+                    if (f[i] == f[j]) { degenerate = true; break; }
+            if (!degenerate) cleanFaces.push_back(f);
         }
-        if (!PMP::triangulate_faces(cgalMesh)) {
-            qWarning() << "Repair: triangulation failed";
-        }
-        PMP::remove_isolated_vertices(cgalMesh);
+        PMP::polygon_soup_to_polygon_mesh(cgalVertices, cleanFaces, cgalMesh);
 
         GeoMeshData repairedMesh;
 
         for (auto vertex : cgalMesh.vertices()) {
             const auto& p = cgalMesh.point(vertex);
             GeoVertex v;
-            v.x = p.x();
-            v.y = p.y();
-            v.z = p.z();
+            v.x = CGAL::to_double(p.x());
+            v.y = CGAL::to_double(p.y());
+            v.z = CGAL::to_double(p.z());
             repairedMesh.vertices.push_back(v);
         }
 
         for (auto face : cgalMesh.faces()) {
-            auto hrange = cgalMesh.halfedges_around_face(cgalMesh.halfedge(face));
-            auto it = hrange.begin();
-            auto end = hrange.end();
-            if (it != end) {
-                GeoFace f;
-                f.v0 = cgalMesh.source(*it);
-                f.v1 = cgalMesh.target(*it);
-                ++it;
-                if (it != end) {
-                    f.v2 = cgalMesh.target(*it);
-                }
-                repairedMesh.faces.push_back(f);
-            }
+            auto h = cgalMesh.halfedge(face);
+            if (h == Triangle_mesh::null_halfedge()) continue;
+            std::vector<size_t> idxs;
+            for (auto v : cgalMesh.vertices_around_face(h))
+                idxs.push_back(static_cast<size_t>(v));
+            if (idxs.size() < 3) continue;
+            GeoFace f;
+            f.v0 = static_cast<uint32_t>(idxs[0]);
+            f.v1 = static_cast<uint32_t>(idxs[1]);
+            f.v2 = static_cast<uint32_t>(idxs[2]);
+            repairedMesh.faces.push_back(f);
         }
 
         qDebug() << "Repair result:" << repairedMesh.vertices.size() << "verts" << repairedMesh.faces.size() << "faces";
@@ -367,6 +359,10 @@ void BooleanOperations::recalculateNormals(GeoMeshData& mesh) {
     mesh.normals.resize(mesh.vertices.size(), GeoVertex(0, 0, 0));
 
     for (const auto& face : mesh.faces) {
+        if (face.v0 >= mesh.vertices.size() ||
+            face.v1 >= mesh.vertices.size() ||
+            face.v2 >= mesh.vertices.size())
+            continue;
 
         const GeoVertex& v0 = mesh.vertices[face.v0];
         const GeoVertex& v1 = mesh.vertices[face.v1];

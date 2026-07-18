@@ -4,9 +4,13 @@
 #include <QString>
 #include <QJsonObject>
 
+#if !defined(Q_MOC_RUN)
 #include "SceneObject.h"
+#endif
 
 namespace ks {
+
+using graphics::SceneObject;
 
 class SceneGraph
 {

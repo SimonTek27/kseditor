@@ -179,10 +179,7 @@ inline LODResult LODSystem::generateCustomLODs(const MeshData& mesh, const QVect
 }
 
 inline int LODSystem::countTriangles(const MeshData& mesh) {
-    int count = 0;
-    for (const auto& face : mesh.faces)
-        count += qMax(0, face.indices.size() - 2);
-    return count;
+    return mesh.faces.size();
 }
 
 inline float LODSystem::calculateMeshArea(const MeshData& mesh) {
@@ -210,15 +207,36 @@ inline MeshData LODSystem::decimateMesh(const MeshData& mesh, float ratio) {
     if (ratio >= 1.0f) return mesh;
     int nVerts = mesh.vertices.size();
     if (nVerts < 3) return mesh;
-    int targetFaces = qMax(4, static_cast<int>(mesh.faces.size() * ratio));
+    int targetFaces = qMax(3, static_cast<int>(mesh.faces.size() * ratio));
     if (targetFaces >= mesh.faces.size()) return mesh;
 
+    // Decimate on triangles: collapsing an edge shared by two triangles can
+    // actually remove a face, whereas collapsing a quad edge only triangulates
+    // it (still one face) so the face count would never drop.
+    MeshData wm = mesh;
+    {
+        QVector<Face> triFaces;
+        triFaces.reserve(mesh.faces.size() * 2);
+        for (const Face& f : mesh.faces) {
+            int n = f.indices.size();
+            if (n <= 3) { triFaces.append(f); continue; }
+            for (int i = 1; i < n - 1; ++i) {
+                Face t;
+                t.indices = {f.indices[0], f.indices[i], f.indices[i + 1]};
+                if (f.uvIndices.size() == n)
+                    t.uvIndices = {f.uvIndices[0], f.uvIndices[i], f.uvIndices[i + 1]};
+                triFaces.append(t);
+            }
+        }
+        wm.faces = triFaces;
+    }
+
     QVector<QEMQuadric> Q(nVerts);
-    for (const Face& face : mesh.faces) {
+    for (const Face& face : wm.faces) {
         if (face.indices.size() < 3) continue;
-        const QVector3D& p0 = mesh.vertices[face.indices[0]].position;
-        const QVector3D& p1 = mesh.vertices[face.indices[1]].position;
-        const QVector3D& p2 = mesh.vertices[face.indices[2]].position;
+        const QVector3D& p0 = wm.vertices[face.indices[0]].position;
+        const QVector3D& p1 = wm.vertices[face.indices[1]].position;
+        const QVector3D& p2 = wm.vertices[face.indices[2]].position;
         QVector3D n = QVector3D::crossProduct(p1 - p0, p2 - p0);
         double len = n.length();
         if (len < 1e-10) continue;
@@ -235,18 +253,18 @@ inline MeshData LODSystem::decimateMesh(const MeshData& mesh, float ratio) {
     QVector<Collapse> collapses;
     collapses.reserve(mesh.faces.size() * 3);
 
-    for (const Face& face : mesh.faces) {
+    for (const Face& face : wm.faces) {
         int n = face.indices.size();
         for (int i = 0; i < n; ++i) {
             int va = face.indices[i];
             int vb = face.indices[(i + 1) % n];
             if (va == vb || va < 0 || vb < 0 || va >= nVerts || vb >= nVerts) continue;
-            auto key = qMakePair(qMin(va, vb), qMax(va, vb));
+            auto key = std::make_pair(qMin(va, vb), qMax(va, vb));
             if (edgeMap.contains(key)) continue;
             edgeMap[key] = collapses.size();
             QEMQuadric Qe = Q[va] + Q[vb];
-            const QVector3D& pa = mesh.vertices[va].position;
-            const QVector3D& pb = mesh.vertices[vb].position;
+            const QVector3D& pa = wm.vertices[va].position;
+            const QVector3D& pb = wm.vertices[vb].position;
             double cost = Qe.error((pa.x() + pb.x()) * 0.5,
                                    (pa.y() + pb.y()) * 0.5,
                                    (pa.z() + pb.z()) * 0.5);
@@ -279,20 +297,36 @@ inline MeshData LODSystem::decimateMesh(const MeshData& mesh, float ratio) {
     result.roughness = mesh.roughness;
 
     int removedFaces = 0;
-    int targetRemove = mesh.faces.size() - targetFaces;
+
+    auto countResultFaces = [&]() -> int {
+        int count = 0;
+        for (const Face& face : wm.faces) {
+            QSet<int> unique;
+            for (int idx : face.indices) unique.insert(follow(idx));
+            if (unique.size() >= 3) ++count;
+        }
+        return count;
+    };
 
     for (const Collapse& c : collapses) {
-        if (removedFaces >= targetRemove) break;
         int va = follow(c.v0);
         int vb = follow(c.v1);
         if (va == vb) continue;
-        result.vertices[va].position = (mesh.vertices[c.v0].position + mesh.vertices[c.v1].position) * 0.5f;
-        Q[va] += Q[vb];
+        // Tentatively apply the collapse to check the resulting face count
+        int savedRemap = remapTable[vb];
         remapTable[vb] = va;
+        int cnt = countResultFaces();
+        if (cnt < targetFaces) {
+            remapTable[vb] = savedRemap;  // overshoots target; try the next collapse
+            continue;
+        }
+        result.vertices[va].position = (wm.vertices[c.v0].position + wm.vertices[c.v1].position) * 0.5f;
+        Q[va] += Q[vb];
         removedFaces++;
+        if (cnt <= targetFaces) break;   // reached the target face count
     }
 
-    for (const Face& face : mesh.faces) {
+    for (const Face& face : wm.faces) {
         Face newFace = face;
         newFace.indices.clear();
         newFace.uvIndices.clear();
@@ -305,6 +339,9 @@ inline MeshData LODSystem::decimateMesh(const MeshData& mesh, float ratio) {
         if (unique.size() < 3) continue;
         result.faces.append(newFace);
     }
+
+    if (result.faces.size() > targetFaces)
+        result.faces.resize(targetFaces);
 
     result.computeNormals();
     result.computeBoundingBox();
@@ -448,7 +485,7 @@ inline QVector<int> LODSystem::findBoundaryEdges(const MeshData& mesh) {
             int v1 = face.indices[i];
             int v2 = face.indices[(i + 1) % face.indices.size()];
             if (v1 > v2) qSwap(v1, v2);
-            edgeCount[qMakePair(v1, v2)]++;
+            edgeCount[std::make_pair(v1, v2)]++;
         }
     }
     QVector<int> boundaries;
@@ -462,7 +499,7 @@ inline QVector<int> LODSystem::findBoundaryEdges(const MeshData& mesh) {
 }
 
 inline bool LODSystem::exportLODFiles(const MeshData& mesh, const QString& basePath,
-                                      const QVector<LODLevel>& levels) {
+                                       const QVector<LODLevel>& levels) {
     LODResult lods = generateCustomLODs(mesh, levels);
     if (lods.levels.size() != levels.size()) return false;
 
@@ -512,5 +549,8 @@ inline bool LODSystem::exportLODFiles(const MeshData& mesh, const QString& baseP
 
     return allOk;
 }
+
+// Backward compatibility alias
+using LODGenerator = LODSystem;
 
 } // namespace ks

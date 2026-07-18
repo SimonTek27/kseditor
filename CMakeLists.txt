@@ -274,7 +274,7 @@ file(GLOB_RECURSE PLUGIN_SOURCES_EXCLUDE
 )
 list(REMOVE_ITEM ALL_SOURCES ${PLUGIN_SOURCES_EXCLUDE})
 
-# Re-add files needed by kseditor_lib that were excluded above
+# Re-add plugin sources that were excluded by PLUGIN_SOURCES_EXCLUDE but needed in the library
 list(APPEND ALL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/KN5Parser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/acFiles/FBXExporter.cpp
@@ -290,7 +290,8 @@ file(GLOB_RECURSE ALL_HEADERS
 
 list(REMOVE_ITEM ALL_HEADERS ${PLUGIN_SOURCES_EXCLUDE})
 
-file(GLOB BROKEN_HEADERS)
+file(GLOB BROKEN_HEADERS
+)
 
 list(REMOVE_ITEM ALL_HEADERS ${BROKEN_HEADERS})
 set(HEADERS ${ALL_HEADERS})
@@ -320,6 +321,11 @@ target_include_directories(kseditor_lib PRIVATE
     ${PROJECT_SOURCE_DIR}/src/plugins
     ${PROJECT_SOURCE_DIR}/src/plugins/simulators/kunos
     ${PROJECT_SOURCE_DIR}/resources/ui
+    ${PROJECT_SOURCE_DIR}/external/openxr/include
+    ${PROJECT_SOURCE_DIR}/src/core/3dprint
+    ${PROJECT_SOURCE_DIR}/src/core/VR
+    ${PROJECT_SOURCE_DIR}/src/core/eventEditor
+    ${PROJECT_SOURCE_DIR}/src/core/ServerConfigEditor
     "${Qt6Core_DIR}/../../../include/QtCore/${Qt6Core_VERSION}"
     "${Qt6Core_DIR}/../../../include/QtCore/${Qt6Core_VERSION}/QtCore/private"
 )
@@ -448,6 +454,7 @@ else()
 endif()
 
 target_compile_definitions(kseditor_lib PRIVATE NOMINMAX)
+target_compile_definitions(kseditor_lib PRIVATE HAS_3DPRINT=1)
 
 add_executable(kseditor WIN32
     resources.qrc
@@ -564,6 +571,7 @@ qt6_wrap_cpp(ASSETTOCORSA_MOC_SOURCES ${ASSETTOCORSA_PLUGIN_MOC_HEADERS})
 
 set(ASSETTOCORSA_SOURCES
     ${ASSETTOCORSA_PLUGIN_DIR}/ksAssettoCorsa.cpp
+    ${ASSETTOCORSA_PLUGIN_DIR}/AssetsLibraryModule.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/ContentBrowser.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/KsContentPaths.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/KsRunner.cpp
@@ -587,6 +595,7 @@ set(ASSETTOCORSA_SOURCES
 )
 
 set(ASSETTOCORSA_HEADERS
+    ${ASSETTOCORSA_PLUGIN_DIR}/AssetsLibraryModule.h
     ${ASSETTOCORSA_PLUGIN_DIR}/ksAssettoCorsa_export.h
     ${ASSETTOCORSA_PLUGIN_DIR}/ContentBrowser.h
     ${ASSETTOCORSA_PLUGIN_DIR}/KsContentPaths.h

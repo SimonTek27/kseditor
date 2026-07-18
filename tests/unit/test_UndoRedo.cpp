@@ -49,6 +49,7 @@ public:
         auto* mc = dynamic_cast<MergeableCommand*>(other);
         if (mc && &mc->m_value == &m_value) {
             m_delta += mc->m_delta;
+            m_value += mc->m_delta;
             return true;
         }
         return false;

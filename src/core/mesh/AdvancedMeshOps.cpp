@@ -914,6 +914,44 @@ MeshData PolygonOperations::mergeFaces(const MeshData& mesh, const QVector<int>&
     return result;
 }
 
+MeshData PolygonOperations::separateFaces(const MeshData& mesh, const QVector<int>& faceIndices) {
+    if (faceIndices.isEmpty()) {
+        return MeshData();
+    }
+
+    MeshData separated;
+    QSet<int> toSeparate;
+    for (int fi : faceIndices) {
+        if (fi >= 0 && fi < mesh.faces.size()) {
+            toSeparate.insert(fi);
+        }
+    }
+
+    // Map old vertex indices to new ones
+    QMap<int, int> vertexMap;
+
+    // Copy separated faces and their vertices
+    for (int fi : faceIndices) {
+        if (fi < 0 || fi >= mesh.faces.size()) continue;
+        const Face& face = mesh.faces[fi];
+
+        Face newFace;
+        for (int idx : face.indices) {
+            if (!vertexMap.contains(idx)) {
+                vertexMap[idx] = separated.vertices.size();
+                separated.vertices.append(mesh.vertices[idx]);
+                separated.normals.append(mesh.normals[idx]);
+                separated.uvs.append(mesh.uvs[idx]);
+            }
+            newFace.indices.append(vertexMap[idx]);
+        }
+        separated.faces.append(newFace);
+    }
+
+    separated.computeNormals();
+    return separated;
+}
+
 MeshData PolygonOperations::symmetricDifference(const MeshData& a, const MeshData& b) {
     // Symmetric difference = (A - B) + (B - A)
     MeshData subAB = BooleanCsg::subtract(a, b);
@@ -1225,7 +1263,7 @@ MeshData Bisect::cut(const MeshData& mesh, const QVector3D& planePoint, const QV
 QPair<MeshData, MeshData> Bisect::split(const MeshData& mesh, const QVector3D& planePoint, const QVector3D& planeNormal) {
     MeshData positive = cut(mesh, planePoint, planeNormal, false, true, false);
     MeshData negative = cut(mesh, planePoint, planeNormal, false, false, true);
-    return qMakePair(positive, negative);
+    return std::make_pair(positive, negative);
 }
 
 QVector3D Bisect::projectToPlane(const QVector3D& point, const QVector3D& planePoint, const QVector3D& planeNormal) {

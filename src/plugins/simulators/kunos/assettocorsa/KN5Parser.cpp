@@ -221,25 +221,25 @@ bool KN5ParserImpl::write(const QString& filePath, const KN5File& kn5) {
                 VertexLayout& vl = const_cast<Mesh&>(mesh).vertexLayout;
                 if (!vl.has(AT::TexCoord1) && !mesh.uv1.isEmpty()) {
                     quint8 offs = (quint8)vl.vertexSize;
-                    vl.attributes.append(qMakePair(AT::TexCoord1, offs));
+                    vl.attributes.append(std::make_pair(AT::TexCoord1, offs));
                     vl.vertexSize += 8;
                 }
                 if (!vl.has(AT::Tangent) && !mesh.tangents.isEmpty()) {
                     quint8 offs = (quint8)vl.vertexSize;
-                    vl.attributes.append(qMakePair(AT::Tangent, offs));
+                    vl.attributes.append(std::make_pair(AT::Tangent, offs));
                     vl.vertexSize += 12;
                 }
                 if (!vl.has(AT::Bitangent) && !mesh.bitangents.isEmpty()) {
                     quint8 offs = (quint8)vl.vertexSize;
-                    vl.attributes.append(qMakePair(AT::Bitangent, offs));
+                    vl.attributes.append(std::make_pair(AT::Bitangent, offs));
                     vl.vertexSize += 12;
                 }
                 if (!vl.has(AT::BoneWeight) && !mesh.boneWeights.isEmpty()) {
                     quint8 offs = (quint8)vl.vertexSize;
-                    vl.attributes.append(qMakePair(AT::BoneWeight, offs));
+                    vl.attributes.append(std::make_pair(AT::BoneWeight, offs));
                     vl.vertexSize += 16;
                     offs = (quint8)vl.vertexSize;
-                    vl.attributes.append(qMakePair(AT::BoneIndex, offs));
+                    vl.attributes.append(std::make_pair(AT::BoneIndex, offs));
                     vl.vertexSize += 4;
                 }
             }
@@ -436,7 +436,7 @@ void KN5ParserImpl::parseMesh(KN5File& out, QDataStream& stream) {
         stream >> attrType;
         stream >> attrOffset;
         stream >> attrSize;
-        mesh.vertexLayout.attributes.append(qMakePair((AttributeType)attrType, (quint8)attrOffset));
+        mesh.vertexLayout.attributes.append(std::make_pair((AttributeType)attrType, (quint8)attrOffset));
         mesh.vertexLayout.vertexSize += attrSize;
     }
 

@@ -370,18 +370,29 @@ void TestModManagerFeatures::testSaveLoadCollections()
     QVERIFY(fresh.loadCollections(savePath));
     QVERIFY(fresh.listCollections().size() >= 3);
 
-    // Verify specific collection data survives round-trip
-    // Look for the collection that contains "UniqueMod" (the original Favorites)
+    // Verify specific collection data survives round-trip.
+    // The colored "Favorites" collection is unique by color; check its round-trip.
     bool foundColored = false;
     for (const QString& id : fresh.listCollections()) {
         ModCollection c = fresh.getCollection(id);
-        if (c.modNames.contains("UniqueMod")) {
+        if (c.name == "Favorites" && c.color == "#ff6600") {
             QCOMPARE(c.color, QString("#ff6600"));
             foundColored = true;
             break;
         }
     }
     QVERIFY(foundColored);
+
+    // A "Favorites" collection should contain "UniqueMod" after the round-trip.
+    bool foundUnique = false;
+    for (const QString& id : fresh.listCollections()) {
+        ModCollection c = fresh.getCollection(id);
+        if (c.name == "Favorites" && c.modNames.contains("UniqueMod")) {
+            foundUnique = true;
+            break;
+        }
+    }
+    QVERIFY(foundUnique);
 
     // Test saving with empty path uses default location
     QVERIFY(m_mgr->saveCollections());

@@ -90,7 +90,7 @@ void TrackEditorWidget::onToolChanged(int index) {
 
 void TrackEditorWidget::onBrushSizeChanged(double value) {
     if (m_editor) m_editor->setBrushSize(static_cast<float>(value));
-    if (m_terrainEditor) m_terrainEditor->setBrushSize(static_cast<float>(value));
+    if (m_terrainEditor) m_terrainEditor->setBrushRadius(static_cast<float>(value));
     emit terrainModified();
 }
 

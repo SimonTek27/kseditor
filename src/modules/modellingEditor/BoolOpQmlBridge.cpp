@@ -5,6 +5,7 @@
 #include "3DModelingQmlBridge.h"
 
 namespace ks::editor {
+using namespace graphics;
 
 BoolOpQmlBridge::BoolOpQmlBridge(QObject* parent)
     : QObject(parent)
@@ -20,15 +21,15 @@ geometry::GeoMeshData BoolOpQmlBridge::sceneMeshToGeometryMesh(SceneObject* obj)
     geometry::GeoMeshData md;
     if (!obj || !obj->mesh()) return md;
 
-    auto& verts = obj->mesh()->vertices();
+    auto& verts = obj->mesh()->geometry().vertices;
     md.vertices.reserve(verts.size());
     md.normals.reserve(verts.size());
     for (const auto& sv : verts) {
-        md.vertices.emplace_back(sv.position.x, sv.position.y, sv.position.z);
-        md.normals.emplace_back(0, 0, 0);
+        md.vertices.emplace_back(sv.position.x(), sv.position.y(), sv.position.z());
+        md.normals.emplace_back(sv.normal.x(), sv.normal.y(), sv.normal.z());
     }
 
-    auto& idxs = obj->mesh()->indices();
+    auto& idxs = obj->mesh()->geometry().indices;
     md.faces.reserve(idxs.size() / 3);
     for (int i = 0; i + 2 < idxs.size(); i += 3)
         md.faces.emplace_back(idxs[i], idxs[i + 1], idxs[i + 2]);
@@ -42,7 +43,7 @@ bool BoolOpQmlBridge::performOp(const QString& meshAId, const QString& meshBId,
     emit operationStarted();
     emit progressUpdated(10);
 
-    SceneGraph* scene = m_scene ? m_scene : KSModelerQml::instance().sceneGraph();
+    ks::SceneGraph* scene = m_scene ? m_scene : KSModelerQml::instance().sceneGraph();
     if (!scene) {
         m_lastResult.status = geometry::BoolOpResult::InvalidInput;
         m_lastResult.errorMessage = "No scene available";
@@ -82,18 +83,21 @@ bool BoolOpQmlBridge::performOp(const QString& meshAId, const QString& meshBId,
 
     if (m_lastResult.isSuccess()) {
         SceneMesh* resultMesh = new SceneMesh();
-        for (const auto& v : m_lastResult.result.vertices)
-            resultMesh->vertices().append({ Vec3((float)v.x, (float)v.y, (float)v.z), Vec3(1, 1, 1) });
-        for (const auto& f : m_lastResult.result.faces) {
-            resultMesh->indices().append(f.v0);
-            resultMesh->indices().append(f.v1);
-            resultMesh->indices().append(f.v2);
+        for (const auto& v : m_lastResult.result.vertices) {
+            SceneVertex sv;
+            sv.position = QVector3D((float)v.x, (float)v.y, (float)v.z);
+            sv.color = QVector4D(1, 1, 1, 1);
+            resultMesh->geometry().vertices.append(sv);
         }
-        resultMesh->update();
+        for (const auto& f : m_lastResult.result.faces) {
+            resultMesh->geometry().indices.append(f.v0);
+            resultMesh->geometry().indices.append(f.v1);
+            resultMesh->geometry().indices.append(f.v2);
+        }
         QString name = objA->name() + "_result";
         SceneObject* resultObj = scene->createObject(name, SceneObject::Type::Mesh);
         resultObj->setMesh(resultMesh);
-        resultObj->setTranslation(objA->translation());
+        resultObj->setPosition(objA->position());
 
         scene->deleteObject(objB);
     }

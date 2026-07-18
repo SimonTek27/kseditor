@@ -32,6 +32,9 @@ PluginManager::PluginManager(QObject* parent) : QObject(parent)
     m_pluginDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
                   + "/plugins";
     QDir().mkpath(m_pluginDir);
+    
+    m_reloadTimer = new QTimer(this);
+    connect(m_reloadTimer, &QTimer::timeout, this, &PluginManager::checkForChanges);
 }
 
 PluginManager::~PluginManager()
@@ -273,6 +276,63 @@ void PluginManager::restoreLoadedList()
     if (data.isEmpty()) return;
     for (const auto& v : QJsonDocument::fromJson(data).array())
         loadQtPlugin(v.toString());
+}
+
+void PluginManager::enableHotReload(bool enabled)
+{
+    m_hotReloadEnabled = enabled;
+    if (enabled) {
+        m_reloadTimer->start(m_hotReloadInterval);
+        setupFileWatchers();
+    } else {
+        m_reloadTimer->stop();
+    }
+}
+
+void PluginManager::setHotReloadInterval(int ms)
+{
+    m_hotReloadInterval = ms;
+    if (m_hotReloadEnabled) {
+        m_reloadTimer->setInterval(ms);
+    }
+}
+
+void PluginManager::checkForChanges()
+{
+    if (!m_hotReloadEnabled) return;
+    
+    QDir dir(m_pluginDir);
+    for (const auto& fi : dir.entryInfoList({"*.dll"}, QDir::Files)) {
+        QString path = fi.absoluteFilePath();
+        if (m_watchedFiles.contains(path)) {
+            QFileInfo oldInfo = m_watchedFiles[path];
+            if (fi.lastModified() > oldInfo.lastModified()) {
+                QString pluginId;
+                for (auto it = m_available.constBegin(); it != m_available.constEnd(); ++it) {
+                    if (it.value().filePath == path) {
+                        pluginId = it.key();
+                        break;
+                    }
+                }
+                if (!pluginId.isEmpty() && m_loaded.contains(pluginId)) {
+                    emit pluginAboutToReload(pluginId);
+                    reloadPlugin(pluginId);
+                    emit pluginReloaded(pluginId);
+                }
+                m_watchedFiles[path] = fi;
+            }
+        } else {
+            m_watchedFiles[path] = fi;
+        }
+    }
+}
+
+void PluginManager::setupFileWatchers()
+{
+    QDir dir(m_pluginDir);
+    for (const auto& fi : dir.entryInfoList({"*.dll"}, QDir::Files)) {
+        m_watchedFiles[fi.absoluteFilePath()] = fi;
+    }
 }
 
 // ── PluginManagerBase interface ────────────────────────────────────────────

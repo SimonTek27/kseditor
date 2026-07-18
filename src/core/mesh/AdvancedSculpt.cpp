@@ -330,6 +330,7 @@ void SculptProject::setActiveLayer(int index)
 void SculptProject::addMaskStroke(int layerIndex, const QVector<int>& vertices, float strength)
 {
     if (layerIndex < 0 || layerIndex >= m_layers.size()) return;
+    if (layerIndex >= m_layerStrokes.size()) return;
 
     Layer& layer = m_layers[layerIndex];
     for (int idx : vertices) {
@@ -337,6 +338,8 @@ void SculptProject::addMaskStroke(int layerIndex, const QVector<int>& vertices, 
             layer.maskValues[idx] = qBound(0.0f, layer.maskValues[idx] + strength, 1.0f);
         }
     }
+
+    m_layerStrokes[layerIndex].append(vertices);
 
     emit layerModified(layerIndex);
 }
@@ -346,6 +349,11 @@ void SculptProject::undoLayerStroke(int layerIndex)
     if (layerIndex < 0 || layerIndex >= m_layerStrokes.size()) return;
     if (m_layerStrokes[layerIndex].isEmpty()) return;
 
+    // Ensure redo stack is ready
+    while (m_redoStrokes.size() <= layerIndex)
+        m_redoStrokes.append(QVector<QVector<int>>());
+
+    m_redoStrokes[layerIndex].append(m_layerStrokes[layerIndex].last());
     m_layerStrokes[layerIndex].removeLast();
     emit layerModified(layerIndex);
 }
@@ -353,6 +361,10 @@ void SculptProject::undoLayerStroke(int layerIndex)
 void SculptProject::redoLayerStroke(int layerIndex)
 {
     if (layerIndex < 0 || layerIndex >= m_layerStrokes.size()) return;
+    if (m_redoStrokes.size() <= layerIndex || m_redoStrokes[layerIndex].isEmpty()) return;
+
+    m_layerStrokes[layerIndex].append(m_redoStrokes[layerIndex].last());
+    m_redoStrokes[layerIndex].removeLast();
     emit layerModified(layerIndex);
 }
 

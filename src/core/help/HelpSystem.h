@@ -9,6 +9,7 @@
 #include <QRect>
 #include <QMouseEvent>
 #include <QPair>
+#include <QCheckBox>
 
 namespace ks {
 
@@ -99,10 +100,13 @@ signals:
 
 private:
     void showTutorialUI();
+    void setupPageContent(TutorialPage page);
+
     static TutorialSystem* s_instance;
     QVector<TutorialStep> m_tutorialSteps;
     TutorialPage m_currentTutorial = Welcome;
     int m_currentStep = 0;
+    bool m_tutorialStarted = false;
 };
 
 class QuickStartGuide : public QObject {
@@ -150,6 +154,7 @@ public:
     void registerHelp(const QString& context, const QString& element,
                       const QString& description, const QString& shortcut = "");
     void showHelpForWidget(QWidget* widget);
+    void showHelp();
     void startTutorial(TutorialSystem::TutorialPage page);
     void startQuickStartGuide();
 

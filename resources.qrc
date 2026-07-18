@@ -13,6 +13,11 @@
         <file alias="edit-undo.svg">resources/assets/icons/edit-undo.svg</file>
         <file alias="edit-redo.svg">resources/assets/icons/edit-redo.svg</file>
         <file alias="settings.svg">resources/assets/icons/settings.svg</file>
+        <file alias="help.svg">resources/assets/icons/help.svg</file>
+        <file alias="window-minimize.svg">resources/assets/icons/window-minimize.svg</file>
+        <file alias="window-maximize.svg">resources/assets/icons/window-maximize.svg</file>
+        <file alias="window-restore.svg">resources/assets/icons/window-restore.svg</file>
+        <file alias="window-close.svg">resources/assets/icons/window-close.svg</file>
         <file alias="primitive-box.svg">resources/assets/icons/primitive-box.svg</file>
         <file alias="primitive-sphere.svg">resources/assets/icons/primitive-sphere.svg</file>
         <file alias="primitive-plane.svg">resources/assets/icons/primitive-plane.svg</file>
@@ -166,6 +171,7 @@
     </qresource>
     <qresource prefix="/ui/styles">
         <file alias="dark.qss">resources/ui/styles/dark.qss</file>
+        <file alias="light.qss">resources/ui/styles/light.qss</file>
     </qresource>
     <qresource prefix="/qml">
         <file alias="pages/page_ksModeler.qml">resources/ui/qml/pages/page_ksModeler.qml</file>

@@ -8,6 +8,8 @@
 
 namespace ks {
 
+class ModelerPythonAPI;
+
 /**
  * @brief Console per script output e error logging
  */

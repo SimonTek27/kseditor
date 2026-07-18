@@ -410,10 +410,9 @@ bool CspShaderManager::compileAll()
                 errors << QString("[%1] %2").arg(shaderSlots[i].name).arg(e);
             // Propagate parsed errors with slot name prefix
             for (const auto& pe : result.parsedErrors) {
-                ShaderCompileError p = pe;
-                p.message = QString("[%1] %2").arg(shaderSlots[i].name).arg(pe.message);
-                p.rawText = QString("[%1] %2").arg(shaderSlots[i].name).arg(pe.rawText);
-                // Store back — but errors is QStringList, so store the slot-prefixed string
+                QString slotPrefix = QString("[%1] ").arg(shaderSlots[i].name);
+                errors << slotPrefix + pe.message;
+                errors << slotPrefix + pe.rawText;
             }
         }
     }

@@ -631,8 +631,21 @@ AiBehaviorModel::AiDriverProfile AiBehaviorModel::applySuggestions(
 AiBehaviorModel::AiDriverProfile AiBehaviorModel::getRandomProfile() {
     int styleIdx = static_cast<int>(randomFloat(0, 7.99f));
     int tierIdx = static_cast<int>(randomFloat(0, 5.99f));
-    return getProfileByStyle(static_cast<DrivingStyle>(styleIdx),
-                             static_cast<DifficultyTier>(tierIdx));
+    AiDriverProfile p = getProfileByStyle(static_cast<DrivingStyle>(styleIdx),
+                                          static_cast<DifficultyTier>(tierIdx));
+    // Randomize numeric attributes so consecutive calls are distinct.
+    // Skill is biased to a competent range so simulated races reliably progress.
+    p.skill          = randomFloat(0.5f, 0.99f);
+    p.aggression     = randomFloat(0.0f, 1.0f);
+    p.defensive      = randomFloat(0.0f, 1.0f);
+    p.consistency    = randomFloat(0.0f, 1.0f);
+    p.mistakeRate    = randomFloat(0.0f, 0.5f);
+    p.tireManagement = randomFloat(0.0f, 1.0f);
+    p.fuelManagement = randomFloat(0.0f, 1.0f);
+    p.wetSkill       = randomFloat(0.0f, 1.0f);
+    p.qualifyingPace = randomFloat(0.0f, 1.0f);
+    p.racePace       = randomFloat(0.0f, 1.0f);
+    return p;
 }
 
 // ============================================================================
@@ -853,7 +866,12 @@ AiBehaviorModel::AiDriverProfile AiBehaviorModel::getBalancedProfile() {
 // ============================================================================
 
 AiBehaviorModel::AiDriverProfile AiBehaviorModel::getRookieDriver() {
-    return getNoviceConsistent();
+    AiDriverProfile p;
+    p.name = "Rookie";
+    p.skill = 0.35f; p.aggression = 0.45f; p.defensive = 0.40f; p.consistency = 0.35f;
+    p.mistakeRate = 0.30f; p.tireManagement = 0.30f; p.fuelManagement = 0.30f;
+    p.wetSkill = 0.25f; p.qualifyingPace = 0.35f; p.racePace = 0.30f;
+    return p;
 }
 
 // ============================================================================

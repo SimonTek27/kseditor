@@ -13,40 +13,40 @@ namespace ks {
 
 TrackMapEditorModule::TrackMapEditorModule(QWidget* parent) : EditorModule(parent) {}
 bool TrackMapEditorModule::initialize() { LOG_INFO("TrackMapEditorModule", "Initialized"); return true; }
-void TrackMapEditorModule::shutdown() { if (m_statusLabel) m_statusLabel->setText("Shut down"); }
+void TrackMapEditorModule::shutdown() { if (m_statusLabel) m_statusLabel->setText(tr("Shut down")); }
 
 QDockWidget* TrackMapEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
 {
     if (m_dockWidget) return m_dockWidget;
-    m_dockWidget = new QDockWidget("Track Map Editor", mainWindow);
+    m_dockWidget = new QDockWidget(tr("Track Map Editor"), mainWindow);
     m_dockWidget->setObjectName("TrackMapEditorDock");
 
     auto* centralWidget = new QWidget();
     auto* mainLayout = new QVBoxLayout(centralWidget);
 
-    auto* propsGroup = new QGroupBox("Map Settings");
+    auto* propsGroup = new QGroupBox(tr("Map Settings"));
     auto* propsLayout = new QGridLayout(propsGroup);
 
     m_centerXSpin = new QDoubleSpinBox(); m_centerXSpin->setRange(-100000, 100000);
-    propsLayout->addWidget(new QLabel("Center X:"), 0, 0); propsLayout->addWidget(m_centerXSpin, 0, 1);
+    propsLayout->addWidget(new QLabel(tr("Center X:")), 0, 0); propsLayout->addWidget(m_centerXSpin, 0, 1);
 
     m_centerYSpin = new QDoubleSpinBox(); m_centerYSpin->setRange(-100000, 100000);
-    propsLayout->addWidget(new QLabel("Center Y:"), 1, 0); propsLayout->addWidget(m_centerYSpin, 1, 1);
+    propsLayout->addWidget(new QLabel(tr("Center Y:")), 1, 0); propsLayout->addWidget(m_centerYSpin, 1, 1);
 
     m_zoomSpin = new QDoubleSpinBox(); m_zoomSpin->setRange(0.001, 1000); m_zoomSpin->setValue(1.0);
-    propsLayout->addWidget(new QLabel("Zoom:"), 2, 0); propsLayout->addWidget(m_zoomSpin, 2, 1);
+    propsLayout->addWidget(new QLabel(tr("Zoom:")), 2, 0); propsLayout->addWidget(m_zoomSpin, 2, 1);
 
     m_mapSizeSpin = new QDoubleSpinBox(); m_mapSizeSpin->setRange(0.001, 10000); m_mapSizeSpin->setValue(1.0);
-    propsLayout->addWidget(new QLabel("Map Size:"), 3, 0); propsLayout->addWidget(m_mapSizeSpin, 3, 1);
+    propsLayout->addWidget(new QLabel(tr("Map Size:")), 3, 0); propsLayout->addWidget(m_mapSizeSpin, 3, 1);
 
-    m_mapImageEdit = new QLineEdit(); m_mapImageEdit->setText("map.png");
-    propsLayout->addWidget(new QLabel("Image:"), 4, 0); propsLayout->addWidget(m_mapImageEdit, 4, 1);
+    m_mapImageEdit = new QLineEdit(); m_mapImageEdit->setText(tr("map.png"));
+    propsLayout->addWidget(new QLabel(tr("Image:")), 4, 0); propsLayout->addWidget(m_mapImageEdit, 4, 1);
 
     m_flipXCheck = new QCheckBox();
-    propsLayout->addWidget(new QLabel("Flip X:"), 5, 0); propsLayout->addWidget(m_flipXCheck, 5, 1);
+    propsLayout->addWidget(new QLabel(tr("Flip X:")), 5, 0); propsLayout->addWidget(m_flipXCheck, 5, 1);
 
     m_flipYCheck = new QCheckBox();
-    propsLayout->addWidget(new QLabel("Flip Y:"), 6, 0); propsLayout->addWidget(m_flipYCheck, 6, 1);
+    propsLayout->addWidget(new QLabel(tr("Flip Y:")), 6, 0); propsLayout->addWidget(m_flipYCheck, 6, 1);
 
     mainLayout->addWidget(propsGroup);
 
@@ -57,13 +57,13 @@ QDockWidget* TrackMapEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow
     mainLayout->addWidget(m_previewView);
 
     auto* actionLayout = new QHBoxLayout();
-    m_loadBtn = new QPushButton("Load map.ini");
-    m_saveBtn = new QPushButton("Save map.ini");
-    m_resetBtn = new QPushButton("Reset");
+    m_loadBtn = new QPushButton(tr("Load map.ini"));
+    m_saveBtn = new QPushButton(tr("Save map.ini"));
+    m_resetBtn = new QPushButton(tr("Reset"));
     actionLayout->addWidget(m_loadBtn); actionLayout->addWidget(m_saveBtn); actionLayout->addWidget(m_resetBtn);
     mainLayout->addLayout(actionLayout);
 
-    m_statusLabel = new QLabel("Ready");
+    m_statusLabel = new QLabel(tr("Ready"));
     mainLayout->addWidget(m_statusLabel);
 
     connect(m_loadBtn, &QPushButton::clicked, this, &TrackMapEditorModule::onLoadFile);
@@ -85,20 +85,20 @@ void TrackMapEditorModule::onActivation()
     connect(m_mapImageEdit, &QLineEdit::textChanged, this, &TrackMapEditorModule::onMapImageChanged);
     connect(m_flipXCheck, &QCheckBox::toggled, this, &TrackMapEditorModule::onFlipXChanged);
     connect(m_flipYCheck, &QCheckBox::toggled, this, &TrackMapEditorModule::onFlipYChanged);
-    m_statusLabel->setText("Active");
+    m_statusLabel->setText(tr("Active"));
 }
 
 void TrackMapEditorModule::onDeactivation()
 {
     // Connections are permanent (set up in getOrCreateDockWidget); no need to disconnect.
-    m_statusLabel->setText("Inactive");
+    m_statusLabel->setText(tr("Inactive"));
 }
 void TrackMapEditorModule::onCenterXChanged(double v) { m_centerX = v; }
 void TrackMapEditorModule::onCenterYChanged(double v) { m_centerY = v; }
 void TrackMapEditorModule::onZoomChanged(double v) { m_zoom = v; }
 void TrackMapEditorModule::onMapSizeChanged(double v) { m_mapSize = v; }
 void TrackMapEditorModule::onMapImageChanged(const QString& text) {
-    m_statusLabel->setText("Modified (Map Image: " + text + ")");
+    m_statusLabel->setText(tr("Modified (Map Image: %1)").arg(text));
     // Try to load the image into the preview
     if (!m_previewScene || !m_previewView) return;
     m_previewScene->clear();
@@ -120,7 +120,7 @@ void TrackMapEditorModule::onMapImageChanged(const QString& text) {
         m_previewScene->setSceneRect(0, 0, pix.width(), pix.height());
     } else {
         // Draw placeholder text
-        m_previewScene->addText("Map image not found:\n" + text);
+        m_previewScene->addText(tr("Map image not found:\n%1").arg(text));
     }
 }
 void TrackMapEditorModule::onFlipXChanged(bool c) { m_flipX = c; }
@@ -128,14 +128,14 @@ void TrackMapEditorModule::onFlipYChanged(bool c) { m_flipY = c; }
 
 void TrackMapEditorModule::onLoadFile()
 {
-    QString path = QFileDialog::getOpenFileName(this, "Open map.ini", QString(), "Map INI (*.ini)");
-    if (!path.isEmpty()) { m_filePath = path; loadFileToUI(); m_statusLabel->setText("Loaded: " + path); }
+    QString path = QFileDialog::getOpenFileName(this, tr("Open map.ini"), QString(), tr("Map INI (*.ini)"));
+    if (!path.isEmpty()) { m_filePath = path; loadFileToUI(); m_statusLabel->setText(tr("Loaded: %1").arg(path)); }
 }
 
 void TrackMapEditorModule::onSaveFile()
 {
-    QString path = m_filePath.isEmpty() ? QFileDialog::getSaveFileName(this, "Save map.ini", QString(), "Map INI (*.ini)") : m_filePath;
-    if (!path.isEmpty()) { m_filePath = path; saveFileFromUI(); m_statusLabel->setText("Saved: " + path); }
+    QString path = m_filePath.isEmpty() ? QFileDialog::getSaveFileName(this, tr("Save map.ini"), QString(), tr("Map INI (*.ini)")) : m_filePath;
+    if (!path.isEmpty()) { m_filePath = path; saveFileFromUI(); m_statusLabel->setText(tr("Saved: %1").arg(path)); }
 }
 
 void TrackMapEditorModule::onResetDefaults()
@@ -143,10 +143,10 @@ void TrackMapEditorModule::onResetDefaults()
     m_centerX = 0; m_centerY = 0; m_zoom = 1.0; m_mapSize = 1.0; m_flipX = false; m_flipY = false;
     m_centerXSpin->setValue(0); m_centerYSpin->setValue(0); m_zoomSpin->setValue(1.0); m_mapSizeSpin->setValue(1.0);
     m_flipXCheck->setChecked(false); m_flipYCheck->setChecked(false);
-    m_statusLabel->setText("Reset to defaults");
+    m_statusLabel->setText(tr("Reset to defaults"));
 }
 
-void TrackMapEditorModule::setupUi() { if (m_statusLabel) m_statusLabel->setText("UI Ready"); }
+void TrackMapEditorModule::setupUi() { if (m_statusLabel) m_statusLabel->setText(tr("UI Ready")); }
 
 void TrackMapEditorModule::loadFileToUI()
 {

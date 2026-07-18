@@ -886,6 +886,21 @@ void KnifeTool::splitEdgeAtPoint(int edgeIndex, const QVector3D& point)
     m_newFaces.append(v2);
 }
 
+void KnifeTool::subdivideEdge(int edgeIndex, float t)
+{
+    if (edgeIndex < 0 || edgeIndex >= m_faces.size()) return;
+
+    int v1 = m_faces[edgeIndex];
+    int faceStart = (edgeIndex / 3) * 3;
+    int nextInFace = faceStart + ((edgeIndex - faceStart + 1) % 3);
+    int v2 = m_faces[nextInFace];
+
+    if (v1 >= m_vertices.size() || v2 >= m_vertices.size()) return;
+
+    QVector3D point = m_vertices[v1] * (1.0f - t) + m_vertices[v2] * t;
+    splitEdgeAtPoint(edgeIndex, point);
+}
+
 void KnifeTool::addEdgeLoop(const QVector<QVector3D>& points)
 {
     if (points.size() < 2) return;
@@ -1064,6 +1079,8 @@ void BisectTool::apply(bool markDelete)
         }
     }
 
+    m_resultVertices = newVerts;
+    m_resultFaces = newFaces;
     m_vertices = newVerts;
     m_faces = newFaces;
     emit bisectApplied();

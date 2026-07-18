@@ -16,8 +16,26 @@
 #include <QDockWidget>
 #include <QTableWidget>
 #include <QTimer>
+#include <QVector>
+#include <QVector3D>
 
 namespace ks {
+
+struct TelemetryCorner {
+    double entrySpeed = 0;
+    double exitSpeed = 0;
+    double minSpeed = 0;
+    double maxLateralG = 0;
+};
+
+struct TelemetryLap {
+    double lapTime = 0;
+    double topSpeed = 0;
+    double avgSpeed = 0;
+    int brakingPoints = 0;
+    int overtakes = 0;
+    QVector<TelemetryCorner> corners;
+};
 
 class AIEditorModule : public EditorModule {
     Q_OBJECT
@@ -80,6 +98,7 @@ private:
     AiBehaviorModel::AiDriverProfile resolveProfile(int row) const;
     void populateTelemetryTracks();
     void updateSplineInfo();
+    void populateSplineFiles();
 
     QDockWidget* m_dockWidget = nullptr;
     QTabWidget* m_tabWidget = nullptr;
@@ -148,6 +167,9 @@ private:
     QPushButton* m_stopRaceBtn = nullptr;
     QPushButton* m_resetRaceBtn = nullptr;
     QTextEdit* m_raceEventLog = nullptr;
+    
+    // Telemetry data
+    QVector<TelemetryLap> m_telemetryData;
 };
 
 } // namespace ks

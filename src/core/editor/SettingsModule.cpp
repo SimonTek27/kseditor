@@ -10,6 +10,93 @@
 
 namespace ks {
 
+// ─── IniHandler ────────────────────────────────────────────────────────────
+
+IniHandler::IniHandler(QObject* parent) : QObject(parent) {}
+
+QVariantMap IniHandler::read(const QString& path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return {};
+    QTextStream in(&file);
+    QVariantMap result;
+    QString currentSection;
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+        if (line.isEmpty() || line.startsWith(';') || line.startsWith('#')) continue;
+        if (line.startsWith('[')) {
+            currentSection = line.mid(1, line.length() - 2).trimmed();
+            continue;
+        }
+        int eqPos = line.indexOf('=');
+        if (eqPos < 0) continue;
+        QString key = line.left(eqPos).trimmed();
+        QString val = line.mid(eqPos + 1).trimmed();
+        QString fullKey = currentSection.isEmpty() ? key : currentSection + "/" + key;
+        result[fullKey] = val;
+    }
+    file.close();
+    return result;
+}
+
+QVariantMap IniHandler::readDir(const QString& dirPath)
+{
+    QVariantMap result;
+    QDir dir(dirPath);
+    for (const QFileInfo& fi : dir.entryInfoList(QStringList{"*.ini"}, QDir::Files, QDir::Name)) {
+        QVariantMap fileData = read(fi.absoluteFilePath());
+        if (!fileData.isEmpty()) {
+            result[fi.completeBaseName()] = fileData;
+        }
+    }
+    return result;
+}
+
+void IniHandler::write(const QString& path, const QVariantMap& data)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return;
+    QTextStream out(&file);
+    writeSection(out, "", data);
+    file.close();
+}
+
+void IniHandler::writeFromResource(const QString& dirPath, const QVariantMap& resources)
+{
+    QDir dir(dirPath);
+    if (!dir.exists()) dir.mkpath(".");
+    for (auto it = resources.begin(); it != resources.end(); ++it) {
+        QString filePath = dir.filePath(it.key() + ".ini");
+        if (it.value().type() == QVariant::Map || it.value().type() == QVariant::Hash) {
+            write(filePath, it.value().toMap());
+        } else {
+            QVariantMap single;
+            single["value"] = it.value();
+            write(filePath, single);
+        }
+    }
+}
+
+QVariantMap IniHandler::parseIni(const QString& path)
+{
+    return read(path);
+}
+
+void IniHandler::writeSection(QTextStream& out, const QString& section, const QVariantMap& data)
+{
+    if (!section.isEmpty()) {
+        out << "[" << section << "]\n";
+    }
+    for (auto it = data.begin(); it != data.end(); ++it) {
+        if (it.value().type() == QVariant::Map || it.value().type() == QVariant::Hash) {
+            writeSection(out, it.key(), it.value().toMap());
+        } else {
+            out << it.key() << "=" << it.value().toString() << "\n";
+        }
+    }
+    out << "\n";
+}
+
 // ─── Settings ─────────────────────────────────────────────────────────────
 
 static Settings* g_settingsInstance = nullptr;

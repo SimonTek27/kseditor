@@ -7,17 +7,17 @@
 // AiSplineManager
 // ============================================================================
 
-AiSplineManager::AiSplineManager(const QString& trackPath)
-    : m_trackPath(trackPath)
+AiSplineManager::AiSplineManager(QObject* parent)
+    : QObject(parent)
 {
 }
 
-bool AiSplineManager::load()
+bool AiSplineManager::loadSpline(const QString& filePath)
 {
-    if (m_trackPath.isEmpty()) return false;
-    QDir dir(m_trackPath + "/ai");
-    if (!dir.exists()) return false;
-
+    m_currentSplinePath = filePath;
+    QFileInfo fi(filePath);
+    m_trackPath = fi.absolutePath();
+    
     m_data = AiSplineEditor::loadTrack(m_trackPath);
 
     if (!m_data.hasFastLane()) {
@@ -31,9 +31,12 @@ bool AiSplineManager::load()
     return true;
 }
 
-bool AiSplineManager::save()
+bool AiSplineManager::saveSpline(const QString& filePath)
 {
-    if (m_trackPath.isEmpty()) return false;
+    if (filePath.isEmpty()) return false;
+    m_currentSplinePath = filePath;
+    QFileInfo fi(filePath);
+    m_trackPath = fi.absolutePath();
     return AiSplineEditor::saveTrack(m_data, m_trackPath);
 }
 
@@ -42,20 +45,48 @@ float AiSplineManager::getFastLaneLength() const
     return m_data.fastLane.totalDistance;
 }
 
-bool AiSplineManager::smoothFastLane(int iterations)
+QString AiSplineManager::getSplineInfo() const
+{
+    if (!hasSpline()) return "No spline loaded";
+    
+    QString info;
+    info += QString("Track: %1\n").arg(m_data.trackName);
+    info += QString("Fast lane: %1 points, %.1f m\n").arg(m_data.fastLane.points.size()).arg(m_data.fastLane.totalDistance);
+    info += QString("Pit lane: %1 points\n").arg(m_data.pitLane.points.size());
+    info += QString("Ideal line: %1 points\n").arg(m_data.idealLine.points.size());
+    info += QString("Left border: %1 points\n").arg(m_data.leftBorder.points.size());
+    info += QString("Right border: %1 points\n").arg(m_data.rightBorder.points.size());
+    return info;
+}
+
+bool AiSplineManager::smoothSpline(int iterations, int targetPoints)
 {
     if (!m_data.hasFastLane()) return false;
+    
     m_data.fastLane = AiSplineEditor::smoothSpline(m_data.fastLane, iterations);
+    if (targetPoints > 0) {
+        m_data.fastLane = AiSplineEditor::resampleSpline(m_data.fastLane, targetPoints);
+    }
     m_data.fastLane.totalDistance = AiSplineEditor::calculateTotalLength(m_data.fastLane);
     return true;
 }
 
-bool AiSplineManager::resampleFastLane(int targetPoints)
+bool AiSplineManager::resampleSpline(int targetPoints)
 {
     if (!m_data.hasFastLane()) return false;
     m_data.fastLane = AiSplineEditor::resampleSpline(m_data.fastLane, targetPoints);
     m_data.fastLane.totalDistance = AiSplineEditor::calculateTotalLength(m_data.fastLane);
     return true;
+}
+
+bool AiSplineManager::smoothFastLane(int iterations)
+{
+    return smoothSpline(iterations, -1);
+}
+
+bool AiSplineManager::resampleFastLane(int targetPoints)
+{
+    return resampleSpline(targetPoints);
 }
 
 bool AiSplineManager::generateBorders(float width)

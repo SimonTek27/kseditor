@@ -304,7 +304,7 @@ bool PhysicsMeshQmlBridge::importJson(const QString& filePath)
 
 void PhysicsMeshQmlBridge::clearAll()
 {
-    m_generator.clearAll();
+    m_generator.clearAllMeshes();
     m_isGenerated = false;
     emit generationStateChanged();
     emit meshCountChanged();

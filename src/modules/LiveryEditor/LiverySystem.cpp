@@ -738,3 +738,402 @@ bool LiveryManager::generateLicensePlate(const QString& text, const QString& cou
 
     return ok;
 }
+
+// ============================================================================
+// DDS Export
+// ============================================================================
+
+QVector<LiverySystem::UndoAction> LiverySystem::s_undoStack;
+QVector<LiverySystem::UndoAction> LiverySystem::s_redoStack;
+
+bool LiverySystem::exportSkinAsDDS(const QString& skinPath, const QString& outputPath)
+{
+    QImage livery(skinPath + "/livery.png");
+    if (livery.isNull()) {
+        livery = QImage(skinPath + "/sides_1.png");
+    }
+    if (livery.isNull()) return false;
+
+    return saveTextureAsDDS(livery, outputPath);
+}
+
+bool LiverySystem::saveTextureAsDDS(const QImage& image, const QString& outputPath)
+{
+    if (image.isNull()) return false;
+
+    QImage rgba = image.convertToFormat(QImage::Format_RGBA8888);
+
+    QFile file(outputPath);
+    if (!file.open(QIODevice::WriteOnly)) return false;
+
+    int width = rgba.width();
+    int height = rgba.height();
+
+    // Simple DDS header for DXT5 compression
+    struct DDSHeader {
+        char magic[4] = {'D', 'D', 'S', ' '};
+        uint32_t size = 124;
+        uint32_t flags = 0x00021007;
+        uint32_t height;
+        uint32_t width;
+        uint32_t pitchOrLinearSize;
+        uint32_t depth = 0;
+        uint32_t mipMapCount = 1;
+        uint32_t reserved[11] = {0};
+        struct PixelFormat {
+            uint32_t size = 32;
+            uint32_t flags = 0x00000004;
+            char fourCC[4] = {'D', 'X', 'T', '5'};
+            uint32_t rgbBitCount = 0;
+            uint32_t rBitMask = 0;
+            uint32_t gBitMask = 0;
+            uint32_t bBitMask = 0;
+            uint32_t aBitMask = 0;
+        } pixelFormat;
+        struct {
+            uint32_t caps1 = 0x00001000;
+            uint32_t caps2 = 0;
+            uint32_t caps3 = 0;
+            uint32_t caps4 = 0;
+        } caps;
+        uint32_t reserved2 = 0;
+    };
+
+    int blockCount = ((width + 3) / 4) * ((height + 3) / 4);
+    int dataSize = blockCount * 16;
+
+    DDSHeader header;
+    header.width = width;
+    header.height = height;
+    header.pitchOrLinearSize = dataSize;
+
+    file.write(reinterpret_cast<const char*>(&header), sizeof(header));
+
+    // Simple block compression: average each 4x4 block
+    for (int by = 0; by < height; by += 4) {
+        for (int bx = 0; bx < width; bx += 4) {
+            // Collect 4x4 block of colors
+            uint8_t block[16][4];
+            int blockIdx = 0;
+            for (int py = 0; py < 4; ++py) {
+                for (int px = 0; px < 4; ++px) {
+                    int x = std::min(bx + px, width - 1);
+                    int y = std::min(by + py, height - 1);
+                    QRgb pixel = rgba.pixel(x, y);
+                    block[blockIdx][0] = qRed(pixel);
+                    block[blockIdx][1] = qGreen(pixel);
+                    block[blockIdx][2] = qBlue(pixel);
+                    block[blockIdx][3] = qAlpha(pixel);
+                    blockIdx++;
+                }
+            }
+
+            // DXT5 block: 16 bytes per block (8 bytes alpha + 8 bytes color)
+            uint8_t dxt5Block[16] = {0};
+
+            // Alpha block (BC4-like): store min/max alpha, then 3-bit indices
+            uint8_t minAlpha = 255, maxAlpha = 0;
+            for (int i = 0; i < 16; ++i) {
+                minAlpha = std::min(minAlpha, block[i][3]);
+                maxAlpha = std::max(maxAlpha, block[i][3]);
+            }
+            dxt5Block[0] = maxAlpha;
+            dxt5Block[1] = minAlpha;
+
+            uint64_t alphaBits = 0;
+            if (maxAlpha > minAlpha) {
+                for (int i = 0; i < 16; ++i) {
+                    int idx = (16 * (block[i][3] - minAlpha)) / std::max(1, (maxAlpha - minAlpha));
+                    idx = std::clamp(idx, 0, 15);
+                    if (idx >= 8) idx = 7;
+                    alphaBits |= static_cast<uint64_t>(idx) << (i * 3);
+                }
+                for (int b = 0; b < 6; ++b) {
+                    dxt5Block[2 + b] = (alphaBits >> (b * 8)) & 0xFF;
+                }
+            }
+
+            // Color block (BC1): store 565 colors
+            int rSum = 0, gSum = 0, bSum = 0;
+            for (int i = 0; i < 16; ++i) {
+                rSum += block[i][0];
+                gSum += block[i][1];
+                bSum += block[i][2];
+            }
+
+            uint16_t c0 = ((rSum / 16) >> 3) << 11
+                        | ((gSum / 16) >> 2) << 5
+                        | ((bSum / 16) >> 3);
+            uint8_t c0_lo = c0 & 0xFF;
+            uint8_t c0_hi = (c0 >> 8) & 0xFF;
+            uint16_t c1 = c0; // Same color = no interpolation
+            uint8_t c1_lo = c1 & 0xFF;
+            uint8_t c1_hi = (c1 >> 8) & 0xFF;
+
+            dxt5Block[8] = c0_lo;
+            dxt5Block[9] = c0_hi;
+            dxt5Block[10] = c1_lo;
+            dxt5Block[11] = c1_hi;
+
+            file.write(reinterpret_cast<const char*>(dxt5Block), 16);
+        }
+    }
+
+    file.close();
+    return true;
+}
+
+// ============================================================================
+// Decal Import
+// ============================================================================
+
+bool LiverySystem::importDecal(const QString& decalPath, const QString& skinPath)
+{
+    QImage decal(decalPath);
+    if (decal.isNull()) return false;
+
+    QFileInfo fi(decalPath);
+    QString decalName = fi.completeBaseName();
+    QString destPath = skinPath + "/" + decalName + ".png";
+
+    if (!decal.save(destPath, "PNG")) return false;
+
+    return true;
+}
+
+QStringList LiverySystem::getSupportedDecalFormats()
+{
+    return {"PNG (*.png)", "JPEG (*.jpg *.jpeg)", "DDS (*.dds)",
+            "TGA (*.tga)", "BMP (*.bmp)", "TIFF (*.tiff)"};
+}
+
+// ============================================================================
+// Template System
+// ============================================================================
+
+QVector<LiverySystem::LiveryTemplate> LiverySystem::getBuiltinTemplates()
+{
+    QVector<LiveryTemplate> templates;
+
+    {
+        LiveryTemplate tmpl;
+        tmpl.name = "Racing Stripes";
+        tmpl.description = "Classic dual racing stripes over base color";
+        tmpl.baseColor = QColor(200, 0, 0);
+        tmpl.stripes = {{"Center Stripe", QColor(255, 255, 255)},
+                         {"Side Stripe 1", QColor(200, 200, 200)},
+                         {"Side Stripe 2", QColor(200, 200, 200)}};
+        tmpl.hasRaceNumber = true;
+        tmpl.hasLicensePlate = true;
+        templates.append(tmpl);
+    }
+
+    {
+        LiveryTemplate tmpl;
+        tmpl.name = "Carbon Edition";
+        tmpl.description = "Matte carbon fiber look with accent accents";
+        tmpl.baseColor = QColor(30, 30, 30);
+        tmpl.stripes = {{"Accent Stripe", QColor(255, 100, 0)}};
+        tmpl.hasRaceNumber = true;
+        templates.append(tmpl);
+    }
+
+    {
+        LiveryTemplate tmpl;
+        tmpl.name = "National Flag";
+        tmpl.description = "Flag-inspired livery with patriotic colors";
+        tmpl.baseColor = QColor(0, 50, 200);
+        tmpl.stripes = {{"White Band", QColor(255, 255, 255)},
+                         {"Red Band", QColor(200, 0, 0)}};
+        tmpl.hasLicensePlate = true;
+        templates.append(tmpl);
+    }
+
+    {
+        LiveryTemplate tmpl;
+        tmpl.name = "Clean Canvas";
+        tmpl.description = "Solid color base with no decorations";
+        tmpl.baseColor = QColor(255, 255, 255);
+        templates.append(tmpl);
+    }
+
+    {
+        LiveryTemplate tmpl;
+        tmpl.name = "Gradient Flow";
+        tmpl.description = "Smooth color gradient from front to rear";
+        tmpl.baseColor = QColor(0, 100, 200);
+        tmpl.stripes = {{"Gradient Accent", QColor(0, 200, 255)}};
+        templates.append(tmpl);
+    }
+
+    {
+        LiveryTemplate tmpl;
+        tmpl.name = "Gulf-Inspired";
+        tmpl.description = "Classic Gulf racing colors: light blue with orange stripe";
+        tmpl.baseColor = QColor(0, 150, 200);
+        tmpl.stripes = {{"Racing Stripe", QColor(255, 150, 0)},
+                         {"Accent", QColor(200, 100, 0)}};
+        tmpl.hasRaceNumber = true;
+        tmpl.hasLicensePlate = true;
+        templates.append(tmpl);
+    }
+
+    return templates;
+}
+
+bool LiverySystem::createSkinFromTemplate(const QString& carPath, const QString& skinName,
+                                           const LiveryTemplate& tmpl)
+{
+    QString skinPath = carPath + "/skins/" + skinName;
+    QDir().mkpath(skinPath);
+
+    // Create base livery texture
+    int res = tmpl.textureResolution;
+    QImage base(res, res, QImage::Format_RGBA8888);
+    base.fill(tmpl.baseColor);
+
+    QPainter painter(&base);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    // Draw stripes
+    for (int i = 0; i < tmpl.stripes.size(); ++i) {
+        painter.fillRect(QRect(0, res * (0.2 + i * 0.15), res, res * 0.05),
+                         tmpl.stripes[i].second);
+    }
+
+    painter.end();
+
+    // Save base texture
+    base.save(skinPath + "/livery.png", "PNG");
+
+    // Create skin.ini
+    QFile ini(skinPath + "/skin.ini");
+    if (ini.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream s(&ini);
+        s << "[SKIN]\n";
+        s << "NAME=" << skinName << "\n";
+        s << "PRIORITY=0\n";
+        s << "BASE_COLOR=" << tmpl.baseColor.name() << "\n";
+        if (tmpl.hasLicensePlate) {
+            s << "COUNTRY=IT\n";
+            s << "LICENSE_PLATE=ABC 123\n";
+        }
+        if (tmpl.hasRaceNumber) {
+            s << "NUMBER=1\n";
+        }
+        ini.close();
+    }
+
+    return true;
+}
+
+// ============================================================================
+// Undo/Redo System
+// ============================================================================
+
+void LiverySystem::pushUndo(const UndoAction& action)
+{
+    s_undoStack.append(action);
+    if (s_undoStack.size() > 50) {
+        s_undoStack.removeFirst();
+    }
+    s_redoStack.clear();
+}
+
+bool LiverySystem::canUndo()
+{
+    return !s_undoStack.isEmpty();
+}
+
+bool LiverySystem::canRedo()
+{
+    return !s_redoStack.isEmpty();
+}
+
+LiverySystem::UndoAction LiverySystem::undoLast()
+{
+    if (s_undoStack.isEmpty()) return {};
+    UndoAction action = s_undoStack.takeLast();
+    s_redoStack.append(action);
+    return action;
+}
+
+LiverySystem::UndoAction LiverySystem::redoLast()
+{
+    if (s_redoStack.isEmpty()) return {};
+    UndoAction action = s_redoStack.takeLast();
+    s_undoStack.append(action);
+    return action;
+}
+
+void LiverySystem::clearUndoRedo()
+{
+    s_undoStack.clear();
+    s_redoStack.clear();
+}
+
+// ============================================================================
+// Color Palette
+// ============================================================================
+
+QVector<LiverySystem::ColorSwatch> LiverySystem::getDefaultPalette()
+{
+    return {
+        {"Race Red", QColor(255, 0, 0)},
+        {"Race Blue", QColor(0, 50, 255)},
+        {"Race Green", QColor(0, 180, 0)},
+        {"Race Yellow", QColor(255, 200, 0)},
+        {"Race Orange", QColor(255, 100, 0)},
+        {"Race Purple", QColor(150, 0, 255)},
+        {"Race Pink", QColor(255, 0, 150)},
+        {"Cyan", QColor(0, 200, 255)},
+        {"White", QColor(255, 255, 255)},
+        {"Silver", QColor(200, 200, 200)},
+        {"Gray", QColor(128, 128, 128)},
+        {"Black", QColor(30, 30, 30)},
+        {"Matte Black", QColor(20, 20, 20)},
+        {"Carbon", QColor(40, 40, 40)},
+        {"Gold", QColor(200, 170, 0)},
+        {"Bronze", QColor(150, 100, 30)},
+        {"Navy", QColor(0, 0, 100)},
+        {"Dark Green", QColor(0, 60, 0)},
+        {"Burgundy", QColor(100, 0, 30)},
+        {"Chrome", QColor(180, 180, 200)},
+    };
+}
+
+QVector<LiverySystem::ColorSwatch> LiverySystem::loadPalette(const QString& path)
+{
+    QVector<ColorSwatch> palette;
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) return getDefaultPalette();
+
+    QTextStream s(&file);
+    while (!s.atEnd()) {
+        QString line = s.readLine().trimmed();
+        if (line.isEmpty() || line.startsWith('#')) continue;
+        QStringList parts = line.split(',');
+        if (parts.size() >= 2) {
+            ColorSwatch swatch;
+            swatch.name = parts[0].trimmed();
+            swatch.color = QColor(parts[1].trimmed());
+            if (swatch.color.isValid()) palette.append(swatch);
+        }
+    }
+    file.close();
+
+    return palette.isEmpty() ? getDefaultPalette() : palette;
+}
+
+bool LiverySystem::savePalette(const QVector<ColorSwatch>& palette, const QString& path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return false;
+
+    QTextStream s(&file);
+    for (const auto& swatch : palette) {
+        s << swatch.name << "," << swatch.color.name() << "\n";
+    }
+    file.close();
+    return true;
+}

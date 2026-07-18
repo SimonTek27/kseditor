@@ -427,7 +427,8 @@ public:
         QJsonArray diffArray = obj["diffs"].toArray();
         
         // Parse diff objects (simplified)
-        for (const auto& diffObj : diffArray) {
+        for (const auto& diffRef : diffArray) {
+            QJsonObject diffObj = diffRef.toObject();
             FileDiffResult result;
             result.filePath = diffObj["file"].toString();
             result.change = stringToChange(diffObj["change"].toString());
@@ -638,8 +639,6 @@ private:
     std::function<QVector<QString>(const QString&, const QString&)> m_textDiffCallback;
     std::function<bool(const QString&)> m_binaryFileCallback;
 };
-
-FileComparisonEngine* FileComparisonEngine::s_instance = nullptr;
 
 FileComparisonEngine* FileComparisonEngine::instance()
 {

@@ -1,4 +1,6 @@
 #include "PhysicsQmlBridge.h"
+#include "PhysicsSimulator.h"
+#include "ers_HybridSystem.h"
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -67,6 +69,34 @@ void PhysicsQmlBridge::newProject() {
     m_config.aiConsistency = 90.0f;
     m_config.transmissionType = 0;
     m_config.gearCount = 7;
+
+    // ERS defaults
+    m_config.ers.enabled = false;
+    m_config.ers.architecture = 0;
+    m_config.ers.deploymentMode = 7;
+    m_config.ers.mgukPowerKw = 120.0f;
+    m_config.ers.mgukRegenKw = 120.0f;
+    m_config.ers.mguhPowerKw = 120.0f;
+    m_config.ers.batteryCapacityMj = 4.0f;
+    m_config.ers.batterySoc = 50.0f;
+    m_config.ers.perLapEnergyMj = 4.0f;
+
+    // Damage defaults
+    m_config.damage.enabled = false;
+    m_config.damage.aeroDamage = 0.0f;
+    m_config.damage.engineHealth = 100.0f;
+    m_config.damage.bodyHealth = 100.0f;
+
+    // Weather defaults
+    m_config.weather.trackWetness = 0.0f;
+    m_config.weather.rainIntensity = 0.0f;
+    m_config.weather.ambientTemp = 26.0f;
+    m_config.weather.trackTemp = 30.0f;
+
+    // Fuel defaults
+    m_fuelKg = 80.0f;
+    m_fuelCapacity = 80.0f;
+    m_fuelConsumptionEnabled = true;
 
     emit carNameChanged(m_config.carName);
     emit massChanged();
@@ -152,6 +182,29 @@ bool PhysicsQmlBridge::openProject(const QString& path) {
     m_config.transmissionType = obj.value("transmissionType").toInt(0);
     m_config.gearCount = obj.value("gearCount").toInt(7);
 
+    // ERS
+    m_config.ers.enabled = obj.value("ersEnabled").toBool(false);
+    m_config.ers.architecture = obj.value("ersArchitecture").toInt(0);
+    m_config.ers.deploymentMode = obj.value("ersDeploymentMode").toInt(7);
+    m_config.ers.mgukPowerKw = obj.value("ersMgukPowerKw").toDouble(120.0);
+    m_config.ers.mgukRegenKw = obj.value("ersMgukRegenKw").toDouble(120.0);
+    m_config.ers.mguhPowerKw = obj.value("ersMguhPowerKw").toDouble(120.0);
+    m_config.ers.batteryCapacityMj = obj.value("ersBatteryCapacityMj").toDouble(4.0);
+    m_config.ers.perLapEnergyMj = obj.value("ersPerLapEnergyMj").toDouble(4.0);
+
+    // Damage
+    m_config.damage.enabled = obj.value("damageEnabled").toBool(false);
+
+    // Weather
+    m_config.weather.trackWetness = obj.value("trackWetness").toDouble(0.0);
+    m_config.weather.rainIntensity = obj.value("rainIntensity").toDouble(0.0);
+    m_config.weather.ambientTemp = obj.value("ambientTemp").toDouble(26.0);
+
+    // Fuel
+    m_fuelKg = obj.value("fuelKg").toDouble(80.0);
+    m_fuelCapacity = obj.value("fuelCapacity").toDouble(80.0);
+    m_fuelConsumptionEnabled = obj.value("fuelConsumptionEnabled").toBool(true);
+
     emit carNameChanged(m_config.carName);
     emit massChanged();
     emit aeroChanged();
@@ -217,6 +270,29 @@ bool PhysicsQmlBridge::saveProject(const QString& path) {
     obj["aiConsistency"] = m_config.aiConsistency;
     obj["transmissionType"] = m_config.transmissionType;
     obj["gearCount"] = m_config.gearCount;
+
+    // ERS
+    obj["ersEnabled"] = m_config.ers.enabled;
+    obj["ersArchitecture"] = m_config.ers.architecture;
+    obj["ersDeploymentMode"] = m_config.ers.deploymentMode;
+    obj["ersMgukPowerKw"] = m_config.ers.mgukPowerKw;
+    obj["ersMgukRegenKw"] = m_config.ers.mgukRegenKw;
+    obj["ersMguhPowerKw"] = m_config.ers.mguhPowerKw;
+    obj["ersBatteryCapacityMj"] = m_config.ers.batteryCapacityMj;
+    obj["ersPerLapEnergyMj"] = m_config.ers.perLapEnergyMj;
+
+    // Damage
+    obj["damageEnabled"] = m_config.damage.enabled;
+
+    // Weather
+    obj["trackWetness"] = m_config.weather.trackWetness;
+    obj["rainIntensity"] = m_config.weather.rainIntensity;
+    obj["ambientTemp"] = m_config.weather.ambientTemp;
+
+    // Fuel
+    obj["fuelKg"] = m_fuelKg;
+    obj["fuelCapacity"] = m_fuelCapacity;
+    obj["fuelConsumptionEnabled"] = m_fuelConsumptionEnabled;
 
     QJsonDocument doc(obj);
     QFile file(path);
@@ -777,6 +853,209 @@ void PhysicsQmlBridge::runAllTools() {
     QStringList tasks = {"validate", "colliders"};
     batchProcess(tasks);
     emit statusMessage("All physics tools executed");
+}
+
+// ============================================================================
+// ERS/Hybrid System Accessors
+// ============================================================================
+
+void PhysicsQmlBridge::setErsEnabled(bool e) {
+    m_config.ers.enabled = e;
+    auto* sim = phys_Simulator::instance();
+    sim->setErsEnabled(e);
+    emit ersChanged();
+}
+
+void PhysicsQmlBridge::setErsArchitecture(int v) {
+    m_config.ers.architecture = v;
+    auto* sim = phys_Simulator::instance();
+    auto arch = static_cast<HybridSystem::HybridArchitecture>(v);
+    HybridSystem::ErsConfig cfg;
+    switch (arch) {
+    case HybridSystem::HybridArchitecture::F1_2014: cfg = HybridSystem::getF1_2014(); break;
+    case HybridSystem::HybridArchitecture::F1_2026: cfg = HybridSystem::getF1_2026(); break;
+    case HybridSystem::HybridArchitecture::LMP1: cfg = HybridSystem::getLMP1(); break;
+    case HybridSystem::HybridArchitecture::LMDh: cfg = HybridSystem::getLMDh(); break;
+    case HybridSystem::HybridArchitecture::Road_Mild: cfg = HybridSystem::getRoadMild(); break;
+    case HybridSystem::HybridArchitecture::Road_Full: cfg = HybridSystem::getRoadFull(); break;
+    case HybridSystem::HybridArchitecture::Road_PlugIn: cfg = HybridSystem::getRoadPlugIn(); break;
+    case HybridSystem::HybridArchitecture::Electric: cfg = HybridSystem::getElectric(); break;
+    }
+    cfg.enabled = m_config.ers.enabled;
+    sim->hybridSystem().setConfig(cfg);
+    m_config.ers.mgukPowerKw = cfg.mguk.maxPowerKw;
+    m_config.ers.mgukRegenKw = cfg.mguk.maxRegenKw;
+    m_config.ers.mguhPowerKw = cfg.mguh.maxPowerKw;
+    m_config.ers.batteryCapacityMj = cfg.battery.capacityMj;
+    m_config.ers.perLapEnergyMj = cfg.battery.perLapEnergyMj;
+    emit ersChanged();
+}
+
+void PhysicsQmlBridge::setErsDeploymentMode(int v) {
+    m_config.ers.deploymentMode = v;
+    auto* sim = phys_Simulator::instance();
+    sim->setErsMode(static_cast<HybridSystem::ErsMode>(v));
+    emit ersChanged();
+}
+
+void PhysicsQmlBridge::setErsMgukPower(float v) { m_config.ers.mgukPowerKw = v; emit ersChanged(); }
+void PhysicsQmlBridge::setErsMgukRegen(float v) { m_config.ers.mgukRegenKw = v; emit ersChanged(); }
+void PhysicsQmlBridge::setErsMguhPower(float v) { m_config.ers.mguhPowerKw = v; emit ersChanged(); }
+void PhysicsQmlBridge::setErsBatteryCapacity(float v) { m_config.ers.batteryCapacityMj = v; emit ersChanged(); }
+void PhysicsQmlBridge::setErsPerLapEnergy(float v) { m_config.ers.perLapEnergyMj = v; emit ersChanged(); }
+
+float PhysicsQmlBridge::ersBatterySoc() const {
+    return phys_Simulator::instance()->getErsBatterySoc();
+}
+
+float PhysicsQmlBridge::ersBatteryTemp() const {
+    return phys_Simulator::instance()->getErsBatteryTemp();
+}
+
+float PhysicsQmlBridge::ersEnergyDeployed() const {
+    return phys_Simulator::instance()->hybridSystem().getState().energyDeployedMj;
+}
+
+bool PhysicsQmlBridge::ersAttackAvailable() const {
+    return phys_Simulator::instance()->hybridSystem().isAttackModeAvailable();
+}
+
+bool PhysicsQmlBridge::ersAttackActive() const {
+    return phys_Simulator::instance()->hybridSystem().isAttackModeActive();
+}
+
+void PhysicsQmlBridge::activateErsAttack() {
+    phys_Simulator::instance()->activateErsAttackMode();
+    emit ersStateChanged();
+}
+
+// ============================================================================
+// DRS Accessors
+// ============================================================================
+
+void PhysicsQmlBridge::setDrsEnabled(bool e) {
+    m_config.aero.drsEnabled = e;
+    phys_Simulator::instance()->setDrsEnabled(e);
+    emit drsChanged();
+}
+
+bool PhysicsQmlBridge::drsAutoActivate() const {
+    return phys_Simulator::instance()->drsAutoActivate();
+}
+
+void PhysicsQmlBridge::setDrsAutoActivate(bool v) {
+    phys_Simulator::instance()->setDrsAutoActivate(v);
+    emit drsChanged();
+}
+
+float PhysicsQmlBridge::drsSpeedThreshold() const {
+    return phys_Simulator::instance()->drsSpeedThreshold();
+}
+
+void PhysicsQmlBridge::setDrsSpeedThreshold(float v) {
+    phys_Simulator::instance()->setDrsSpeedThreshold(v);
+    emit drsChanged();
+}
+
+bool PhysicsQmlBridge::drsActive() const {
+    return phys_Simulator::instance()->isDrsActive();
+}
+
+float PhysicsQmlBridge::drsDragReduction() const {
+    return phys_Simulator::instance()->getDrsDragReduction();
+}
+
+void PhysicsQmlBridge::setDrsDragReduction(float v) {
+    phys_Simulator::instance()->setDrsDragReduction(v);
+    emit drsChanged();
+}
+
+// ============================================================================
+// Damage Model Accessors
+// ============================================================================
+
+void PhysicsQmlBridge::setDamageEnabled(bool e) {
+    m_config.damage.enabled = e;
+    phys_Simulator::instance()->enableDamageModel(e);
+    emit damageChanged();
+}
+
+float PhysicsQmlBridge::aeroDamage() const {
+    return phys_Simulator::instance()->damageState().aeroDamage * 100.0f;
+}
+
+float PhysicsQmlBridge::engineDamage() const {
+    return (1.0f - phys_Simulator::instance()->damageState().engineDamage) * 100.0f;
+}
+
+float PhysicsQmlBridge::bodyDamage() const {
+    return (1.0f - phys_Simulator::instance()->damageState().bodyDamage) * 100.0f;
+}
+
+bool PhysicsQmlBridge::isEliminated() const {
+    return phys_Simulator::instance()->damageState().isEliminated;
+}
+
+void PhysicsQmlBridge::resetDamage() {
+    phys_Simulator::instance()->resetDamage();
+    emit damageStateChanged();
+}
+
+// ============================================================================
+// Weather Accessors
+// ============================================================================
+
+void PhysicsQmlBridge::setTrackWetness(float v) {
+    m_config.weather.trackWetness = v;
+    phys_Simulator::instance()->setTrackWetness(v);
+    emit weatherChanged();
+}
+
+void PhysicsQmlBridge::setRainIntensity(float v) {
+    m_config.weather.rainIntensity = v;
+    phys_Simulator::instance()->setRainIntensity(v);
+    emit weatherChanged();
+}
+
+void PhysicsQmlBridge::setAmbientTemp(float v) {
+    m_config.weather.ambientTemp = v;
+    auto ws = phys_Simulator::instance()->weatherState();
+    ws.ambientTemp = v;
+    phys_Simulator::instance()->setWeatherState(ws);
+    emit weatherChanged();
+}
+
+float PhysicsQmlBridge::trackTemp() const {
+    return phys_Simulator::instance()->weatherState().trackTemp;
+}
+
+float PhysicsQmlBridge::aquaplaningRisk() const {
+    return phys_Simulator::instance()->getAquaplaningRisk() * 100.0f;
+}
+
+float PhysicsQmlBridge::trackGrip() const {
+    return (1.0f - phys_Simulator::instance()->getTrackGripReduction()) * 100.0f;
+}
+
+// ============================================================================
+// Fuel Accessors
+// ============================================================================
+
+void PhysicsQmlBridge::setFuelKg(float v) {
+    m_fuelKg = std::max(0.0f, v);
+    phys_Simulator::instance()->setFuelKg(v);
+    emit fuelChanged();
+}
+
+void PhysicsQmlBridge::setFuelCapacity(float v) {
+    m_fuelCapacity = std::max(0.0f, v);
+    emit fuelChanged();
+}
+
+void PhysicsQmlBridge::setFuelConsumptionEnabled(bool v) {
+    m_fuelConsumptionEnabled = v;
+    phys_Simulator::instance()->setFuelConsumptionEnabled(v);
+    emit fuelChanged();
 }
 
 } // namespace ks

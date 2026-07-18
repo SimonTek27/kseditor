@@ -179,10 +179,8 @@ private:
     QVector<CollisionBox> m_collisionBoxes;
 };
 
-struct ParticleSystem : public QObject {
-    Q_OBJECT
-
-public:
+struct ParticleSystem {
+    public:
     struct Particle {
         QVector3D position;
         QVector3D velocity;

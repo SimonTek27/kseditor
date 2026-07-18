@@ -136,6 +136,59 @@ private:
             { "timeline" });
 		addEvent("wind", "event:/cars/{car}/wind", "Environment", "Wind noise", true, true, 0.5f,
 			{ "timeline", "air_pressure", "speed" });
+		addEvent("bodywork", "event:/cars/{car}/bodywork", "Body", "Bodywork rattles and creaks", true, false, 0.6f,
+			{ "timeline", "speed" });
+		addEvent("starter_ext", "event:/cars/{car}/starter_ext", "Engine", "Starter motor sound (exterior)", true, false, 0.7f,
+			{ "crank", "start", "killed" });
+		addEvent("starter_int", "event:/cars/{car}/starter_int", "Engine", "Starter motor sound (interior)", true, false, 0.7f,
+			{ "crank", "start", "killed" });
+		addEvent("brakes", "event:/cars/{car}/brakes", "Brakes", "Brake squeal and noise", true, true, 0.7f,
+			{ "speed", "brake", "brake_temp" });
+		addEvent("chassis_ext", "event:/cars/{car}/chassis_ext", "Body", "Chassis creaks and collisions (exterior)", true, false, 0.6f,
+			{ "speed", "kerbL", "kerbR", "strike" });
+		addEvent("chassis_int", "event:/cars/{car}/chassis_int", "Body", "Chassis creaks and collisions (interior)", true, false, 0.6f,
+			{ "speed", "kerbL", "kerbR", "strike" });
+		addEvent("hybrid_ext", "event:/cars/{car}/hybrid_ext", "Hybrid", "Hybrid MGU sound (exterior)", true, true, 0.7f,
+			{ "drivetrain_speed", "throttle", "brake", "deploy", "harvest" });
+		addEvent("hybrid_int", "event:/cars/{car}/hybrid_int", "Hybrid", "Hybrid MGU sound (interior)", true, true, 0.7f,
+			{ "drivetrain_speed", "throttle", "brake", "deploy", "harvest", "slip" });
+		addEvent("ignition_ext", "event:/cars/{car}/ignition_ext", "Engine", "Ignition sound (exterior)", true, false, 0.8f,
+			{ "state" });
+		addEvent("ignition_int", "event:/cars/{car}/ignition_int", "Engine", "Ignition sound (interior)", true, false, 0.8f,
+			{ "state" });
+		addEvent("misc_int", "event:/cars/{car}/misc_int", "Engine", "Miscellaneous interior sounds", true, false, 0.6f,
+			{ "rpms", "throttle", "pit", "antistall", "gearClonk", "gearReverse" });
+		addEvent("tractioncontrol_ext", "event:/cars/{car}/tractioncontrol_ext", "Tires", "Traction control sound (exterior)", true, false, 0.7f,
+			{ "timeline", "event cone angle" });
+		addEvent("tractioncontrol_int", "event:/cars/{car}/tractioncontrol_int", "Tires", "Traction control sound (interior)", true, false, 0.7f,
+			{ "timeline" });
+		addEvent("transmission_ext", "event:/cars/{car}/transmission_ext", "Transmission", "Transmission sound (exterior)", true, true, 0.7f,
+			{ "timeline", "throttle", "drivetrain_speed", "event cone angle" });
+		addEvent("turbo_ext", "event:/cars/{car}/turbo_ext", "Engine", "Turbo whistle (exterior)", true, true, 0.6f,
+			{ "boost", "event cone angle" });
+
+		// CSP extension events (non-car-specific)
+		addEvent("rain_amb", "event:/extension_common/rain_amb", "CSP Extension", "Rain ambient loop", true, true, 0.5f, {});
+		addEvent("rain_amb_thunder", "event:/extension_common/rain_amb_thunder", "CSP Extension", "Rain thunderclap", true, false, 0.8f, {});
+		addEvent("rain_car_ext", "event:/extension_common/rain_car_ext", "CSP Extension", "Rain on car exterior", true, true, 0.6f, {});
+		addEvent("rain_car_int", "event:/extension_common/rain_car_int", "CSP Extension", "Rain on car interior", true, true, 0.6f, {});
+		addEvent("rain_grass", "event:/extension_common/rain_grass", "CSP Extension", "Rain on grass surface", true, true, 0.5f, {});
+		addEvent("rain_gravel", "event:/extension_common/rain_gravel", "CSP Extension", "Rain on gravel surface", true, true, 0.5f, {});
+		addEvent("rain_skid_ext", "event:/extension_common/rain_skid_ext", "CSP Extension", "Rain skid exterior", true, false, 0.6f, {});
+		addEvent("rain_skid_int", "event:/extension_common/rain_skid_int", "CSP Extension", "Rain skid interior", true, false, 0.6f, {});
+		addEvent("turn_signal_ext__off", "event:/extension_common/turn_signal_ext__off", "CSP Extension", "Turn signal exterior tick (off state)", true, false, 0.7f, {});
+		addEvent("turn_signal_int__off", "event:/extension_common/turn_signal_int__off", "CSP Extension", "Turn signal interior tick (off state)", true, false, 0.7f, {});
+		addEvent("turn_signal_int", "event:/extension_common/turn_signal_int", "CSP Extension", "Turn signal interior tick (on state)", true, false, 0.7f, {});
+		addEvent("wiper_car_ext", "event:/extension_common/wiper_car_ext", "CSP Extension", "Wiper exterior sound", true, false, 0.6f, {});
+		addEvent("wiper_car_ext_vintage", "event:/extension_common/wiper_car_ext_vintage", "CSP Extension", "Wiper exterior vintage sound", true, false, 0.6f, {});
+		addEvent("wiper_car_int", "event:/extension_common/wiper_car_int", "CSP Extension", "Wiper interior sound", true, false, 0.6f, {});
+		addEvent("wiper_car_int_vintage", "event:/extension_common/wiper_car_int_vintage", "CSP Extension", "Wiper interior vintage sound", true, false, 0.6f, {});
+		addEvent("handbrake_int", "event:/extension_common/handbrake_int", "CSP Extension", "Handbrake interior sound", true, false, 0.7f, {});
+		addEvent("external_wind", "event:/extension_common/external_wind", "CSP Extension", "External wind noise", true, true, 0.5f, { "speed" });
+		addEvent("csp_surfaces_skid", "event:/csp/surfaces/skid", "CSP Surfaces", "CSP surface skid sound", true, false, 0.7f, {});
+		addEvent("csp_surfaces_force", "event:/csp/surfaces/force", "CSP Surfaces", "CSP surface force feedback sound", true, false, 0.6f, {});
+		addEvent("csp_surfaces_rocks", "event:/csp/surfaces/rocks", "CSP Surfaces", "CSP surface rocks sound", true, false, 0.6f, {});
+		addEvent("csp_surfaces_ice", "event:/csp/surfaces/ice", "CSP Surfaces", "CSP surface ice sound", true, true, 0.5f, {});
 
         addParameter("timeline", 0.0f, 1.0f, 0.0f, "Timeline position (0-1)");
         addParameter("event cone angle", 0.0f, 360.0f, 0.0f, "Angle between event forward and listener (degrees)");
@@ -152,6 +205,20 @@ private:
 		addParameter("drivetrain_speed", 0.0f, 300.0f, 0.0f, "Drivetrain speed (km/h)");
 		addParameter("air_pressure", 0.0f, 2.0f, 1.0f, "Air pressure (1 = sea level)");
 		addParameter("speed", 0.0f, 300.0f, 0.0f, "Vehicle speed (km/h)");
+		addParameter("brake_temp", 0.0f, 1000.0f, 0.0f, "Brake disc temperature (Celsius)");
+		addParameter("kerbL", 0.0f, 1.0f, 0.0f, "Left wheel kerb vibration (0-1)");
+		addParameter("kerbR", 0.0f, 1.0f, 0.0f, "Right wheel kerb vibration (0-1)");
+		addParameter("strike", 0.0f, 1.0f, 0.0f, "Chassis collision intensity (0-1)");
+		addParameter("crank", 0.0f, 1.0f, 0.0f, "Starter cranking (0=off, 1=on)");
+		addParameter("start", 0.0f, 1.0f, 0.0f, "Engine start signal (0=off, 1=on)");
+		addParameter("killed", 0.0f, 1.0f, 0.0f, "Engine killed signal (0=off, 1=on)");
+		addParameter("deploy", 0.0f, 1.0f, 0.0f, "Hybrid KERS deployment (0-1)");
+		addParameter("harvest", 0.0f, 1.0f, 0.0f, "Hybrid energy recovery level (0-1)");
+		addParameter("slip", 0.0f, 1.0f, 0.0f, "Wheel slip ratio (0-1)");
+		addParameter("pit", 0.0f, 1.0f, 0.0f, "Pit limiter active (0=off, 1=on)");
+		addParameter("antistall", 0.0f, 1.0f, 0.0f, "Anti-stall active (0=off, 1=on)");
+		addParameter("gearClonk", 0.0f, 1.0f, 0.0f, "Gear clonk indicator (0-1)");
+		addParameter("gearReverse", 0.0f, 1.0f, 0.0f, "Reverse gear indicator (0=off, 1=on)");
     }
 
     void addEvent(const QString& name, const QString& path, const QString& category,

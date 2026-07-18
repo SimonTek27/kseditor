@@ -97,12 +97,12 @@ IniEditorWidget::IniEditorWidget(QWidget* parent)
     m_textEdit->setTabStopDistance(40);
     m_highlighter = new IniSyntaxHighlighter(m_textEdit->document());
 
-    m_lineLabel = new QLabel("Line: 1", this);
-    m_statusLabel = new QLabel("Ready", this);
+    m_lineLabel = new QLabel(tr("Line: 1"), this);
+    m_statusLabel = new QLabel(tr("Ready"), this);
 
     auto* toolbar = new QHBoxLayout;
-    auto* saveBtn = new QPushButton("Save", this);
-    auto* reloadBtn = new QPushButton("Reload", this);
+    auto* saveBtn = new QPushButton(tr("Save"), this);
+    auto* reloadBtn = new QPushButton(tr("Reload"), this);
     toolbar->addWidget(saveBtn);
     toolbar->addWidget(reloadBtn);
     toolbar->addStretch();
@@ -115,7 +115,7 @@ IniEditorWidget::IniEditorWidget(QWidget* parent)
     connect(m_textEdit, &QTextEdit::textChanged, this, &IniEditorWidget::onTextChanged);
     connect(m_textEdit, &QTextEdit::cursorPositionChanged, this, [this] {
         QTextCursor c = m_textEdit->textCursor();
-        m_lineLabel->setText(QString("Line: %1").arg(c.blockNumber() + 1));
+        m_lineLabel->setText(tr("Line: %1").arg(c.blockNumber() + 1));
     });
     connect(saveBtn, &QPushButton::clicked, this, &IniEditorWidget::onSave);
     connect(reloadBtn, &QPushButton::clicked, [this] {
@@ -152,7 +152,7 @@ bool IniEditorWidget::saveFile(const QString& path) {
 
     m_currentFile = path;
     m_modified = false;
-    m_statusLabel->setText("Saved");
+    m_statusLabel->setText(tr("Saved"));
     emit fileSaved(path);
     return true;
 }
@@ -165,15 +165,15 @@ void IniEditorWidget::setContent(const QString& text) {
 
 void IniEditorWidget::onTextChanged() {
     m_modified = true;
-    m_statusLabel->setText(m_modified ? "Modified" : "Ready");
+    m_statusLabel->setText(m_modified ? tr("Modified") : tr("Ready"));
     emit contentChanged();
 }
 
 void IniEditorWidget::onSave() {
     if (m_currentFile.isEmpty()) {
-        QString path = QFileDialog::getSaveFileName(this, "Save INI",
+        QString path = QFileDialog::getSaveFileName(this, tr("Save INI"),
             QString(),
-            "INI files (*.ini);;All files (*.*)");
+            tr("INI files (*.ini);;All files (*.*)"));
         if (path.isEmpty()) return;
         m_currentFile = path;
     }
@@ -191,7 +191,7 @@ const QStringList FileTreeWidget::s_carDataExtensions = {
 FileTreeWidget::FileTreeWidget(QWidget* parent)
     : QTreeWidget(parent)
 {
-    setHeaderLabel("Files");
+    setHeaderLabel(tr("Files"));
     setAnimated(true);
     setIndentation(16);
 }
@@ -273,23 +273,23 @@ CarBrowserWidget::CarBrowserWidget(QWidget* parent)
     auto* layout = new QVBoxLayout(this);
 
     m_searchBox = new QLineEdit(this);
-    m_searchBox->setPlaceholderText("Search cars...");
+    m_searchBox->setPlaceholderText(tr("Search cars..."));
 
     m_carList = new QListWidget(this);
     m_carList->setIconSize(QSize(24, 24));
 
-    m_reloadBtn = new QPushButton("Reload", this);
-    m_pathLabel = new QLabel("No folder selected", this);
+    m_reloadBtn = new QPushButton(tr("Reload"), this);
+    m_pathLabel = new QLabel(tr("No folder selected"), this);
     m_pathLabel->setWordWrap(true);
     m_pathLabel->setStyleSheet("color: gray; font-size: 9pt;");
 
-    layout->addWidget(new QLabel("Search:", this));
+    layout->addWidget(new QLabel(tr("Search:"), this));
     layout->addWidget(m_searchBox);
     layout->addWidget(m_carList);
 
     auto* btnRow = new QHBoxLayout;
     btnRow->addWidget(m_reloadBtn);
-    btnRow->addWidget(new QLabel("Path:", this));
+    btnRow->addWidget(new QLabel(tr("Path:"), this));
     layout->addLayout(btnRow);
     layout->addWidget(m_pathLabel);
 
@@ -348,7 +348,7 @@ TyresTableWidget::TyresTableWidget(QWidget* parent)
     m_rows = {"FL", "FR", "RL", "RR"};
 
     m_table = new QTableWidget(4, 5, this);
-    m_table->setHorizontalHeaderLabels({"Tyre", "Pressure (psi)", "Temp (C)", "Wear %", "Dirt %"});
+    m_table->setHorizontalHeaderLabels({tr("Tyre"), tr("Pressure (psi)"), tr("Temp (C)"), tr("Wear %"), tr("Dirt %")});
     m_table->verticalHeader()->setVisible(false);
     m_table->setAlternatingRowColors(true);
 
@@ -365,7 +365,7 @@ TyresTableWidget::TyresTableWidget(QWidget* parent)
     layout->addWidget(m_table);
 
     auto* infoLabel = new QLabel(
-        "Tip: Pressure in psi (cold). Target: 32-33 psi for sport driving.", this);
+        tr("Tip: Pressure in psi (cold). Target: 32-33 psi for sport driving."), this);
     infoLabel->setStyleSheet("color: gray; font-size: 9pt;");
     layout->addWidget(infoLabel);
 
@@ -407,11 +407,11 @@ AcdManagerWidget::AcdManagerWidget(QWidget* parent)
 {
     auto* layout = new QVBoxLayout(this);
 
-    m_acdStatus = new QLabel("No ACD file detected", this);
+    m_acdStatus = new QLabel(tr("No ACD file detected"), this);
     m_acdStatus->setStyleSheet("font-weight: bold; color: gray;");
 
-    m_extractBtn = new QPushButton("Extract ACD", this);
-    m_repackBtn  = new QPushButton("Repack ACD", this);
+    m_extractBtn = new QPushButton(tr("Extract ACD"), this);
+    m_repackBtn  = new QPushButton(tr("Repack ACD"), this);
     m_logEdit    = new QTextEdit(this);
     m_logEdit->setReadOnly(true);
     m_logEdit->setMaximumHeight(120);
@@ -421,10 +421,10 @@ AcdManagerWidget::AcdManagerWidget(QWidget* parent)
     btnRow->addWidget(m_extractBtn);
     btnRow->addWidget(m_repackBtn);
 
-    layout->addWidget(new QLabel("ACD Archive Manager", this));
+    layout->addWidget(new QLabel(tr("ACD Archive Manager"), this));
     layout->addWidget(m_acdStatus);
     layout->addLayout(btnRow);
-    layout->addWidget(new QLabel("Log:", this));
+    layout->addWidget(new QLabel(tr("Log:"), this));
     layout->addWidget(m_logEdit);
 
     connect(m_extractBtn, &QPushButton::clicked, this, &AcdManagerWidget::onExtract);
@@ -435,12 +435,12 @@ void AcdManagerWidget::setCarPath(const QString& path) {
     m_carPath = path;
     QFileInfo acd(path + "/data/acd_0.accd");
     if (acd.exists()) {
-        m_acdStatus->setText("ACD found: " + acd.fileName());
+        m_acdStatus->setText(tr("ACD found: %1").arg(acd.fileName()));
         m_acdStatus->setStyleSheet("font-weight: bold; color: green;");
         m_extractBtn->setEnabled(true);
         m_repackBtn->setEnabled(true);
     } else {
-        m_acdStatus->setText("No ACD file detected");
+        m_acdStatus->setText(tr("No ACD file detected"));
         m_acdStatus->setStyleSheet("font-weight: bold; color: gray;");
         m_extractBtn->setEnabled(false);
         m_repackBtn->setEnabled(false);
@@ -555,7 +555,7 @@ void AcdManagerWidget::onExtract() {
     }
     QFile file(acdPath);
     if (!file.open(QIODevice::ReadOnly)) {
-        m_logEdit->append("[ERROR] Cannot open ACD file");
+        m_logEdit->append(tr("[ERROR] Cannot open ACD file"));
         return;
     }
 
@@ -566,7 +566,7 @@ void AcdManagerWidget::onExtract() {
 
     QString outDir = m_carPath + "/data_extracted";
     if (!QDir().mkpath(outDir)) {
-        m_logEdit->append("[ERROR] Failed to create directory: " + outDir);
+        m_logEdit->append(tr("[ERROR] Failed to create directory: %1").arg(outDir));
         return;
     }
 
@@ -576,7 +576,7 @@ void AcdManagerWidget::onExtract() {
         out.close();
     }
 
-    m_logEdit->append("[OK] ACD extracted to: " + outDir);
+    m_logEdit->append(tr("[OK] ACD extracted to: %1").arg(outDir));
     emit acdExtracted(m_carPath);
 }
 
@@ -589,7 +589,7 @@ void AcdManagerWidget::onRepack() {
     QString inFile = m_carPath + "/data_extracted/decrypted.bin";
     QFile file(inFile);
     if (!file.open(QIODevice::ReadOnly)) {
-        m_logEdit->append("[ERROR] Cannot open extracted file");
+        m_logEdit->append(tr("[ERROR] Cannot open extracted file"));
         return;
     }
 
@@ -603,9 +603,9 @@ void AcdManagerWidget::onRepack() {
     if (out.open(QIODevice::WriteOnly)) {
         out.write(encrypted);
         out.close();
-        m_logEdit->append("[OK] ACD repacked");
+        m_logEdit->append(tr("[OK] ACD repacked"));
     } else {
-        m_logEdit->append("[ERROR] Cannot write ACD file");
+        m_logEdit->append(tr("[ERROR] Cannot write ACD file"));
     }
 }
 
@@ -644,20 +644,20 @@ void PhysicsEditorModule::buildUI() {
     auto* contentLayout = new QVBoxLayout(contentWidget);
 
     auto* toolbar = new QHBoxLayout;
-    auto* openBtn   = new QPushButton("Open Cars Folder", this);
-    auto* saveBtn   = new QPushButton("Save", this);
-    auto* exportBtn = new QPushButton("Export...", this);
-    auto* lutBtn    = new QPushButton("LUT Editor", this);
-    auto* engBtn    = new QPushButton("Engine Curve", this);
-    auto* telBtn    = new QPushButton("Telemetry", this);
-    auto* cmpBtn    = new QPushButton("Compare Setups", this);
-    auto* acdBtn    = new QPushButton("ACD Browser", this);
-    auto* suspBtn   = new QPushButton("Susp Geometry", this);
-    auto* ffbBtn    = new QPushButton("FFB Preview", this);
-    auto* validBtn  = new QPushButton("Validator", this);
-    auto* tyreCurveBtn = new QPushButton("Tire Curves", this);
-    auto* tyreTempBtn = new QPushButton("Tyre Temp Sim", this);
-    m_carLabel = new QLabel("No car selected", this);
+    auto* openBtn   = new QPushButton(tr("Open Cars Folder"), this);
+    auto* saveBtn   = new QPushButton(tr("Save"), this);
+    auto* exportBtn = new QPushButton(tr("Export..."), this);
+    auto* lutBtn    = new QPushButton(tr("LUT Editor"), this);
+    auto* engBtn    = new QPushButton(tr("Engine Curve"), this);
+    auto* telBtn    = new QPushButton(tr("Telemetry"), this);
+    auto* cmpBtn    = new QPushButton(tr("Compare Setups"), this);
+    auto* acdBtn    = new QPushButton(tr("ACD Browser"), this);
+    auto* suspBtn   = new QPushButton(tr("Susp Geometry"), this);
+    auto* ffbBtn    = new QPushButton(tr("FFB Preview"), this);
+    auto* validBtn  = new QPushButton(tr("Validator"), this);
+    auto* tyreCurveBtn = new QPushButton(tr("Tire Curves"), this);
+    auto* tyreTempBtn = new QPushButton(tr("Tyre Temp Sim"), this);
+    m_carLabel = new QLabel(tr("No car selected"), this);
     m_carLabel->setStyleSheet("font-weight: bold;");
 
     toolbar->addWidget(openBtn);
@@ -682,12 +682,12 @@ void PhysicsEditorModule::buildUI() {
 
     auto* welcome = new QWidget(this);
     auto* welcomeLayout = new QVBoxLayout(welcome);
-    auto* welcomeLabel = new QLabel(
+    auto* welcomeLabel = new QLabel(tr(
         "<h2>Physics Editor</h2>"
         "<p>Select a car from the sidebar or open a cars folder.</p>"
         "<p>Edit car INI files with syntax highlighting, manage ACD archives, "
         "visualize tyre LUT curves, tune engine power/torque, compare setups, "
-        "and browse ACD contents.</p>", this);
+        "and browse ACD contents.</p>"), this);
     welcomeLabel->setAlignment(Qt::AlignCenter);
     welcomeLayout->addWidget(welcomeLabel);
     welcomeLayout->addStretch();
@@ -741,7 +741,7 @@ void PhysicsEditorModule::buildUI() {
     splitter->setSizes({200, 600});
     contentLayout->addWidget(splitter);
 
-    m_statusLabel = new QLabel("Ready", this);
+    m_statusLabel = new QLabel(tr("Ready"), this);
     contentLayout->addWidget(m_statusLabel);
 
     root->addWidget(m_carBrowser);
@@ -810,11 +810,11 @@ void PhysicsEditorModule::onShowAcdBrowser() {
 void PhysicsEditorModule::onCarSelected(const QString& carFolder) {
     m_currentCar = carFolder;
     QString carName = QFileInfo(carFolder).fileName();
-    m_carLabel->setText("Car: " + carName);
+    m_carLabel->setText(tr("Car: %1").arg(carName));
     populateFileTree(carFolder);
     m_acdManager->setCarPath(carFolder);
     loadCarIniFiles(carFolder);
-    m_statusLabel->setText("Loaded: " + carName);
+    m_statusLabel->setText(tr("Loaded: %1").arg(carName));
     updateWindowTitle();
 }
 
@@ -828,7 +828,7 @@ void PhysicsEditorModule::onFileSelected(const QString& path) {
 
 void PhysicsEditorModule::onOpenCarsFolder() {
     QString path = QFileDialog::getExistingDirectory(this,
-        "Select Cars Folder",
+        tr("Select Cars Folder"),
         m_carsPath.isEmpty() ? QDir::homePath() : m_carsPath);
     if (!path.isEmpty()) {
         m_carsPath = path;
@@ -840,16 +840,16 @@ void PhysicsEditorModule::onOpenCarsFolder() {
 void PhysicsEditorModule::onSaveCurrentFile() {
     if (!m_currentFile.isEmpty()) {
         m_iniEditor->saveFile(m_currentFile);
-        m_statusLabel->setText("Saved: " + QFileInfo(m_currentFile).fileName());
+        m_statusLabel->setText(tr("Saved: %1").arg(QFileInfo(m_currentFile).fileName()));
     }
 }
 
 void PhysicsEditorModule::onExportCar() {
     if (m_currentCar.isEmpty()) {
-        m_statusLabel->setText("No car selected");
+        m_statusLabel->setText(tr("No car selected"));
         return;
     }
-    QString exportPath = QFileDialog::getExistingDirectory(this, "Export Car", m_currentCar);
+    QString exportPath = QFileDialog::getExistingDirectory(this, tr("Export Car"), m_currentCar);
     if (exportPath.isEmpty()) return;
 
     QString carName = QFileInfo(m_currentCar).fileName();
@@ -857,7 +857,7 @@ void PhysicsEditorModule::onExportCar() {
 
     if (QFileInfo::exists(destDir)) {
         QMessageBox::StandardButton reply = QMessageBox::question(this,
-            "Export Car", "Destination already exists. Overwrite?",
+            tr("Export Car"), tr("Destination already exists. Overwrite?"),
             QMessageBox::Yes | QMessageBox::No);
         if (reply != QMessageBox::Yes) return;
         QDir(destDir).removeRecursively();
@@ -874,33 +874,33 @@ void PhysicsEditorModule::onExportCar() {
         if (QFile::copy(it.filePath(), destFile)) copied++;
     }
 
-    m_statusLabel->setText(QString("Exported %1 files to: %2").arg(copied).arg(destDir));
+    m_statusLabel->setText(tr("Exported %1 files to: %2").arg(copied).arg(destDir));
 }
 
 void PhysicsEditorModule::onImportCar() {
-    QString carPath = QFileDialog::getExistingDirectory(this, "Select Car Folder");
+    QString carPath = QFileDialog::getExistingDirectory(this, tr("Select Car Folder"));
     if (!carPath.isEmpty()) {
         onCarSelected(carPath);
-        m_statusLabel->setText("Imported: " + QFileInfo(carPath).fileName());
+        m_statusLabel->setText(tr("Imported: %1").arg(QFileInfo(carPath).fileName()));
     }
 }
 
 bool PhysicsEditorModule::saveCurrentIni() {
     if (m_currentFile.isEmpty()) {
-        m_statusLabel->setText("No file to save");
+        m_statusLabel->setText(tr("No file to save"));
         return false;
     }
 
     if (!m_iniEditor) {
-        m_statusLabel->setText("No editor available");
+        m_statusLabel->setText(tr("No editor available"));
         return false;
     }
 
     bool ok = m_iniEditor->saveFile(m_currentFile);
     if (ok) {
-        m_statusLabel->setText("Saved: " + QFileInfo(m_currentFile).fileName());
+        m_statusLabel->setText(tr("Saved: %1").arg(QFileInfo(m_currentFile).fileName()));
     } else {
-        m_statusLabel->setText("Failed to save: " + QFileInfo(m_currentFile).fileName());
+        m_statusLabel->setText(tr("Failed to save: %1").arg(QFileInfo(m_currentFile).fileName()));
     }
     return ok;
 }
@@ -920,7 +920,7 @@ void PhysicsEditorModule::shutdown() {
     delete m_ffbPreview; m_ffbPreview = nullptr;
     delete m_validator; m_validator = nullptr;
     delete m_tyreTempModel; m_tyreTempModel = nullptr;
-    m_statusLabel->setText("Physics Editor shutdown complete");
+    m_statusLabel->setText(tr("Physics Editor shutdown complete"));
 }
 
 void PhysicsEditorModule::populateFileTree(const QString& carFolder) {
@@ -930,33 +930,33 @@ void PhysicsEditorModule::populateFileTree(const QString& carFolder) {
 bool PhysicsEditorModule::loadCarIniFiles(const QString& carFolder) {
     QDir dataDir(carFolder + "/data");
     if (!dataDir.exists()) {
-        m_statusLabel->setText("No data folder found");
+        m_statusLabel->setText(tr("No data folder found"));
         return false;
     }
 
     QStringList iniFiles = dataDir.entryList(QStringList() << "*.ini", QDir::Files);
     if (iniFiles.isEmpty()) {
-        m_statusLabel->setText("No INI files found in data folder");
+        m_statusLabel->setText(tr("No INI files found in data folder"));
         return false;
     }
 
     QString mainIni = carFolder + "/data/car.ini";
     if (QFile::exists(mainIni)) {
         m_iniEditor->loadFile(mainIni);
-        m_statusLabel->setText("Loaded: " + QFileInfo(mainIni).fileName());
+        m_statusLabel->setText(tr("Loaded: %1").arg(QFileInfo(mainIni).fileName()));
     } else if (!iniFiles.isEmpty()) {
         QString firstIni = dataDir.absoluteFilePath(iniFiles.first());
         m_iniEditor->loadFile(firstIni);
-        m_statusLabel->setText("Loaded: " + iniFiles.first());
+        m_statusLabel->setText(tr("Loaded: %1").arg(iniFiles.first()));
     }
 
     return true;
 }
 
 void PhysicsEditorModule::updateWindowTitle() {
-    QString title = "Physics Editor";
+    QString title = tr("Physics Editor");
     if (!m_currentCar.isEmpty()) {
-        title += " - " + QFileInfo(m_currentCar).fileName();
+        title += tr(" - %1").arg(QFileInfo(m_currentCar).fileName());
     }
     setWindowTitle(title);
 }
@@ -995,7 +995,7 @@ LutCurveWidget::LutCurveWidget(QWidget* parent)
 
     auto* topBar = new QHBoxLayout;
     m_lutSelector = new QComboBox(this);
-    m_infoLabel = new QLabel("No LUT loaded", this);
+    m_infoLabel = new QLabel(tr("No LUT loaded"), this);
     m_infoLabel->setStyleSheet("color: gray;");
     topBar->addWidget(new QLabel("LUT:", this));
     topBar->addWidget(m_lutSelector, 1);
@@ -1131,7 +1131,7 @@ void LutCurveWidget::clear() {
     m_chart->removeAllSeries();
     m_xData.clear();
     m_yData.clear();
-    m_infoLabel->setText("No LUT loaded");
+    m_infoLabel->setText(tr("No LUT loaded"));
     m_lutSelector->clear();
 }
 
@@ -1142,7 +1142,7 @@ void LutCurveWidget::onPointHovered(const QPointF& point, bool isHovering) {
         if (!m_currentLut.isEmpty()) {
             m_infoLabel->setText("LUT: " + QFileInfo(m_currentLut).fileName());
         } else {
-            m_infoLabel->setText("No LUT loaded");
+            m_infoLabel->setText(tr("No LUT loaded"));
         }
     }
 }
@@ -2580,7 +2580,7 @@ void TyreTempModelWidget::buildUI() {
     m_tempTable->setAlternatingRowColors(true);
     m_tempTable->setMinimumHeight(100);
 
-    m_statusLabel = new QLabel("Ready", this);
+    m_statusLabel = new QLabel(tr("Ready"), this);
     m_statusLabel->setStyleSheet("color: gray;");
 
     layout->addLayout(inputRow);

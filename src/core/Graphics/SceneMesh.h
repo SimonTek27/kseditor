@@ -1,116 +1,155 @@
 #pragma once
 
-#include <QVector>
+#include <QObject>
 #include <QString>
-#include "Math/MathCore.h"
+#include <QVector>
+#include <QMap>
+#include <QVector2D>
+#include <QVector3D>
+#include <QVector4D>
+#include <QMatrix4x4>
+#include <QUuid>
+#include <vulkan/vulkan.h>
 
 namespace ks {
+namespace graphics {
 
-// Extended vertex with position, color, normal, and UV
 struct SceneVertex {
-    Vec3 position;
-    Vec3 color;
-    Vec3 normal;
-    Vec2 uv;
+    QVector3D position;
+    QVector3D normal;
+    QVector2D uv;
+    QVector4D color = {1, 1, 1, 1};
+    QVector3D tangent;
+    float weight = 1.0f;
+    float mask = 0.0f;
+    int boneIndex = -1;
+    
+    static VkVertexInputBindingDescription getBindingDescription() {
+        VkVertexInputBindingDescription binding{};
+        binding.binding = 0;
+        binding.stride = sizeof(SceneVertex);
+        binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        return binding;
+    }
+    
+    static QVector<VkVertexInputAttributeDescription> getAttributeDescriptions() {
+        QVector<VkVertexInputAttributeDescription> attrs(8);
+        attrs[0] = {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(SceneVertex, position)};
+        attrs[1] = {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(SceneVertex, normal)};
+        attrs[2] = {2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(SceneVertex, uv)};
+        attrs[3] = {3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(SceneVertex, color)};
+        attrs[4] = {4, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(SceneVertex, tangent)};
+        attrs[5] = {5, 0, VK_FORMAT_R32_SFLOAT, offsetof(SceneVertex, weight)};
+        attrs[6] = {6, 0, VK_FORMAT_R32_SFLOAT, offsetof(SceneVertex, mask)};
+        attrs[7] = {7, 0, VK_FORMAT_R32_SINT, offsetof(SceneVertex, boneIndex)};
+        return attrs;
+    }
 };
 
-// CPU-side mesh used by SceneObject
-class SceneMesh {
-public:
-    SceneMesh() = default;
-    ~SceneMesh();
-
-    // CPU-side data
-    QVector<SceneVertex>& vertices() { return m_vertices; }
-    const QVector<SceneVertex>& vertices() const { return m_vertices; }
-
-    QVector<uint32_t>& indices() { return m_indices; }
-    const QVector<uint32_t>& indices() const { return m_indices; }
-
-    // Utility methods
-    void clear() { m_vertices.clear(); m_indices.clear(); m_boundsMin = m_boundsMax = m_boundsCenter = Vec3(); }
-    void reserveVertices(int n) { m_vertices.reserve(n); }
-    void reserveIndices(int n) { m_indices.reserve(n); }
-
-    // Add a triangle (counter-clockwise winding)
-    void addTriangle(const Vec3& a, const Vec3& b, const Vec3& c, const Vec3& color = Vec3(0.8f, 0.8f, 0.8f)) {
-        uint32_t base = m_vertices.size();
-        m_vertices.push_back({a, color, Vec3(), Vec2()});
-        m_vertices.push_back({b, color, Vec3(), Vec2()});
-        m_vertices.push_back({c, color, Vec3(), Vec2()});
-        m_indices.push_back(base);
-        m_indices.push_back(base + 1);
-        m_indices.push_back(base + 2);
-    }
-
-    // Add a quad (split into two triangles)
-    void addQuad(const Vec3& a, const Vec3& b, const Vec3& c, const Vec3& d, const Vec3& color = Vec3(0.8f, 0.8f, 0.8f)) {
-        addTriangle(a, b, c, color);
-        addTriangle(c, d, a, color);
-    }
-
-    // Compute flat face normals for all triangles
-    void computeNormals() {
-        // First zero all normals
-        for (auto& v : m_vertices) v.normal = Vec3();
-
-        for (size_t i = 0; i + 2 < m_indices.size(); i += 3) {
-            uint32_t i0 = m_indices[i];
-            uint32_t i1 = m_indices[i+1];
-            uint32_t i2 = m_indices[i+2];
-            if (i0 >= m_vertices.size() || i1 >= m_vertices.size() || i2 >= m_vertices.size()) continue;
-            Vec3 edge1 = m_vertices[i1].position - m_vertices[i0].position;
-            Vec3 edge2 = m_vertices[i2].position - m_vertices[i0].position;
-            Vec3 n = Vec3::cross(edge1, edge2);
-            if (n.normalized().x != 0 || n.normalized().y != 0 || n.normalized().z != 0)
-                n = n.normalized();
-            m_vertices[i0].normal = n;
-            m_vertices[i1].normal = n;
-            m_vertices[i2].normal = n;
-        }
-    }
-
-    // Recompute bounds
-    void update() {
-        if (m_vertices.isEmpty()) { m_boundsMin = m_boundsMax = m_boundsCenter = Vec3(); return; }
-        m_boundsMin = m_boundsMax = m_vertices[0].position;
-        for (int i = 1; i < m_vertices.size(); ++i) {
-            const Vec3& p = m_vertices[i].position;
-            m_boundsMin.x = qMin(m_boundsMin.x, p.x);
-            m_boundsMin.y = qMin(m_boundsMin.y, p.y);
-            m_boundsMin.z = qMin(m_boundsMin.z, p.z);
-            m_boundsMax.x = qMax(m_boundsMax.x, p.x);
-            m_boundsMax.y = qMax(m_boundsMax.y, p.y);
-            m_boundsMax.z = qMax(m_boundsMax.z, p.z);
-        }
-        m_boundsCenter = Vec3(
-            (m_boundsMin.x + m_boundsMax.x) * 0.5f,
-            (m_boundsMin.y + m_boundsMax.y) * 0.5f,
-            (m_boundsMin.z + m_boundsMax.z) * 0.5f
-        );
-    }
-
-    const Vec3& boundsMin() const { return m_boundsMin; }
-    const Vec3& boundsMax() const { return m_boundsMax; }
-    const Vec3& boundsCenter() const { return m_boundsCenter; }
-
-    // Material name
+struct SceneSubMesh {
+    QString name;
     QString materialName;
-    QString shaderName;
+    uint32_t indexOffset = 0;
+    uint32_t indexCount = 0;
+    uint32_t vertexOffset = 0;
+    uint32_t vertexCount = 0;
+    QVector3D boundsMin;
+    QVector3D boundsMax;
+};
 
-    // Vertex/face counts
-    size_t vertexCount() const { return m_vertices.size(); }
-    size_t triangleCount() const { return m_indices.size() / 3; }
+struct SceneMeshGeometry {
+    QString name;
+    QVector<SceneVertex> vertices;
+    QVector<uint32_t> indices;
+    QVector<SceneSubMesh> subMeshes;
+    QVector3D boundsMin;
+    QVector3D boundsMax;
+    float boundsRadius = 0.0f;
+    
+    // Skinning
+    QVector<QMatrix4x4> inverseBindMatrices;
+    QVector<QString> boneNames;
+    
+    // Morph targets
+    QStringList morphTargetNames;
+    QVector<QVector<QVector3D>> morphPositionDeltas;
+    QVector<QVector<QVector3D>> morphNormalDeltas;
+    
+    void computeBounds();
+    void computeTangents();
+    void optimizeVertexCache();
+};
+
+class SceneMesh : public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit SceneMesh(QObject* parent = nullptr);
+    explicit SceneMesh(const SceneMeshGeometry& geometry, QObject* parent = nullptr);
+    ~SceneMesh() override;
+
+    // Geometry
+    const SceneMeshGeometry& geometry() const { return m_geometry; }
+    SceneMeshGeometry& geometry() { return m_geometry; }
+    void setGeometry(const SceneMeshGeometry& geometry);
+
+    // Vulkan buffers
+    VkBuffer vertexBuffer() const { return m_vertexBuffer; }
+    VkDeviceMemory vertexMemory() const { return m_vertexMemory; }
+    VkBuffer indexBuffer() const { return m_indexBuffer; }
+    VkDeviceMemory indexMemory() const { return m_indexMemory; }
+    uint32_t indexCount() const { return static_cast<uint32_t>(m_geometry.indices.size()); }
+    uint32_t vertexCount() const { return static_cast<uint32_t>(m_geometry.vertices.size()); }
+
+    // Buffer creation
+    bool createBuffers(VkDevice device, VkPhysicalDevice physDev, VkQueue queue, VkCommandPool pool);
+    void destroyBuffers(VkDevice device);
+
+    // Skinning
+    const QVector<QMatrix4x4>& inverseBindMatrices() const { return m_geometry.inverseBindMatrices; }
+    const QVector<QString>& boneNames() const { return m_geometry.boneNames; }
+    bool hasSkinning() const { return !m_geometry.inverseBindMatrices.isEmpty(); }
+
+    // Morph targets
+    const QStringList& morphTargetNames() const { return m_geometry.morphTargetNames; }
+    const QVector<QVector<QVector3D>>& morphPositionDeltas() const { return m_geometry.morphPositionDeltas; }
+    const QVector<QVector<QVector3D>>& morphNormalDeltas() const { return m_geometry.morphNormalDeltas; }
+    void setMorphWeight(int targetIndex, float weight);
+
+    // Bounds
+    QVector3D boundsMin() const { return m_geometry.boundsMin; }
+    QVector3D boundsMax() const { return m_geometry.boundsMax; }
+    float boundsRadius() const { return m_geometry.boundsRadius; }
+
+    // Sub-meshes
+    const QVector<SceneSubMesh>& subMeshes() const { return m_geometry.subMeshes; }
+    SceneSubMesh* getSubMesh(const QString& name);
+
+    // Serialization
+    QJsonObject toJson() const;
+    static SceneMesh* fromJson(const QJsonObject& obj);
+
+signals:
+    void geometryChanged();
+    void buffersCreated();
+    void boundsChanged();
 
 private:
-    QVector<SceneVertex> m_vertices;
-    QVector<uint32_t> m_indices;
-    Vec3 m_boundsMin{};
-    Vec3 m_boundsMax{};
-    Vec3 m_boundsCenter{};
+    SceneMeshGeometry m_geometry;
+    
+    // Vulkan resources
+    VkBuffer m_vertexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_vertexMemory = VK_NULL_HANDLE;
+    VkBuffer m_indexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_indexMemory = VK_NULL_HANDLE;
+    
+    // Morph weights
+    QVector<float> m_morphWeights;
+
+    // Buffer state
+    bool m_buffersValid = false;
 };
 
-// Helper to create a simple colored triangle mesh
-SceneMesh* createTestTriangleMesh();
-
+} // namespace graphics
 } // namespace ks

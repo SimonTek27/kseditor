@@ -98,6 +98,12 @@ private:
 
     QMap<MessageType, bool> m_typeFilter;
     QMap<MessageType, bool> m_filter;
+
+    // Search state
+    QString m_searchText;
+    bool m_searchCaseSensitive = false;
+    bool m_searchRegex = false;
+    int m_searchCurrentIndex = 0;
 };
 
 class ConsoleInput : public QObject

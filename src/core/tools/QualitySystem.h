@@ -90,6 +90,7 @@ public:
     bool hasErrors() const;
 
     void clearResults();
+    void clearRules();
 
     void registerBuiltinRules();
 

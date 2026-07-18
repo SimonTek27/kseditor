@@ -9,10 +9,15 @@
 #include <QDateTime>
 
 namespace ks {
-
 class SceneGraph;
+namespace graphics {
 class SceneObject;
 class SceneMesh;
+} }
+
+namespace ks {
+using graphics::SceneObject;
+using graphics::SceneMesh;
 
 struct ProjectData {
     QString name;

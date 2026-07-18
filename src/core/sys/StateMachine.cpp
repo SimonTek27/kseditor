@@ -83,10 +83,12 @@ void StateMachine::stop()
 
 void StateMachine::reset()
 {
-    stop();
-    m_currentStateId = m_initialStateId;
+    m_running = false;
+    m_states.clear();
+    m_transitions.clear();
+    m_initialStateId.clear();
+    m_currentStateId.clear();
     m_eventQueue.clear();
-    start();
 }
 
 void StateMachine::postEvent(const QString& event)

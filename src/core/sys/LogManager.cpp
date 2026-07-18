@@ -3,6 +3,9 @@
 #include <QStandardPaths>
 #include <QDebug>
 #include <iostream>
+#include <QThread>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 static QtMessageHandler s_prevQtHandler = nullptr;
 
@@ -12,7 +15,7 @@ static void ksMessageHandler(QtMsgType type,
 {
     LogManager& lm = LogManager::instance();
     if (lm.isQtMessageHandlerEnabled())
-        lm.log(LogLevel::Debug, "Qt", msg);
+        lm.log(LogLevel::Debug, "Qt", msg, ctx.file ? ctx.file : "", ctx.line, ctx.function ? ctx.function : "");
 
     if (s_prevQtHandler)
         s_prevQtHandler(type, ctx, msg);
@@ -34,12 +37,29 @@ LogManager::LogManager(QObject* parent)
     QString logPath = logDir + "/kseditor.log";
     setLogFile(logPath);
 
+    m_flushTimer = new QTimer(this);
+    connect(m_flushTimer, &QTimer::timeout, this, &LogManager::flushRemoteBuffer);
+    m_flushTimer->start(m_flushInterval);
+
     m_initialized = true;
 }
 
 LogManager::~LogManager()
 {
     flush();
+    if (m_flushTimer) m_flushTimer->stop();
+    
+    QMutexLocker locker(&m_remoteMutex);
+    for (auto& endpoint : m_remoteEndpoints) {
+        if (endpoint.tcpSocket) {
+            endpoint.tcpSocket->disconnectFromHost();
+            endpoint.tcpSocket->deleteLater();
+        }
+        if (endpoint.udpSocket) {
+            endpoint.udpSocket->close();
+            endpoint.udpSocket->deleteLater();
+        }
+    }
 }
 
 void LogManager::setLogFile(const QString& path)
@@ -76,7 +96,8 @@ void LogManager::setMaxBackupFiles(int maxFiles)
     m_maxBackupFiles = maxFiles;
 }
 
-void LogManager::log(LogLevel level, const QString& category, const QString& message)
+void LogManager::log(LogLevel level, const QString& category, const QString& message,
+                     const QString& file, int line, const QString& function)
 {
     if (level < m_minLevel || !isModuleEnabled(category, level)) {
         return;
@@ -99,40 +120,60 @@ void LogManager::log(LogLevel level, const QString& category, const QString& mes
     entry.level = level;
     entry.category = category;
     entry.message = message;
+    entry.threadName = QThread::currentThread()->objectName();
+    entry.threadId = reinterpret_cast<quint64>(QThread::currentThreadId());
+    entry.file = file;
+    entry.line = line;
+    entry.function = function;
     appendEntry(entry);
 
     emit logMessage(level, category, message, QDateTime::currentDateTime());
     emit messageLogged(entry);
+
+    // Buffer for remote sending
+    {
+        QMutexLocker remoteLock(&m_remoteMutex);
+        m_remoteBuffer.enqueue(entry);
+        if (m_remoteBuffer.size() >= m_batchSize) {
+            flushRemoteBuffer();
+        }
+    }
 }
 
-void LogManager::trace(const QString& category, const QString& message)
+void LogManager::trace(const QString& category, const QString& message,
+                       const QString& file, int line, const QString& function)
 {
-    log(LogLevel::Trace, category, message);
+    log(LogLevel::Trace, category, message, file, line, function);
 }
 
-void LogManager::debug(const QString& category, const QString& message)
+void LogManager::debug(const QString& category, const QString& message,
+                       const QString& file, int line, const QString& function)
 {
-    log(LogLevel::Debug, category, message);
+    log(LogLevel::Debug, category, message, file, line, function);
 }
 
-void LogManager::info(const QString& category, const QString& message)
+void LogManager::info(const QString& category, const QString& message,
+                      const QString& file, int line, const QString& function)
 {
-    log(LogLevel::Info, category, message);
+    log(LogLevel::Info, category, message, file, line, function);
 }
 
-void LogManager::warning(const QString& category, const QString& message)
+void LogManager::warning(const QString& category, const QString& message,
+                         const QString& file, int line, const QString& function)
 {
-    log(LogLevel::Warning, category, message);
+    log(LogLevel::Warning, category, message, file, line, function);
 }
 
-void LogManager::error(const QString& category, const QString& message)
+void LogManager::error(const QString& category, const QString& message,
+                       const QString& file, int line, const QString& function)
 {
-    log(LogLevel::Error, category, message);
+    log(LogLevel::Error, category, message, file, line, function);
 }
 
-void LogManager::critical(const QString& category, const QString& message)
+void LogManager::critical(const QString& category, const QString& message,
+                          const QString& file, int line, const QString& function)
 {
-    log(LogLevel::Critical, category, message);
+    log(LogLevel::Critical, category, message, file, line, function);
 }
 
 void LogManager::flush()
@@ -249,4 +290,157 @@ void LogManager::rotateLogFile()
         return;
     }
     m_stream.setDevice(&m_logFile);
+}
+
+// Remote logging
+void LogManager::addRemoteEndpoint(const QString& id, const QString& host, quint16 port,
+                                   bool useTcp, bool useJson)
+{
+    QMutexLocker locker(&m_remoteMutex);
+    
+    if (m_remoteEndpoints.contains(id)) return;
+    
+    RemoteEndpoint ep;
+    ep.id = id;
+    ep.host = host;
+    ep.port = port;
+    ep.useTcp = useTcp;
+    ep.useJson = useJson;
+    ep.enabled = true;
+    
+    if (useTcp) {
+        ep.tcpSocket = new QTcpSocket(this);
+        connect(ep.tcpSocket, &QTcpSocket::connected, this, [this, id]() {
+            QMutexLocker lock(&m_remoteMutex);
+            if (m_remoteEndpoints.contains(id)) {
+                m_remoteEndpoints[id].connected = true;
+            }
+        });
+        connect(ep.tcpSocket, QOverload<QAbstractSocket::SocketError>::of(&QTcpSocket::errorOccurred),
+                this, [this, id](QAbstractSocket::SocketError err) {
+            QMutexLocker lock(&m_remoteMutex);
+            if (m_remoteEndpoints.contains(id)) {
+                m_remoteEndpoints[id].connected = false;
+                emit remoteSendFailed(id, m_remoteEndpoints[id].tcpSocket->errorString());
+            }
+        });
+        connect(ep.tcpSocket, &QTcpSocket::disconnected, this, [this, id]() {
+            QMutexLocker lock(&m_remoteMutex);
+            if (m_remoteEndpoints.contains(id)) {
+                m_remoteEndpoints[id].connected = false;
+            }
+        });
+    } else {
+        ep.udpSocket = new QUdpSocket(this);
+    }
+    
+    m_remoteEndpoints[id] = ep;
+    connectToEndpoint(id);
+}
+
+void LogManager::removeRemoteEndpoint(const QString& id)
+{
+    QMutexLocker locker(&m_remoteMutex);
+    
+    if (!m_remoteEndpoints.contains(id)) return;
+    
+    auto& ep = m_remoteEndpoints[id];
+    if (ep.tcpSocket) {
+        ep.tcpSocket->disconnectFromHost();
+        ep.tcpSocket->deleteLater();
+    }
+    if (ep.udpSocket) {
+        ep.udpSocket->close();
+        ep.udpSocket->deleteLater();
+    }
+    
+    m_remoteEndpoints.remove(id);
+}
+
+void LogManager::setRemoteLogLevel(const QString& id, LogLevel level)
+{
+    QMutexLocker locker(&m_remoteMutex);
+    if (m_remoteEndpoints.contains(id)) {
+        m_remoteEndpoints[id].minLevel = level;
+    }
+}
+
+void LogManager::setRemoteEnabled(const QString& id, bool enabled)
+{
+    QMutexLocker locker(&m_remoteMutex);
+    if (m_remoteEndpoints.contains(id)) {
+        m_remoteEndpoints[id].enabled = enabled;
+    }
+}
+
+QMap<QString, bool> LogManager::getRemoteEndpoints() const
+{
+    QMutexLocker locker(&m_remoteMutex);
+    QMap<QString, bool> result;
+    for (auto it = m_remoteEndpoints.constBegin(); it != m_remoteEndpoints.constEnd(); ++it) {
+        result[it.key()] = it->connected && it->enabled;
+    }
+    return result;
+}
+
+void LogManager::connectToEndpoint(const QString& id)
+{
+    if (!m_remoteEndpoints.contains(id)) return;
+    
+    auto& ep = m_remoteEndpoints[id];
+    if (!ep.enabled) return;
+    
+    if (ep.useTcp && ep.tcpSocket) {
+        if (ep.tcpSocket->state() == QAbstractSocket::UnconnectedState) {
+            ep.tcpSocket->connectToHost(ep.host, ep.port);
+        }
+    }
+}
+
+void LogManager::flushRemoteBuffer()
+{
+    QMutexLocker locker(&m_remoteMutex);
+    
+    if (m_remoteBuffer.isEmpty()) return;
+    
+    QVector<LogEntry> toSend;
+    while (!m_remoteBuffer.isEmpty() && toSend.size() < m_batchSize) {
+        toSend.append(m_remoteBuffer.dequeue());
+    }
+    
+    for (const auto& entry : toSend) {
+        sendToRemote(entry);
+    }
+}
+
+void LogManager::sendToRemote(const LogEntry& entry)
+{
+    for (auto it = m_remoteEndpoints.begin(); it != m_remoteEndpoints.end(); ++it) {
+        auto& ep = it.value();
+        if (!ep.enabled || static_cast<int>(entry.level) < static_cast<int>(ep.minLevel)) continue;
+        
+        if (ep.useTcp && ep.tcpSocket && ep.tcpSocket->state() == QAbstractSocket::ConnectedState) {
+            QJsonObject obj;
+            obj["timestamp"] = entry.timestamp.toString(Qt::ISODate);
+            obj["level"] = static_cast<int>(entry.level);
+            obj["category"] = entry.category;
+            obj["message"] = entry.message;
+            obj["thread"] = entry.threadName;
+            obj["file"] = entry.file;
+            obj["line"] = entry.line;
+            obj["function"] = entry.function;
+            
+            QByteArray data = QJsonDocument(obj).toJson(QJsonDocument::Compact) + "\n";
+            ep.tcpSocket->write(data);
+        } else if (!ep.useTcp && ep.udpSocket) {
+            QJsonObject obj;
+            obj["timestamp"] = entry.timestamp.toString(Qt::ISODate);
+            obj["level"] = static_cast<int>(entry.level);
+            obj["category"] = entry.category;
+            obj["message"] = entry.message;
+            
+            QByteArray data = QJsonDocument(obj).toJson(QJsonDocument::Compact);
+            ep.udpSocket->writeDatagram(data, QHostAddress(ep.host), ep.port);
+        }
+    }
 }

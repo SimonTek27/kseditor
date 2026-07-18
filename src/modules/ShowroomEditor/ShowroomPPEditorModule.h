@@ -75,6 +75,7 @@ private:
     void setupUi();
     void loadFileToUI();
     void saveFileFromUI();
+    void syncStateFromUI();
 
     QDockWidget* m_dockWidget = nullptr;
     QTabWidget* m_tabWidget = nullptr;
@@ -115,6 +116,22 @@ private:
     QLabel* m_statusLabel = nullptr;
 
     QString m_filePath;
+    bool m_modified = false;
+
+    // Internal state for PP filter values
+    struct PPState {
+        bool autoExposure = true;
+        double aeDelay = 0.0, aeTarget = 0.32, aeMin = 0.2, aeMax = 0.5;
+        double exposure = 0.28, gamma = 1.2;
+        bool dof = true;
+        double dofAperture = 12.0;
+        bool glare = true;
+        double glareLuminance = 1.6, glareThreshold = 5.0;
+        bool godRays = true;
+        double godRaysLength = 11.0;
+        double saturation = 0.95, brightness = 1.0, contrast = 1.0;
+        int colorTemp = 6400;
+    } m_state;
 };
 
 } // namespace ks

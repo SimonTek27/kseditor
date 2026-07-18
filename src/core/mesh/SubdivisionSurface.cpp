@@ -329,8 +329,30 @@ SubdivisionResult SubdivisionSurface::subdivideInternal(
 
     result.vertices = outVerts;
     result.faces = outFaces;
+    result.resultVertices = outVerts.size() / 3;
+    result.resultFaces = outSizes.size();
     result.success = true;
     result.errorMessage = "Used fallback subdivision (OpenSubdiv not available)";
+
+    {
+        resultMesh.vertices.resize(outVerts.size() / 3);
+        for (int i = 0; i < resultMesh.vertices.size(); ++i) {
+            resultMesh.vertices[i].position = QVector3D(outVerts[i * 3],
+                                                       outVerts[i * 3 + 1],
+                                                       outVerts[i * 3 + 2]);
+        }
+        int fi = 0;
+        for (int s = 0; s < outSizes.size(); ++s) {
+            Face face;
+            for (int k = 0; k < outSizes[s]; ++k)
+                face.indices.append(outFaces[fi++]);
+            resultMesh.faces.append(face);
+        }
+        resultMesh.computeNormals();
+        resultMesh.computeBoundingBox();
+        result.mesh = resultMesh;
+    }
+
     qDebug() << "SubdivisionSurface: OpenSubdiv not available, used fallback subdivision";
 #endif
 

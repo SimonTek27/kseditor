@@ -4,6 +4,8 @@
 #include <QFileDialog>
 #include <QApplication>
 #include "mesh/MeshOperations.h"
+#include "Graphics/SceneGraph.h"
+#include "Graphics/SceneObject.h"
 
 namespace ks {
 
@@ -446,7 +448,9 @@ void EditorSceneGraphWidget::onDuplicate() {
     for (SceneObject* obj : sel) {
         if (m_scene && obj->parent()) {
             SceneObject* dup = m_scene->createObject(obj->name() + "_copy", obj->type(), obj->parent());
-            dup->setTransform(obj->transform());
+            dup->setPosition(obj->position());
+            dup->setRotationEuler(obj->rotationEuler());
+            dup->setScale(obj->scale());
         }
     }
     refresh();

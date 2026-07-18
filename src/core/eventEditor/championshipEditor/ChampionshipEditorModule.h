@@ -118,6 +118,8 @@ private slots:
     void onRemoveEvent();
     void onChampionshipPropChanged();
     void onEventPropChanged();
+    void onAddCondition();
+    void onRemoveCondition();
 
 private:
     void setupUi();
@@ -176,6 +178,11 @@ private:
     QPushButton* m_loadBtn = nullptr;
     QPushButton* m_saveBtn = nullptr;
     QLabel* m_statusLabel = nullptr;
+
+    // Conditions
+    QListWidget* m_condList = nullptr;
+    QPushButton* m_addCondBtn = nullptr;
+    QPushButton* m_removeCondBtn = nullptr;
 
     QVector<ChampionshipEntry> m_championships;
     int m_selectedChamp = -1;

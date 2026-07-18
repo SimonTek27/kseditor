@@ -42,6 +42,7 @@ void TestValidationSystem::test_registerRule()
 {
     ValidationManager* mgr = ValidationManager::instance();
     mgr->clearResults();
+    mgr->clearRules();
 
     mgr->registerRule("test_rule", "Test validation rule",
                        ValidationCategory::General,
@@ -70,6 +71,7 @@ void TestValidationSystem::test_validate()
 {
     ValidationManager* mgr = ValidationManager::instance();
     mgr->clearResults();
+    mgr->clearRules();
 
     mgr->registerRule("check_size", "Check size field",
                        ValidationCategory::General,
@@ -98,6 +100,7 @@ void TestValidationSystem::test_enableDisableRule()
 {
     ValidationManager* mgr = ValidationManager::instance();
     mgr->clearResults();
+    mgr->clearRules();
 
     mgr->registerRule("toggle_rule", "Toggle test",
                        ValidationCategory::General,
@@ -127,6 +130,7 @@ void TestValidationSystem::test_hasErrors()
 {
     ValidationManager* mgr = ValidationManager::instance();
     mgr->clearResults();
+    mgr->clearRules();
 
     mgr->registerRule("err_rule", "Error test",
                        ValidationCategory::General,
@@ -144,9 +148,11 @@ void TestValidationSystem::test_clearResults()
 {
     ValidationManager* mgr = ValidationManager::instance();
     mgr->clearResults();
+    mgr->clearRules();
     mgr->validate(QVariantMap());
     QVERIFY(mgr->getLastResults().isEmpty() || !mgr->getLastResults().isEmpty());
     mgr->clearResults();
+    mgr->clearRules();
     QVERIFY(mgr->getLastResults().isEmpty());
 }
 
@@ -154,6 +160,7 @@ void TestValidationSystem::test_builtinRules()
 {
     ValidationManager* mgr = ValidationManager::instance();
     mgr->clearResults();
+    mgr->clearRules();
     mgr->registerBuiltinRules();
     auto results = mgr->validate(QVariantMap());
     QVERIFY(!results.isEmpty() || mgr->getLastResults().isEmpty());

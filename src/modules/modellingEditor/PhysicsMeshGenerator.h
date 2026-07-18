@@ -218,6 +218,8 @@ private:
 #endif
 
     void addMeshToType(const PhysicsMesh& mesh, CollisionType type);
+
+public:
     void clearAllMeshes();
 };
 

@@ -11,6 +11,9 @@
 #include <QStandardPaths>
 
 namespace ks {
+using graphics::SceneObject;
+using graphics::SceneMesh;
+using graphics::SceneVertex;
 
 ProjectSerializer& ProjectSerializer::instance() {
     static ProjectSerializer s;
@@ -161,21 +164,20 @@ QJsonObject ProjectSerializer::serializeObject(SceneObject* obj) {
     json["type"] = static_cast<int>(obj->type());
     json["visible"] = obj->isVisible();
 
-    auto t = obj->transform();
-    auto tr = t.translation();
-    auto rot = t.rotation();
-    auto sc = t.scale();
+    auto pos = obj->position();
+    auto rot = obj->rotationEuler();
+    auto sc = obj->scale();
 
     QJsonObject transform;
-    transform["x"] = static_cast<double>(tr.x);
-    transform["y"] = static_cast<double>(tr.y);
-    transform["z"] = static_cast<double>(tr.z);
-    transform["rx"] = static_cast<double>(rot.x);
-    transform["ry"] = static_cast<double>(rot.y);
-    transform["rz"] = static_cast<double>(rot.z);
-    transform["sx"] = static_cast<double>(sc.x);
-    transform["sy"] = static_cast<double>(sc.y);
-    transform["sz"] = static_cast<double>(sc.z);
+    transform["x"] = static_cast<double>(pos.x());
+    transform["y"] = static_cast<double>(pos.y());
+    transform["z"] = static_cast<double>(pos.z());
+    transform["rx"] = static_cast<double>(rot.x());
+    transform["ry"] = static_cast<double>(rot.y());
+    transform["rz"] = static_cast<double>(rot.z());
+    transform["sx"] = static_cast<double>(sc.x());
+    transform["sy"] = static_cast<double>(sc.y());
+    transform["sz"] = static_cast<double>(sc.z());
     json["transform"] = transform;
 
     if (obj->mesh()) {
@@ -199,23 +201,21 @@ SceneObject* ProjectSerializer::deserializeObject(const QJsonObject& json, Scene
 
     if (json.contains("transform")) {
         QJsonObject t = json["transform"].toObject();
-        Matrix4 m;
-        m.setTranslation(Vec3(
+        obj->setPosition(QVector3D(
             t["x"].toDouble(0),
             t["y"].toDouble(0),
             t["z"].toDouble(0)
         ));
-        m.setRotation(Vec3(
+        obj->setRotationEuler(QVector3D(
             t["rx"].toDouble(0),
             t["ry"].toDouble(0),
             t["rz"].toDouble(0)
         ));
-        m.setScale(Vec3(
+        obj->setScale(QVector3D(
             t["sx"].toDouble(1),
             t["sy"].toDouble(1),
             t["sz"].toDouble(1)
         ));
-        obj->setTransform(m);
     }
 
     if (json.contains("mesh") && objType == SceneObject::Type::Mesh) {
@@ -230,22 +230,22 @@ SceneObject* ProjectSerializer::deserializeObject(const QJsonObject& json, Scene
 QJsonObject ProjectSerializer::serializeMesh(SceneMesh* mesh) {
     QJsonObject json;
 
-    auto& verts = mesh->vertices();
-    auto& idxs = mesh->indices();
+    auto& verts = mesh->geometry().vertices;
+    auto& idxs = mesh->geometry().indices;
 
     QJsonArray posArray, normArray, uvArray, idxArray, colorArray;
 
     for (const auto& v : verts) {
-        QJsonArray pos = { v.position.x, v.position.y, v.position.z };
+        QJsonArray pos = { v.position.x(), v.position.y(), v.position.z() };
         posArray.append(pos);
 
-        QJsonArray norm = { v.normal.x, v.normal.y, v.normal.z };
+        QJsonArray norm = { v.normal.x(), v.normal.y(), v.normal.z() };
         normArray.append(norm);
 
-        QJsonArray uv = { v.uv.x, v.uv.y };
+        QJsonArray uv = { v.uv.x(), v.uv.y() };
         uvArray.append(uv);
 
-        QJsonArray col = { v.color.x, v.color.y, v.color.z, 1.0 };
+        QJsonArray col = { v.color.x(), v.color.y(), v.color.z(), 1.0 };
         colorArray.append(col);
     }
 
@@ -272,29 +272,28 @@ bool ProjectSerializer::deserializeMesh(SceneMesh* mesh, const QJsonObject& json
 
     if (posArray.isEmpty()) return false;
 
-    auto& verts = mesh->vertices();
-    auto& idxs = mesh->indices();
+    auto& verts = mesh->geometry().vertices;
+    auto& idxs = mesh->geometry().indices;
 
     verts.reserve(posArray.size());
     for (int i = 0; i < posArray.size(); ++i) {
         QJsonArray pos = posArray[i].toArray();
         SceneVertex v;
-        v.position = Vec3(pos[0].toDouble(), pos[1].toDouble(), pos[2].toDouble());
+        v.position = QVector3D(pos[0].toDouble(), pos[1].toDouble(), pos[2].toDouble());
 
         if (i < json["normals"].toArray().size()) {
             QJsonArray norm = json["normals"].toArray()[i].toArray();
-            v.normal = Vec3(norm[0].toDouble(), norm[1].toDouble(), norm[2].toDouble());
+            v.normal = QVector3D(norm[0].toDouble(), norm[1].toDouble(), norm[2].toDouble());
         }
 
         if (i < json["uvs"].toArray().size()) {
             QJsonArray uv = json["uvs"].toArray()[i].toArray();
-            v.uv.x = static_cast<float>(uv[0].toDouble());
-            v.uv.y = static_cast<float>(uv[1].toDouble());
+            v.uv = QVector2D(static_cast<float>(uv[0].toDouble()), static_cast<float>(uv[1].toDouble()));
         }
 
         if (i < json["colors"].toArray().size()) {
             QJsonArray col = json["colors"].toArray()[i].toArray();
-            v.color = Vec3(col[0].toDouble(), col[1].toDouble(), col[2].toDouble());
+            v.color = QVector4D(col[0].toDouble(), col[1].toDouble(), col[2].toDouble(), 1.0);
         }
 
         verts.append(v);

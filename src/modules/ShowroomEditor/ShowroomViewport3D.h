@@ -12,6 +12,7 @@
 #include "../../core/mesh/MeshRenderer.h"
 #include "../../core/Graphics/SceneObject.h"
 #include "../../core/Graphics/SceneMesh.h"
+#include "../../core/Graphics/VulkanRenderer.h"
 #include "ShowroomSystem.h"
 
 namespace ks {
@@ -30,6 +31,10 @@ public:
     void syncCamera(double distance, double height, double angle, double fov);
     void syncLight(const QColor& sunColor, double sunIntensity,
                    const QColor& ambientColor, double ambientIntensity);
+
+    // Real PBR preview generation using Vulkan
+    bool generatePBRPreview(const QString& outputPath, int width = 1920, int height = 1080);
+    QImage renderToImage(int width, int height);
 
     Viewport3DWidget* viewportWidget() const { return m_viewport; }
 

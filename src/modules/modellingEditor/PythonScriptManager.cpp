@@ -11,6 +11,7 @@
 #include <exception>
 
 namespace ks {
+using namespace graphics;
 
 // ============================================================================
 // PythonScriptConsole Implementation
@@ -420,21 +421,21 @@ bool ModelerPythonAPI::exportOBJ(const QString& path) {
 
 	auto objects = sg->allObjects();
 	for (SceneObject* obj : objects) {
-		if (!obj->mesh() || obj->mesh()->vertexCount() == 0) continue;
+		if (!obj->mesh() || obj->mesh()->geometry().vertices.isEmpty()) continue;
 
 		out << "\no " << obj->name() << "\n";
 
-		const auto& verts = obj->mesh()->vertices();
-		const auto& indices = obj->mesh()->indices();
+		const auto& verts = obj->mesh()->geometry().vertices;
+		const auto& indices = obj->mesh()->geometry().indices;
 
 		for (const SceneVertex& v : verts) {
-			out << "v " << v.position.x << " " << v.position.y << " " << v.position.z << "\n";
+			out << "v " << v.position.x() << " " << v.position.y() << " " << v.position.z() << "\n";
 		}
 		for (const SceneVertex& v : verts) {
-			out << "vn " << v.normal.x << " " << v.normal.y << " " << v.normal.z << "\n";
+			out << "vn " << v.normal.x() << " " << v.normal.y() << " " << v.normal.z() << "\n";
 		}
 		for (const SceneVertex& v : verts) {
-			out << "vt " << v.uv.x << " " << v.uv.y << "\n";
+			out << "vt " << v.uv.x() << " " << v.uv.y() << "\n";
 		}
 		for (size_t i = 0; i + 2 < indices.size(); i += 3) {
 			uint32_t i0 = indices[i] + 1;

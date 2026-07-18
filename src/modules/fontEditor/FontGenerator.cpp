@@ -251,7 +251,7 @@ AtlasConfig FontAtlasGenerator::loadPreset(const QString &acfPath, bool *ok)
         kp.right   = vals.value(QString("KERN_%1_RIGHT").arg(ki)).toUInt();
         kp.kerning = vals.value(QString("KERN_%1_VALUE").arg(ki)).toInt();
         cfg.kerningPairs.append(kp);
-        m_kerningCache[qMakePair(kp.left, kp.right)] = kp.kerning;
+        m_kerningCache[std::make_pair(kp.left, kp.right)] = kp.kerning;
         ++ki;
     }
 
@@ -409,7 +409,7 @@ QVector<KerningPair> FontAtlasGenerator::extractKerningPairs(const QString& font
                 pair.right = right.unicode();
                 pair.kerning = kerningValue;
                 pairs.append(pair);
-                m_kerningCache[qMakePair(pair.left, pair.right)] = kerningValue;
+                m_kerningCache[std::make_pair(pair.left, pair.right)] = kerningValue;
             }
         }
     }
@@ -418,7 +418,7 @@ QVector<KerningPair> FontAtlasGenerator::extractKerningPairs(const QString& font
 }
 
 int FontAtlasGenerator::getKerning(uint32_t left, uint32_t right) const {
-    return m_kerningCache.value(qMakePair(left, right), 0);
+    return m_kerningCache.value(std::make_pair(left, right), 0);
 }
 
 // ============================================================================
@@ -842,7 +842,7 @@ FontAtlasGenerator::MetricsSuggestion FontAtlasGenerator::analyzeMetrics(const A
         minAdv = qMin(minAdv, adv);
         ++count;
 
-        QRect bbox = fm.boundingRect(c);
+        QRect bbox = fm.boundingRect(c).toRect();
         if (bbox.x() < 0 || bbox.right() > qCeil(adv)) {
             result.overflowGlyphs << QString(c);
             ++result.glyphOverflowCount;

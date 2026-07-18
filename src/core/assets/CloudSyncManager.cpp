@@ -1,14 +1,38 @@
 #include "CloudSyncManager.h"
 #include "../sys/LogManager.h"
 #include <QJsonDocument>
+#include <QJsonObject>
 #include <QFile>
 #include <QFileInfo>
 #include <QDirIterator>
 #include <QCryptographicHash>
 #include <QStandardPaths>
+#include <QNetworkRequest>
+#include <QNetworkReply>
+#include <QHttpMultiPart>
+#include <QUrlQuery>
+#include <QEventLoop>
 #include <algorithm>
 
 namespace ks {
+
+// Forward declarations for provider helpers
+static QString gdriveFileId(QNetworkAccessManager* nam, const QString& token, const QString& path);
+static bool gdriveUploadImpl(QNetworkAccessManager* nam, const QString& token,
+    const QString& localPath, const QString& remotePath);
+static bool gdriveDownload(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& localPath);
+static bool gdriveDelete(QNetworkAccessManager* nam, const QString& token, const QString& remotePath);
+static bool dropboxUpload(QNetworkAccessManager* nam, const QString& token,
+    const QString& localPath, const QString& remotePath);
+static bool dropboxDownload(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& localPath);
+static bool dropboxDelete(QNetworkAccessManager* nam, const QString& token, const QString& remotePath);
+static bool onedriveUpload(QNetworkAccessManager* nam, const QString& token,
+    const QString& localPath, const QString& remotePath);
+static bool onedriveDownload(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& localPath);
+static bool onedriveDelete(QNetworkAccessManager* nam, const QString& token, const QString& remotePath);
 
 CloudSyncManager::CloudSyncManager(QObject* parent)
     : QObject(parent)
@@ -146,6 +170,102 @@ void CloudSyncManager::scanRemoteChanges()
                 m_remoteTimestamps[relativePath] = fi.lastModified();
             }
         }
+    } else if (m_config.provider == CloudProviderType::Dropbox && m_nam && !m_config.accessToken.isEmpty()) {
+        // List remote files via Dropbox API
+        QJsonObject body;
+        body["path"] = "";
+        body["recursive"] = true;
+        body["include_media_info"] = false;
+        body["include_deleted"] = false;
+
+        QNetworkRequest req{QUrl("https://api.dropboxapi.com/2/files/list_folder")};
+        req.setRawHeader("Authorization", ("Bearer " + m_config.accessToken).toUtf8());
+        req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+        QNetworkReply* reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
+        QEventLoop loop;
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+
+        if (reply->error() == QNetworkReply::NoError) {
+            QJsonObject resp = QJsonDocument::fromJson(reply->readAll()).object();
+            QJsonArray entries = resp["entries"].toArray();
+            for (const auto& entry : entries) {
+                QJsonObject e = entry.toObject();
+                if (e[".tag"].toString() != "file") continue;
+
+                QString path = e["path_lower"].toString();
+                if (path.startsWith("/")) path = path.mid(1);
+                if (shouldExclude(path)) continue;
+
+                m_remoteChecksums[path] = e["content_hash"].toString();
+                m_remoteTimestamps[path] = QDateTime::fromString(
+                    e["server_modified"].toString(), Qt::ISODate);
+            }
+
+            // Handle pagination
+            while (resp["has_more"].toBool()) {
+                QJsonObject contBody;
+                contBody["cursor"] = resp["cursor"].toString();
+
+                QNetworkRequest contReq{QUrl("https://api.dropboxapi.com/2/files/list_folder/continue")};
+                contReq.setRawHeader("Authorization", ("Bearer " + m_config.accessToken).toUtf8());
+                contReq.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+                QNetworkReply* contReply = m_nam->post(contReq, QJsonDocument(contBody).toJson(QJsonDocument::Compact));
+                QObject::connect(contReply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+                loop.exec();
+
+                if (contReply->error() != QNetworkReply::NoError) break;
+                resp = QJsonDocument::fromJson(contReply->readAll()).object();
+                entries = resp["entries"].toArray();
+                for (const auto& entry : entries) {
+                    QJsonObject e = entry.toObject();
+                    if (e[".tag"].toString() != "file") continue;
+                    QString path = e["path_lower"].toString();
+                    if (path.startsWith("/")) path = path.mid(1);
+                    if (shouldExclude(path)) continue;
+                    m_remoteChecksums[path] = e["content_hash"].toString();
+                    m_remoteTimestamps[path] = QDateTime::fromString(
+                        e["server_modified"].toString(), Qt::ISODate);
+                }
+                contReply->deleteLater();
+            }
+        }
+        reply->deleteLater();
+
+    } else if (m_config.provider == CloudProviderType::OneDrive && m_nam && !m_config.accessToken.isEmpty()) {
+        // List remote files via Microsoft Graph API
+        QString url = "https://graph.microsoft.com/v1.0/me/drive/root/children?$select=name,file,lastModifiedDateTime,size,@microsoft.graph.downloadUrl&$top=200";
+
+        while (!url.isEmpty()) {
+            QNetworkRequest req{QUrl(url)};
+            req.setRawHeader("Authorization", ("Bearer " + m_config.accessToken).toUtf8());
+
+            QNetworkReply* reply = m_nam->get(req);
+            QEventLoop loop;
+            QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+            loop.exec();
+
+            if (reply->error() != QNetworkReply::NoError) { reply->deleteLater(); break; }
+
+            QJsonObject resp = QJsonDocument::fromJson(reply->readAll()).object();
+            QJsonArray entries = resp["value"].toArray();
+            for (const auto& entry : entries) {
+                QJsonObject e = entry.toObject();
+                if (e["file"].isNull()) continue; // skip folders
+
+                QString name = e["name"].toString();
+                if (shouldExclude(name)) continue;
+
+                m_remoteChecksums[name] = e["lastModifiedDateTime"].toString();
+                m_remoteTimestamps[name] = QDateTime::fromString(
+                    e["lastModifiedDateTime"].toString(), Qt::ISODate);
+            }
+
+            url = resp["@odata.nextLink"].toString();
+            reply->deleteLater();
+        }
     }
 
     // Compare local vs remote
@@ -225,6 +345,8 @@ void CloudSyncManager::resolveDifferences()
     }
 }
 
+// ── Provider dispatch ─────────────────────────────────────────────────
+
 bool CloudSyncManager::uploadFile(const QString& localPath, const QString& remotePath)
 {
     QFile file(localPath);
@@ -237,10 +359,21 @@ bool CloudSyncManager::uploadFile(const QString& localPath, const QString& remot
         return QFile::copy(localPath, destPath);
     }
 
-    // Google Drive / Dropbox / OneDrive would use QNetworkAccessManager here
-    // with their respective REST APIs
-    logSync(remotePath, "upload", false, "Cloud provider API not yet implemented");
-    return false;
+    if (!m_nam || m_config.accessToken.isEmpty()) {
+        logSync(remotePath, "upload", false, "No access token configured");
+        return false;
+    }
+
+    switch (m_config.provider) {
+        case CloudProviderType::GoogleDrive:
+            return gdriveUploadImpl(m_nam, m_config.accessToken, localPath, remotePath);
+        case CloudProviderType::Dropbox:
+            return dropboxUpload(m_nam, m_config.accessToken, localPath, remotePath);
+        case CloudProviderType::OneDrive:
+            return onedriveUpload(m_nam, m_config.accessToken, localPath, remotePath);
+        default:
+            return false;
+    }
 }
 
 bool CloudSyncManager::downloadFile(const QString& remotePath, const QString& localPath)
@@ -251,16 +384,23 @@ bool CloudSyncManager::downloadFile(const QString& remotePath, const QString& lo
     if (m_config.provider == CloudProviderType::Local && !m_config.remotePath.isEmpty()) {
         QString sourcePath = QDir(m_config.remotePath).filePath(remotePath);
         if (!QFile::exists(sourcePath)) return false;
-        // Remove local target if it exists so copy doesn't fail
         if (QFile::exists(localPath))
             QFile::remove(localPath);
         return QFile::copy(sourcePath, localPath);
     }
 
-    // Google Drive / Dropbox / OneDrive would use QNetworkAccessManager here
-    // with their respective REST APIs
-    logSync(remotePath, "download", false, "Cloud provider API not yet implemented");
-    return false;
+    if (!m_nam) return false;
+
+    switch (m_config.provider) {
+        case CloudProviderType::GoogleDrive:
+            return gdriveDownload(m_nam, m_config.accessToken, remotePath, localPath);
+        case CloudProviderType::Dropbox:
+            return dropboxDownload(m_nam, m_config.accessToken, remotePath, localPath);
+        case CloudProviderType::OneDrive:
+            return onedriveDownload(m_nam, m_config.accessToken, remotePath, localPath);
+        default:
+            return false;
+    }
 }
 
 bool CloudSyncManager::deleteRemote(const QString& remotePath)
@@ -269,8 +409,404 @@ bool CloudSyncManager::deleteRemote(const QString& remotePath)
         QString targetPath = QDir(m_config.remotePath).filePath(remotePath);
         return QFile::remove(targetPath);
     }
-    logSync(remotePath, "delete", false, "Cloud provider API not yet implemented");
-    return false;
+
+    if (!m_nam) return false;
+
+    switch (m_config.provider) {
+        case CloudProviderType::GoogleDrive:
+            return gdriveDelete(m_nam, m_config.accessToken, remotePath);
+        case CloudProviderType::Dropbox:
+            return dropboxDelete(m_nam, m_config.accessToken, remotePath);
+        case CloudProviderType::OneDrive:
+            return onedriveDelete(m_nam, m_config.accessToken, remotePath);
+        default:
+            return false;
+    }
+}
+
+// ── Google Drive helpers ──────────────────────────────────────────────
+
+static QString gdriveFileId(QNetworkAccessManager* nam, const QString& token, const QString& path)
+{
+    QStringList parts = path.split('/', Qt::SkipEmptyParts);
+    QString parentId = "root";
+    for (const QString& part : parts) {
+        QUrlQuery query;
+        query.addQueryItem("q", QString("'%1' in parents and name='%2' and trashed=false")
+            .arg(parentId, part));
+        query.addQueryItem("fields", "files(id)");
+        query.addQueryItem("pageSize", "1");
+
+        QNetworkRequest req{QUrl("https://www.googleapis.com/drive/v3/files?" + query.toString())};
+        req.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
+
+        QNetworkReply* reply = nam->get(req);
+        QEventLoop loop;
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+
+        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+        QJsonArray files = doc.object()["files"].toArray();
+        if (files.isEmpty()) return {};
+        parentId = files[0].toObject()["id"].toString();
+        reply->deleteLater();
+    }
+    return parentId;
+}
+
+static bool gdriveUploadImpl(QNetworkAccessManager* nam, const QString& token,
+    const QString& localPath, const QString& remotePath)
+{
+    if (!QFile::exists(localPath)) return false;
+
+    QFile* file = new QFile(localPath);
+    if (!file->open(QIODevice::ReadOnly)) { delete file; return false; }
+
+    QString parentId = gdriveFileId(nam, token, remotePath);
+    QString fileName = QFileInfo(remotePath).fileName();
+
+    QJsonObject metadata;
+    metadata["name"] = fileName;
+    if (!parentId.isEmpty() && parentId != "root")
+        metadata["parents"] = QJsonArray{parentId};
+
+    QHttpMultiPart* multi = new QHttpMultiPart(QHttpMultiPart::RelatedType);
+    QHttpPart metaPart;
+    metaPart.setHeader(QNetworkRequest::ContentTypeHeader, "application/json; charset=UTF-8");
+    metaPart.setBody(QJsonDocument(metadata).toJson(QJsonDocument::Compact));
+    multi->append(metaPart);
+
+    QHttpPart dataPart;
+    dataPart.setHeader(QNetworkRequest::ContentTypeHeader, "application/octet-stream");
+    dataPart.setBodyDevice(file);
+    file->setParent(multi);
+    multi->append(dataPart);
+
+    QNetworkRequest req{QUrl("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart")};
+    req.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
+
+    QNetworkReply* reply = nam->post(req, multi);
+    multi->setParent(reply);
+
+    QEventLoop loop;
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
+
+    bool ok = reply->error() == QNetworkReply::NoError;
+    reply->deleteLater();
+    return ok;
+}
+
+static bool gdriveDownload(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& localPath)
+{
+    QString fileId = gdriveFileId(nam, token, remotePath);
+    if (fileId.isEmpty()) return false;
+
+    QNetworkRequest req{QUrl("https://www.googleapis.com/drive/v3/files/" + fileId + "?alt=media")};
+    req.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
+
+    QNetworkReply* reply = nam->get(req);
+    QEventLoop loop;
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
+
+    if (reply->error() != QNetworkReply::NoError) { reply->deleteLater(); return false; }
+
+    QFile outFile(localPath);
+    if (!outFile.open(QIODevice::WriteOnly)) { reply->deleteLater(); return false; }
+    outFile.write(reply->readAll());
+    outFile.close();
+    reply->deleteLater();
+    return true;
+}
+
+static bool gdriveDelete(QNetworkAccessManager* nam, const QString& token, const QString& remotePath)
+{
+    QString fileId = gdriveFileId(nam, token, remotePath);
+    if (fileId.isEmpty()) return false;
+
+    QNetworkRequest req{QUrl("https://www.googleapis.com/drive/v3/files/" + fileId)};
+    req.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
+
+    QNetworkReply* reply = nam->deleteResource(req);
+    QEventLoop loop;
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
+
+    bool ok = reply->error() == QNetworkReply::NoError;
+    reply->deleteLater();
+    return ok;
+}
+
+// ── Dropbox helpers ───────────────────────────────────────────────────
+
+static bool dropboxEnsurePath(QNetworkAccessManager* nam, const QString& token, const QString& path)
+{
+    QStringList parts = path.split('/', Qt::SkipEmptyParts);
+    QString current;
+    for (const QString& part : parts) {
+        current += "/" + part;
+        QJsonObject body;
+        body["path"] = current;
+        body["autorename"] = false;
+
+        QNetworkRequest req{QUrl("https://api.dropboxapi.com/2/files/get_metadata")};
+        req.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
+        req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+        QNetworkReply* reply = nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
+        QEventLoop loop;
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+
+        bool exists = reply->error() == QNetworkReply::NoError;
+        reply->deleteLater();
+
+        if (exists) continue;
+
+        // Create folder
+        QJsonObject createBody;
+        createBody["path"] = current;
+        createBody["autorename"] = false;
+
+        QNetworkRequest createReq{QUrl("https://api.dropboxapi.com/2/files/create_folder_v2")};
+        createReq.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
+        createReq.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+        QNetworkReply* createReply = nam->post(createReq, QJsonDocument(createBody).toJson(QJsonDocument::Compact));
+        QEventLoop createLoop;
+        QObject::connect(createReply, &QNetworkReply::finished, &createLoop, &QEventLoop::quit);
+        createLoop.exec();
+
+        bool created = createReply->error() == QNetworkReply::NoError;
+        createReply->deleteLater();
+        if (!created) return false;
+    }
+    return true;
+}
+
+static bool dropboxUpload(QNetworkAccessManager* nam, const QString& token,
+    const QString& localPath, const QString& remotePath)
+{
+    QString parentPath = QFileInfo(remotePath).path();
+    if (parentPath.isEmpty() || parentPath == ".")
+        parentPath = "";
+    else if (!parentPath.startsWith("/"))
+        parentPath = "/" + parentPath;
+
+    if (!parentPath.isEmpty() && !dropboxEnsurePath(nam, token, parentPath))
+        return false;
+
+    QFile file(localPath);
+    if (!file.open(QIODevice::ReadOnly)) return false;
+    QByteArray data = file.readAll();
+    file.close();
+
+    QString dropboxPath = remotePath.startsWith("/") ? remotePath : "/" + remotePath;
+
+    QJsonObject arg;
+    arg["path"] = dropboxPath;
+    arg["mode"] = "overwrite";
+    arg["autorename"] = false;
+    arg["mute"] = false;
+
+    QNetworkRequest req{QUrl("https://content.dropboxapi.com/2/files/upload")};
+    req.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
+    req.setRawHeader("Dropbox-API-Arg", QJsonDocument(arg).toJson(QJsonDocument::Compact));
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/octet-stream");
+
+    QNetworkReply* reply = nam->post(req, data);
+    QEventLoop loop;
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
+
+    bool ok = reply->error() == QNetworkReply::NoError;
+    reply->deleteLater();
+    return ok;
+}
+
+static bool dropboxDownload(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& localPath)
+{
+    QString dropboxPath = remotePath.startsWith("/") ? remotePath : "/" + remotePath;
+
+    QJsonObject arg;
+    arg["path"] = dropboxPath;
+
+    QNetworkRequest req{QUrl("https://content.dropboxapi.com/2/files/download")};
+    req.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
+    req.setRawHeader("Dropbox-API-Arg", QJsonDocument(arg).toJson(QJsonDocument::Compact));
+
+    QNetworkReply* reply = nam->post(req, QByteArray());
+    QEventLoop loop;
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
+
+    if (reply->error() != QNetworkReply::NoError) { reply->deleteLater(); return false; }
+
+    QFile outFile(localPath);
+    if (!outFile.open(QIODevice::WriteOnly)) { reply->deleteLater(); return false; }
+    outFile.write(reply->readAll());
+    outFile.close();
+    reply->deleteLater();
+    return true;
+}
+
+static bool dropboxDelete(QNetworkAccessManager* nam, const QString& token, const QString& remotePath)
+{
+    QString dropboxPath = remotePath.startsWith("/") ? remotePath : "/" + remotePath;
+
+    QJsonObject body;
+    body["path"] = dropboxPath;
+
+    QNetworkRequest req{QUrl("https://api.dropboxapi.com/2/files/delete_v2")};
+    req.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QNetworkReply* reply = nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
+    QEventLoop loop;
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
+
+    bool ok = reply->error() == QNetworkReply::NoError;
+    reply->deleteLater();
+    return ok;
+}
+
+// ── OneDrive (Microsoft Graph) helpers ────────────────────────────────
+
+static bool onedriveEnsurePath(QNetworkAccessManager* nam, const QString& token, const QString& path)
+{
+    QStringList parts = path.split('/', Qt::SkipEmptyParts);
+    QString current;
+    for (const QString& part : parts) {
+        if (!current.isEmpty()) current += "/";
+        current += part;
+
+        QString escaped = QUrl::toPercentEncoding(current);
+QNetworkRequest req{QUrl("https://graph.microsoft.com/v1.0/me/drive/root:/" + escaped)};
+        req.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
+
+        QNetworkReply* reply = nam->get(req);
+        QEventLoop loop;
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+
+        bool exists = reply->error() == QNetworkReply::NoError;
+        reply->deleteLater();
+        if (exists) continue;
+
+        // Create folder
+        QJsonObject folder;
+        folder["@microsoft.graph.conflictBehavior"] = "fail";
+        folder["name"] = part;
+        QJsonObject folderFacet;
+        folder["folder"] = folderFacet;
+
+        QString parentEscaped;
+        QString parentPath = current.left(current.lastIndexOf('/'));
+        if (parentPath.isEmpty())
+            parentEscaped = "";
+        else
+            parentEscaped = QUrl::toPercentEncoding(parentPath);
+
+        QString url = parentEscaped.isEmpty()
+            ? "https://graph.microsoft.com/v1.0/me/drive/root/children"
+            : "https://graph.microsoft.com/v1.0/me/drive/root:/" + parentEscaped + ":/children";
+
+        QNetworkRequest createReq{QUrl(url)};
+        createReq.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
+        createReq.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+        QNetworkReply* createReply = nam->post(createReq, QJsonDocument(folder).toJson(QJsonDocument::Compact));
+        QEventLoop createLoop;
+        QObject::connect(createReply, &QNetworkReply::finished, &createLoop, &QEventLoop::quit);
+        createLoop.exec();
+
+        bool created = createReply->error() == QNetworkReply::NoError;
+        createReply->deleteLater();
+        if (!created) return false;
+    }
+    return true;
+}
+
+static bool onedriveUpload(QNetworkAccessManager* nam, const QString& token,
+    const QString& localPath, const QString& remotePath)
+{
+    QString parentPath = QFileInfo(remotePath).path();
+    if (!parentPath.isEmpty() && parentPath != "." && !onedriveEnsurePath(nam, token, parentPath))
+        return false;
+
+    QFile file(localPath);
+    if (!file.open(QIODevice::ReadOnly)) return false;
+    QByteArray data = file.readAll();
+    file.close();
+
+    QString escaped = QUrl::toPercentEncoding(remotePath);
+    QNetworkRequest req{QUrl("https://graph.microsoft.com/v1.0/me/drive/root:/" + escaped + ":/content")};
+    req.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/octet-stream");
+
+    QNetworkReply* reply = nam->put(req, data);
+    QEventLoop loop;
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
+
+    bool ok = reply->error() == QNetworkReply::NoError;
+    reply->deleteLater();
+    return ok;
+}
+
+static bool onedriveDownload(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& localPath)
+{
+    QString escaped = QUrl::toPercentEncoding(remotePath);
+    QNetworkRequest req{QUrl("https://graph.microsoft.com/v1.0/me/drive/root:/" + escaped)};
+    req.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
+
+    QNetworkReply* reply = nam->get(req);
+    QEventLoop loop;
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
+
+    if (reply->error() != QNetworkReply::NoError) { reply->deleteLater(); return false; }
+
+    QJsonObject meta = QJsonDocument::fromJson(reply->readAll()).object();
+    QString downloadUrl = meta["@microsoft.graph.downloadUrl"].toString();
+    reply->deleteLater();
+
+    if (downloadUrl.isEmpty()) return false;
+
+    QNetworkRequest dlReq{QUrl(downloadUrl)};
+    QNetworkReply* dlReply = nam->get(dlReq);
+    QObject::connect(dlReply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
+
+    if (dlReply->error() != QNetworkReply::NoError) { dlReply->deleteLater(); return false; }
+
+    QFile outFile(localPath);
+    if (!outFile.open(QIODevice::WriteOnly)) { dlReply->deleteLater(); return false; }
+    outFile.write(dlReply->readAll());
+    outFile.close();
+    dlReply->deleteLater();
+    return true;
+}
+
+static bool onedriveDelete(QNetworkAccessManager* nam, const QString& token, const QString& remotePath)
+{
+    QString escaped = QUrl::toPercentEncoding(remotePath);
+    QNetworkRequest req{QUrl("https://graph.microsoft.com/v1.0/me/drive/root:/" + escaped)};
+    req.setRawHeader("Authorization", ("Bearer " + token).toUtf8());
+
+    QNetworkReply* reply = nam->deleteResource(req);
+    QEventLoop loop;
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
+
+    bool ok = reply->error() == QNetworkReply::NoError;
+    reply->deleteLater();
+    return ok;
 }
 
 QString CloudSyncManager::computeChecksum(const QString& filePath) const

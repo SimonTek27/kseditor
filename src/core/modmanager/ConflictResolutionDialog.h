@@ -4,31 +4,22 @@
 #include <QVector>
 #include <QString>
 #include <QStringList>
+#include "ModManager.h"
 
 class QTreeWidget;
 class QTreeWidgetItem;
 class QLabel;
 class QPushButton;
 class QCheckBox;
+class QProgressBar;
+class QTextEdit;
 
 namespace ks {
-
-struct ModEntry;
-
-struct ConflictPair {
-    QString modA;
-    QString modB;
-    QString reason;
-    bool resolved = false;
-    QString chosenMod;
-};
 
 class ConflictResolutionDialog : public QDialog {
     Q_OBJECT
 public:
-    explicit ConflictResolutionDialog(const QVector<ModEntry>& allMods,
-                                      const QStringList& conflictStrings,
-                                      QWidget* parent = nullptr);
+    explicit ConflictResolutionDialog(const ModConflictDetector::ConflictReport& report, QWidget* parent = nullptr);
 
     QStringList getModsToDisable() const { return m_modsToDisable; }
     QStringList getModsToEnable() const { return m_modsToEnable; }
@@ -36,23 +27,38 @@ public:
 
 private:
     void setupUI();
-    void parseConflicts(const QStringList& conflictStrings);
-    void populateTree();
-    void onKeepClicked(const ConflictPair& pair, const QString& keepMod);
-    void onAutoResolve();
-    void updateSummary();
-    void applyChanges();
+    void populateConflicts();
+    void updateButtonStates();
 
-    QVector<ConflictPair> m_conflicts;
-    const QVector<ModEntry>& m_mods;
-    QStringList m_modsToDisable;
-    QStringList m_modsToEnable;
+    void onUseNewer();
+    void onUseOlder();
+    void onSkip();
+    void onMerge();
+    void onAutoResolveAll();
+    void onSelectionChanged();
+    void onItemClicked(QTreeWidgetItem* item, int column);
+    void updateDetailView();
+    void applyResolution(const QString& action);
 
-    QTreeWidget* m_tree = nullptr;
-    QLabel* m_summaryLabel = nullptr;
-    QLabel* m_headerLabel = nullptr;
-    QPushButton* m_applyBtn = nullptr;
-    QPushButton* m_autoResolveBtn = nullptr;
+    QVector<QString> m_modsToDisable;
+    QVector<QString> m_modsToEnable;
+
+    ModConflictDetector::ConflictReport m_report;
+    ModConflictDetector::FileConflict m_selectedConflict;
+    QMap<QString, QString> m_resolutions;
+    bool m_autoResolve = true;
+
+    QLabel* m_totalLabel = nullptr;
+    QLabel* m_criticalLabel = nullptr;
+    QProgressBar* m_progressBar = nullptr;
+    QTreeWidget* m_conflictTree = nullptr;
+    QTextEdit* m_detailText = nullptr;
+    QPushButton* m_useNewerBtn = nullptr;
+    QPushButton* m_useOlderBtn = nullptr;
+    QPushButton* m_skipBtn = nullptr;
+    QPushButton* m_mergeBtn = nullptr;
+    QPushButton* m_autoResolveAllBtn = nullptr;
+    QTreeWidgetItem* m_selectedItem = nullptr;
 };
 
 } // namespace ks

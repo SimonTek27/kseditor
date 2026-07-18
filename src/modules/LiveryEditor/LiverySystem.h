@@ -96,6 +96,56 @@ public:
     static bool validateSkin(const QString& skinPath, QString* error = nullptr);
     static bool validateLayer(const LiveryLayer& layer, QString* error = nullptr);
 
+    // DDS export
+    static bool exportSkinAsDDS(const QString& skinPath, const QString& outputPath);
+    static bool saveTextureAsDDS(const QImage& image, const QString& outputPath);
+
+    // Decal import
+    static bool importDecal(const QString& decalPath, const QString& skinPath);
+    static QStringList getSupportedDecalFormats();
+
+    // Template system
+    struct LiveryTemplate {
+        QString name;
+        QString description;
+        QColor baseColor;
+        QVector<QPair<QString, QColor>> stripes;
+        bool hasRaceNumber = false;
+        bool hasLicensePlate = false;
+        int textureResolution = 2048;
+        QVector<LiveryLayer> presetLayers;
+    };
+    static QVector<LiveryTemplate> getBuiltinTemplates();
+    static bool createSkinFromTemplate(const QString& carPath, const QString& skinName,
+                                        const LiveryTemplate& tmpl);
+
+    // Undo/redo
+    struct UndoAction {
+        enum Type { LayerAdd, LayerRemove, LayerMove, LayerModify, PaintStroke, BulkChange };
+        Type type;
+        int layerIndex = -1;
+        LiveryLayer oldLayer;
+        LiveryLayer newLayer;
+        QString description;
+    };
+    static QVector<UndoAction> s_undoStack;
+    static QVector<UndoAction> s_redoStack;
+    static void pushUndo(const UndoAction& action);
+    static bool canUndo();
+    static bool canRedo();
+    static UndoAction undoLast();
+    static UndoAction redoLast();
+    static void clearUndoRedo();
+
+    // Color palette
+    struct ColorSwatch {
+        QString name;
+        QColor color;
+    };
+    static QVector<ColorSwatch> getDefaultPalette();
+    static QVector<ColorSwatch> loadPalette(const QString& path);
+    static bool savePalette(const QVector<ColorSwatch>& palette, const QString& path);
+
     // Utility
     static QStringList getLayerTypes();
     static QString getDefaultSkinName();

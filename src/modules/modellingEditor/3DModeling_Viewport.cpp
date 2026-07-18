@@ -1,5 +1,6 @@
 #include "3DModeling_Viewport.h"
 #include "core/mesh/Viewport3DSystem.h"
+#include "core/Graphics/SceneMesh.h"
 #include <QDebug>
 #include <QGuiApplication>
 #include <QQmlEngine>
@@ -15,6 +16,7 @@
 #endif
 
 namespace ks {
+using namespace graphics;
 
 namespace {
 std::optional<uint32_t> findHostVisibleMemoryType(uint32_t memoryTypeBits,
@@ -168,16 +170,16 @@ void main() {
 }
 )";
 
-VulkanViewportRenderer::VulkanViewportRenderer(QVulkanWindow* w, SceneGraph* scene)
+VulkanViewportRenderer::VulkanViewportRenderer(QVulkanWindow* w, ks::SceneGraph* scene)
     : m_window(w)
     , m_scene(scene)
 {
 }
 
 void VulkanViewportRenderer::updateViewportSize(int w, int h) {
-    if (m_window) {
-        m_window->setSwapchainSize(qMax(1, w), qMax(1, h));
-    }
+    Q_UNUSED(w)
+    Q_UNUSED(h)
+    // Qt6 manages swapchain size automatically from window size
 }
 
 void VulkanViewportRenderer::initResources() {
@@ -724,13 +726,13 @@ void VulkanViewportRenderer::createMeshBuffers() {
     for (SceneObject* obj : m_scene->allObjects()) {
         if (!obj->hasMesh() || !obj->isVisible()) continue;
         SceneMesh* mesh = obj->mesh();
-        const auto& verts = mesh->vertices();
-        const auto& indices = mesh->indices();
+        const auto& verts = mesh->geometry().vertices;
+        const auto& indices = mesh->geometry().indices;
         if (verts.isEmpty() || indices.isEmpty()) continue;
 
         PerMeshBuffer buf;
         buf.indexCount = static_cast<uint32_t>(indices.size());
-        buf.modelMatrix = toQMatrix4x4(obj->worldTransform());
+        buf.modelMatrix = obj->worldTransform();
         QColor col = obj->baseColor();
         buf.baseColor = QVector4D(col.redF(), col.greenF(), col.blueF(), col.alphaF());
         buf.metallic = obj->metallic();

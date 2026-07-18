@@ -6,6 +6,8 @@
 
 namespace ks::geometry {
 
+using UV = UVCoord;
+
 static QVector<QVector3D> meshDataToQVector3D(const GeoMeshData& mesh) {
     QVector<QVector3D> result;
     result.reserve(mesh.vertices.size());
@@ -38,7 +40,7 @@ static QSet<QPair<int, int>> seamEdgesToQSet(
 {
     QSet<QPair<int, int>> result;
     for (const auto& e : seamEdges) {
-        result.insert(qMakePair(
+        result.insert(std::make_pair(
             static_cast<int>(e.first),
             static_cast<int>(e.second)
         ));
@@ -397,6 +399,17 @@ std::vector<std::pair<uint32_t, uint32_t>> UVUnwrapper::extractSeamEdges(
 {
     if (!providedSeams.empty()) return providedSeams;
     return detectSeams(mesh, Auto, 60.0f);
+}
+
+const char* UVUnwrapper::methodName(UnwrapMethod method) {
+    switch (method) {
+        case LSCM:   return "LSCM";
+        case Harmonic: return "Harmonic";
+        case Angle:  return "Angle";
+        case ABFPlus: return "ABF++";
+        case FAST:   return "Fast";
+        default:     return "Unknown";
+    }
 }
 
 } // namespace ks::geometry

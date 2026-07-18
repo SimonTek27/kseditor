@@ -6,13 +6,14 @@
 #include <cstring>
 
 namespace ks {
+using namespace graphics;
 
-SceneMeshGeometry::SceneMeshGeometry(QQuick3DObject* parent)
+ks::SceneMeshGeometry::SceneMeshGeometry(QQuick3DObject* parent)
     : QQuick3DGeometry(parent)
 {
 }
 
-void SceneMeshGeometry::setObjectId(int id) {
+void ks::SceneMeshGeometry::setObjectId(int id) {
     if (m_objectId != id) {
         m_objectId = id;
         emit objectIdChanged();
@@ -20,45 +21,46 @@ void SceneMeshGeometry::setObjectId(int id) {
     }
 }
 
-void SceneMeshGeometry::rebuild() {
+void ks::SceneMeshGeometry::rebuild() {
     clear();
     if (m_objectId < 0) return;
 
-    SceneGraph* scene = KSModelerQml::instance().sceneGraph();
+    ks::SceneGraph* scene = KSModelerQml::instance().sceneGraph();
     if (!scene) return;
 
     SceneObject* obj = scene->findObjectById(m_objectId);
     if (!obj || !obj->mesh()) return;
 
     const SceneMesh* mesh = obj->mesh();
-    const auto& verts = mesh->vertices();
-    const auto& idxs = mesh->indices();
+    const auto& verts = mesh->geometry().vertices;
+    const auto& idxs = mesh->geometry().indices;
 
     if (verts.isEmpty()) return;
 
-    // Stride: position(3) + normal(3) + uv(2) + color(3) = 11 floats = 44 bytes
-    const int vertexStride = 44;
+    // Stride: position(3) + normal(3) + uv(2) + color(4) = 12 floats = 48 bytes
+    const int vertexStride = 48;
     QByteArray vertexData;
     vertexData.resize(verts.size() * vertexStride);
     float* vptr = reinterpret_cast<float*>(vertexData.data());
 
     for (const SceneVertex& sv : verts) {
         // Position
-        vptr[0] = sv.position.x;
-        vptr[1] = sv.position.y;
-        vptr[2] = sv.position.z;
+        vptr[0] = sv.position.x();
+        vptr[1] = sv.position.y();
+        vptr[2] = sv.position.z();
         // Normal
-        vptr[3] = sv.normal.x;
-        vptr[4] = sv.normal.y;
-        vptr[5] = sv.normal.z;
+        vptr[3] = sv.normal.x();
+        vptr[4] = sv.normal.y();
+        vptr[5] = sv.normal.z();
         // UV
-        vptr[6] = sv.uv.x;
-        vptr[7] = sv.uv.y;
+        vptr[6] = sv.uv.x();
+        vptr[7] = sv.uv.y();
         // Color
-        vptr[8] = sv.color.x;
-        vptr[9] = sv.color.y;
-        vptr[10] = sv.color.z;
-        vptr += 11;
+        vptr[8] = sv.color.x();
+        vptr[9] = sv.color.y();
+        vptr[10] = sv.color.z();
+        vptr[11] = sv.color.w();
+        vptr += 12;
     }
 
     setVertexData(vertexData);

@@ -54,6 +54,7 @@ bool ksEditor::initialize()
     m_guiSkinEditor = new GUISkinEditorModule(nullptr);
     m_luaScriptEditor = new LuaScriptEditorModule(nullptr);
     m_pythonScriptEngine = new PythonScriptEngine(this);
+    m_vrEditor = new VREditorModule(nullptr);
 
     m_weatherEditor->initialize();
     m_trackSurfaceEditor->initialize();
@@ -72,6 +73,7 @@ bool ksEditor::initialize()
     m_luaScriptEditor->initialize();
     m_pythonScriptEngine->initialize();
     m_pythonScriptEngine->setScriptsDirectory(QCoreApplication::applicationDirPath() + "/scripts");
+    m_vrEditor->initialize();
 
     m_undoStack.reserve(50);
     m_redoStack.reserve(50);
@@ -84,6 +86,7 @@ void ksEditor::shutdown()
 {
     savePreferences();
 
+    delete m_vrEditor;           m_vrEditor = nullptr;
     delete m_luaScriptEditor;    m_luaScriptEditor = nullptr;
     delete m_guiSkinEditor;      m_guiSkinEditor = nullptr;
     delete m_careerEditor;       m_careerEditor = nullptr;
@@ -325,16 +328,59 @@ void ksEditor::onExportAsset()
     if (!path.isEmpty()) saveProject(path);
 }
 
+void ksEditor::pushUndoAction(const QString& description, const QJsonObject& state)
+{
+    QJsonObject captured = state;
+    if (captured.isEmpty()) {
+        captured["mode"] = static_cast<int>(m_mode);
+        if (m_scene) {
+            QJsonObject sceneState;
+            sceneState["objectCount"] = m_scene->allObjects().size();
+            captured["scene"] = sceneState;
+        }
+    }
+    m_undoStack.append({description, captured});
+    m_redoStack.clear();
+    m_modified = true;
+}
+
 void ksEditor::onUndo()
 {
     if (m_undoStack.isEmpty()) return;
-    m_redoStack.append(m_undoStack.takeLast());
+    Action action = m_undoStack.takeLast();
+
+    QJsonObject currentState;
+    currentState["mode"] = static_cast<int>(m_mode);
+    if (m_scene && m_scene->allObjects().size() > 0) {
+        QJsonObject sceneState;
+        sceneState["objectCount"] = m_scene->allObjects().size();
+        currentState["scene"] = sceneState;
+    }
+    m_redoStack.append({action.description, currentState});
+
+    if (action.state.contains("mode")) {
+        m_mode = static_cast<Mode>(action.state["mode"].toInt());
+    }
+    m_modified = true;
+    emit statusMessage("Undo: " + action.description);
+    emit modeChanged(m_mode);
 }
 
 void ksEditor::onRedo()
 {
     if (m_redoStack.isEmpty()) return;
-    m_undoStack.append(m_redoStack.takeLast());
+    Action action = m_redoStack.takeLast();
+
+    QJsonObject currentState;
+    currentState["mode"] = static_cast<int>(m_mode);
+    m_undoStack.append({action.description, currentState});
+
+    if (action.state.contains("mode")) {
+        m_mode = static_cast<Mode>(action.state["mode"].toInt());
+    }
+    m_modified = true;
+    emit statusMessage("Redo: " + action.description);
+    emit modeChanged(m_mode);
 }
 
 void ksEditor::onPreferences()
@@ -371,6 +417,7 @@ void ksEditor::onModeSpecialEvents() { setMode(SpecialEvents); }
 void ksEditor::onModeCareer() { setMode(Career); }
 void ksEditor::onModeGUISkin() { setMode(GUISkin); }
 void ksEditor::onModeLuaScript() { setMode(LuaScript); }
+void ksEditor::onModeVR() { setMode(VR); }
 
 void ksEditor::setupConnections()
 {

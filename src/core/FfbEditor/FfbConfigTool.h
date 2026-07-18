@@ -4,6 +4,8 @@
 #include <QMap>
 #include <QVector>
 
+namespace ks {
+
 /**
  * @brief FFB Configuration Tool for Assetto Corsa
  *
@@ -100,3 +102,5 @@ private:
     QString m_acPath;
     FfbConfigTool::FfbSettings m_settings;
 };
+
+} // namespace ks

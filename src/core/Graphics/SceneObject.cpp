@@ -3,11 +3,22 @@
 #include <QtMath>
 
 namespace ks {
+namespace graphics {
 
 SceneObject::SceneObject(int id, const QString& name, Type type)
     : m_id(id)
     , m_name(name)
     , m_type(type)
+    , m_transform(Matrix4::Identity())
+    , m_worldTransform(Matrix4::Identity())
+{
+}
+
+SceneObject::SceneObject(SceneGraph* graph, const QString& name)
+    : m_id(-1)
+    , m_name(name)
+    , m_type(Type::Node)
+    , m_sceneGraph(graph)
     , m_transform(Matrix4::Identity())
     , m_worldTransform(Matrix4::Identity())
 {
@@ -46,6 +57,17 @@ void SceneObject::removeChild(SceneObject* child)
         child->m_parent = nullptr;
         child->m_dirty = true;
     }
+}
+
+QVector3D SceneObject::position() const {
+    return QVector3D(m_transform.m[3][0], m_transform.m[3][1], m_transform.m[3][2]);
+}
+
+void SceneObject::setPosition(const QVector3D& pos) {
+    m_transform.m[3][0] = pos.x();
+    m_transform.m[3][1] = pos.y();
+    m_transform.m[3][2] = pos.z();
+    m_dirty = true;
 }
 
 QVector3D SceneObject::rotationEuler() const {
@@ -264,4 +286,39 @@ SceneObject* SceneObject::fromJson(const QJsonObject& json, int& nextId) {
     return obj;
 }
 
+void SceneObject::setVisible(bool visible) {
+    if (m_visible != visible) {
+        m_visible = visible;
+        emit visibilityChanged(visible);
+    }
+}
+
+void SceneObject::setMesh(SceneMesh* mesh) {
+    m_mesh = mesh;
+}
+
+void SceneObject::setMaterial(Material* material) {
+    m_material = material;
+}
+
+SceneObject* SceneObject::findChild(const QString& name) {
+    for (SceneObject* child : m_children) {
+        if (child->m_name == name)
+            return child;
+    }
+    return nullptr;
+}
+
+QVector<SceneObject*> SceneObject::findChildren(const QString& name, bool recursive) const {
+    QVector<SceneObject*> result;
+    for (SceneObject* child : m_children) {
+        if (child->m_name == name)
+            result.append(child);
+        if (recursive)
+            result.append(child->findChildren(name, true));
+    }
+    return result;
+}
+
+} // namespace graphics
 } // namespace ks

@@ -140,6 +140,7 @@ private:
     void parseWorkshopPage(const QString& html);
     QString getWorkshopUrlForCategory(const QString& category);
     void checkItemVersion(quint64 workshopId, const QString& currentVersion);
+    void handlePostDownload(const WorkshopItem& item, const QString& packagePath);
 
     QNetworkAccessManager* m_networkManager = nullptr;
     WorkshopDownloader* m_downloader = nullptr;

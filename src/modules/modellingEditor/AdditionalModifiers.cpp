@@ -29,7 +29,7 @@ MeshData WireframeModifierEx::apply(const MeshData& input)
         for (int i = 0; i < face.vertexCount(); ++i) {
             int a = face[i];
             int b = face[(i + 1) % face.vertexCount()];
-            auto key = qMakePair(qMin(a, b), qMax(a, b));
+            auto key = std::make_pair(qMin(a, b), qMax(a, b));
             if (!edgeSet.contains(key)) {
                 edgeSet.insert(key);
                 uniqueEdges.append({a, b});
@@ -1077,7 +1077,9 @@ void CageDeformModifier::buildCoordinates(const MeshData& target)
         }
     }
 
-    QVector<QVector3D> cageVerts = cageMesh.vertices;
+    QVector<QVector3D> cageVerts;
+    for (const auto& v : cageMesh.vertices)
+        cageVerts.append(v.position);
 
     // Compute Mean Value Coordinates for each target vertex
     for (const auto& v : target.vertices) {
@@ -1101,7 +1103,9 @@ MeshData CageDeformModifier::apply(const MeshData& input)
 
     MeshData output = input;
 
-    QVector<QVector3D> cageVerts = cageMesh.vertices;
+    QVector<QVector3D> cageVerts;
+    for (const auto& v : cageMesh.vertices)
+        cageVerts.append(v.position);
     if (cageVerts.isEmpty()) return output;
 
     for (int i = 0; i < output.vertices.size() && i < m_cageWeights.size(); ++i) {

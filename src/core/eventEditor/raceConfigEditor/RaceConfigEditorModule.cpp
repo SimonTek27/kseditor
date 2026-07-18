@@ -16,7 +16,7 @@ void RaceConfigEditorModule::shutdown() {}
 QDockWidget* RaceConfigEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
 {
     if (m_dockWidget) return m_dockWidget;
-    m_dockWidget = new QDockWidget("Race Config Editor", mainWindow);
+    m_dockWidget = new QDockWidget(tr("Race Config Editor"), mainWindow);
     m_dockWidget->setObjectName("RaceConfigEditorDock");
 
     auto* centralWidget = new QWidget();
@@ -25,54 +25,54 @@ QDockWidget* RaceConfigEditorModule::getOrCreateDockWidget(QMainWindow* mainWind
 
     // Track/Car
     auto* tcWidget = new QWidget(); auto* tcLayout = new QGridLayout(tcWidget);
-    m_trackEdit = new QLineEdit(); tcLayout->addWidget(new QLabel("Track:"), 0, 0); tcLayout->addWidget(m_trackEdit, 0, 1);
-    m_trackLayoutEdit = new QLineEdit(); tcLayout->addWidget(new QLabel("Layout:"), 1, 0); tcLayout->addWidget(m_trackLayoutEdit, 1, 1);
-    m_carEdit = new QLineEdit(); tcLayout->addWidget(new QLabel("Car:"), 2, 0); tcLayout->addWidget(m_carEdit, 2, 1);
-    m_tabWidget->addTab(tcWidget, "Track/Car");
+    m_trackEdit = new QLineEdit(); tcLayout->addWidget(new QLabel(tr("Track:")), 0, 0); tcLayout->addWidget(m_trackEdit, 0, 1);
+    m_trackLayoutEdit = new QLineEdit(); tcLayout->addWidget(new QLabel(tr("Layout:")), 1, 0); tcLayout->addWidget(m_trackLayoutEdit, 1, 1);
+    m_carEdit = new QLineEdit(); tcLayout->addWidget(new QLabel(tr("Car:")), 2, 0); tcLayout->addWidget(m_carEdit, 2, 1);
+    m_tabWidget->addTab(tcWidget, tr("Track/Car"));
 
     // Sessions
     auto* sessWidget = new QWidget(); auto* sessLayout = new QGridLayout(sessWidget);
     m_qualifyMinutesSpin = new QSpinBox(); m_qualifyMinutesSpin->setRange(1, 120);
-    sessLayout->addWidget(new QLabel("Qualify Minutes:"), 0, 0); sessLayout->addWidget(m_qualifyMinutesSpin, 0, 1);
+    sessLayout->addWidget(new QLabel(tr("Qualify Minutes:")), 0, 0); sessLayout->addWidget(m_qualifyMinutesSpin, 0, 1);
     m_raceLapsSpin = new QSpinBox(); m_raceLapsSpin->setRange(1, 1000);
-    sessLayout->addWidget(new QLabel("Race Laps:"), 1, 0); sessLayout->addWidget(m_raceLapsSpin, 1, 1);
+    sessLayout->addWidget(new QLabel(tr("Race Laps:")), 1, 0); sessLayout->addWidget(m_raceLapsSpin, 1, 1);
     m_raceMinutesSpin = new QSpinBox(); m_raceMinutesSpin->setRange(1, 600);
-    sessLayout->addWidget(new QLabel("Race Minutes:"), 2, 0); sessLayout->addWidget(m_raceMinutesSpin, 2, 1);
-    m_tabWidget->addTab(sessWidget, "Sessions");
+    sessLayout->addWidget(new QLabel(tr("Race Minutes:")), 2, 0); sessLayout->addWidget(m_raceMinutesSpin, 2, 1);
+    m_tabWidget->addTab(sessWidget, tr("Sessions"));
 
     // Grid
     auto* gridWidget = new QWidget(); auto* gridLayout = new QGridLayout(gridWidget);
     m_gridSizeSpin = new QSpinBox(); m_gridSizeSpin->setRange(1, 50);
-    gridLayout->addWidget(new QLabel("Grid Size:"), 0, 0); gridLayout->addWidget(m_gridSizeSpin, 0, 1);
-    m_gridSortCombo = new QComboBox(); m_gridSortCombo->addItems({"Qualifying", "Random", "Fixed"});
-    gridLayout->addWidget(new QLabel("Sort:"), 1, 0); gridLayout->addWidget(m_gridSortCombo, 1, 1);
-    m_tabWidget->addTab(gridWidget, "Grid");
+    gridLayout->addWidget(new QLabel(tr("Grid Size:")), 0, 0); gridLayout->addWidget(m_gridSizeSpin, 0, 1);
+    m_gridSortCombo = new QComboBox(); m_gridSortCombo->addItems({tr("Qualifying"), tr("Random"), tr("Fixed")});
+    gridLayout->addWidget(new QLabel(tr("Sort:")), 1, 0); gridLayout->addWidget(m_gridSortCombo, 1, 1);
+    m_tabWidget->addTab(gridWidget, tr("Grid"));
 
     // Rules
     auto* rulesWidget = new QWidget(); auto* rulesLayout = new QGridLayout(rulesWidget);
-    m_tcCheck = new QCheckBox("Traction Control"); rulesLayout->addWidget(m_tcCheck, 0, 0);
-    m_absCheck = new QCheckBox("ABS"); rulesLayout->addWidget(m_absCheck, 1, 0);
-    m_stabilityCheck = new QCheckBox("Stability Control"); rulesLayout->addWidget(m_stabilityCheck, 2, 0);
-    m_autoClutchCheck = new QCheckBox("Auto Clutch"); rulesLayout->addWidget(m_autoClutchCheck, 3, 0);
+    m_tcCheck = new QCheckBox(tr("Traction Control")); rulesLayout->addWidget(m_tcCheck, 0, 0);
+    m_absCheck = new QCheckBox(tr("ABS")); rulesLayout->addWidget(m_absCheck, 1, 0);
+    m_stabilityCheck = new QCheckBox(tr("Stability Control")); rulesLayout->addWidget(m_stabilityCheck, 2, 0);
+    m_autoClutchCheck = new QCheckBox(tr("Auto Clutch")); rulesLayout->addWidget(m_autoClutchCheck, 3, 0);
     m_mgukLapsSpin = new QSpinBox(); m_mgukLapsSpin->setRange(0, 100);
-    rulesLayout->addWidget(new QLabel("MGU-K Laps:"), 4, 0); rulesLayout->addWidget(m_mgukLapsSpin, 4, 1);
-    m_tabWidget->addTab(rulesWidget, "Rules");
+    rulesLayout->addWidget(new QLabel(tr("MGU-K Laps:")), 4, 0); rulesLayout->addWidget(m_mgukLapsSpin, 4, 1);
+    m_tabWidget->addTab(rulesWidget, tr("Rules"));
 
     // Weather
     auto* wWidget = new QWidget(); auto* wLayout = new QGridLayout(wWidget);
-    m_weatherEdit = new QLineEdit(); wLayout->addWidget(new QLabel("Weather:"), 0, 0); wLayout->addWidget(m_weatherEdit, 0, 1);
+    m_weatherEdit = new QLineEdit(); wLayout->addWidget(new QLabel(tr("Weather:")), 0, 0); wLayout->addWidget(m_weatherEdit, 0, 1);
     m_weatherTempSpin = new QDoubleSpinBox(); m_weatherTempSpin->setRange(-20, 60);
-    wLayout->addWidget(new QLabel("Temp:"), 1, 0); wLayout->addWidget(m_weatherTempSpin, 1, 1);
-    m_tabWidget->addTab(wWidget, "Weather");
+    wLayout->addWidget(new QLabel(tr("Temp:")), 1, 0); wLayout->addWidget(m_weatherTempSpin, 1, 1);
+    m_tabWidget->addTab(wWidget, tr("Weather"));
 
     mainLayout->addWidget(m_tabWidget);
 
     auto* actionLayout = new QHBoxLayout();
-    m_loadBtn = new QPushButton("Load race.ini"); m_saveBtn = new QPushButton("Save race.ini"); m_resetBtn = new QPushButton("Reset");
+    m_loadBtn = new QPushButton(tr("Load race.ini")); m_saveBtn = new QPushButton(tr("Save race.ini")); m_resetBtn = new QPushButton(tr("Reset"));
     actionLayout->addWidget(m_loadBtn); actionLayout->addWidget(m_saveBtn); actionLayout->addWidget(m_resetBtn);
     mainLayout->addLayout(actionLayout);
 
-    m_statusLabel = new QLabel("Ready"); mainLayout->addWidget(m_statusLabel);
+    m_statusLabel = new QLabel(tr("Ready")); mainLayout->addWidget(m_statusLabel);
 
     connect(m_loadBtn, &QPushButton::clicked, this, &RaceConfigEditorModule::onLoadFile);
     connect(m_saveBtn, &QPushButton::clicked, this, &RaceConfigEditorModule::onSaveFile);
@@ -84,19 +84,19 @@ QDockWidget* RaceConfigEditorModule::getOrCreateDockWidget(QMainWindow* mainWind
 
 void RaceConfigEditorModule::importFile(const QString& f) { m_filePath = f; loadFileToUI(); }
 void RaceConfigEditorModule::exportFile(const QString& f) { m_filePath = f; saveFileFromUI(); }
-void RaceConfigEditorModule::onActivation() { if (m_statusLabel) m_statusLabel->setText("Active"); }
-void RaceConfigEditorModule::onDeactivation() { if (m_statusLabel) m_statusLabel->setText("Inactive"); }
+void RaceConfigEditorModule::onActivation() { if (m_statusLabel) m_statusLabel->setText(tr("Active")); }
+void RaceConfigEditorModule::onDeactivation() { if (m_statusLabel) m_statusLabel->setText(tr("Inactive")); }
 
 void RaceConfigEditorModule::onLoadFile()
 {
-    QString p = QFileDialog::getOpenFileName(this, "Open race.ini", QString(), "Race INI (*.ini)");
-    if (!p.isEmpty()) { m_filePath = p; loadFileToUI(); m_statusLabel->setText("Loaded: " + p); }
+    QString p = QFileDialog::getOpenFileName(this, tr("Open race.ini"), QString(), tr("Race INI (*.ini)"));
+    if (!p.isEmpty()) { m_filePath = p; loadFileToUI(); m_statusLabel->setText(tr("Loaded: %1").arg(p)); }
 }
 
 void RaceConfigEditorModule::onSaveFile()
 {
-    QString p = m_filePath.isEmpty() ? QFileDialog::getSaveFileName(this, "Save race.ini", QString(), "Race INI (*.ini)") : m_filePath;
-    if (!p.isEmpty()) { m_filePath = p; saveFileFromUI(); m_statusLabel->setText("Saved: " + p); }
+    QString p = m_filePath.isEmpty() ? QFileDialog::getSaveFileName(this, tr("Save race.ini"), QString(), tr("Race INI (*.ini)")) : m_filePath;
+    if (!p.isEmpty()) { m_filePath = p; saveFileFromUI(); m_statusLabel->setText(tr("Saved: %1").arg(p)); }
 }
 
 void RaceConfigEditorModule::onResetDefaults()
@@ -106,10 +106,10 @@ void RaceConfigEditorModule::onResetDefaults()
     m_gridSizeSpin->setValue(20); m_gridSortCombo->setCurrentIndex(0);
     m_tcCheck->setChecked(true); m_absCheck->setChecked(true); m_stabilityCheck->setChecked(false); m_autoClutchCheck->setChecked(false);
     m_weatherEdit->setText("clear_2"); m_weatherTempSpin->setValue(22);
-    m_statusLabel->setText("Reset to defaults");
+    m_statusLabel->setText(tr("Reset to defaults"));
 }
 
-void RaceConfigEditorModule::setupUi() { if (m_statusLabel) m_statusLabel->setText("UI Ready"); }
+void RaceConfigEditorModule::setupUi() { if (m_statusLabel) m_statusLabel->setText(tr("UI Ready")); }
 
 void RaceConfigEditorModule::loadFileToUI()
 {

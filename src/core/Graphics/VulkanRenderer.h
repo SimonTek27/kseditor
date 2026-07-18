@@ -80,10 +80,14 @@ public:
     Mesh* getMesh(const QString& name);
     void destroyMesh(const QString& name);
 
+    static uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
+    VkInstance vulkanInstance() const { return m_instance; }
     VkPhysicalDevice physicalDevice() const { return m_physicalDevice; }
     VkDevice device() const { return m_device; }
     VkQueue graphicsQueue() const { return m_graphicsQueue; }
     VkCommandPool commandPool() const { return m_commandPool; }
+    uint32_t graphicsQueueFamilyIndex() const { return m_graphicsFamily; }
 
     bool createDevice(VkInstance instance, VkSurfaceKHR surface = VK_NULL_HANDLE);
     void destroyDevice();
@@ -96,6 +100,11 @@ public:
     bool presentImage(uint32_t imageIndex);
     VkRenderPass renderPass() const { return m_renderPass; }
     int swapChainImageCount() const { return m_swapChainImages.size(); }
+
+    // Offscreen rendering (for preview generation)
+    bool createOffscreenRenderTarget(int width, int height, VkFormat colorFormat = VK_FORMAT_R16G16B16A16_SFLOAT);
+    void destroyOffscreenRenderTarget();
+    bool renderOffscreen(int width, int height, const std::function<void()>& drawCommands, QImage& outImage);
 
     // Shader loader access
     class VulkanShaderLoader* shaderLoader() const { return m_shaderLoader.get(); }
@@ -151,6 +160,20 @@ private:
     QVector<VulkanTexture*> m_swapChainDepthTextures;
     QVector<VulkanFramebuffer*> m_swapChainFramebuffers;
     uint32_t m_currentImageIndex = 0;
+
+    // Offscreen rendering
+    VkRenderPass m_offscreenRenderPass = VK_NULL_HANDLE;
+    VkFramebuffer m_offscreenFramebuffer = VK_NULL_HANDLE;
+    VkImage m_offscreenColorImage = VK_NULL_HANDLE;
+    VkImageView m_offscreenColorView = VK_NULL_HANDLE;
+    VkDeviceMemory m_offscreenColorMemory = VK_NULL_HANDLE;
+    VkImage m_offscreenDepthImage = VK_NULL_HANDLE;
+    VkImageView m_offscreenDepthView = VK_NULL_HANDLE;
+    VkDeviceMemory m_offscreenDepthMemory = VK_NULL_HANDLE;
+    VkExtent2D m_offscreenExtent = {0, 0};
+    VkFormat m_offscreenColorFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+    VkCommandBuffer m_offscreenCommandBuffer = VK_NULL_HANDLE;
+    VkFence m_offscreenFence = VK_NULL_HANDLE;
 
     // Synchronization
     VkSemaphore m_imageAvailableSemaphore = VK_NULL_HANDLE;

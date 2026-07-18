@@ -1,357 +1,370 @@
 #include "ConflictResolutionDialog.h"
-#include "ModManager.h"
-
-#include <QTreeWidget>
-#include <QTreeWidgetItem>
-#include <QHeaderView>
-#include <QLabel>
-#include <QPushButton>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QGroupBox>
-#include <QColor>
-#include <QSet>
-#include <algorithm>
+#include <QListWidget>
+#include <QLabel>
+#include <QPushButton>
+#include <QCheckBox>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
+#include <QProgressBar>
+#include <QTextEdit>
+#include <QDialogButtonBox>
+#include <QMessageBox>
+#include <QHeaderView>
+#include <QSplitter>
+#include <QScrollArea>
 
 namespace ks {
 
-ConflictResolutionDialog::ConflictResolutionDialog(
-    const QVector<ModEntry>& allMods,
-    const QStringList& conflictStrings,
-    QWidget* parent)
+ConflictResolutionDialog::ConflictResolutionDialog(const ModConflictDetector::ConflictReport& report, QWidget* parent)
     : QDialog(parent)
-    , m_mods(allMods)
+    , m_report(report)
 {
-    setWindowTitle("Mod Conflict Resolution");
-    setMinimumSize(680, 480);
-    setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
-    parseConflicts(conflictStrings);
+    setWindowTitle(tr("Resolve Mod Conflicts"));
+    setMinimumSize(800, 600);
+    setWindowFlags(windowFlags() | Qt::WindowMaximizeButtonHint);
+    
     setupUI();
+    populateConflicts();
+    
+    // Auto-resolve non-critical conflicts
+    m_autoResolve = true;
+    updateButtonStates();
 }
 
-void ConflictResolutionDialog::parseConflicts(const QStringList& conflictStrings) {
-    for (const QString& entry : conflictStrings) {
-        QStringList parts = entry.split(" conflicts with ");
-        if (parts.size() == 2) {
-            ConflictPair pair;
-            pair.modA = parts[0].trimmed();
-            pair.modB = parts[1].trimmed();
-            pair.reason = "These mods modify the same game asset or provide overlapping functionality";
-            m_conflicts.append(pair);
-        }
-    }
-
-    if (m_conflicts.isEmpty()) {
-        for (const QString& entry : conflictStrings) {
-            ConflictPair pair;
-            pair.modA = entry;
-            pair.modB = "";
-            pair.reason = "";
-            m_conflicts.append(pair);
-        }
-    }
-}
-
-void ConflictResolutionDialog::setupUI() {
-    auto* mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(0, 0, 0, 0);
-    mainLayout->setSpacing(0);
-
-    auto* header = new QLabel("Mod Conflict Resolution");
-    header->setStyleSheet(
-        "background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
-        "stop:0 #cc4400,stop:1 #993300);"
-        "color: white; font-size: 16px; font-weight: bold;"
-        "padding: 16px 20px;");
-    header->setAlignment(Qt::AlignLeft);
-    mainLayout->addWidget(header);
-
-    auto* content = new QWidget();
-    content->setStyleSheet("background: #252526;");
-    auto* contentLayout = new QVBoxLayout(content);
-    contentLayout->setContentsMargins(16, 12, 16, 12);
-    contentLayout->setSpacing(10);
-
-    m_headerLabel = new QLabel(
-        QString("The following %1 conflict(s) were detected between your enabled mods. "
-                "Choose which mod to keep enabled for each conflict.")
-            .arg(m_conflicts.size()));
-    m_headerLabel->setWordWrap(true);
-    m_headerLabel->setStyleSheet("color: #cccccc; font-size: 12px; padding: 4px 0;");
-    contentLayout->addWidget(m_headerLabel);
-
-    m_tree = new QTreeWidget();
-    m_tree->setHeaderLabels({"", "Mod", "Conflicts With", "Reason", "Action"});
-    m_tree->setColumnWidth(0, 28);
-    m_tree->setColumnWidth(1, 160);
-    m_tree->setColumnWidth(2, 160);
-    m_tree->setColumnWidth(3, 180);
-    m_tree->setColumnWidth(4, 120);
-    m_tree->setAlternatingRowColors(true);
-    m_tree->setRootIsDecorated(false);
-    m_tree->setSelectionMode(QAbstractItemView::NoSelection);
-    m_tree->setStyleSheet(
-        "QTreeWidget { background: #1e1e1e; border: 1px solid #3f3f46; "
-        "alternate-background-color: #222228; }"
-        "QTreeWidget::item { padding: 6px 2px; border-bottom: 1px solid #2a2a30; }"
-        "QHeaderView::section { background: #2a2a30; color: #a1a1aa; "
-        "border: none; border-bottom: 1px solid #3f3f46; padding: 6px; }");
-    contentLayout->addWidget(m_tree, 1);
-
-    m_summaryLabel = new QLabel();
-    m_summaryLabel->setStyleSheet("color: #a1a1aa; font-size: 11px; padding: 2px 0;");
-    contentLayout->addWidget(m_summaryLabel);
-
-    mainLayout->addWidget(content, 1);
-
-    auto* footer = new QWidget();
-    footer->setStyleSheet("background: #1e1e1e;");
-    auto* footerLayout = new QHBoxLayout(footer);
-    footerLayout->setContentsMargins(16, 10, 16, 10);
-    footerLayout->setSpacing(8);
-
-    m_autoResolveBtn = new QPushButton("Auto-Resolve");
-    m_autoResolveBtn->setStyleSheet(
-        "QPushButton { background: #5a4a3a; color: white; border: none; "
-        "border-radius: 4px; padding: 8px 18px; font-weight: bold; }"
-        "QPushButton:hover { background: #7a6a4a; }");
-    footerLayout->addWidget(m_autoResolveBtn);
-
-    footerLayout->addStretch();
-
-    auto* cancelBtn = new QPushButton("Cancel");
-    cancelBtn->setStyleSheet(
-        "QPushButton { background: #3e3e42; color: white; border: 1px solid #555; "
-        "border-radius: 4px; padding: 8px 18px; }"
-        "QPushButton:hover { background: #4e4e52; }");
-    footerLayout->addWidget(cancelBtn);
-
-    m_applyBtn = new QPushButton("Apply Resolution");
-    m_applyBtn->setEnabled(false);
-    m_applyBtn->setStyleSheet(
-        "QPushButton { background: #cc4400; color: white; border: none; "
-        "border-radius: 4px; padding: 8px 18px; font-weight: bold; }"
-        "QPushButton:hover { background: #ee5500; }"
-        "QPushButton:disabled { background: #3e3e42; color: #666; }");
-    footerLayout->addWidget(m_applyBtn);
-
-    mainLayout->addWidget(footer);
-
-    connect(cancelBtn, &QPushButton::clicked, this, &QDialog::reject);
-    connect(m_applyBtn, &QPushButton::clicked, this, [this]() {
-        applyChanges();
-        accept();
+void ConflictResolutionDialog::setupUI()
+{
+    QVBoxLayout* mainLayout = new QVBoxLayout(this);
+    mainLayout->setSpacing(10);
+    mainLayout->setContentsMargins(15, 15, 15, 15);
+    
+    // Header
+    QLabel* headerLabel = new QLabel(tr("Mod Conflicts Detected"));
+    headerLabel->setStyleSheet("font-size: 16px; font-weight: bold;");
+    mainLayout->addWidget(headerLabel);
+    
+    QLabel* descLabel = new QLabel(tr(
+        "The following file conflicts were detected between mods. "
+        "Choose how to resolve each conflict. Critical conflicts (marked with ⚠) "
+        "cannot be auto-merged and must be resolved manually."));
+    descLabel->setWordWrap(true);
+    descLabel->setStyleSheet("color: #888; margin-bottom: 10px;");
+    mainLayout->addWidget(descLabel);
+    
+    // Summary
+    QHBoxLayout* summaryLayout = new QHBoxLayout();
+    m_totalLabel = new QLabel(tr("Total conflicts: %1").arg(m_report.conflicts.size()));
+    m_criticalLabel = new QLabel(tr("Critical: %1").arg(m_report.criticalConflicts.size()));
+    m_criticalLabel->setStyleSheet("color: #ff4444; font-weight: bold;");
+    summaryLayout->addWidget(m_totalLabel);
+    summaryLayout->addStretch();
+    summaryLayout->addWidget(m_criticalLabel);
+    mainLayout->addLayout(summaryLayout);
+    
+    // Auto-resolve checkbox
+    QCheckBox* autoCheck = new QCheckBox(tr("Auto-resolve non-critical conflicts (use newer mod's files)"));
+    autoCheck->setChecked(true);
+    connect(autoCheck, &QCheckBox::toggled, this, [this](bool checked) {
+        m_autoResolve = checked;
+        updateButtonStates();
     });
-    connect(m_autoResolveBtn, &QPushButton::clicked, this, &ConflictResolutionDialog::onAutoResolve);
-
-    populateTree();
-    updateSummary();
+    mainLayout->addWidget(autoCheck);
+    
+    // Progress bar for batch operations
+    m_progressBar = new QProgressBar();
+    m_progressBar->setVisible(false);
+    mainLayout->addWidget(m_progressBar);
+    
+    // Conflict list
+    m_conflictTree = new QTreeWidget();
+    m_conflictTree->setHeaderLabels({tr("File"), tr("Conflicting Mods"), tr("Type"), tr("Action")});
+    m_conflictTree->setAlternatingRowColors(true);
+    m_conflictTree->setRootIsDecorated(false);
+    m_conflictTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_conflictTree->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    m_conflictTree->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    m_conflictTree->header()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    m_conflictTree->header()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    m_conflictTree->setMinimumHeight(300);
+    mainLayout->addWidget(m_conflictTree, 1);
+    
+    // Detail view
+    QSplitter* splitter = new QSplitter(Qt::Vertical);
+    
+    QWidget* detailWidget = new QWidget();
+    QVBoxLayout* detailLayout = new QVBoxLayout(detailWidget);
+    detailLayout->setContentsMargins(0, 0, 0, 0);
+    
+    QLabel* detailHeader = new QLabel(tr("Conflict Details"));
+    detailHeader->setStyleSheet("font-weight: bold; padding: 5px;");
+    detailLayout->addWidget(detailHeader);
+    
+    m_detailText = new QTextEdit();
+    m_detailText->setReadOnly(true);
+    m_detailText->setMaximumHeight(150);
+    m_detailText->setStyleSheet("background: #2b2b2b; border: 1px solid #444; padding: 5px;");
+    detailLayout->addWidget(m_detailText);
+    
+    splitter->addWidget(m_conflictTree);
+    splitter->addWidget(detailWidget);
+    splitter->setStretchFactor(0, 4);
+    splitter->setStretchFactor(1, 1);
+    mainLayout->addWidget(splitter, 1);
+    
+    // Action buttons
+    QHBoxLayout* actionLayout = new QHBoxLayout();
+    
+    m_useNewerBtn = new QPushButton(tr("Use Newer Mod's Version"));
+    m_useNewerBtn->setIcon(QIcon::fromTheme("document-save"));
+    m_useNewerBtn->setEnabled(false);
+    connect(m_useNewerBtn, &QPushButton::clicked, this, &ConflictResolutionDialog::onUseNewer);
+    
+    m_useOlderBtn = new QPushButton(tr("Use Existing Mod's Version"));
+    m_useOlderBtn->setEnabled(false);
+    connect(m_useOlderBtn, &QPushButton::clicked, this, &ConflictResolutionDialog::onUseOlder);
+    
+    m_skipBtn = new QPushButton(tr("Skip (Keep Both)"));
+    m_skipBtn->setEnabled(false);
+    connect(m_skipBtn, &QPushButton::clicked, this, &ConflictResolutionDialog::onSkip);
+    
+    m_mergeBtn = new QPushButton(tr("Merge (Config Files Only)"));
+    m_mergeBtn->setEnabled(false);
+    connect(m_mergeBtn, &QPushButton::clicked, this, &ConflictResolutionDialog::onMerge);
+    
+    m_autoResolveAllBtn = new QPushButton(tr("Auto-Resolve All Non-Critical"));
+    m_autoResolveAllBtn->setIcon(QIcon::fromTheme("view-refresh"));
+    connect(m_autoResolveAllBtn, &QPushButton::clicked, this, &ConflictResolutionDialog::onAutoResolveAll);
+    
+    actionLayout->addWidget(m_useNewerBtn);
+    actionLayout->addWidget(m_useOlderBtn);
+    actionLayout->addWidget(m_skipBtn);
+    actionLayout->addWidget(m_mergeBtn);
+    actionLayout->addStretch();
+    actionLayout->addWidget(m_autoResolveAllBtn);
+    mainLayout->addLayout(actionLayout);
+    
+    // Dialog buttons
+    QDialogButtonBox* buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    connect(buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    mainLayout->addWidget(buttonBox);
+    
+    // Connect selection change
+    connect(m_conflictTree, &QTreeWidget::itemSelectionChanged,
+            this, &ConflictResolutionDialog::onSelectionChanged);
+    connect(m_conflictTree, &QTreeWidget::itemClicked,
+            this, &ConflictResolutionDialog::onItemClicked);
 }
 
-void ConflictResolutionDialog::populateTree() {
-    m_tree->clear();
-
-    for (int i = 0; i < m_conflicts.size(); ++i) {
-        const auto& pair = m_conflicts[i];
-
-        auto findModInfo = [this](const QString& name) -> QPair<QString, bool> {
-            for (const auto& mod : m_mods) {
-                if (mod.name == name) {
-                    return {mod.version.isEmpty() ? QStringLiteral("v1.0") : mod.version.toString(), mod.enabled};
-                }
-            }
-            return {"v1.0", true};
-        };
-
-        auto infoA = findModInfo(pair.modA);
-        auto infoB = pair.modB.isEmpty() ? QPair<QString, bool>{} : findModInfo(pair.modB);
-
-        auto* item = new QTreeWidgetItem();
-        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-        item->setCheckState(0, Qt::Checked);
-        item->setText(1, pair.modA + "  (" + infoA.first + ")");
-        item->setText(2, pair.modB.isEmpty() ? "(self)" : pair.modB + "  (" + infoB.first + ")");
-        item->setText(3, pair.reason);
-        item->setData(0, Qt::UserRole, i);
-
-        bool aEnabled = infoA.second;
-        bool bEnabled = pair.modB.isEmpty() || infoB.second;
-
-        QString status;
-        if (pair.resolved) {
-            if (pair.chosenMod == pair.modA) {
-                status = "Keep: " + pair.modA;
-            } else {
-                status = "Keep: " + pair.modB;
-            }
+void ConflictResolutionDialog::populateConflicts()
+{
+    m_conflictTree->clear();
+    m_selectedItem = nullptr;
+    
+    for (const auto& conflict : m_report.conflicts) {
+        QTreeWidgetItem* item = new QTreeWidgetItem();
+        item->setText(0, conflict.filePath);
+        item->setText(1, conflict.modNames.join(" vs "));
+        item->setText(2, conflict.conflictType);
+        item->setText(3, tr("Pending"));
+        
+        // Store conflict data
+        item->setData(0, Qt::UserRole, QVariant::fromValue(conflict));
+        
+        // Highlight critical conflicts
+        if (m_report.criticalConflicts.contains(conflict.filePath)) {
+            item->setForeground(0, QBrush(QColor("#ff4444")));
+            item->setToolTip(0, tr("⚠ Critical conflict - cannot be auto-merged"));
+            item->setIcon(0, QIcon::fromTheme("dialog-warning"));
         } else {
-            status = "Unresolved";
+            item->setToolTip(0, tr("Double-click for details"));
         }
-        item->setText(4, status);
-
-        if (pair.resolved) {
-            item->setForeground(4, QColor("#4ade80"));
+        
+        // Pre-select action based on conflict type
+        if (conflict.conflictType == "merge") {
+            item->setText(3, tr("Will merge (config)"));
+        } else if (conflict.conflictType == "overwrite") {
+            item->setText(3, tr("Will overwrite"));
         } else {
-            item->setForeground(4, QColor("#fbbf24"));
+            item->setText(3, tr("Will skip"));
         }
-
-        m_tree->addTopLevelItem(item);
-
-        auto* buttonWidget = new QWidget();
-        auto* btnLayout = new QHBoxLayout(buttonWidget);
-        btnLayout->setContentsMargins(4, 2, 4, 2);
-        btnLayout->setSpacing(4);
-
-        {
-            auto* keepABtn = new QPushButton("Keep " + pair.modA.left(12));
-            keepABtn->setStyleSheet(
-                "QPushButton { background: #3b82f6; color: white; border: none; "
-                "border-radius: 3px; padding: 4px 10px; font-size: 11px; }"
-                "QPushButton:hover { background: #2563eb; }");
-            btnLayout->addWidget(keepABtn);
-
-            int idx = i;
-            connect(keepABtn, &QPushButton::clicked, this, [this, idx]() {
-                onKeepClicked(m_conflicts[idx], m_conflicts[idx].modA);
-            });
-        }
-
-        if (!pair.modB.isEmpty()) {
-            auto* keepBBtn = new QPushButton("Keep " + pair.modB.left(12));
-            keepBBtn->setStyleSheet(
-                "QPushButton { background: #3b82f6; color: white; border: none; "
-                "border-radius: 3px; padding: 4px 10px; font-size: 11px; }"
-                "QPushButton:hover { background: #2563eb; }");
-            btnLayout->addWidget(keepBBtn);
-
-            int idx = i;
-            connect(keepBBtn, &QPushButton::clicked, this, [this, idx]() {
-                onKeepClicked(m_conflicts[idx], m_conflicts[idx].modB);
-            });
-        }
-
-        btnLayout->addStretch();
-        m_tree->setItemWidget(item, 4, buttonWidget);
+        
+        m_conflictTree->addTopLevelItem(item);
+    }
+    
+    m_conflictTree->resizeColumnToContents(1);
+    m_conflictTree->resizeColumnToContents(2);
+    m_conflictTree->resizeColumnToContents(3);
+    
+    // Select first item
+    if (m_conflictTree->topLevelItemCount() > 0) {
+        m_conflictTree->setCurrentItem(m_conflictTree->topLevelItem(0));
     }
 }
 
-void ConflictResolutionDialog::onKeepClicked(const ConflictPair& pair, const QString& keepMod) {
-    for (int i = 0; i < m_conflicts.size(); ++i) {
-        if (m_conflicts[i].modA == pair.modA && m_conflicts[i].modB == pair.modB) {
-            m_conflicts[i].resolved = true;
-            m_conflicts[i].chosenMod = keepMod;
+void ConflictResolutionDialog::updateButtonStates()
+{
+    bool hasSelection = m_selectedItem != nullptr;
+    bool isCritical = hasSelection && m_report.criticalConflicts.contains(m_selectedItem->text(0));
+    
+    m_useNewerBtn->setEnabled(hasSelection && !isCritical);
+    m_useOlderBtn->setEnabled(hasSelection && !isCritical);
+    m_skipBtn->setEnabled(hasSelection);
+    m_mergeBtn->setEnabled(hasSelection && !isCritical && m_selectedConflict.conflictType == "merge");
+    
+    // Update auto-resolve button
+    int nonCriticalCount = 0;
+    for (int i = 0; i < m_conflictTree->topLevelItemCount(); ++i) {
+        QTreeWidgetItem* item = m_conflictTree->topLevelItem(i);
+        if (!m_report.criticalConflicts.contains(item->text(0)) && item->text(3) == "Pending") {
+            nonCriticalCount++;
+        }
+    }
+    m_autoResolveAllBtn->setEnabled(nonCriticalCount > 0);
+}
 
-            auto* item = m_tree->topLevelItem(i);
-            if (item) {
-                item->setCheckState(0, Qt::Checked);
-                auto* w = qobject_cast<QWidget*>(m_tree->itemWidget(item, 4));
-                if (w) {
-                    for (auto* btn : w->findChildren<QPushButton*>()) {
-                        btn->setEnabled(false);
-                    }
-                }
-            }
+void ConflictResolutionDialog::onSelectionChanged()
+{
+    QList<QTreeWidgetItem*> selected = m_conflictTree->selectedItems();
+    m_selectedItem = selected.isEmpty() ? nullptr : selected.first();
+    updateButtonStates();
+    updateDetailView();
+}
+
+void ConflictResolutionDialog::onItemClicked(QTreeWidgetItem* item, int column)
+{
+    m_selectedItem = item;
+    m_selectedConflict = item->data(0, Qt::UserRole).value<ModConflictDetector::FileConflict>();
+    updateButtonStates();
+    updateDetailView();
+}
+
+void ConflictResolutionDialog::updateDetailView()
+{
+    if (!m_selectedItem || !m_selectedConflict.filePath.isEmpty()) {
+        QString details;
+        
+        const auto& c = m_selectedConflict;
+        details += QString("<b>File:</b> %1<br>").arg(c.filePath);
+        details += QString("<b>Mods:</b> %1<br>").arg(c.modNames.join(" vs "));
+        details += QString("<b>Type:</b> %1<br>").arg(c.conflictType);
+        
+        if (m_report.criticalConflicts.contains(c.filePath)) {
+            details += "<br><b style='color: #ff4444;'>⚠ CRITICAL CONFLICT</b><br>";
+            details += "This file is critical and cannot be auto-merged.<br>";
+        }
+        
+        details += "<br><b>Mods involved:</b><ul>";
+        for (const QString& mod : c.modNames) {
+            details += QString("<li>%1</li>").arg(mod);
+        }
+        details += "</ul>";
+        
+        details += "<br><b>Recommended action:</b> ";
+        if (c.conflictType == "merge") {
+            details += "Merge configuration files (recommended for .ini, .json, .lua files).";
+        } else if (c.conflictType == "overwrite") {
+            details += "Choose which mod's version to keep (binary assets cannot be merged).";
+        } else {
+            details += "Skip - both mods provide this file identically.";
+        }
+        
+        m_detailText->setHtml(details);
+    } else {
+        m_detailText->clear();
+        m_detailText->setHtml("<i>Select a conflict to view details</i>");
+    }
+}
+
+void ConflictResolutionDialog::onUseNewer()
+{
+    if (!m_selectedItem) return;
+    applyResolution("newer");
+}
+
+void ConflictResolutionDialog::onUseOlder()
+{
+    if (!m_selectedItem) return;
+    applyResolution("older");
+}
+
+void ConflictResolutionDialog::onSkip()
+{
+    if (!m_selectedItem) return;
+    applyResolution("skip");
+}
+
+void ConflictResolutionDialog::onMerge()
+{
+    if (!m_selectedItem) return;
+    applyResolution("merge");
+}
+
+void ConflictResolutionDialog::applyResolution(const QString& action)
+{
+    if (!m_selectedItem) return;
+    
+    m_selectedItem->setText(3, tr("%1 (resolved)").arg(action));
+    m_selectedItem->setBackground(3, QBrush(QColor("#2e7d32")));
+    m_selectedItem->setForeground(3, QBrush(Qt::white));
+    
+    // Store resolution for later processing
+    m_resolutions[m_selectedConflict.filePath] = action;
+    
+    updateButtonStates();
+    
+    // Auto-select next unresolved conflict
+    for (int i = 0; i < m_conflictTree->topLevelItemCount(); ++i) {
+        QTreeWidgetItem* item = m_conflictTree->topLevelItem(i);
+        if (item->text(3) == "Pending") {
+            m_conflictTree->setCurrentItem(item);
             break;
         }
     }
-    updateSummary();
-
-    bool allResolved = true;
-    for (const auto& c : m_conflicts) {
-        if (!c.resolved) { allResolved = false; break; }
-    }
-    if (allResolved) {
-        onAutoResolve();
-    }
 }
 
-void ConflictResolutionDialog::onAutoResolve() {
-    for (int i = 0; i < m_conflicts.size(); ++i) {
-        auto& pair = m_conflicts[i];
-        if (pair.resolved) continue;
-
-        auto findEnabled = [this](const QString& name) -> bool {
-            for (const auto& mod : m_mods) {
-                if (mod.name == name) return mod.enabled;
-            }
-            return true;
-        };
-
-        bool aEnabled = findEnabled(pair.modA);
-        bool bEnabled = pair.modB.isEmpty() || findEnabled(pair.modB);
-
-        QString keep = aEnabled ? pair.modA : pair.modB;
-        if (!keep.isEmpty()) {
-            pair.resolved = true;
-            pair.chosenMod = keep;
-
-            auto* item = m_tree->topLevelItem(i);
-            if (item) {
-                item->setCheckState(0, Qt::Checked);
-                item->setText(4, "Auto: " + keep);
-                item->setForeground(4, QColor("#4ade80"));
-                auto* w = qobject_cast<QWidget*>(m_tree->itemWidget(item, 4));
-                if (w) {
-                    for (auto* btn : w->findChildren<QPushButton*>()) {
-                        btn->setEnabled(false);
-                    }
-                }
-            }
-        }
-    }
-    updateSummary();
-}
-
-void ConflictResolutionDialog::updateSummary() {
-    int total = m_conflicts.size();
+void ConflictResolutionDialog::onAutoResolveAll()
+{
+    if (!m_autoResolve) return;
+    
+    m_progressBar->setVisible(true);
+    m_progressBar->setMaximum(0);
+    m_progressBar->setValue(0);
+    
     int resolved = 0;
-    for (const auto& c : m_conflicts) {
-        if (c.resolved) resolved++;
-    }
-
-    m_summaryLabel->setText(
-        QString("%1 conflict%2 — %3 resolved, %4 remaining")
-            .arg(total).arg(total == 1 ? "" : "s")
-            .arg(resolved).arg(total - resolved));
-
-    m_applyBtn->setEnabled(resolved > 0);
-    m_autoResolveBtn->setEnabled(resolved < total);
-}
-
-void ConflictResolutionDialog::applyChanges() {
-    QSet<QString> keepSet;
-    QSet<QString> allConflictMods;
-
-    for (const auto& c : m_conflicts) {
-        allConflictMods.insert(c.modA);
-        if (!c.modB.isEmpty()) allConflictMods.insert(c.modB);
-    }
-
-    for (const auto& c : m_conflicts) {
-        if (c.resolved && !c.chosenMod.isEmpty()) {
-            keepSet.insert(c.chosenMod);
-        }
-    }
-
-    for (const auto& c : m_conflicts) {
-        if (!c.resolved || c.chosenMod.isEmpty()) continue;
-        if (c.chosenMod == c.modA && !c.modB.isEmpty()) {
-            m_modsToDisable.append(c.modB);
-        } else if (c.chosenMod == c.modB) {
-            m_modsToDisable.append(c.modA);
-        }
-    }
-
-    m_modsToDisable.removeDuplicates();
-
-    for (const auto& c : m_conflicts) {
-        if (c.resolved && !c.chosenMod.isEmpty()) {
-            if (!m_modsToDisable.contains(c.chosenMod)) {
-                m_modsToEnable.append(c.chosenMod);
+    int total = 0;
+    
+    for (int i = 0; i < m_conflictTree->topLevelItemCount(); ++i) {
+        QTreeWidgetItem* item = m_conflictTree->topLevelItem(i);
+        if (item->text(3) == "Pending") {
+            total++;
+            bool isCritical = m_report.criticalConflicts.contains(item->text(0));
+            
+            if (!isCritical) {
+                // Auto-resolve based on conflict type
+                ModConflictDetector::FileConflict conflict = item->data(0, Qt::UserRole).value<ModConflictDetector::FileConflict>();
+                QString action;
+                
+                if (conflict.conflictType == "merge") {
+                    action = "merge";
+                } else if (conflict.conflictType == "overwrite") {
+                    // Use newer mod (conflict.modNames.contains("newer") ? "newer" : "older";
+                } else {
+                    action = "skip";
+                }
+                
+                applyResolution(action);
+                resolved++;
             }
         }
     }
-    m_modsToEnable.removeDuplicates();
+    
+    QMessageBox::information(this, tr("Auto-Resolve Complete"),
+        tr("Resolved %1 of %2 non-critical conflicts automatically.").arg(resolved).arg(total));
+    
+    m_progressBar->setVisible(false);
+    updateButtonStates();
 }
 
 } // namespace ks

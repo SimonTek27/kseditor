@@ -23,7 +23,7 @@ void CareerEditorModule::shutdown()
 QDockWidget* CareerEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
 {
     if (m_dockWidget) return m_dockWidget;
-    m_dockWidget = new QDockWidget("Career Editor", mainWindow);
+    m_dockWidget = new QDockWidget(tr("Career Editor"), mainWindow);
     m_dockWidget->setObjectName("CareerEditorDock");
 
     auto* centralWidget = new QWidget();
@@ -34,15 +34,23 @@ QDockWidget* CareerEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
     mainLayout->addWidget(listWidget);
 
     auto* propsWidget = new QWidget(); auto* propsLayout = new QGridLayout(propsWidget);
-    m_seriesNameEdit = new QLineEdit(); propsLayout->addWidget(new QLabel("Name:"), 0, 0); propsLayout->addWidget(m_seriesNameEdit, 0, 1);
-    m_seriesInfoEdit = new QTextEdit(); propsLayout->addWidget(new QLabel("Info:"), 1, 0); propsLayout->addWidget(m_seriesInfoEdit, 1, 1);
+    m_seriesNameEdit = new QLineEdit(); propsLayout->addWidget(new QLabel(tr("Name:")), 0, 0); propsLayout->addWidget(m_seriesNameEdit, 0, 1);
+    m_seriesInfoEdit = new QTextEdit(); propsLayout->addWidget(new QLabel(tr("Info:")), 1, 0); propsLayout->addWidget(m_seriesInfoEdit, 1, 1);
     mainLayout->addWidget(propsWidget);
 
     auto* vMain = new QVBoxLayout(); vMain->addLayout(mainLayout);
     auto* actionLayout = new QHBoxLayout();
-    m_loadBtn = new QPushButton("Load Directory");
-    actionLayout->addWidget(m_loadBtn); vMain->addLayout(actionLayout);
-    m_statusLabel = new QLabel("Ready"); vMain->addWidget(m_statusLabel);
+    m_loadBtn = new QPushButton(tr("Load Directory"));
+    m_addBtn = new QPushButton("+");
+    m_removeBtn = new QPushButton("-");
+    m_addBtn->setFixedSize(28, 28);
+    m_removeBtn->setFixedSize(28, 28);
+    actionLayout->addWidget(m_loadBtn);
+    actionLayout->addStretch();
+    actionLayout->addWidget(m_addBtn);
+    actionLayout->addWidget(m_removeBtn);
+    vMain->addLayout(actionLayout);
+    m_statusLabel = new QLabel(tr("Ready")); vMain->addWidget(m_statusLabel);
 
     auto* wrapper = new QWidget(); wrapper->setLayout(vMain);
     m_dockWidget->setWidget(wrapper);
@@ -50,6 +58,9 @@ QDockWidget* CareerEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
     connect(m_seriesList, &QListWidget::currentRowChanged, this, &CareerEditorModule::onSeriesSelected);
     connect(m_loadBtn, &QPushButton::clicked, this, &CareerEditorModule::onLoadDir);
     connect(m_seriesNameEdit, &QLineEdit::textChanged, this, &CareerEditorModule::onSeriesNameChanged);
+    connect(m_seriesInfoEdit, &QTextEdit::textChanged, this, &CareerEditorModule::onSeriesInfoChanged);
+    connect(m_addBtn, &QPushButton::clicked, this, &CareerEditorModule::onAddSeries);
+    connect(m_removeBtn, &QPushButton::clicked, this, &CareerEditorModule::onRemoveSeries);
 
     return m_dockWidget;
 }
@@ -67,23 +78,41 @@ void CareerEditorModule::exportFile(const QString& f)
         if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
             QTextStream out(&file);
             out << "NAME=" << series.first << "\n";
+            if (!series.second.isEmpty())
+                out << "INFO=" << series.second << "\n";
             file.close();
         }
     }
-    m_statusLabel->setText(QString("Exported %1 series to %2").arg(m_series.size()).arg(f));
+    m_statusLabel->setText(tr("Exported %1 series to %2").arg(m_series.size()).arg(f));
 }
-void CareerEditorModule::onActivation() { if (m_statusLabel) m_statusLabel->setText("Active"); }
-void CareerEditorModule::onDeactivation() { if (m_statusLabel) m_statusLabel->setText("Inactive"); }
-void CareerEditorModule::onSeriesSelected(int r) { if (r >= 0 && r < m_series.size()) { m_selectedIndex = r; m_seriesNameEdit->setText(m_series[r].first); } }
+void CareerEditorModule::onActivation() { if (m_statusLabel) m_statusLabel->setText(tr("Active")); }
+void CareerEditorModule::onDeactivation() { if (m_statusLabel) m_statusLabel->setText(tr("Inactive")); }
+void CareerEditorModule::onSeriesSelected(int r) { if (r >= 0 && r < m_series.size()) { m_selectedIndex = r; m_seriesNameEdit->setText(m_series[r].first); m_seriesInfoEdit->setText(m_series[r].second); } }
 void CareerEditorModule::onSeriesNameChanged(const QString& t) { if (m_selectedIndex >= 0) { m_series[m_selectedIndex].first = t; m_seriesList->item(m_selectedIndex)->setText(t); } }
+void CareerEditorModule::onSeriesInfoChanged() { if (m_selectedIndex >= 0) { m_series[m_selectedIndex].second = m_seriesInfoEdit->toPlainText(); } }
+void CareerEditorModule::onAddSeries() {
+    QString name = tr("Series %1").arg(m_series.size() + 1);
+    m_series.append(std::make_pair(name, ""));
+    m_seriesList->addItem(name);
+    m_statusLabel->setText(tr("Added: %1").arg(name));
+}
+void CareerEditorModule::onRemoveSeries() {
+    int row = m_seriesList->currentRow();
+    if (row < 0 || row >= m_series.size()) return;
+    QString name = m_series[row].first;
+    m_series.removeAt(row);
+    delete m_seriesList->takeItem(row);
+    if (m_selectedIndex == row) { m_selectedIndex = -1; m_seriesNameEdit->clear(); m_seriesInfoEdit->clear(); }
+    m_statusLabel->setText(tr("Removed: %1").arg(name));
+}
 
 void CareerEditorModule::onLoadDir()
 {
-    QString d = QFileDialog::getExistingDirectory(this, "Open career directory");
+    QString d = QFileDialog::getExistingDirectory(this, tr("Open career directory"));
     if (!d.isEmpty()) { m_dir = d; loadDirToUI(); }
 }
 
-void CareerEditorModule::setupUi() { if (m_statusLabel) m_statusLabel->setText("UI Ready"); }
+void CareerEditorModule::setupUi() { if (m_statusLabel) m_statusLabel->setText(tr("UI Ready")); }
 
 void CareerEditorModule::loadDirToUI()
 {
@@ -93,7 +122,7 @@ void CareerEditorModule::loadDirToUI()
         m_series.append({sub, dir.absoluteFilePath(sub + "/series.ini")});
         m_seriesList->addItem(sub);
     }
-    m_statusLabel->setText(QString("Loaded %1 series").arg(m_series.size()));
+    m_statusLabel->setText(tr("Loaded %1 series").arg(m_series.size()));
 }
 
 QJsonObject CareerEditorModule::serializeProject() const
@@ -119,7 +148,7 @@ void CareerEditorModule::deserializeProject(const QJsonObject& data)
     m_series.clear();
     for (const auto& v : data["series"].toArray()) {
         QJsonObject obj = v.toObject();
-        m_series.append(qMakePair(obj["name"].toString(), obj["info"].toString()));
+        m_series.append(std::make_pair(obj["name"].toString(), obj["info"].toString()));
     }
 }
 

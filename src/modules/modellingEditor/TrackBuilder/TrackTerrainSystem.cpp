@@ -120,7 +120,7 @@ TrackTerrainSystem::TerrainMesh TrackTerrainSystem::decimateMesh(const TerrainMe
     auto gridKey = [&](const TerrainVertex& v) -> QPair<int,int> {
         int gx = static_cast<int>(qFloor(v.x / gridSize));
         int gy = static_cast<int>(qFloor(v.z / gridSize));
-        return qMakePair(gx, gy);
+        return std::make_pair(gx, gy);
     };
 
     for (const auto& tri : mesh.triangles) {
@@ -153,7 +153,7 @@ TrackTerrainSystem::TerrainMesh TrackTerrainSystem::subdivideMesh(const TerrainM
         QMap<QPair<int,int>,int> midCache;
         auto mid = [&](int a, int b) {
             if (a > b) qSwap(a, b);
-            auto key = qMakePair(a, b);
+            auto key = std::make_pair(a, b);
             if (midCache.contains(key)) return midCache[key];
             TerrainVertex m;
             m.x = (out.vertices[a].x + out.vertices[b].x) * 0.5f;

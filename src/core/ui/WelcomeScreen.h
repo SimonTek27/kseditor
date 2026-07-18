@@ -8,7 +8,7 @@ class QLabel;
 class WelcomeScreen : public QDialog {
     Q_OBJECT
 public:
-    enum Action { None, New, Open, Recent };
+    enum Action { None, New, NewBlank, Open, Help, Recent };
 
     explicit WelcomeScreen(QWidget* parent = nullptr);
 
@@ -18,7 +18,9 @@ public:
 
 private slots:
     void onNewClicked();
+    void onNewBlankClicked();
     void onOpenClicked();
+    void onHelpClicked();
     void onRecentDoubleClicked(QListWidgetItem* item);
     void onRecentContextMenu(const QPoint& pos);
 

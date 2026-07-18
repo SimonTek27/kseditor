@@ -33,6 +33,7 @@
 #include <Qt3DExtras/QSphereMesh>
 #include <Qt3DExtras/QPlaneMesh>
 #include <Qt3DExtras/QForwardRenderer>
+#include <Qt3DExtras/Qt3DWindow>
 #endif
 
 // Qt Widgets

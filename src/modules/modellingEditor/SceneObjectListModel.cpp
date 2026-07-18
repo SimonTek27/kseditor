@@ -1,13 +1,15 @@
 #include "SceneObjectListModel.h"
+#include "core/Graphics/SceneMesh.h"
 
 namespace ks {
+using namespace graphics;
 
 SceneObjectListModel::SceneObjectListModel(QObject* parent)
     : QAbstractListModel(parent)
 {
 }
 
-void SceneObjectListModel::setSceneGraph(SceneGraph* scene) {
+void SceneObjectListModel::setSceneGraph(ks::SceneGraph* scene) {
     m_scene = scene;
     syncObjectList();
     emit countChanged();
@@ -55,25 +57,22 @@ QVariant SceneObjectListModel::data(const QModelIndex& index, int role) const {
         }
     }
     case PositionRole: {
-        auto t = obj->transform().translation();
-        return QVector3D(t.x, t.y, t.z);
+        return obj->position();
     }
     case RotationRole: {
-        auto r = obj->transform().rotation();
-        return QVector3D(r.x, r.y, r.z);
+        return obj->rotationEuler();
     }
     case ScaleRole: {
-        auto s = obj->transform().scale();
-        return QVector3D(s.x, s.y, s.z);
+        return obj->scale();
     }
     case SelectedRole:
         return obj->isSelected();
     case VertexCountRole: {
-        if (obj->mesh()) return (int)obj->mesh()->vertices().size();
+        if (obj->mesh()) return (int)obj->mesh()->geometry().vertices.size();
         return 0;
     }
     case TriangleCountRole: {
-        if (obj->mesh()) return (int)(obj->mesh()->indices().size() / 3);
+        if (obj->mesh()) return (int)(obj->mesh()->geometry().indices.size() / 3);
         return 0;
     }
     case HasMeshRole:
@@ -121,8 +120,7 @@ int SceneObjectListModel::objectIdAt(int row) const {
 
 QVector3D SceneObjectListModel::positionAt(int row) const {
     if (row < 0 || row >= m_objects.size()) return QVector3D();
-    auto t = m_objects[row]->transform().translation();
-    return QVector3D(t.x, t.y, t.z);
+    return m_objects[row]->position();
 }
 
 QString SceneObjectListModel::nameAt(int row) const {
@@ -143,7 +141,7 @@ int SceneObjectListModel::totalVertices() const {
     int count = 0;
     for (SceneObject* obj : m_objects) {
         if (obj && obj->mesh())
-            count += obj->mesh()->vertices().size();
+            count += obj->mesh()->geometry().vertices.size();
     }
     return count;
 }
@@ -152,7 +150,7 @@ int SceneObjectListModel::totalTriangles() const {
     int count = 0;
     for (SceneObject* obj : m_objects) {
         if (obj && obj->mesh())
-            count += obj->mesh()->indices().size() / 3;
+            count += obj->mesh()->geometry().indices.size() / 3;
     }
     return count;
 }

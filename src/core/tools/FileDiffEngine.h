@@ -79,6 +79,9 @@ public:
     
     virtual QMap<QString, QVector<FileDiffResult>> groupDiffsByType(const QVector<FileDiffResult>& diffs) = 0;
     virtual QString getDiffSummary(const QVector<FileDiffResult>& diffs) const = 0;
+
+private:
+    static FileComparisonEngine* s_instance;
 };
 
 } // namespace ks

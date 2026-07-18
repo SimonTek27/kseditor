@@ -81,10 +81,11 @@ QString PhysicsProfiler::subsystemName(Subsystem s) const {
     static const QString names[] = {
         "Engine", "Drivetrain", "Differential", "Brakes",
         "ABS/TC", "Aero", "WeightTransfer", "PerWheelForces",
-        "VehicleDynamics", "Fuel", "TireThermal", "LapTimer"
+        "VehicleDynamics", "Fuel", "TireThermal", "LapTimer",
+        "ERS/Hybrid", "DRS", "Damage", "Weather"
     };
     int idx = static_cast<int>(s);
-    return (idx >= 0 && idx < 12) ? names[idx] : "Unknown";
+    return (idx >= 0 && idx < Total) ? names[idx] : "Unknown";
 }
 
 QVector<QPair<QString, double>> PhysicsProfiler::allSubsystemTimes() const {

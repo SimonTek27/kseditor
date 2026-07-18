@@ -2,6 +2,11 @@
 #include <QUuid>
 #include <QDateTime>
 #include <QDebug>
+#include <QFile>
+#include <QTextStream>
+#include <QClipboard>
+#include <QGuiApplication>
+#include <QRegularExpression>
 
 namespace ks {
 
@@ -21,6 +26,90 @@ void ConsolePanel::setAutoScroll(bool v) { m_autoScroll = v; }
 void ConsolePanel::setTimestampVisible(bool v) { m_timestampVisible = v; }
 void ConsolePanel::setFontFamily(const QString& f) { m_fontFamily = f; }
 void ConsolePanel::setFontSize(int s) { m_fontSize = qBound(6, s, 48); }
+void ConsolePanel::setWordWrap(bool enabled) { m_wordWrap = enabled; }
+
+void ConsolePanel::saveToFile(const QString& path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return;
+    QTextStream out(&file);
+    for (const auto& msg : m_messages) {
+        QString prefix;
+        switch (msg.type) {
+            case MessageType::Info:    prefix = "[INFO] ";    break;
+            case MessageType::Warning: prefix = "[WARN] ";    break;
+            case MessageType::Error:   prefix = "[ERROR] ";   break;
+            case MessageType::Command: prefix = "[CMD] ";     break;
+            case MessageType::Output:  prefix = "";           break;
+            case MessageType::Debug:   prefix = "[DEBUG] ";   break;
+        }
+        if (m_timestampVisible)
+            out << "[" << msg.timestamp.toString(Qt::ISODate) << "] ";
+        out << prefix << msg.text << "\n";
+    }
+    file.close();
+}
+
+void ConsolePanel::copyToClipboard()
+{
+    QClipboard* clipboard = QGuiApplication::clipboard();
+    QString text;
+    for (const auto& msg : m_messages) {
+        if (!text.isEmpty()) text += "\n";
+        text += msg.text;
+    }
+    clipboard->setText(text);
+}
+
+void ConsolePanel::find(const QString& text, bool caseSensitive, bool regex)
+{
+    m_searchText = text;
+    m_searchCaseSensitive = caseSensitive;
+    m_searchRegex = regex;
+    m_searchCurrentIndex = 0;
+    findNext();
+}
+
+void ConsolePanel::findNext()
+{
+    if (m_searchText.isEmpty()) return;
+    Qt::CaseSensitivity cs = m_searchCaseSensitive ? Qt::CaseSensitive : Qt::CaseInsensitive;
+    for (int i = m_searchCurrentIndex; i < m_messages.size(); ++i) {
+        bool match = false;
+        if (m_searchRegex) {
+            match = m_messages[i].text.contains(QRegularExpression(m_searchText));
+        } else {
+            match = m_messages[i].text.contains(m_searchText, cs);
+        }
+        if (match) {
+            m_searchCurrentIndex = i + 1;
+            emit messageAdded(m_messages[i]);
+            return;
+        }
+    }
+    // Wrap around
+    m_searchCurrentIndex = 0;
+}
+
+void ConsolePanel::findPrevious()
+{
+    if (m_searchText.isEmpty()) return;
+    Qt::CaseSensitivity cs = m_searchCaseSensitive ? Qt::CaseSensitive : Qt::CaseInsensitive;
+    for (int i = qMin(m_searchCurrentIndex - 1, m_messages.size() - 1); i >= 0; --i) {
+        bool match = false;
+        if (m_searchRegex) {
+            match = m_messages[i].text.contains(QRegularExpression(m_searchText));
+        } else {
+            match = m_messages[i].text.contains(m_searchText, cs);
+        }
+        if (match) {
+            m_searchCurrentIndex = i;
+            emit messageAdded(m_messages[i]);
+            return;
+        }
+    }
+    m_searchCurrentIndex = m_messages.size() - 1;
+}
 
 void ConsolePanel::clear()
 {

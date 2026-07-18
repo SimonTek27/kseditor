@@ -3,8 +3,6 @@
 #include <QJsonObject>
 #include <QSet>
 
-using namespace ks;
-
 // ============================================================================
 // Test AiBehaviorModel new profile system
 // ============================================================================

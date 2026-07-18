@@ -5,6 +5,7 @@
 #include <QStringList>
 #include <QVector>
 #include <QMap>
+#include <QJsonObject>
 #include <QTimer>
 #include <QSettings>
 
@@ -25,6 +26,7 @@
 #include "LiveryEditor/GUISkinEditorModule.h"
 #include "../core/Scripting/luaScript/LuaScriptEditorModule.h"
 #include "../core/Scripting/python/PythonScriptEngine.h"
+#include "VREditor/VREditorModule.h"
 
 namespace ks {
 namespace geometry { class Scene3D; }
@@ -33,6 +35,9 @@ namespace io { class ImportExport3D; }
 namespace ac { class TrackModeler; class CarModeler; }
 namespace physics { class PhysicsWorld; class CarPhysics; }
 namespace ui { class EditorWindow; class DockPanel; class Timeline; class Viewport; }
+namespace weather { class WeatherEditorModule; }
+
+using weather::WeatherEditorModule;
 
 class ksEditor : public QObject
 {
@@ -47,7 +52,7 @@ public:
     enum Mode { Audio, Model, Physics, Setup, Telemetry, Workshop,
                 Weather, TrackSurface, Camera, TrackMap, Driver, SkinIni,
                 ShowroomPP, TrackLighting, DRSZone, CameraTrack, RaceConfig,
-                SpecialEvents, Career, GUISkin, LuaScript };
+                SpecialEvents, Career, GUISkin, LuaScript, VR };
     void setMode(Mode mode);
     Mode currentMode() const { return m_mode; }
 
@@ -92,6 +97,7 @@ public:
     GUISkinEditorModule* guiSkinEditor() { return m_guiSkinEditor; }
     LuaScriptEditorModule* luaScriptEditor() { return m_luaScriptEditor; }
     PythonScriptEngine* pythonScriptEngine() { return m_pythonScriptEngine; }
+    VREditorModule* vrEditor() { return m_vrEditor; }
 
     // Project management
     void newProject(const QString& name);
@@ -133,6 +139,8 @@ public slots:
     void onRedo();
     void onPreferences();
 
+    void pushUndoAction(const QString& description, const QJsonObject& state = QJsonObject());
+
     void onModeAudio();
     void onModeModel();
     void onModePhysics();
@@ -154,6 +162,7 @@ public slots:
     void onModeCareer();
     void onModeGUISkin();
     void onModeLuaScript();
+    void onModeVR();
 
 private:
     void setupConnections();
@@ -214,6 +223,7 @@ private:
     GUISkinEditorModule* m_guiSkinEditor = nullptr;
     LuaScriptEditorModule* m_luaScriptEditor = nullptr;
     PythonScriptEngine* m_pythonScriptEngine = nullptr;
+    VREditorModule* m_vrEditor = nullptr;
 
     // Undo/Redo
     struct Action {

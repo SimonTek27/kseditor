@@ -1853,7 +1853,7 @@ void DependencyTreeDialog::setupUI()
     layout->addWidget(header);
 
     m_tree = new QTreeWidget();
-    m_tree->setHeaderLabels({"Mod", "Version", "Status"});
+    m_tree->setHeaderLabels({tr("Mod"), tr("Version"), tr("Status")});
     m_tree->setAlternatingRowColors(true);
     m_tree->setAnimated(true);
     m_tree->setIndentation(20);
@@ -1862,9 +1862,9 @@ void DependencyTreeDialog::setupUI()
     layout->addWidget(m_tree, 1);
 
     auto* btnRow = new QHBoxLayout();
-    auto* expandBtn = new QPushButton("Expand All");
-    auto* collapseBtn = new QPushButton("Collapse All");
-    auto* closeBtn = new QPushButton("Close");
+    auto* expandBtn = new QPushButton(tr("Expand All"));
+    auto* collapseBtn = new QPushButton(tr("Collapse All"));
+    auto* closeBtn = new QPushButton(tr("Close"));
     closeBtn->setStyleSheet("background: #4a6a8a; color: white;");
     btnRow->addWidget(expandBtn);
     btnRow->addWidget(collapseBtn);
@@ -2048,16 +2048,16 @@ void ModManagerModule::saveCurrentProfile() {
 
 void ModManagerModule::showUpdateDetails() {
     if (m_pendingUpdates > 0) {
-        QMessageBox::information(nullptr, "Updates Available",
-            QString("%1 update(s) available.\n\nCheck the mod list for highlighted items.")
+        QMessageBox::information(nullptr, tr("Updates Available"),
+            tr("%1 update(s) available.\n\nCheck the mod list for highlighted items.")
             .arg(m_pendingUpdates));
     } else {
-        QMessageBox::information(nullptr, "No Updates", "All mods are up to date.");
+        QMessageBox::information(nullptr, tr("No Updates"), tr("All mods are up to date."));
     }
 }
 
 QDockWidget* ModManagerModule::getOrCreateDockWidget(QMainWindow* mainWindow) {
-    auto* dock = new QDockWidget("Mod Manager", mainWindow);
+    auto* dock = new QDockWidget(tr("Mod Manager"), mainWindow);
     dock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 
     auto* widget = new QWidget();
@@ -2067,18 +2067,18 @@ QDockWidget* ModManagerModule::getOrCreateDockWidget(QMainWindow* mainWindow) {
 
     // Header with profile selector
     auto* headerRow = new QHBoxLayout();
-    auto* header = new QLabel("<b>Mod Manager</b>");
+    auto* header = new QLabel(tr("<b>Mod Manager</b>"));
     headerRow->addWidget(header);
 
     m_profileCombo = new QComboBox();
-    m_profileCombo->setToolTip("Switch mod profile");
+    m_profileCombo->setToolTip(tr("Switch mod profile"));
     m_profileCombo->setMinimumWidth(100);
     headerRow->addWidget(m_profileCombo);
     layout->addLayout(headerRow);
 
     // Search bar
     auto* searchBar = new QLineEdit();
-    searchBar->setPlaceholderText("Search mods...");
+    searchBar->setPlaceholderText(tr("Search mods..."));
     searchBar->setClearButtonEnabled(true);
     layout->addWidget(searchBar);
 
@@ -2102,7 +2102,7 @@ QDockWidget* ModManagerModule::getOrCreateDockWidget(QMainWindow* mainWindow) {
     }
 
     // Summary
-    m_summaryLabel = new QLabel("No mods loaded");
+    m_summaryLabel = new QLabel(tr("No mods loaded"));
     m_summaryLabel->setStyleSheet("color: #888; font-size: 11px;");
     layout->addWidget(m_summaryLabel);
 
@@ -2114,112 +2114,112 @@ QDockWidget* ModManagerModule::getOrCreateDockWidget(QMainWindow* mainWindow) {
 
     // Button row 1: Install / Uninstall / Refresh
     auto* row1 = new QHBoxLayout();
-    auto* installBtn = new QPushButton(QIcon(":/icons/add.svg"), "Install");
+    auto* installBtn = new QPushButton(QIcon(":/icons/add.svg"), tr("Install"));
     row1->addWidget(installBtn);
 
-    auto* uninstallBtn = new QPushButton("Uninstall");
+    auto* uninstallBtn = new QPushButton(tr("Uninstall"));
     uninstallBtn->setEnabled(false);
     row1->addWidget(uninstallBtn);
 
-    auto* refreshBtn = new QPushButton("Refresh");
+    auto* refreshBtn = new QPushButton(tr("Refresh"));
     row1->addWidget(refreshBtn);
     layout->addLayout(row1);
 
     // Button row 2: Enable/Disable / Backup / Restore / Updates
     auto* row2 = new QHBoxLayout();
-    m_toggleBtn = new QPushButton("Disable");
+    m_toggleBtn = new QPushButton(tr("Disable"));
     m_toggleBtn->setEnabled(false);
     row2->addWidget(m_toggleBtn);
 
-    auto* backupBtn = new QPushButton("Backup");
+    auto* backupBtn = new QPushButton(tr("Backup"));
     backupBtn->setEnabled(false);
     row2->addWidget(backupBtn);
 
-    auto* restoreBtn = new QPushButton("Restore");
+    auto* restoreBtn = new QPushButton(tr("Restore"));
     restoreBtn->setEnabled(false);
     row2->addWidget(restoreBtn);
 
-    m_updateBtn = new QPushButton("Check Updates");
+    m_updateBtn = new QPushButton(tr("Check Updates"));
     m_updateBtn->setStyleSheet("background: #2a6a9a; color: white;");
     row2->addWidget(m_updateBtn);
     layout->addLayout(row2);
 
     // Button row 3: Integrity / Batch / Download
     auto* row3 = new QHBoxLayout();
-    auto* integrityBtn = new QPushButton("Verify Integrity");
-    integrityBtn->setToolTip("Verify all installed mods for corruption");
+    auto* integrityBtn = new QPushButton(tr("Verify Integrity"));
+    integrityBtn->setToolTip(tr("Verify all installed mods for corruption"));
     integrityBtn->setStyleSheet("background: #6a4a8a; color: white;");
     row3->addWidget(integrityBtn);
 
-    auto* batchInstallBtn = new QPushButton("Batch Install");
-    batchInstallBtn->setToolTip("Install multiple mods at once");
+    auto* batchInstallBtn = new QPushButton(tr("Batch Install"));
+    batchInstallBtn->setToolTip(tr("Install multiple mods at once"));
     row3->addWidget(batchInstallBtn);
 
-    auto* selectAllBtn = new QPushButton("Select All");
+    auto* selectAllBtn = new QPushButton(tr("Select All"));
     row3->addWidget(selectAllBtn);
 
-    auto* deselectAllBtn = new QPushButton("Deselect All");
+    auto* deselectAllBtn = new QPushButton(tr("Deselect All"));
     row3->addWidget(deselectAllBtn);
     layout->addLayout(row3);
 
     // Button row 4: Download Updates
     auto* row4 = new QHBoxLayout();
-    auto* downloadUpdatesBtn = new QPushButton("Download Updates");
-    downloadUpdatesBtn->setToolTip("Download all available updates");
+    auto* downloadUpdatesBtn = new QPushButton(tr("Download Updates"));
+    downloadUpdatesBtn->setToolTip(tr("Download all available updates"));
     downloadUpdatesBtn->setStyleSheet("background: #2a8a4a; color: white;");
     row4->addWidget(downloadUpdatesBtn);
 
-    auto* repairBtn = new QPushButton("Repair All");
-    repairBtn->setToolTip("Repair corrupted mods from backup");
+    auto* repairBtn = new QPushButton(tr("Repair All"));
+    repairBtn->setToolTip(tr("Repair corrupted mods from backup"));
     repairBtn->setStyleSheet("background: #8a6a2a; color: white;");
     row4->addWidget(repairBtn);
     layout->addLayout(row4);
 
     // Button row 5: Dependencies & Load Order
     auto* row5 = new QHBoxLayout();
-    auto* depTreeBtn = new QPushButton("Dep Tree");
-    depTreeBtn->setToolTip("Show dependency tree for selected mod");
+    auto* depTreeBtn = new QPushButton(tr("Dep Tree"));
+    depTreeBtn->setToolTip(tr("Show dependency tree for selected mod"));
     depTreeBtn->setEnabled(false);
     depTreeBtn->setStyleSheet("background: #4a6a8a; color: white;");
     row5->addWidget(depTreeBtn);
 
-    auto* resolveVCBtn = new QPushButton("Fix Versions");
-    resolveVCBtn->setToolTip("Resolve version conflicts among enabled mods");
+    auto* resolveVCBtn = new QPushButton(tr("Fix Versions"));
+    resolveVCBtn->setToolTip(tr("Resolve version conflicts among enabled mods"));
     resolveVCBtn->setStyleSheet("background: #8a4a4a; color: white;");
     row5->addWidget(resolveVCBtn);
 
-    auto* applyLoadOrderBtn = new QPushButton("Apply Load Order");
-    applyLoadOrderBtn->setToolTip("Calculate and apply optimal mod load order based on dependencies");
+    auto* applyLoadOrderBtn = new QPushButton(tr("Apply Load Order"));
+    applyLoadOrderBtn->setToolTip(tr("Calculate and apply optimal mod load order based on dependencies"));
     applyLoadOrderBtn->setStyleSheet("background: #4a6a8a; color: white;");
     row5->addWidget(applyLoadOrderBtn);
     layout->addLayout(row5);
 
     // Button row 6: AC Sync
     auto* row6 = new QHBoxLayout();
-    auto* syncACBtn = new QPushButton("Sync with AC");
-    syncACBtn->setToolTip("Write priority.ini for Assetto Corsa");
+    auto* syncACBtn = new QPushButton(tr("Sync with AC"));
+    syncACBtn->setToolTip(tr("Write priority.ini for Assetto Corsa"));
     syncACBtn->setStyleSheet("background: #6a4a8a; color: white;");
     row6->addWidget(syncACBtn);
 
-    auto* validateACBtn = new QPushButton("Validate AC");
-    validateACBtn->setToolTip("Validate AC priority.ini");
+    auto* validateACBtn = new QPushButton(tr("Validate AC"));
+    validateACBtn->setToolTip(tr("Validate AC priority.ini"));
     row6->addWidget(validateACBtn);
     layout->addLayout(row6);
 
     // Button row 7: Collections & Graph
     auto* row7 = new QHBoxLayout();
-    auto* collectionsBtn = new QPushButton("Collections");
-    collectionsBtn->setToolTip("Manage mod collections/groups");
+    auto* collectionsBtn = new QPushButton(tr("Collections"));
+    collectionsBtn->setToolTip(tr("Manage mod collections/groups"));
     collectionsBtn->setStyleSheet("background: #3b82f6; color: white;");
     row7->addWidget(collectionsBtn);
 
-    auto* depGraphBtn = new QPushButton("Dep Graph");
-    depGraphBtn->setToolTip("Show dependency graph for selected mod");
+    auto* depGraphBtn = new QPushButton(tr("Dep Graph"));
+    depGraphBtn->setToolTip(tr("Show dependency graph for selected mod"));
     depGraphBtn->setStyleSheet("background: #4a6a8a; color: white;");
     row7->addWidget(depGraphBtn);
 
-    auto* statsBtn = new QPushButton("Stats");
-    statsBtn->setToolTip("Show mod statistics dashboard");
+    auto* statsBtn = new QPushButton(tr("Stats"));
+    statsBtn->setToolTip(tr("Show mod statistics dashboard"));
     statsBtn->setStyleSheet("background: #6a4a8a; color: white;");
     row7->addWidget(statsBtn);
 
@@ -2227,8 +2227,8 @@ QDockWidget* ModManagerModule::getOrCreateDockWidget(QMainWindow* mainWindow) {
 
     // Button row 8: Conflict Detection
     auto* row8 = new QHBoxLayout();
-    m_scanConflictsBtn = new QPushButton("Scan Conflicts");
-    m_scanConflictsBtn->setToolTip("Scan for file overlaps between mods");
+    m_scanConflictsBtn = new QPushButton(tr("Scan Conflicts"));
+    m_scanConflictsBtn->setToolTip(tr("Scan for file overlaps between mods"));
     m_scanConflictsBtn->setStyleSheet("background: #8a2a2a; color: white;");
     row7->addWidget(m_scanConflictsBtn);
     layout->addLayout(row7);
@@ -2237,8 +2237,7 @@ QDockWidget* ModManagerModule::getOrCreateDockWidget(QMainWindow* mainWindow) {
 
     // ── Connections ─────────────────────────────────────────────────────
     connect(installBtn, &QPushButton::clicked, this, [this]() {
-        QString path = QFileDialog::getOpenFileName(
-            nullptr, "Install Mod", QString(),
+        QString path = QFileDialog::getOpenFileName(nullptr, tr("Install Mod"), QString(),
             "Archives (*.zip *.7z *.rar);;All Files (*)");
         if (!path.isEmpty()) installMod(path);
     });
@@ -2315,19 +2314,19 @@ QDockWidget* ModManagerModule::getOrCreateDockWidget(QMainWindow* mainWindow) {
 
     connect(m_updateChecker, &ModUpdateChecker::checkProgress, this, [this](int current, int total) {
         if (total > 0) {
-            m_updateBtn->setText(QString("Checking... %1/%2").arg(current).arg(total));
+            m_updateBtn->setText(tr("Checking... %1/%2").arg(current).arg(total));
         }
     });
 
     connect(m_updateChecker, &ModUpdateChecker::checkFinished, this, [this](int updatesFound) {
         m_pendingUpdates = updatesFound;
         if (updatesFound > 0) {
-            m_updateBtn->setText(QString("%1 Update%2 Available")
-                .arg(updatesFound).arg(updatesFound > 1 ? "s" : ""));
+            m_updateBtn->setText(tr("%1 Update(s) Available")
+                .arg(updatesFound));
             m_updateBtn->setStyleSheet("background: #4CAF50; color: white; font-weight: bold;");
             emit updatesAvailable(updatesFound);
         } else {
-            m_updateBtn->setText("Check Updates");
+            m_updateBtn->setText(tr("Check Updates"));
             m_updateBtn->setStyleSheet("background: #2a6a9a; color: white;");
         }
         handleUpdateResults();
@@ -2344,18 +2343,17 @@ QDockWidget* ModManagerModule::getOrCreateDockWidget(QMainWindow* mainWindow) {
 
     // New button connections
     connect(integrityBtn, &QPushButton::clicked, this, [this, integrityBtn]() {
-        integrityBtn->setText("Verifying...");
+        integrityBtn->setText(tr("Verifying..."));
         integrityBtn->setEnabled(false);
         verifyAllIntegrity();
         QTimer::singleShot(100, this, [integrityBtn]() {
-            integrityBtn->setText("Verify Integrity");
+            integrityBtn->setText(tr("Verify Integrity"));
             integrityBtn->setEnabled(true);
         });
     });
 
     connect(batchInstallBtn, &QPushButton::clicked, this, [this]() {
-        QStringList paths = QFileDialog::getOpenFileNames(
-            nullptr, "Select Mods to Install", QString(),
+        QStringList paths = QFileDialog::getOpenFileNames(nullptr, tr("Select Mods to Install"), QString(),
             "Archives (*.zip *.7z *.rar);;All Files (*)");
         if (!paths.isEmpty()) {
             installModsBatch(paths);
@@ -2366,26 +2364,26 @@ QDockWidget* ModManagerModule::getOrCreateDockWidget(QMainWindow* mainWindow) {
     connect(deselectAllBtn, &QPushButton::clicked, this, &ModManagerModule::deselectAllMods);
 
     connect(downloadUpdatesBtn, &QPushButton::clicked, this, [this, downloadUpdatesBtn]() {
-        downloadUpdatesBtn->setText("Downloading...");
+        downloadUpdatesBtn->setText(tr("Downloading..."));
         downloadUpdatesBtn->setEnabled(false);
         downloadAllUpdates();
     });
 
     connect(m_updateChecker, &ModUpdateChecker::allDownloadsFinished, this,
         [downloadUpdatesBtn](int success, int fail) {
-            downloadUpdatesBtn->setText(QString("Download Updates (%1 ok, %2 failed)").arg(success).arg(fail));
+            downloadUpdatesBtn->setText(tr("Download Updates (%1 ok, %2 failed)").arg(success).arg(fail));
             downloadUpdatesBtn->setEnabled(true);
             QTimer::singleShot(3000, downloadUpdatesBtn, [downloadUpdatesBtn]() {
-                downloadUpdatesBtn->setText("Download Updates");
+                downloadUpdatesBtn->setText(tr("Download Updates"));
             });
         });
 
     connect(repairBtn, &QPushButton::clicked, this, [this, repairBtn]() {
-        repairBtn->setText("Repairing...");
+        repairBtn->setText(tr("Repairing..."));
         repairBtn->setEnabled(false);
         repairAllMods();
         QTimer::singleShot(100, this, [repairBtn]() {
-            repairBtn->setText("Repair All");
+            repairBtn->setText(tr("Repair All"));
             repairBtn->setEnabled(true);
         });
     });
@@ -2396,48 +2394,47 @@ QDockWidget* ModManagerModule::getOrCreateDockWidget(QMainWindow* mainWindow) {
     });
 
     connect(resolveVCBtn, &QPushButton::clicked, this, [this, resolveVCBtn]() {
-        resolveVCBtn->setText("Resolving...");
+        resolveVCBtn->setText(tr("Resolving..."));
         resolveVCBtn->setEnabled(false);
         resolveVersionConflicts();
         QTimer::singleShot(500, this, [resolveVCBtn]() {
-            resolveVCBtn->setText("Fix Versions");
+            resolveVCBtn->setText(tr("Fix Versions"));
             resolveVCBtn->setEnabled(true);
         });
     });
 
     connect(applyLoadOrderBtn, &QPushButton::clicked, this, [this, applyLoadOrderBtn]() {
-        applyLoadOrderBtn->setText("Applying...");
+        applyLoadOrderBtn->setText(tr("Applying..."));
         applyLoadOrderBtn->setEnabled(false);
         applyLoadOrder();
         QTimer::singleShot(100, this, [applyLoadOrderBtn]() {
-            applyLoadOrderBtn->setText("Apply Load Order");
+            applyLoadOrderBtn->setText(tr("Apply Load Order"));
             applyLoadOrderBtn->setEnabled(true);
         });
     });
 
     connect(syncACBtn, &QPushButton::clicked, this, [this, syncACBtn]() {
-        syncACBtn->setText("Syncing...");
+        syncACBtn->setText(tr("Syncing..."));
         syncACBtn->setEnabled(false);
         writeACPriorityIni();
-        QMessageBox::information(nullptr, "AC Sync", "priority.ini written successfully");
+        QMessageBox::information(nullptr, tr("AC Sync"), tr("priority.ini written successfully"));
         QTimer::singleShot(100, this, [syncACBtn]() {
-            syncACBtn->setText("Sync with AC");
+            syncACBtn->setText(tr("Sync with AC"));
             syncACBtn->setEnabled(true);
         });
     });
 
     connect(validateACBtn, &QPushButton::clicked, this, [this, validateACBtn]() {
         bool valid = validateACPriorityIni();
-        QMessageBox::information(nullptr, "AC Validation",
-            valid ? "priority.ini is valid" : "priority.ini is invalid or missing");
+        QMessageBox::information(nullptr, tr("AC Validation"),
+            valid ? tr("priority.ini is valid") : tr("priority.ini is invalid or missing"));
     });
 
     connect(collectionsBtn, &QPushButton::clicked, this, [this]() {
         // Show collections dialog
         QStringList colList = m_collectionManager ? m_collectionManager->listCollections() : QStringList();
         if (colList.isEmpty()) {
-            QMessageBox::StandardButton reply = QMessageBox::question(nullptr, "Collections",
-                "No collections yet. Create your first collection?",
+            QMessageBox::StandardButton reply = QMessageBox::question(nullptr, tr("Collections"), tr("No collections yet. Create your first collection?"),
                 QMessageBox::Yes | QMessageBox::No);
             if (reply == QMessageBox::Yes) {
                 createCollection("My Collection");
@@ -2457,8 +2454,8 @@ QDockWidget* ModManagerModule::getOrCreateDockWidget(QMainWindow* mainWindow) {
                     .arg(hasMod ? " [contains current mod]" : "");
         }
 
-        QMessageBox::information(nullptr, "Collections",
-            "Collections:\n\n" + msgs.join("\n"));
+        QMessageBox::information(nullptr, tr("Collections"),
+            tr("Collections:\n\n%1").arg(msgs.join("\n")));
     });
 
     connect(depGraphBtn, &QPushButton::clicked, this, [this]() {
@@ -2520,11 +2517,11 @@ QDockWidget* ModManagerModule::getOrCreateDockWidget(QMainWindow* mainWindow) {
     });
 
     connect(m_scanConflictsBtn, &QPushButton::clicked, this, [this]() {
-        m_scanConflictsBtn->setText("Scanning...");
+        m_scanConflictsBtn->setText(tr("Scanning..."));
         m_scanConflictsBtn->setEnabled(false);
         scanForFileConflicts();
         QTimer::singleShot(100, this, [this]() {
-            m_scanConflictsBtn->setText("Scan Conflicts");
+            m_scanConflictsBtn->setText(tr("Scan Conflicts"));
             m_scanConflictsBtn->setEnabled(true);
         });
     });
@@ -2532,29 +2529,29 @@ QDockWidget* ModManagerModule::getOrCreateDockWidget(QMainWindow* mainWindow) {
     // Batch progress connections
     connect(this, &ModManagerModule::batchInstallProgress, this,
         [this](int current, int total, const QString& modName) {
-            m_summaryLabel->setText(QString("Installing %1/%2: %3").arg(current).arg(total).arg(modName));
+            m_summaryLabel->setText(tr("Installing %1/%2: %3").arg(current).arg(total).arg(modName));
         });
 
     connect(this, &ModManagerModule::batchInstallFinished, this,
         [this](int success, int fail) {
-            m_summaryLabel->setText(QString("Batch complete: %1 succeeded, %2 failed").arg(success).arg(fail));
+            m_summaryLabel->setText(tr("Batch complete: %1 succeeded, %2 failed").arg(success).arg(fail));
         });
 
     // Integrity check connections
     connect(m_installEngine, &ModInstallEngine::integrityCheckProgress, this,
         [this](int current, int total, const QString& modName) {
-            m_summaryLabel->setText(QString("Checking integrity %1/%2: %3").arg(current).arg(total).arg(modName));
+            m_summaryLabel->setText(tr("Checking integrity %1/%2: %3").arg(current).arg(total).arg(modName));
         });
 
     connect(this, &ModManagerModule::integrityCheckFinished, this,
         [this](int totalChecked, int totalCorrupted) {
             if (totalCorrupted > 0) {
-                m_summaryLabel->setText(QString("Integrity check: %1 files checked, %2 corrupted")
+                m_summaryLabel->setText(tr("Integrity check: %1 files checked, %2 corrupted")
                     .arg(totalChecked).arg(totalCorrupted));
-                m_conflictLabel->setText(QString("⚠ %1 corrupted file(s) detected").arg(totalCorrupted));
+                m_conflictLabel->setText(tr("%1 corrupted file(s) detected").arg(totalCorrupted));
                 m_conflictLabel->setVisible(true);
             } else {
-                m_summaryLabel->setText(QString("Integrity check: %1 files verified, all OK").arg(totalChecked));
+                m_summaryLabel->setText(tr("Integrity check: %1 files verified, all OK").arg(totalChecked));
             }
         });
 
@@ -2577,15 +2574,15 @@ QDockWidget* ModManagerModule::getOrCreateDockWidget(QMainWindow* mainWindow) {
         bool enabled = item->data(Qt::UserRole + 1).toBool();
 
         QMenu menu(m_modList);
-        QAction* toggleAction = menu.addAction(enabled ? "Disable" : "Enable");
+        QAction* toggleAction = menu.addAction(enabled ? tr("Disable") : tr("Enable"));
         menu.addSeparator();
-        QAction* backupAction = menu.addAction("Create Backup");
-        QAction* restoreAction = menu.addAction("Restore Backup");
-            QMenu* collectionsMenu = menu.addMenu("Add to Collection");
+        QAction* backupAction = menu.addAction(tr("Create Backup"));
+        QAction* restoreAction = menu.addAction(tr("Restore Backup"));
+            QMenu* collectionsMenu = menu.addMenu(tr("Add to Collection"));
             if (m_collectionManager) {
                 QStringList colList = m_collectionManager->listCollections();
                 if (colList.isEmpty()) {
-                    collectionsMenu->addAction("(No collections)")->setEnabled(false);
+                    collectionsMenu->addAction(tr("(No collections)"))->setEnabled(false);
                 } else {
                     for (const QString& colId : colList) {
                         ModCollection col = m_collectionManager->getCollection(colId);
@@ -2604,7 +2601,7 @@ QDockWidget* ModManagerModule::getOrCreateDockWidget(QMainWindow* mainWindow) {
                     }
                 }
                 collectionsMenu->addSeparator();
-                QAction* newColAction = collectionsMenu->addAction("+ New Collection...");
+                QAction* newColAction = collectionsMenu->addAction(tr("+ New Collection..."));
                 connect(newColAction, &QAction::triggered, this, [this, name]() {
                     QString colName = QString("Collection for %1").arg(name);
                     createCollection(colName);
@@ -2621,11 +2618,11 @@ QDockWidget* ModManagerModule::getOrCreateDockWidget(QMainWindow* mainWindow) {
             }
 
             menu.addSeparator();
-            QAction* checkUpdateAction = menu.addAction("Check for Updates");
+            QAction* checkUpdateAction = menu.addAction(tr("Check for Updates"));
             menu.addSeparator();
-            QAction* integrityAction = menu.addAction("Verify Integrity");
+            QAction* integrityAction = menu.addAction(tr("Verify Integrity"));
             menu.addSeparator();
-            QAction* uninstallAction = menu.addAction("Uninstall");
+            QAction* uninstallAction = menu.addAction(tr("Uninstall"));
 
         QAction* chosen = menu.exec(m_modList->mapToGlobal(pos));
         if (chosen == toggleAction) {
@@ -2639,8 +2636,8 @@ QDockWidget* ModManagerModule::getOrCreateDockWidget(QMainWindow* mainWindow) {
         } else if (chosen == integrityAction) {
             verifyModIntegrity(name);
         } else if (chosen == uninstallAction) {
-            auto reply = QMessageBox::question(m_modList, "Confirm",
-                "Uninstall " + name + "?", QMessageBox::Yes | QMessageBox::No);
+            auto reply = QMessageBox::question(m_modList, tr("Confirm"),
+                tr("Uninstall %1?").arg(name), QMessageBox::Yes | QMessageBox::No);
             if (reply == QMessageBox::Yes) uninstallMod(name);
         }
     });
@@ -2681,8 +2678,7 @@ void ModManagerModule::installMod(const QString& zipPath) {
             .arg(missingDeps.join("\n"));
         message += "Install anyway? (Dependencies may need to be installed separately)";
 
-        QMessageBox::StandardButton reply = QMessageBox::question(nullptr,
-            "Missing Dependencies", message,
+        QMessageBox::StandardButton reply = QMessageBox::question(nullptr, tr("Missing Dependencies"), message,
             QMessageBox::Yes | QMessageBox::No);
 
         if (reply != QMessageBox::Yes) {
@@ -3300,8 +3296,7 @@ void ModManagerModule::showDependencyDialog(const QString& modName) {
 
     message += "Would you like to search for these dependencies online?";
 
-    QMessageBox::StandardButton reply = QMessageBox::question(nullptr,
-        "Missing Dependencies", message,
+    QMessageBox::StandardButton reply = QMessageBox::question(nullptr, tr("Missing Dependencies"), message,
         QMessageBox::Yes | QMessageBox::No);
 
     if (reply == QMessageBox::Yes) {
@@ -3325,14 +3320,13 @@ void ModManagerModule::resolveVersionConflicts() {
     QStringList vc = m_dependencyResolver->findVersionConflicts(m_mods, enabledMods);
 
     if (vc.isEmpty()) {
-        QMessageBox::information(nullptr, "Version Conflicts",
-            "No version conflicts detected.");
+        QMessageBox::information(nullptr, tr("Version Conflicts"), tr("No version conflicts detected."));
         return;
     }
 
     QString msg = "Version conflicts detected:\n\n" + vc.join("\n") + "\n\n"
                   "Disable conflicting mods to resolve?";
-    auto reply = QMessageBox::question(nullptr, "Version Conflicts", msg,
+    auto reply = QMessageBox::question(nullptr, tr("Version Conflicts"), msg,
                                        QMessageBox::Yes | QMessageBox::No);
     if (reply == QMessageBox::Yes) {
         // Disable mods with unsatisfied constraints
@@ -3359,7 +3353,7 @@ void ModManagerModule::checkForConflicts() {
 
     DependencyResolver::Resolution res = m_dependencyResolver->resolve(m_mods, enabledMods);
     if (!res.conflictingMods.isEmpty()) {
-        m_conflictLabel->setText(QString("⚠ %1 conflict(s) detected").arg(res.conflictingMods.size()));
+        m_conflictLabel->setText(tr("%1 conflict(s) detected").arg(res.conflictingMods.size()));
         m_conflictLabel->setVisible(true);
         m_conflictLabel->setToolTip(res.conflictingMods.join("\n"));
         if (!m_suppressConflictDialog) {
@@ -3380,28 +3374,88 @@ void ModManagerModule::checkForConflicts() {
 void ModManagerModule::showConflictDialog(const QStringList& conflicts) {
     if (conflicts.isEmpty()) return;
 
-    ConflictResolutionDialog dialog(m_mods, conflicts);
-    if (dialog.exec() == QDialog::Accepted && dialog.hasChanges()) {
-        QStringList toDisable = dialog.getModsToDisable();
-        QStringList toEnable = dialog.getModsToEnable();
+    // Build conflict report from m_mods and conflicts list
+    QString reportTitle = QObject::tr("Mod Conflict Report");
+    QString reportText;
 
+    // Group conflicts by type
+    QStringList fileConflicts;
+    QStringList dependencyConflicts;
+    QStringList versionConflicts;
+
+    for (const QString& conflict : conflicts) {
+        // Analyze conflict type
+        bool found = false;
+        for (const auto& mod : m_mods) {
+            if (mod.name == conflict) {
+                if (!mod.dependencies.isEmpty()) {
+                    dependencyConflicts << QObject::tr("%1 requires dependencies not satisfied").arg(conflict);
+                    found = true;
+                }
+                if (!mod.version.isEmpty()) {
+                    versionConflicts << QObject::tr("%1 v%2 may conflict with installed version").arg(conflict).arg(mod.version.toString());
+                    found = true;
+                }
+                break;
+            }
+        }
+        if (!found) {
+            fileConflicts << QObject::tr("%1 has overlapping files").arg(conflict);
+        }
+    }
+
+    // Build report text
+    if (!fileConflicts.isEmpty()) {
+        reportText += QObject::tr("File Conflicts:\n") + fileConflicts.join("\n") + "\n\n";
+    }
+    if (!dependencyConflicts.isEmpty()) {
+        reportText += QObject::tr("Dependency Conflicts:\n") + dependencyConflicts.join("\n") + "\n\n";
+    }
+    if (!versionConflicts.isEmpty()) {
+        reportText += QObject::tr("Version Conflicts:\n") + versionConflicts.join("\n") + "\n\n";
+    }
+
+    if (reportText.isEmpty()) {
+        reportText = QObject::tr("No specific conflict details available for the %1 conflicting mods.").arg(conflicts.size());
+    }
+
+    // Show conflict dialog with resolution options
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle(reportTitle);
+    msgBox.setIcon(QMessageBox::Warning);
+    msgBox.setText(QObject::tr("Found %1 mod conflict(s)").arg(conflicts.size()));
+    msgBox.setInformativeText(reportText);
+
+    QPushButton* disableAll = msgBox.addButton(QObject::tr("Disable All Conflicting"), QMessageBox::AcceptRole);
+    QPushButton* keepFirst = msgBox.addButton(QObject::tr("Keep Enabled (First Loaded)"), QMessageBox::ActionRole);
+    QPushButton* cancelBtn = msgBox.addButton(QMessageBox::Cancel);
+
+    msgBox.exec();
+
+    if (msgBox.clickedButton() == disableAll) {
+        QStringList toDisable;
+        bool firstFound = false;
+        for (const auto& mod : m_mods) {
+            if (conflicts.contains(mod.name)) {
+                if (!firstFound) {
+                    firstFound = true;
+                    continue; // Keep first enabled
+                }
+                toDisable.append(mod.name);
+            }
+        }
         for (const QString& name : toDisable) {
             disableMod(name);
         }
-        for (const QString& name : toEnable) {
-            enableMod(name);
-        }
-
-        if (!toDisable.isEmpty() || !toEnable.isEmpty()) {
-            QStringList changes;
-            for (const QString& n : toDisable) changes.append("Disabled: " + n);
-            for (const QString& n : toEnable) changes.append("Enabled: " + n);
-
-            m_summaryLabel->setText("Conflicts resolved: " + changes.join(", "));
-            m_conflictLabel->setVisible(false);
-            emit modsChanged();
-        }
+        m_summaryLabel->setText(QObject::tr("Disabled %1 conflicting mods").arg(toDisable.size()));
+        m_conflictLabel->setVisible(false);
+        emit modsChanged();
+    } else if (msgBox.clickedButton() == keepFirst) {
+        // Keep all enabled but suppress warnings
+        m_summaryLabel->setText(QObject::tr("Conflicts acknowledged - keeping all mods enabled"));
+        m_conflictLabel->setVisible(false);
     }
+    // Cancel: do nothing
 }
 
 bool ModManagerModule::hasConflicts(const QString& modName) const {
@@ -3489,7 +3543,7 @@ void ModManagerModule::installModFromRepository(const QString& modName) {
     // Get latest version
     auto versions = m_repository->getModVersions(modName);
     if (versions.isEmpty()) {
-        QMessageBox::warning(nullptr, "Not Found",
+        QMessageBox::warning(nullptr, tr("Not Found"),
             QString("Mod '%1' not found in repository").arg(modName));
         return;
     }
@@ -3535,7 +3589,7 @@ void ModManagerModule::installModFromRepository(const QString& modName) {
             .arg(modName).arg(missingDeps.join("\n"));
         msg += "Install missing dependencies automatically?";
 
-        auto reply = QMessageBox::question(nullptr, "Missing Dependencies", msg,
+        auto reply = QMessageBox::question(nullptr, tr("Missing Dependencies"), msg,
                                            QMessageBox::Yes | QMessageBox::No);
         if (reply == QMessageBox::Yes) {
             // Recursively install dependencies first
@@ -3569,7 +3623,7 @@ void ModManagerModule::installModFromRepository(const QString& modName) {
         refreshMods();
         applyLoadOrder();
     } else {
-        QMessageBox::warning(nullptr, "Install Failed",
+        QMessageBox::warning(nullptr, tr("Install Failed"),
             QString("Failed to download mod '%1'").arg(modName));
     }
 }
@@ -3587,14 +3641,14 @@ void ModManagerModule::installMissingDependencies(const QStringList& targetMods)
     }
 
     if (allMissing.isEmpty()) {
-        QMessageBox::information(nullptr, "Dependencies", "All dependencies are satisfied.");
+        QMessageBox::information(nullptr, tr("Dependencies"), tr("All dependencies are satisfied."));
         return;
     }
 
     QString msg = "The following dependencies are missing:\n\n" + allMissing.join("\n") + "\n\n";
     msg += "Search and install from repository?";
 
-    auto reply = QMessageBox::question(nullptr, "Missing Dependencies", msg,
+    auto reply = QMessageBox::question(nullptr, tr("Missing Dependencies"), msg,
                                        QMessageBox::Yes | QMessageBox::No);
     if (reply == QMessageBox::Yes) {
         for (const QString& dep : allMissing) {
@@ -3612,24 +3666,24 @@ void ModManagerModule::scanForFileConflicts() {
 
     QString acRoot = EditorConfig::instance().simInstallPath();
     if (acRoot.isEmpty()) {
-        QMessageBox::warning(nullptr, "Scan Failed", "Assetto Corsa installation not found.");
+        QMessageBox::warning(nullptr, tr("Scan Failed"), tr("Assetto Corsa installation not found."));
         return;
     }
 
-    m_summaryLabel->setText("Scanning for file conflicts...");
+    m_summaryLabel->setText(tr("Scanning for file conflicts..."));
     QApplication::processEvents();
 
     ModConflictDetector::ConflictReport report = m_conflictDetector->detectConflicts(m_mods, acRoot);
 
     showConflictReport(report);
 
-    m_summaryLabel->setText(QString("Conflict scan complete: %1 conflicts found (%2 critical)")
+    m_summaryLabel->setText(tr("Conflict scan complete: %1 conflicts found (%2 critical)")
         .arg(report.conflicts.size()).arg(report.criticalConflicts.size()));
 }
 
 void ModManagerModule::showConflictReport(const ModConflictDetector::ConflictReport& report) {
     if (report.conflicts.isEmpty()) {
-        QMessageBox::information(nullptr, "Conflict Scan", "No file conflicts detected.");
+        QMessageBox::information(nullptr, tr("Conflict Scan"), tr("No file conflicts detected."));
         return;
     }
 
@@ -3650,7 +3704,7 @@ void ModManagerModule::showConflictReport(const ModConflictDetector::ConflictRep
         msg += "\nThese files cannot be safely merged and will cause issues in-game.";
     }
 
-    QMessageBox::StandardButton reply = QMessageBox::question(nullptr, "File Conflicts",
+    QMessageBox::StandardButton reply = QMessageBox::question(nullptr, tr("File Conflicts"),
         msg + "\n\nOpen Mod Manager to resolve?",
         QMessageBox::Yes | QMessageBox::No);
 
@@ -3801,8 +3855,8 @@ void ModManagerModule::showDependencyGraph(const QString& rootMod)
     layout->addWidget(view, 1);
 
     auto* btnRow = new QHBoxLayout();
-    auto* resetBtn = new QPushButton("Reset View");
-    auto* closeBtn = new QPushButton("Close");
+    auto* resetBtn = new QPushButton(tr("Reset View"));
+    auto* closeBtn = new QPushButton(tr("Close"));
     closeBtn->setStyleSheet("background: #4a6a8a; color: white;");
     btnRow->addWidget(resetBtn);
     btnRow->addStretch();

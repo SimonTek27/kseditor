@@ -5,6 +5,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QQuaternion>
 
 namespace ks {
 
@@ -263,9 +264,9 @@ void MeshDataBridge::rotate(const QVariant& euler) {
 
     QMatrix4x4 mat;
     mat.setToIdentity();
-    mat.rotate(e.x(), QVector3D(1, 0, 0));
-    mat.rotate(e.y(), QVector3D(0, 1, 0));
-    mat.rotate(e.z(), QVector3D(0, 0, 1));
+    mat.rotate(QQuaternion::fromAxisAndAngle(1.0f, 0.0f, 0.0f, e.x()));
+    mat.rotate(QQuaternion::fromAxisAndAngle(0.0f, 1.0f, 0.0f, e.y()));
+    mat.rotate(QQuaternion::fromAxisAndAngle(0.0f, 0.0f, 1.0f, e.z()));
 
     for (Vertex& v : m_meshData.vertices) {
         v.position = mat.map(v.position);

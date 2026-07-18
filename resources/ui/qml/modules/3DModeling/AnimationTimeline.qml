@@ -167,12 +167,57 @@ Rectangle {
                         visible: duration > 0
                     }
 
-                    // Keyframe markers placeholder
+                    // Keyframe diamond markers
+                    Repeater {
+                        model: {
+                            if (!Modeler || animName.length === 0) return [];
+                            var kfs = Modeler.currentAnimationKeyframes();
+                            return kfs;
+                        }
+
+                        Rectangle {
+                            x: 30 + (modelData.time / Math.max(0.01, duration)) * (parent.width - 30) - 5
+                            y: (parent.height / 2) - 5
+                            width: 10; height: 10
+                            rotation: 45
+                            color: modelData.time === currentTime ? "#E10600" : "#5555cc"
+                            border.color: modelData.time === currentTime ? "#ff4444" : "#7777ee"
+                            border.width: 1
+
+                            MouseArea {
+                                anchors.fill: parent
+                                anchors.margins: -4
+                                onClicked: {
+                                    if (Modeler) Modeler.setAnimationTime(modelData.time)
+                                }
+                                onDoubleClicked: {
+                                    var kf = modelData
+                                    keyframeEditor.timeValue = kf.time
+                                    keyframeEditor.boneCount = kf.boneCount
+                                    keyframeEditor.keyframeIndex = index
+                                    keyframeEditor.open()
+                                }
+                            }
+
+                            ToolTip.visible: hovered
+                            ToolTip.text: modelData.time.toFixed(2) + "s (" + modelData.boneCount + " bones)"
+                        }
+                    }
+
+                    // Fallback text when no keyframes exist
                     Text {
                         anchors.centerIn: parent
-                        text: isPlaying ? "Playing..." : (animName.length > 0 ? "Select an object and press K to add keyframes" : "Create an animation to begin")
+                        text: {
+                            if (!Modeler) return "Modeler not available";
+                            if (isPlaying) return "Playing...";
+                            if (animName.length === 0) return "Create an animation to begin";
+                            var kfs = Modeler.currentAnimationKeyframes();
+                            if (kfs.length === 0) return "Select an object and press K to add keyframes";
+                            return "";
+                        }
                         color: "#444"
                         font.pixelSize: 10
+                        visible: text.length > 0
                     }
                 }
 
@@ -283,6 +328,97 @@ Rectangle {
                             onClicked: { if (Modeler) Modeler.setAnimationLoop(checked) }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // Keyframe editor popup
+    Popup {
+        id: keyframeEditor
+        modal: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        anchors.centerIn: Overlay.overlay
+        width: 280
+        height: 160
+        padding: 0
+
+        property real timeValue: 0
+        property int boneCount: 0
+        property int keyframeIndex: -1
+
+        background: Rectangle {
+            color: "#2d2d2d"
+            border.color: "#555"
+            border.width: 1
+            radius: 4
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 8
+
+            Text {
+                text: "Keyframe Properties"
+                color: "#E10600"
+                font.pixelSize: 13
+                font.bold: true
+            }
+
+            RowLayout {
+                spacing: 8
+                Text { text: "Time:"; color: "#aaa"; font.pixelSize: 11 }
+                TextField {
+                    id: timeField
+                    Layout.fillWidth: true
+                    text: keyframeEditor.timeValue.toFixed(2)
+                    validator: DoubleValidator { bottom: 0; top: 9999; decimals: 2; notation: DoubleValidator.StandardNotation }
+                    color: "#ddd"
+                    background: Rectangle { color: "#1a1a1a"; radius: 3; border.color: "#444"; border.width: 1 }
+                    onAccepted: {
+                        keyframeEditor.timeValue = parseFloat(text)
+                    }
+                }
+                Text { text: "s"; color: "#aaa"; font.pixelSize: 11 }
+            }
+
+            RowLayout {
+                spacing: 8
+                Text { text: "Bones:"; color: "#aaa"; font.pixelSize: 11 }
+                Text {
+                    text: keyframeEditor.boneCount
+                    color: "#ddd"
+                    font.pixelSize: 11
+                    font.bold: true
+                }
+            }
+
+            Item { Layout.fillHeight: true }
+
+            RowLayout {
+                spacing: 8
+                Layout.fillWidth: true
+
+                KsButton {
+                    text: "Jump to"
+                    bgcolor: "#E10600"
+                    color: "#fff"
+                    Layout.fillWidth: true
+                    onClicked: {
+                        if (Modeler) {
+                            Modeler.setAnimationTime(parseFloat(timeField.text))
+                        }
+                        keyframeEditor.close()
+                    }
+                }
+
+                KsButton {
+                    text: "Close"
+                    bgcolor: "transparent"
+                    color: "#aaa"
+                    Layout.fillWidth: true
+                    onClicked: keyframeEditor.close()
                 }
             }
         }

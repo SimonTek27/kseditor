@@ -9,7 +9,7 @@
 
 namespace ks {
 
-Material::Material() : name("Material") {}
+Material::Material() {}
 
 Material::Material(const QString& n) : name(n) {}
 
