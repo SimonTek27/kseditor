@@ -1,4 +1,7 @@
 #include "GLTFParser.h"
+#include "../Graphics/SceneGraph.h"
+#include "../Graphics/SceneObject.h"
+#include "../Graphics/SceneMesh.h"
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -7,6 +10,7 @@
 #include <QDebug>
 #include <QByteArray>
 #include <QDir>
+#include <QFileInfo>
 #include <QStandardPaths>
 #include <cstring>
 #include <cmath>
@@ -881,9 +885,176 @@ bool GLTFWriter::writeToFile(const QString& path, const MeshData& mesh, const Ma
     return writeGLTF(path, gltf);
 }
 
-bool GLTFWriter::writeToFile(const QString& path, const SceneGraph& scene) {
-    // Full scene export - would traverse scene graph
-    return false; // Not implemented yet
+bool GLTFWriter::writeToFile(const QString& path, const SceneGraph& sceneGraph) {
+    GLTFData gltf;
+    gltf.asset.generator = "ksEditor GLTF Writer";
+    gltf.asset.version = "2.0";
+
+    GLTFData::Scene gltfScene;
+    gltfScene.name = "Scene";
+    gltf.scene = 0;
+
+    QMap<const graphics::SceneObject*, int> nodeIndexMap;
+    QVector<graphics::SceneObject*> allObjects;
+    sceneGraph.root()->traverse([&](graphics::SceneObject* obj) {
+        if (obj != sceneGraph.root()) allObjects.append(obj);
+    });
+
+    GLTFData::Buffer mainBuf;
+    mainBuf.uri = QFileInfo(path).baseName() + ".bin";
+    mainBuf.byteLength = 0;
+    gltf.buffers.append(mainBuf);
+
+    for (auto* obj : allObjects) {
+        int nodeIdx = gltf.nodes.size();
+        nodeIndexMap[obj] = nodeIdx;
+
+        GLTFData::Node node;
+        node.name = obj->name();
+
+        QMatrix4x4 wm = obj->worldTransform();
+        QVector3D t = wm.column(3).toVector3D();
+        QQuaternion r = QQuaternion::fromRotationMatrix(wm.toGenericMatrix<3, 3>());
+        QVector3D s(wm.column(0).length(), wm.column(1).length(), wm.column(2).length());
+        node.translation = t;
+        node.rotation = r;
+        node.scale = s;
+
+        if (obj->hasMesh()) {
+            node.mesh = gltf.meshes.size();
+            GLTFData::Mesh gltfMesh;
+            gltfMesh.name = obj->name();
+
+            const auto& geom = obj->mesh()->geometry();
+            if (!geom.vertices.isEmpty()) {
+                GLTFData::Primitive prim;
+                prim.mode = 4;
+
+                QByteArray posData, normData, uvData;
+                for (const auto& v : geom.vertices) {
+                    posData.append(reinterpret_cast<const char*>(&v.position), 12);
+                    normData.append(reinterpret_cast<const char*>(&v.normal), 12);
+                    uvData.append(reinterpret_cast<const char*>(&v.uv), 8);
+                }
+
+                int posView = gltf.bufferViews.size();
+                GLTFData::BufferView bvPos;
+                bvPos.buffer = 0;
+                bvPos.byteOffset = gltf.buffers.isEmpty() ? 0 : gltf.buffers[0].data.size();
+                bvPos.byteLength = posData.size();
+                bvPos.byteStride = 12;
+                bvPos.target = 34962;
+                gltf.bufferViews.append(bvPos);
+                gltf.buffers[0].data.append(posData);
+
+                int posAcc = gltf.accessors.size();
+                GLTFData::Accessor accPos;
+                accPos.bufferView = posView;
+                accPos.byteOffset = 0;
+                accPos.componentType = 5126;
+                accPos.count = geom.vertices.size();
+                accPos.type = "VEC3";
+                gltf.accessors.append(accPos);
+                prim.attributes["POSITION"] = posAcc;
+
+                int normView = gltf.bufferViews.size();
+                GLTFData::BufferView bvNorm;
+                bvNorm.buffer = 0;
+                bvNorm.byteOffset = gltf.buffers[0].data.size();
+                bvNorm.byteLength = normData.size();
+                bvNorm.byteStride = 12;
+                bvNorm.target = 34962;
+                gltf.bufferViews.append(bvNorm);
+                gltf.buffers[0].data.append(normData);
+
+                int normAcc = gltf.accessors.size();
+                GLTFData::Accessor accNorm;
+                accNorm.bufferView = normView;
+                accNorm.componentType = 5126;
+                accNorm.count = geom.vertices.size();
+                accNorm.type = "VEC3";
+                gltf.accessors.append(accNorm);
+                prim.attributes["NORMAL"] = normAcc;
+
+                int uvView = gltf.bufferViews.size();
+                GLTFData::BufferView bvUv;
+                bvUv.buffer = 0;
+                bvUv.byteOffset = gltf.buffers[0].data.size();
+                bvUv.byteLength = uvData.size();
+                bvUv.byteStride = 8;
+                bvUv.target = 34962;
+                gltf.bufferViews.append(bvUv);
+                gltf.buffers[0].data.append(uvData);
+
+                int uvAcc = gltf.accessors.size();
+                GLTFData::Accessor accUv;
+                accUv.bufferView = uvView;
+                accUv.componentType = 5126;
+                accUv.count = geom.vertices.size();
+                accUv.type = "VEC2";
+                gltf.accessors.append(accUv);
+                prim.attributes["TEXCOORD_0"] = uvAcc;
+
+                if (!geom.indices.isEmpty()) {
+                    QByteArray idxData;
+                    for (uint32_t idx : geom.indices) {
+                        idxData.append(reinterpret_cast<const char*>(&idx), 4);
+                    }
+                    int idxView = gltf.bufferViews.size();
+                    GLTFData::BufferView bvIdx;
+                    bvIdx.buffer = 0;
+                    bvIdx.byteOffset = gltf.buffers[0].data.size();
+                    bvIdx.byteLength = idxData.size();
+                    bvIdx.target = 34963;
+                    gltf.bufferViews.append(bvIdx);
+                    gltf.buffers[0].data.append(idxData);
+
+                    int idxAcc = gltf.accessors.size();
+                    GLTFData::Accessor accIdx;
+                    accIdx.bufferView = idxView;
+                    accIdx.componentType = 5125;
+                    accIdx.count = geom.indices.size();
+                    accIdx.type = "SCALAR";
+                    gltf.accessors.append(accIdx);
+                    prim.indices = idxAcc;
+                }
+
+                if (obj->material()) {
+                    prim.material = gltf.materials.size();
+                    GLTFData::Material mat;
+                    mat.name = obj->name() + "_Material";
+                    mat.baseColorFactor = QVector4D(
+                        obj->baseColor().redF(), obj->baseColor().greenF(),
+                        obj->baseColor().blueF(), obj->baseColor().alphaF());
+                    mat.metallicFactor = obj->metallic();
+                    mat.roughnessFactor = obj->roughness();
+                    gltf.materials.append(mat);
+                }
+
+                gltfMesh.primitives.append(prim);
+            }
+            gltf.meshes.append(gltfMesh);
+        }
+
+        gltf.nodes.append(node);
+    }
+
+    for (auto* obj : allObjects) {
+        int idx = nodeIndexMap.value(obj, -1);
+        if (idx < 0) continue;
+        if (obj->parent() && obj->parent() != sceneGraph.root()) {
+            int parentIdx = nodeIndexMap.value(obj->parent(), -1);
+            if (parentIdx >= 0) {
+                gltf.nodes[parentIdx].children.append(idx);
+            }
+        } else {
+            gltfScene.nodes.append(idx);
+        }
+    }
+
+    gltf.scenes.append(gltfScene);
+
+    return writeGLTF(path, gltf);
 }
 
 bool GLTFWriter::writeGLTF(const QString& path, const GLTFData& gltf) {
@@ -940,8 +1111,95 @@ bool GLTFWriter::writeGLTF(const QString& path, const GLTFData& gltf) {
     }
     root["nodes"] = nodesArr;
     
-    // Meshes, materials, accessors, bufferViews, buffers - simplified
-    // Full implementation would serialize all data with proper binary buffers
+    // Meshes
+    if (!gltf.meshes.isEmpty()) {
+        QJsonArray meshesArr;
+        for (const auto& m : gltf.meshes) {
+            QJsonObject mesh;
+            if (!m.name.isEmpty()) mesh["name"] = m.name;
+            QJsonArray primsArr;
+            for (const auto& p : m.primitives) {
+                QJsonObject prim;
+                prim["mode"] = p.mode;
+                if (p.indices >= 0) prim["indices"] = p.indices;
+                if (p.material >= 0) prim["material"] = p.material;
+                QJsonObject attrs;
+                for (auto it = p.attributes.constBegin(); it != p.attributes.constEnd(); ++it) {
+                    attrs[it.key()] = it.value();
+                }
+                prim["attributes"] = attrs;
+                primsArr.append(prim);
+            }
+            mesh["primitives"] = primsArr;
+            meshesArr.append(mesh);
+        }
+        root["meshes"] = meshesArr;
+    }
+    
+    // Materials
+    if (!gltf.materials.isEmpty()) {
+        QJsonArray matsArr;
+        for (const auto& m : gltf.materials) {
+            QJsonObject mat;
+            if (!m.name.isEmpty()) mat["name"] = m.name;
+            QJsonObject pbr;
+            QJsonObject bc;
+            bc["factor"] = QJsonArray{m.baseColorFactor.x(), m.baseColorFactor.y(), m.baseColorFactor.z(), m.baseColorFactor.w()};
+            pbr["baseColorFactor"] = bc["factor"];
+            pbr["metallicFactor"] = m.metallicFactor;
+            pbr["roughnessFactor"] = m.roughnessFactor;
+            mat["pbrMetallicRoughness"] = pbr;
+            if (m.alphaMode != "OPAQUE") mat["alphaMode"] = m.alphaMode;
+            if (m.alphaMode == "MASK") mat["alphaCutoff"] = m.alphaCutoff;
+            if (m.doubleSided) mat["doubleSided"] = m.doubleSided;
+            matsArr.append(mat);
+        }
+        root["materials"] = matsArr;
+    }
+    
+    // Accessors
+    if (!gltf.accessors.isEmpty()) {
+        QJsonArray accsArr;
+        for (const auto& a : gltf.accessors) {
+            QJsonObject acc;
+            acc["bufferView"] = a.bufferView;
+            acc["componentType"] = a.componentType;
+            acc["count"] = a.count;
+            acc["type"] = a.type;
+            if (a.byteOffset > 0) acc["byteOffset"] = a.byteOffset;
+            if (!a.min.isEmpty()) acc["min"] = QJsonArray::fromVariantList(QVariantList(a.min.begin(), a.min.end()));
+            if (!a.max.isEmpty()) acc["max"] = QJsonArray::fromVariantList(QVariantList(a.max.begin(), a.max.end()));
+            accsArr.append(acc);
+        }
+        root["accessors"] = accsArr;
+    }
+    
+    // BufferViews
+    if (!gltf.bufferViews.isEmpty()) {
+        QJsonArray bvsArr;
+        for (const auto& bv : gltf.bufferViews) {
+            QJsonObject bvo;
+            bvo["buffer"] = bv.buffer;
+            bvo["byteOffset"] = bv.byteOffset;
+            bvo["byteLength"] = bv.byteLength;
+            if (bv.byteStride > 0) bvo["byteStride"] = bv.byteStride;
+            if (bv.target > 0) bvo["target"] = bv.target;
+            bvsArr.append(bvo);
+        }
+        root["bufferViews"] = bvsArr;
+    }
+    
+    // Buffers
+    if (!gltf.buffers.isEmpty()) {
+        QJsonArray bufsArr;
+        for (const auto& b : gltf.buffers) {
+            QJsonObject buf;
+            if (!b.uri.isEmpty()) buf["uri"] = b.uri;
+            buf["byteLength"] = b.data.size() > 0 ? b.data.size() : b.byteLength;
+            bufsArr.append(buf);
+        }
+        root["buffers"] = bufsArr;
+    }
     
     QJsonDocument doc(root);
     QFile file(path);

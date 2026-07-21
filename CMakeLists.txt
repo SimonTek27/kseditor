@@ -260,12 +260,7 @@ endif()
 
 file(GLOB_RECURSE ALL_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/resources/*.cpp)
 
-file(GLOB BROKEN_SOURCES
-    # plugin_stubs lives in kseditor.exe, not in the library target
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/plugin_stubs.cpp
-)
-
-list(REMOVE_ITEM ALL_SOURCES ${BROKEN_SOURCES})
+# plugin_stubs.cpp removed — no longer needed (real implementations compiled into kseditor_lib)
 
 # Exclude plugin sources from main exe (they are compiled into the plugin DLL)
 file(GLOB_RECURSE PLUGIN_SOURCES_EXCLUDE
@@ -273,6 +268,13 @@ file(GLOB_RECURSE PLUGIN_SOURCES_EXCLUDE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/*.h
 )
 list(REMOVE_ITEM ALL_SOURCES ${PLUGIN_SOURCES_EXCLUDE})
+
+# OpenXR 1.1.61 header is incompatible with MSVC 2026 toolchain - exclude VR module for now
+file(GLOB_RECURSE VR_BROKEN_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/modules/VREditor/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core/VR/*.cpp
+)
+list(REMOVE_ITEM ALL_SOURCES ${VR_BROKEN_SOURCES})
 
 # Re-add plugin sources that were excluded by PLUGIN_SOURCES_EXCLUDE but needed in the library
 list(APPEND ALL_SOURCES
@@ -289,6 +291,13 @@ file(GLOB_RECURSE ALL_HEADERS
 )
 
 list(REMOVE_ITEM ALL_HEADERS ${PLUGIN_SOURCES_EXCLUDE})
+
+# VR module headers excluded due to OpenXR incompatibility
+file(GLOB_RECURSE VR_BROKEN_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/modules/VREditor/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core/VR/*.h
+)
+list(REMOVE_ITEM ALL_HEADERS ${VR_BROKEN_HEADERS})
 
 file(GLOB BROKEN_HEADERS
 )
@@ -321,9 +330,7 @@ target_include_directories(kseditor_lib PRIVATE
     ${PROJECT_SOURCE_DIR}/src/plugins
     ${PROJECT_SOURCE_DIR}/src/plugins/simulators/kunos
     ${PROJECT_SOURCE_DIR}/resources/ui
-    ${PROJECT_SOURCE_DIR}/external/openxr/include
     ${PROJECT_SOURCE_DIR}/src/core/3dprint
-    ${PROJECT_SOURCE_DIR}/src/core/VR
     ${PROJECT_SOURCE_DIR}/src/core/eventEditor
     ${PROJECT_SOURCE_DIR}/src/core/ServerConfigEditor
     "${Qt6Core_DIR}/../../../include/QtCore/${Qt6Core_VERSION}"
@@ -458,7 +465,6 @@ target_compile_definitions(kseditor_lib PRIVATE HAS_3DPRINT=1)
 
 add_executable(kseditor WIN32
     resources.qrc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/plugin_stubs.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app_icon.rc
 )
 

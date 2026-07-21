@@ -402,9 +402,6 @@ bool ksDisplayEditor::parseIniFile(const QString& content)
 {
     m_elements.clear();
 
-    QSettings settings(QSettings::IniFormat, QSettings::UserScope, "ksEditor", "display");
-    settings.setValue("dummy", content);
-
     QStringList lines = content.split('\n');
     QString currentSection;
     QMap<QString, QString> currentValues;

@@ -10,6 +10,31 @@
 
 namespace ks {
 
+void RigGenerator::generateRig(QJsonObject& config) {
+    QString type = config.value("type").toString();
+    if (type == "tire") {
+        generateTireRigFromParams(config);
+    } else if (type == "engine") {
+        generateEngineRigFromParams(config);
+    } else {
+        qWarning() << "[RigGenerator] Unknown rig type:" << type;
+    }
+}
+
+bool RigGenerator::validateRig(const QJsonObject& config) const {
+    if (config.isEmpty()) return false;
+    QString type = config.value("type").toString();
+    if (type.isEmpty()) return false;
+    if (type == "tire") {
+        QString error;
+        return const_cast<RigGenerator*>(this)->validateTireRigParams(config, error);
+    } else if (type == "engine") {
+        QString error;
+        return const_cast<RigGenerator*>(this)->validateEngineRigParams(config, error);
+    }
+    return false;
+}
+
 bool RigGenerator::generateTireRigFromParams(const QJsonObject& params)
 {
     QString error;

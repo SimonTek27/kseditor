@@ -172,6 +172,22 @@
     <qresource prefix="/ui/styles">
         <file alias="dark.qss">resources/ui/styles/dark.qss</file>
         <file alias="light.qss">resources/ui/styles/light.qss</file>
+        <file alias="paint-dark.qss">resources/ui/styles/paint-dark.qss</file>
+        <file alias="paint-light.qss">resources/ui/styles/paint-light.qss</file>
+        <file alias="3dModeler-dark.qss">resources/ui/styles/3dModeler-dark.qss</file>
+        <file alias="3dModeler-light.qss">resources/ui/styles/3dModeler-light.qss</file>
+        <file alias="audiostudio-dark.qss">resources/ui/styles/audiostudio-dark.qss</file>
+        <file alias="audiostudio-light.qss">resources/ui/styles/audiostudio-light.qss</file>
+        <file alias="audioeditor-dark.qss">resources/ui/styles/audioeditor-dark.qss</file>
+        <file alias="audioeditor-light.qss">resources/ui/styles/audioeditor-light.qss</file>
+        <file alias="fontEditor-dark.qss">resources/ui/styles/fontEditor-dark.qss</file>
+        <file alias="fontEditor-light.qss">resources/ui/styles/fontEditor-light.qss</file>
+        <file alias="displayEditor-dark.qss">resources/ui/styles/displayEditor-dark.qss</file>
+        <file alias="displayEditor-light.qss">resources/ui/styles/displayEditor-light.qss</file>
+        <file alias="ideeditor-dark.qss">resources/ui/styles/ideeditor-dark.qss</file>
+        <file alias="ideeditor-light.qss">resources/ui/styles/ideeditor-light.qss</file>
+        <file alias="editor-dark.qss">resources/ui/styles/editor-dark.qss</file>
+        <file alias="editor-light.qss">resources/ui/styles/editor-light.qss</file>
     </qresource>
     <qresource prefix="/qml">
         <file alias="pages/page_ksModeler.qml">resources/ui/qml/pages/page_ksModeler.qml</file>

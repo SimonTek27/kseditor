@@ -18,6 +18,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../external/vcpkg/installed/x64-windows")
 endif()
 
 find_package(Qt6 COMPONENTS Core Test Network Widgets Multimedia OpenGL OpenGLWidgets Quick Qml QuickWidgets Quick3D Charts 3DCore 3DExtras 3DRender WebSockets REQUIRED)
+find_package(Vulkan QUIET)
 find_package(Python3 COMPONENTS Development QUIET)
 include(CTest)
 
@@ -178,6 +179,7 @@ ks_add_test(test_modmanager_features unit/test_ModManagerFeatures.cpp
 ks_add_test(test_font_generator unit/test_FontGenerator.cpp
     ${MODULES}/fontEditor/FontGenerator.cpp
 )
+ks_add_test(test_audio_effects_advanced unit/test_AudioEffectsAdvanced.cpp)
 ks_add_test(test_content_repair unit/test_ContentRepair.cpp
     ${COMMON}/modmanager/KsContentRepair.cpp
     ${COMMON}/modmanager/ContentRepairTool.cpp
@@ -348,6 +350,9 @@ foreach(_t ${ALL_TEST_TARGETS})
             Qt6::3DCore Qt6::3DExtras Qt6::3DRender Qt6::WebSockets)
         if(Python3_FOUND)
             target_link_libraries(${_t} PRIVATE Python3::Python)
+        endif()
+        if(Vulkan_FOUND)
+            target_link_libraries(${_t} PRIVATE Vulkan::Vulkan)
         endif()
         target_link_libraries(${_t} PRIVATE opengl32 dwmapi)
         if(MSVC)

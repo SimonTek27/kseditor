@@ -6,6 +6,7 @@
 #include <QVector>
 #include <QDateTime>
 #include "core/editor/EditorModule.h"
+#include "core/editor/ModuleGuiBase.h"
 
 namespace ks {
 
@@ -155,7 +156,7 @@ private:
     QVector<TelemetryDrivingSample> m_telemetrySamples;
 };
 
-class SetupEditorModule : public EditorModule {
+class SetupEditorModule : public ModuleGuiBase {
     Q_OBJECT
 public:
     explicit SetupEditorModule(QWidget* parent = nullptr);
@@ -173,8 +174,51 @@ public:
     QJsonObject serializeProject() const override;
     void deserializeProject(const QJsonObject& data) override;
 
+protected:
+    void buildUI() override;
+
+private slots:
+    void onLoadSetup();
+    void onSaveSetup();
+    void onResetDefaults();
+    void onApplyPreset();
+    void onValueChanged();
+    void onAnalyze();
+    void onImportTelemetry();
+
 private:
-    QString m_filePath;
+    void syncFromBridge();
+    void syncToBridge();
+
+    QTabWidget* m_tabWidget = nullptr;
+
+    // Setup Values tab
+    QSpinBox* m_frontBumpSpin = nullptr;
+    QSpinBox* m_rearBumpSpin = nullptr;
+    QSpinBox* m_frontReboundSpin = nullptr;
+    QSpinBox* m_rearReboundSpin = nullptr;
+    QSpinBox* m_frontSpringSpin = nullptr;
+    QSpinBox* m_rearSpringSpin = nullptr;
+    QSpinBox* m_rideHeightSpin = nullptr;
+    QSpinBox* m_frontWingSpin = nullptr;
+    QSpinBox* m_rearWingSpin = nullptr;
+    QSpinBox* m_preloadSpin = nullptr;
+    QSpinBox* m_brakeBiasSpin = nullptr;
+    QSpinBox* m_brakePowerSpin = nullptr;
+    QPushButton* m_loadBtn = nullptr;
+    QPushButton* m_saveBtn = nullptr;
+    QPushButton* m_resetBtn = nullptr;
+
+    // Analysis tab
+    QPushButton* m_analyzeBtn = nullptr;
+    QTextEdit* m_analysisOutput = nullptr;
+    QPushButton* m_importTelemetryBtn = nullptr;
+    QTextEdit* m_telemetryOutput = nullptr;
+
+    // Presets tab
+    QListWidget* m_presetList = nullptr;
+    QPushButton* m_applyPresetBtn = nullptr;
+    QTextEdit* m_statusLog = nullptr;
 };
 
 }

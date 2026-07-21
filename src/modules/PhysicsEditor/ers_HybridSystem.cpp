@@ -338,7 +338,7 @@ void HybridSystem::chargeBattery(float powerKw, float dt) {
     m_state.batteryPowerKw = appliedKw;
     m_state.energyHarvestedMj += energyMj;
 
-    updateBatteryTemperature(dt, powerKw);
+    updateBatteryTemperature(dt, appliedKw);
 }
 
 void HybridSystem::dischargeBattery(float powerKw, float dt) {
@@ -365,7 +365,7 @@ void HybridSystem::updateBatteryTemperature(float dt, float powerKw) {
     float heatPowerKw = (currentA * currentA * m_config.battery.internalResistanceOhm) / 1000.0f;
 
     // Temperature change: dT = P_heat * dt / thermal_mass - cooling * (T - T_ambient) * dt
-    float ambientTemp = 25.0f;
+    float ambientTemp = m_config.battery.optimalTemp;
     float dTemp = (heatPowerKw * dt / m_config.battery.thermalMass)
                   - m_config.battery.coolingRate * (m_state.batteryTemp - ambientTemp) * dt;
 

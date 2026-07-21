@@ -408,6 +408,10 @@ public:
     explicit WeatherEditorModule(QWidget* parent = nullptr);
     ~WeatherEditorModule();
 
+    QString moduleName() const override { return "Weather Editor"; }
+    QString moduleId() const override { return "weather"; }
+    int getModulePriority() const override { return 45; }
+
     bool initialize();
     void shutdown();
     QDockWidget* getOrCreateDockWidget(QMainWindow* mainWindow);

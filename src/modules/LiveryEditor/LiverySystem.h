@@ -4,7 +4,9 @@
 #include <QColor>
 #include <QVector>
 #include <QMap>
+#include <QImage>
 #include <QJsonObject>
+#include <QJsonArray>
 
 /**
  * @brief Livery System for Assetto Corsa
@@ -26,7 +28,7 @@ class LiverySystem {
 public:
     struct LiveryLayer {
         QString name;
-        QString type;           // "decal", "paint", "texture"
+        QString type;           // "decal", "paint", "texture", "vector"
         float opacity = 1.0f;
         float position[2] = {0, 0};
         float size[2] = {1, 1};
@@ -34,6 +36,7 @@ public:
         QString texturePath;
         QColor tintColor = Qt::white;
         bool visible = true;
+        QString vectorData;     // JSON-serialized vector shapes for "vector" layers
     };
 
     struct SkinConfig {
@@ -87,6 +90,7 @@ public:
     static bool generatePreview(const QString& skinPath);
     static bool hasPreview(const QString& skinPath);
     static QString getPreviewPath(const QString& skinPath);
+    static QImage renderVectorPreview(const QString& vectorData, int width, int height);
 
     // Skin export/import
     static bool exportSkin(const QString& skinPath, const QString& outputPath);

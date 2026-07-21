@@ -9,6 +9,9 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include "../../../core/editor/EditorModule.h"
+#include "../../../core/editor/ModuleGuiBase.h"
+
+class QTableWidget;
 
 namespace ks {
 
@@ -78,7 +81,7 @@ private:
     QJsonObject m_currentSessionData;
 };
 
-class TelemetryViewerModule : public EditorModule {
+class TelemetryViewerModule : public ModuleGuiBase {
     Q_OBJECT
 public:
     explicit TelemetryViewerModule(QWidget* parent = nullptr);
@@ -95,6 +98,36 @@ public:
 
     QJsonObject serializeProject() const override;
     void deserializeProject(const QJsonObject& data) override;
+
+protected:
+    void buildUI() override;
+
+private slots:
+    void onLoadTelemetry();
+    void onExportTelemetry();
+    void onLapSelected(int row, int column);
+    void onCompareLaps();
+    void onAnalyze();
+
+private:
+    QTabWidget* m_tabWidget = nullptr;
+
+    // Sessions tab
+    QPushButton* m_loadBtn = nullptr;
+    QPushButton* m_exportBtn = nullptr;
+    QTableWidget* m_lapTable = nullptr;
+    QTextEdit* m_lapDetails = nullptr;
+
+    // Analysis tab
+    QPushButton* m_analyzeBtn = nullptr;
+    QTextEdit* m_analysisOutput = nullptr;
+    QPushButton* m_compareBtn = nullptr;
+    QSpinBox* m_lapASpin = nullptr;
+    QSpinBox* m_lapBSpin = nullptr;
+    QTextEdit* m_comparisonOutput = nullptr;
+
+    // Status
+    QTextEdit* m_statusLog = nullptr;
 };
 
 }

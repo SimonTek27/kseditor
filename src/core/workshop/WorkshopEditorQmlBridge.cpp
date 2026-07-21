@@ -1,4 +1,5 @@
 #include "WorkshopEditorQmlBridge.h"
+#include "WorkshopEditorModule.h"
 #include "../../core/sys/LogManager.h"
 #include <QDir>
 #include <QWidget>
@@ -441,37 +442,6 @@ QVariantList WorkshopEditorQmlBridge::getProfileEntries(const QString& name) con
         list.append(m);
     }
     return list;
-}
-
-// ============================================================================
-// WorkshopEditorModule
-// ============================================================================
-
-WorkshopEditorModule::WorkshopEditorModule(QWidget* parent)
-    : EditorModule(parent)
-{}
-
-bool WorkshopEditorModule::initialize() {
-    LOG_INFO("WorkshopEditorModule", "Initializing Workshop module");
-    WorkshopManager::instance();
-    WorkshopEditorQmlBridge::instance();
-    return true;
-}
-
-void WorkshopEditorModule::shutdown() {
-    LOG_INFO("WorkshopEditorModule", "Shutting down Workshop module");
-}
-
-void WorkshopEditorModule::importFile(const QString& filePath) {
-    if (auto* bridge = WorkshopEditorQmlBridge::instance()) {
-        bridge->importMod(filePath);
-    }
-}
-
-void WorkshopEditorModule::exportFile(const QString& filePath) {
-    if (auto* bridge = WorkshopEditorQmlBridge::instance()) {
-        bridge->exportMod(filePath);
-    }
 }
 
 // ── Dependency resolution bridge ──────────────────────────────────────────

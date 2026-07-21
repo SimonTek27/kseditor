@@ -114,20 +114,4 @@ private:
     bool m_isLoading = false;
 };
 
-class WorkshopEditorModule : public EditorModule {
-    Q_OBJECT
-public:
-    explicit WorkshopEditorModule(QWidget* parent = nullptr);
-    ~WorkshopEditorModule() override = default;
-
-    bool initialize() override;
-    void shutdown() override;
-    QString moduleName() const override { return "Workshop"; }
-    QString moduleId() const override { return "workshop"; }
-    int getModulePriority() const override { return 40; }
-
-    void importFile(const QString& filePath) override;
-    void exportFile(const QString& filePath) override;
-};
-
 }

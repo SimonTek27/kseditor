@@ -129,7 +129,9 @@ void TestFontGenerator::testGenerateAtlasEmptyFamily()
     AtlasConfig cfg;
     cfg.fontSize = 24;
     cfg.atlasWidth = 128;
-    cfg.atlasHeight = 64;
+    cfg.atlasHeight = 128;
+    cfg.globalHeight = 30;
+    cfg.globalVPad = 4;
     cfg.charset = "Test";
 
     AtlasResult result = m_gen->generate(cfg);
@@ -171,6 +173,7 @@ void TestFontGenerator::testApplyHintingNormalLevel()
     cfg.fontFamily = m_fontFamily;
     cfg.fontSize = 32;
     cfg.charset = "ABC";
+    cfg.hinting.hintingLevel = 1;
 
     AtlasResult result = m_gen->generate(cfg);
     QVERIFY(result.success);
@@ -198,6 +201,7 @@ void TestFontGenerator::testApplyHintingFullLevel()
     cfg.fontFamily = m_fontFamily;
     cfg.fontSize = 32;
     cfg.charset = "ABC";
+    cfg.hinting.hintingLevel = 2;
 
     AtlasResult result = m_gen->generate(cfg);
     QVERIFY(result.success);
@@ -535,8 +539,8 @@ void TestFontGenerator::testMSDFAtlas()
     AtlasConfig cfg;
     cfg.fontFamily = m_fontFamily;
     cfg.fontSize = 32;
-    cfg.atlasWidth = 128;
-    cfg.atlasHeight = 128;
+    cfg.atlasWidth = 256;
+    cfg.atlasHeight = 256;
     cfg.charset = "ABC";
 
     FontAtlasGenerator::SDFConfig sdfCfg;
@@ -559,8 +563,8 @@ void TestFontGenerator::testSDFSpreadValues()
     AtlasConfig cfg;
     cfg.fontFamily = m_fontFamily;
     cfg.fontSize = 24;
-    cfg.atlasWidth = 128;
-    cfg.atlasHeight = 64;
+    cfg.atlasWidth = 256;
+    cfg.atlasHeight = 256;
     cfg.charset = "AB";
 
     // Test with different spread values
@@ -592,7 +596,8 @@ void TestFontGenerator::testAntiAliasModes()
         cfg.fontFamily = m_fontFamily;
         cfg.fontSize = 32;
         cfg.atlasWidth = 128;
-        cfg.atlasHeight = 64;
+        cfg.atlasHeight = 256;
+        cfg.globalHeight = 40;
         cfg.charset = "ABCabc123";
         cfg.hinting.antiAlias = mode;
 

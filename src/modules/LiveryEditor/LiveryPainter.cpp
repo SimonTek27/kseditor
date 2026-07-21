@@ -113,7 +113,47 @@ void LiveryPainter::paintAt(const QPoint& screenPos, const LiveryPaintBrush& bru
         return;
     }
     
-    applyBrushAtPixel(screenPos, brush);
+    switch (brush.type) {
+    case LiveryPaintBrush::Brush:
+    case LiveryPaintBrush::SquareBrush:
+        applyBrushAtPixel(screenPos, brush);
+        break;
+    case LiveryPaintBrush::Airbrush:
+        applyAirbrushAtPixel(screenPos, brush);
+        break;
+    case LiveryPaintBrush::Eraser:
+        applyBrushAtPixel(screenPos, brush);
+        break;
+    case LiveryPaintBrush::Smudge:
+        break;
+    case LiveryPaintBrush::Blur:
+        applyBlurAtPixel(screenPos, brush);
+        break;
+    case LiveryPaintBrush::Sharpen:
+        applySharpenAtPixel(screenPos, brush);
+        break;
+    case LiveryPaintBrush::Clone:
+    case LiveryPaintBrush::Healing:
+        applyCloneAtPixel(screenPos, brush);
+        break;
+    case LiveryPaintBrush::Dodge:
+        applyDodgeAtPixel(screenPos, brush);
+        break;
+    case LiveryPaintBrush::Burn:
+        applyBurnAtPixel(screenPos, brush);
+        break;
+    case LiveryPaintBrush::Fill:
+        floodFill(screenPos, brush.color, 0);
+        break;
+    case LiveryPaintBrush::Gradient:
+        break;
+    case LiveryPaintBrush::Stamp:
+        if (!brush.stampTexture.isNull()) {
+            applyStamp(screenPos, brush.stampTexture, brush.opacity);
+        }
+        break;
+    }
+    
     emit textureUpdated(m_texture);
 }
 
@@ -121,7 +161,39 @@ void LiveryPainter::paintLine(const QPoint& from, const QPoint& to, const Livery
 {
     QVector<QPoint> line = bresenhamLine(from, to);
     for (const QPoint& p : line) {
-        applyBrushAtPixel(p, brush);
+        switch (brush.type) {
+        case LiveryPaintBrush::Brush:
+        case LiveryPaintBrush::SquareBrush:
+        case LiveryPaintBrush::Eraser:
+            applyBrushAtPixel(p, brush);
+            break;
+        case LiveryPaintBrush::Airbrush:
+            applyAirbrushAtPixel(p, brush);
+            break;
+        case LiveryPaintBrush::Smudge:
+            applySmudgeAtPixel(from, to, brush);
+            break;
+        case LiveryPaintBrush::Blur:
+            applyBlurAtPixel(p, brush);
+            break;
+        case LiveryPaintBrush::Sharpen:
+            applySharpenAtPixel(p, brush);
+            break;
+        case LiveryPaintBrush::Clone:
+        case LiveryPaintBrush::Healing:
+            applyCloneAtPixel(p, brush);
+            break;
+        case LiveryPaintBrush::Dodge:
+            applyDodgeAtPixel(p, brush);
+            break;
+        case LiveryPaintBrush::Burn:
+            applyBurnAtPixel(p, brush);
+            break;
+        case LiveryPaintBrush::Fill:
+        case LiveryPaintBrush::Gradient:
+        case LiveryPaintBrush::Stamp:
+            break;
+        }
     }
     emit textureUpdated(m_texture);
 }
@@ -147,6 +219,8 @@ void LiveryPainter::applyBrushAtPixel(const QPoint& pixel, const LiveryPaintBrus
 {
     int radius = static_cast<int>(brush.radius);
     int innerRadius = static_cast<int>(brush.radius * brush.hardness);
+    bool isEraser = (brush.type == LiveryPaintBrush::Eraser);
+    bool isSquare = (brush.type == LiveryPaintBrush::SquareBrush);
     
     for (int dy = -radius; dy <= radius; ++dy) {
         for (int dx = -radius; dx <= radius; ++dx) {
@@ -157,7 +231,12 @@ void LiveryPainter::applyBrushAtPixel(const QPoint& pixel, const LiveryPaintBrus
                 continue;
             }
             
-            float dist = std::sqrt(dx * dx + dy * dy);
+            float dist;
+            if (isSquare) {
+                dist = static_cast<float>(qMax(qAbs(dx), qAbs(dy)));
+            } else {
+                dist = std::sqrt(dx * dx + dy * dy);
+            }
             if (dist > radius) continue;
             
             float falloff = 1.0f;
@@ -168,10 +247,16 @@ void LiveryPainter::applyBrushAtPixel(const QPoint& pixel, const LiveryPaintBrus
             float alpha = brush.opacity * falloff;
             
             QRgb base = m_texture.pixel(px, py);
-            QRgb brushColor = brush.color.rgb();
-            
-            QRgb blended = blendPixel(base, brushColor, alpha);
-            m_texture.setPixel(px, py, blended);
+
+            if (isEraser) {
+                int ba = qAlpha(base);
+                int na = static_cast<int>(ba * (1.0f - alpha));
+                m_texture.setPixel(px, py, qRgba(qRed(base), qGreen(base), qBlue(base), na));
+            } else {
+                QRgb brushColor = brush.color.rgb();
+                QRgb blended = blendPixel(base, brushColor, alpha);
+                m_texture.setPixel(px, py, blended);
+            }
         }
     }
 }
@@ -192,6 +277,357 @@ QRgb LiveryPainter::blendPixel(QRgb base, QRgb brush, float alpha)
     int nb = static_cast<int>(bb + (cb - bb) * alpha);
     
     return qRgba(nr, ng, nb, ba);
+}
+
+QRgb LiveryPainter::colorDodge(QRgb base, float strength)
+{
+    int br = qRed(base);
+    int bg = qGreen(base);
+    int bb = qBlue(base);
+    int r = (br == 255) ? 255 : qMin(255, static_cast<int>(br / (1.0f - strength * (br / 255.0f))));
+    int g = (bg == 255) ? 255 : qMin(255, static_cast<int>(bg / (1.0f - strength * (bg / 255.0f))));
+    int b = (bb == 255) ? 255 : qMin(255, static_cast<int>(bb / (1.0f - strength * (bb / 255.0f))));
+    return qRgba(r, g, b, qAlpha(base));
+}
+
+QRgb LiveryPainter::colorBurn(QRgb base, float strength)
+{
+    int br = qRed(base);
+    int bg = qGreen(base);
+    int bb = qBlue(base);
+    int r = (br == 0) ? 0 : qMax(0, static_cast<int>(255 - (255 - br) / (1.0f + strength * (br / 255.0f) - strength)));
+    int g = (bg == 0) ? 0 : qMax(0, static_cast<int>(255 - (255 - bg) / (1.0f + strength * (bg / 255.0f) - strength)));
+    int b = (bb == 0) ? 0 : qMax(0, static_cast<int>(255 - (255 - bb) / (1.0f + strength * (bb / 255.0f) - strength)));
+    return qRgba(qBound(0, r, 255), qBound(0, g, 255), qBound(0, b, 255), qAlpha(base));
+}
+
+void LiveryPainter::applyAirbrushAtPixel(const QPoint& pixel, const LiveryPaintBrush& brush)
+{
+    int radius = static_cast<int>(brush.radius);
+    float flowRate = brush.flow * brush.opacity;
+
+    for (int dy = -radius; dy <= radius; ++dy) {
+        for (int dx = -radius; dx <= radius; ++dx) {
+            int px = pixel.x() + dx;
+            int py = pixel.y() + dy;
+            if (px < 0 || px >= m_width || py < 0 || py >= m_height) continue;
+
+            float dist = std::sqrt(dx * dx + dy * dy);
+            if (dist > radius) continue;
+
+            float falloff = 1.0f - (dist / radius);
+            float alpha = flowRate * falloff * falloff;
+
+            QRgb base = m_texture.pixel(px, py);
+            QRgb brushColor = brush.color.rgb();
+            m_texture.setPixel(px, py, blendPixel(base, brushColor, alpha));
+        }
+    }
+}
+
+void LiveryPainter::applySmudgeAtPixel(const QPoint& from, const QPoint& to, const LiveryPaintBrush& brush)
+{
+    int radius = static_cast<int>(brush.radius * 0.5f);
+    float strength = brush.strength;
+
+    for (int dy = -radius; dy <= radius; ++dy) {
+        for (int dx = -radius; dx <= radius; ++dx) {
+            int px = to.x() + dx;
+            int py = to.y() + dy;
+            if (px < 0 || px >= m_width || py < 0 || py >= m_height) continue;
+
+            float dist = std::sqrt(dx * dx + dy * dy);
+            if (dist > radius) continue;
+
+            float falloff = 1.0f - (dist / radius);
+            float alpha = strength * falloff * brush.opacity;
+
+            int sx = from.x() + dx;
+            int sy = from.y() + dy;
+            if (sx < 0 || sx >= m_width || sy < 0 || sy >= m_height) continue;
+
+            QRgb srcColor = m_texture.pixel(sx, sy);
+            QRgb dstColor = m_texture.pixel(px, py);
+            m_texture.setPixel(px, py, blendPixel(dstColor, srcColor, alpha));
+        }
+    }
+}
+
+void LiveryPainter::applyBlurAtPixel(const QPoint& pixel, const LiveryPaintBrush& brush)
+{
+    int radius = static_cast<int>(brush.radius * 0.5f);
+    if (radius < 1) radius = 1;
+
+    float sumR = 0, sumG = 0, sumB = 0;
+    int count = 0;
+
+    for (int dy = -radius; dy <= radius; ++dy) {
+        for (int dx = -radius; dx <= radius; ++dx) {
+            int px = pixel.x() + dx;
+            int py = pixel.y() + dy;
+            if (px < 0 || px >= m_width || py < 0 || py >= m_height) continue;
+
+            float dist = std::sqrt(dx * dx + dy * dy);
+            if (dist > radius) continue;
+
+            QRgb p = m_texture.pixel(px, py);
+            sumR += qRed(p);
+            sumG += qGreen(p);
+            sumB += qBlue(p);
+            count++;
+        }
+    }
+
+    if (count == 0) return;
+
+    int avgR = static_cast<int>(sumR / count);
+    int avgG = static_cast<int>(sumG / count);
+    int avgB = static_cast<int>(sumB / count);
+
+    QRgb center = m_texture.pixel(pixel.x(), pixel.y());
+    float alpha = brush.strength * brush.opacity;
+    int r = static_cast<int>(qRed(center) + (avgR - qRed(center)) * alpha);
+    int g = static_cast<int>(qGreen(center) + (avgG - qGreen(center)) * alpha);
+    int b = static_cast<int>(qBlue(center) + (avgB - qBlue(center)) * alpha);
+    m_texture.setPixel(pixel.x(), pixel.y(), qRgba(r, g, b, qAlpha(center)));
+}
+
+void LiveryPainter::applySharpenAtPixel(const QPoint& pixel, const LiveryPaintBrush& brush)
+{
+    int x = pixel.x(), y = pixel.y();
+    if (x < 1 || x >= m_width - 1 || y < 1 || y >= m_height - 1) return;
+
+    float kernel[3][3] = {
+        { 0, -1,  0},
+        {-1,  5, -1},
+        { 0, -1,  0}
+    };
+
+    float sumR = 0, sumG = 0, sumB = 0;
+    for (int ky = -1; ky <= 1; ++ky) {
+        for (int kx = -1; kx <= 1; ++kx) {
+            QRgb p = m_texture.pixel(x + kx, y + ky);
+            sumR += qRed(p) * kernel[ky + 1][kx + 1];
+            sumG += qGreen(p) * kernel[ky + 1][kx + 1];
+            sumB += qBlue(p) * kernel[ky + 1][kx + 1];
+        }
+    }
+
+    QRgb orig = m_texture.pixel(x, y);
+    float amount = brush.strength * brush.opacity;
+    int r = qBound(0, static_cast<int>(qRed(orig) + (sumR - qRed(orig)) * amount), 255);
+    int g = qBound(0, static_cast<int>(qGreen(orig) + (sumG - qGreen(orig)) * amount), 255);
+    int b = qBound(0, static_cast<int>(qBlue(orig) + (sumB - qBlue(orig)) * amount), 255);
+    m_texture.setPixel(x, y, qRgba(r, g, b, qAlpha(orig)));
+}
+
+void LiveryPainter::applyDodgeAtPixel(const QPoint& pixel, const LiveryPaintBrush& brush)
+{
+    int radius = static_cast<int>(brush.radius * 0.5f);
+    for (int dy = -radius; dy <= radius; ++dy) {
+        for (int dx = -radius; dx <= radius; ++dx) {
+            int px = pixel.x() + dx;
+            int py = pixel.y() + dy;
+            if (px < 0 || px >= m_width || py < 0 || py >= m_height) continue;
+
+            float dist = std::sqrt(dx * dx + dy * dy);
+            if (dist > radius) continue;
+
+            float falloff = 1.0f - (dist / radius);
+            float alpha = brush.strength * falloff * brush.opacity;
+
+            QRgb base = m_texture.pixel(px, py);
+            m_texture.setPixel(px, py, colorDodge(base, alpha));
+        }
+    }
+}
+
+void LiveryPainter::applyBurnAtPixel(const QPoint& pixel, const LiveryPaintBrush& brush)
+{
+    int radius = static_cast<int>(brush.radius * 0.5f);
+    for (int dy = -radius; dy <= radius; ++dy) {
+        for (int dx = -radius; dx <= radius; ++dx) {
+            int px = pixel.x() + dx;
+            int py = pixel.y() + dy;
+            if (px < 0 || px >= m_width || py < 0 || py >= m_height) continue;
+
+            float dist = std::sqrt(dx * dx + dy * dy);
+            if (dist > radius) continue;
+
+            float falloff = 1.0f - (dist / radius);
+            float alpha = brush.strength * falloff * brush.opacity;
+
+            QRgb base = m_texture.pixel(px, py);
+            m_texture.setPixel(px, py, colorBurn(base, alpha));
+        }
+    }
+}
+
+void LiveryPainter::applyCloneAtPixel(const QPoint& pixel, const LiveryPaintBrush& brush)
+{
+    if (m_cloneImage.isNull()) return;
+
+    int radius = static_cast<int>(brush.radius * 0.5f);
+    QPoint src = brush.cloneSource;
+
+    for (int dy = -radius; dy <= radius; ++dy) {
+        for (int dx = -radius; dx <= radius; ++dx) {
+            int px = pixel.x() + dx;
+            int py = pixel.y() + dy;
+            if (px < 0 || px >= m_width || py < 0 || py >= m_height) continue;
+
+            float dist = std::sqrt(dx * dx + dy * dy);
+            if (dist > radius) continue;
+
+            float falloff = 1.0f - (dist / radius);
+            float alpha = brush.opacity * falloff;
+
+            int sx = src.x() + dx;
+            int sy = src.y() + dy;
+            if (sx < 0 || sx >= m_cloneImage.width() || sy < 0 || sy >= m_cloneImage.height()) continue;
+
+            QRgb srcColor = m_cloneImage.pixel(sx, sy);
+            QRgb dstColor = m_texture.pixel(px, py);
+            m_texture.setPixel(px, py, blendPixel(dstColor, srcColor, alpha));
+        }
+    }
+}
+
+void LiveryPainter::applyHealingAtPixel(const QPoint& pixel, const QPoint& source, const LiveryPaintBrush& brush)
+{
+    if (m_cloneImage.isNull()) return;
+
+    int radius = static_cast<int>(brush.radius * 0.5f);
+
+    for (int dy = -radius; dy <= radius; ++dy) {
+        for (int dx = -radius; dx <= radius; ++dx) {
+            int px = pixel.x() + dx;
+            int py = pixel.y() + dy;
+            if (px < 0 || px >= m_width || py < 0 || py >= m_height) continue;
+
+            float dist = std::sqrt(dx * dx + dy * dy);
+            if (dist > radius) continue;
+
+            float falloff = 1.0f - (dist / radius);
+            float alpha = brush.opacity * falloff;
+
+            int sx = source.x() + dx;
+            int sy = source.y() + dy;
+            if (sx < 0 || sx >= m_cloneImage.width() || sy < 0 || sy >= m_cloneImage.height()) continue;
+
+            QRgb srcColor = m_cloneImage.pixel(sx, sy);
+            QRgb dstColor = m_texture.pixel(px, py);
+
+            int dr = qRed(dstColor) + (qRed(srcColor) - qRed(dstColor)) * alpha;
+            int dg = qGreen(dstColor) + (qGreen(srcColor) - qGreen(dstColor)) * alpha;
+            int db = qBlue(dstColor) + (qBlue(srcColor) - qBlue(dstColor)) * alpha;
+            m_texture.setPixel(px, py, qRgba(qBound(0, dr, 255), qBound(0, dg, 255), qBound(0, db, 255), qAlpha(dstColor)));
+        }
+    }
+}
+
+void LiveryPainter::applyStamp(const QPoint& pos, const QImage& stamp, float opacity)
+{
+    if (m_texture.isNull() || stamp.isNull()) return;
+
+    QPainter painter(&m_texture);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
+    painter.setOpacity(opacity);
+    painter.drawImage(pos - QPoint(stamp.width() / 2, stamp.height() / 2), stamp);
+    painter.end();
+}
+
+void LiveryPainter::setCloneImage(const QImage& image)
+{
+    m_cloneImage = image;
+}
+
+void LiveryPainter::gradientFill(const QPoint& from, const QPoint& to,
+                                  const QColor& startColor, const QColor& endColor, bool radial)
+{
+    if (m_texture.isNull()) return;
+
+    QPainter painter(&m_texture);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setPen(Qt::NoPen);
+
+    if (radial) {
+        float radius = QLineF(from, to).length();
+        QRadialGradient grad(from, radius);
+        grad.setColorAt(0.0, startColor);
+        grad.setColorAt(1.0, endColor);
+        painter.setBrush(grad);
+        painter.drawRect(m_texture.rect());
+    } else {
+        QLinearGradient grad(from, to);
+        grad.setColorAt(0.0, startColor);
+        grad.setColorAt(1.0, endColor);
+        painter.setBrush(grad);
+        painter.drawRect(m_texture.rect());
+    }
+
+    painter.end();
+    emit textureUpdated(m_texture);
+}
+
+void LiveryPainter::applyBlurAt(const QPoint& center, int radius, float strength)
+{
+    LiveryPaintBrush brush;
+    brush.type = LiveryPaintBrush::Blur;
+    brush.radius = radius;
+    brush.strength = strength;
+    brush.opacity = 1.0f;
+    applyBlurAtPixel(center, brush);
+}
+
+void LiveryPainter::applySharpenAt(const QPoint& center, int radius, float strength)
+{
+    LiveryPaintBrush brush;
+    brush.type = LiveryPaintBrush::Sharpen;
+    brush.radius = radius;
+    brush.strength = strength;
+    brush.opacity = 1.0f;
+    applySharpenAtPixel(center, brush);
+}
+
+void LiveryPainter::applyDodgeAt(const QPoint& center, int radius, float strength)
+{
+    LiveryPaintBrush brush;
+    brush.type = LiveryPaintBrush::Dodge;
+    brush.radius = radius;
+    brush.strength = strength;
+    brush.opacity = 1.0f;
+    applyDodgeAtPixel(center, brush);
+}
+
+void LiveryPainter::applyBurnAt(const QPoint& center, int radius, float strength)
+{
+    LiveryPaintBrush brush;
+    brush.type = LiveryPaintBrush::Burn;
+    brush.radius = radius;
+    brush.strength = strength;
+    brush.opacity = 1.0f;
+    applyBurnAtPixel(center, brush);
+}
+
+void LiveryPainter::smudgeAt(const QPoint& from, const QPoint& to, int radius, float strength)
+{
+    LiveryPaintBrush brush;
+    brush.type = LiveryPaintBrush::Smudge;
+    brush.radius = radius;
+    brush.strength = strength;
+    brush.opacity = 1.0f;
+    applySmudgeAtPixel(from, to, brush);
+}
+
+void LiveryPainter::applyHealingAt(const QPoint& target, const QPoint& source, int radius)
+{
+    LiveryPaintBrush brush;
+    brush.type = LiveryPaintBrush::Healing;
+    brush.radius = radius;
+    brush.strength = 1.0f;
+    brush.opacity = 1.0f;
+    applyHealingAtPixel(target, source, brush);
 }
 
 void LiveryPainter::floodFill(const QPoint& start, const QColor& fillColor, float tolerance)

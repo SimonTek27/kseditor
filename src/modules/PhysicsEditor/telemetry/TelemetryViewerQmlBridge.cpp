@@ -2,6 +2,9 @@
 #include <cmath>
 #include <algorithm>
 #include "../../../core/sys/LogManager.h"
+#include <QGroupBox>
+#include <QHeaderView>
+#include <QTableWidget>
 #include <cmath>
 #include <algorithm>
 #include <QFile>
@@ -112,17 +115,22 @@ bool TelemetryViewerQmlBridge::loadTelemetry(const QString& path)
 // ============================================================================
 
 TelemetryViewerModule::TelemetryViewerModule(QWidget* parent)
-    : EditorModule(parent)
-{}
+    : ModuleGuiBase(parent)
+{
+    setObjectName("TelemetryViewerModule");
+}
 
 bool TelemetryViewerModule::initialize()
 {
+    if (m_uiBuilt) return true;
+    bool ok = ModuleGuiBase::initialize();
     LOG_INFO("TelemetryViewerModule", "Initializing Telemetry Viewer module");
-    return true;
+    return ok;
 }
 
 void TelemetryViewerModule::shutdown()
 {
+    ModuleGuiBase::shutdown();
     LOG_INFO("TelemetryViewerModule", "Shutting down Telemetry Viewer module");
 }
 
@@ -130,6 +138,7 @@ void TelemetryViewerModule::importFile(const QString& filePath)
 {
     if (auto* bridge = TelemetryViewerQmlBridge::instance()) {
         bridge->loadTelemetry(filePath);
+        logSuccess("Telemetry loaded: " + filePath);
     }
 }
 
@@ -137,6 +146,7 @@ void TelemetryViewerModule::exportFile(const QString& filePath)
 {
     if (auto* bridge = TelemetryViewerQmlBridge::instance()) {
         bridge->exportTelemetry(filePath);
+        logSuccess("Telemetry exported: " + filePath);
     }
 }
 
@@ -545,6 +555,188 @@ void TelemetryViewerModule::deserializeProject(const QJsonObject& data)
         if (!filePath.isEmpty()) {
             importFile(filePath);
         }
+    }
+}
+
+void TelemetryViewerModule::buildUI()
+{
+    m_tabWidget = new QTabWidget(this);
+    m_tabWidget->setStyleSheet(
+        "QTabWidget::pane { border: 1px solid #3a3a3a; background: #1e1e1e; }"
+        "QTabBar::tab { background: #2d2d2d; color: #aaa; padding: 8px 16px; border: 1px solid #3a3a3a; border-bottom: none; }"
+        "QTabBar::tab:selected { background: #3a5a8a; color: #fff; }"
+        "QTabBar::tab:hover { background: #4a6a9a; }"
+    );
+
+    QWidget* sessionsTab = new QWidget();
+    {
+        QVBoxLayout* layout = new QVBoxLayout(sessionsTab);
+        layout->setContentsMargins(8, 8, 8, 8);
+        layout->setSpacing(8);
+
+        QHBoxLayout* btnLayout = new QHBoxLayout();
+        m_loadBtn = new QPushButton("Load Telemetry");
+        m_loadBtn->setStyleSheet("QPushButton { background: #3a5a8a; color: white; padding: 6px 14px; border: none; border-radius: 4px; } QPushButton:hover { background: #4a6a9a; }");
+        connect(m_loadBtn, &QPushButton::clicked, this, &TelemetryViewerModule::onLoadTelemetry);
+        btnLayout->addWidget(m_loadBtn);
+        m_exportBtn = new QPushButton("Export Telemetry");
+        connect(m_exportBtn, &QPushButton::clicked, this, &TelemetryViewerModule::onExportTelemetry);
+        btnLayout->addWidget(m_exportBtn);
+        btnLayout->addStretch();
+        layout->addLayout(btnLayout);
+
+        QGroupBox* lapsGroup = new QGroupBox("Laps");
+        QVBoxLayout* ll = new QVBoxLayout(lapsGroup);
+        m_lapTable = new QTableWidget(0, 6);
+        m_lapTable->setHorizontalHeaderLabels({"Lap", "Time", "Sector 1", "Sector 2", "Sector 3", "Top Speed"});
+        m_lapTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+        m_lapTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+        m_lapTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+        m_lapTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+        m_lapTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
+        m_lapTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::ResizeToContents);
+        m_lapTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+        m_lapTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+        m_lapTable->setStyleSheet("QTableWidget { background: #1a1a1a; color: #c8c8c8; gridline-color: #3a3a3a; } QHeaderView::section { background: #2d2d2d; color: #aaa; }");
+        connect(m_lapTable, &QTableWidget::cellClicked, this, &TelemetryViewerModule::onLapSelected);
+        ll->addWidget(m_lapTable);
+        layout->addWidget(lapsGroup, 1);
+
+        m_lapDetails = new QTextEdit();
+        m_lapDetails->setReadOnly(true);
+        m_lapDetails->setMaximumHeight(100);
+        m_lapDetails->setStyleSheet("QTextEdit { background: #0a0a0a; color: #c8c8c8; font-family: Consolas; font-size: 10px; }");
+        layout->addWidget(m_lapDetails);
+    }
+    m_tabWidget->addTab(sessionsTab, "Sessions");
+
+    QWidget* analysisTab = new QWidget();
+    {
+        QVBoxLayout* layout = new QVBoxLayout(analysisTab);
+        layout->setContentsMargins(8, 8, 8, 8);
+        layout->setSpacing(8);
+
+        QGroupBox* analysisGroup = new QGroupBox("Telemetry Analysis");
+        QVBoxLayout* al = new QVBoxLayout(analysisGroup);
+        m_analyzeBtn = new QPushButton("Run Analysis");
+        m_analyzeBtn->setStyleSheet("QPushButton { background: #2d6b2d; color: white; padding: 6px 14px; border: none; border-radius: 4px; } QPushButton:hover { background: #3a8a3a; }");
+        connect(m_analyzeBtn, &QPushButton::clicked, this, &TelemetryViewerModule::onAnalyze);
+        al->addWidget(m_analyzeBtn);
+        m_analysisOutput = new QTextEdit();
+        m_analysisOutput->setReadOnly(true);
+        m_analysisOutput->setStyleSheet("QTextEdit { background: #0a0a0a; color: #c8c8c8; font-family: Consolas; font-size: 10px; }");
+        al->addWidget(m_analysisOutput, 1);
+        layout->addWidget(analysisGroup);
+
+        QGroupBox* compareGroup = new QGroupBox("Lap Comparison");
+        QVBoxLayout* cl = new QVBoxLayout(compareGroup);
+        QHBoxLayout* spinLayout = new QHBoxLayout();
+        spinLayout->addWidget(new QLabel("Lap A:"));
+        m_lapASpin = new QSpinBox();
+        m_lapASpin->setRange(1, 999);
+        spinLayout->addWidget(m_lapASpin);
+        spinLayout->addWidget(new QLabel("Lap B:"));
+        m_lapBSpin = new QSpinBox();
+        m_lapBSpin->setRange(1, 999);
+        spinLayout->addWidget(m_lapBSpin);
+        m_compareBtn = new QPushButton("Compare");
+        connect(m_compareBtn, &QPushButton::clicked, this, &TelemetryViewerModule::onCompareLaps);
+        spinLayout->addWidget(m_compareBtn);
+        spinLayout->addStretch();
+        cl->addLayout(spinLayout);
+        m_comparisonOutput = new QTextEdit();
+        m_comparisonOutput->setReadOnly(true);
+        m_comparisonOutput->setMaximumHeight(150);
+        m_comparisonOutput->setStyleSheet("QTextEdit { background: #0a0a0a; color: #c8c8c8; font-family: Consolas; font-size: 10px; }");
+        cl->addWidget(m_comparisonOutput);
+        layout->addWidget(compareGroup);
+
+        m_statusLog = new QTextEdit();
+        m_statusLog->setReadOnly(true);
+        m_statusLog->setMaximumHeight(80);
+        m_statusLog->setStyleSheet("QTextEdit { background: #0a0a0a; color: #c8c8c8; font-family: Consolas; font-size: 10px; }");
+        layout->addWidget(m_statusLog);
+        layout->addStretch();
+    }
+    m_tabWidget->addTab(analysisTab, "Analysis");
+
+    m_mainLayout->insertWidget(1, m_tabWidget, 1);
+    m_uiBuilt = true;
+}
+
+void TelemetryViewerModule::onLoadTelemetry()
+{
+    QString path = selectFile("Load Telemetry Data", "JSON (*.json);;All Files (*)");
+    if (path.isEmpty()) return;
+    if (auto* bridge = TelemetryViewerQmlBridge::instance()) {
+        bridge->loadTelemetry(path);
+        QVariantList laps = bridge->getLapData();
+        m_lapTable->setRowCount(0);
+        for (int i = 0; i < laps.size(); ++i) {
+            QVariantMap lap = laps[i].toMap();
+            int row = m_lapTable->rowCount();
+            m_lapTable->insertRow(row);
+            m_lapTable->setItem(row, 0, new QTableWidgetItem(lap["lapNumber"].toString()));
+            m_lapTable->setItem(row, 1, new QTableWidgetItem(lap["lapTime"].toString()));
+            m_lapTable->setItem(row, 2, new QTableWidgetItem(lap["sector1"].toString()));
+            m_lapTable->setItem(row, 3, new QTableWidgetItem(lap["sector2"].toString()));
+            m_lapTable->setItem(row, 4, new QTableWidgetItem(lap["sector3"].toString()));
+            m_lapTable->setItem(row, 5, new QTableWidgetItem(lap["topSpeed"].toString()));
+        }
+        m_lapASpin->setMaximum(laps.size());
+        m_lapBSpin->setMaximum(laps.size());
+        m_statusLog->append("Loaded: " + path);
+        logSuccess("Telemetry loaded: " + path);
+    }
+}
+
+void TelemetryViewerModule::onExportTelemetry()
+{
+    QString path = QFileDialog::getSaveFileName(this, "Export Telemetry", QString(), "JSON (*.json);;All Files (*)");
+    if (path.isEmpty()) return;
+    if (auto* bridge = TelemetryViewerQmlBridge::instance()) {
+        bridge->exportTelemetry(path);
+        m_statusLog->append("Exported: " + path);
+        logSuccess("Telemetry exported: " + path);
+    }
+}
+
+void TelemetryViewerModule::onLapSelected(int row, int)
+{
+    auto* bridge = TelemetryViewerQmlBridge::instance();
+    if (!bridge) return;
+    QVariantList laps = bridge->getLapData();
+    if (row < 0 || row >= laps.size()) return;
+    QVariantMap lap = laps[row].toVariantMap();
+    m_lapDetails->clear();
+    m_lapDetails->append("Lap " + lap["lapNumber"].toString());
+    m_lapDetails->append("  Time: " + lap["lapTime"].toString());
+    m_lapDetails->append("  Sectors: " + lap["sector1"].toString() + " / " + lap["sector2"].toString() + " / " + lap["sector3"].toString());
+    m_lapDetails->append("  Top Speed: " + lap["topSpeed"].toString());
+}
+
+void TelemetryViewerModule::onAnalyze()
+{
+    if (auto* bridge = TelemetryViewerQmlBridge::instance()) {
+        bridge->analyzeCurrent();
+        m_analysisOutput->clear();
+        m_analysisOutput->append("Analysis complete.");
+        log("Telemetry analysis performed");
+    }
+}
+
+void TelemetryViewerModule::onCompareLaps()
+{
+    int lapA = m_lapASpin->value() - 1;
+    int lapB = m_lapBSpin->value() - 1;
+    if (auto* bridge = TelemetryViewerQmlBridge::instance()) {
+        QVariantList diff = bridge->compareLaps(lapA, lapB);
+        m_comparisonOutput->clear();
+        m_comparisonOutput->append("Lap Comparison (Lap " + QString::number(lapA + 1) + " vs Lap " + QString::number(lapB + 1) + "):");
+        for (const auto& d : diff) {
+            m_comparisonOutput->append("  " + d.toString());
+        }
+        log("Lap comparison completed");
     }
 }
 

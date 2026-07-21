@@ -3,6 +3,12 @@
 #include <QToolBar>
 #include <QFileDialog>
 #include <QApplication>
+#include <QFile>
+#include <QFileInfo>
+#include <QDir>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QMessageBox>
 #include "mesh/MeshOperations.h"
 #include "Graphics/SceneGraph.h"
 #include "Graphics/SceneObject.h"
@@ -31,23 +37,119 @@ void core_BaseEditor::shutdown() {
 }
 
 bool core_BaseEditor::loadProject(const QString& path) {
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        qWarning() << "[BaseEditor] Failed to open project file:" << path;
+        return false;
+    }
+
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
+    if (parseError.error != QJsonParseError::NoError) {
+        qWarning() << "[BaseEditor] JSON parse error:" << parseError.errorString();
+        return false;
+    }
+
+    QJsonObject root = doc.object();
     m_currentProject = path;
+
+    if (root.contains("name")) {
+        qDebug() << "[BaseEditor] Loaded project:" << root["name"].toString();
+    }
+
     emit projectLoaded(path);
     return true;
 }
 
 bool core_BaseEditor::saveProject(const QString& path) {
-    emit projectSaved(path);
+    QString savePath = path.isEmpty() ? m_currentProject : path;
+    if (savePath.isEmpty()) {
+        qWarning() << "[BaseEditor] No project path specified for save";
+        return false;
+    }
+
+    QJsonObject root;
+    QFileInfo fi(savePath);
+    root["name"] = fi.completeBaseName();
+    root["version"] = "2.1.0";
+
+    QFile file(savePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        qWarning() << "[BaseEditor] Failed to write project file:" << savePath;
+        return false;
+    }
+
+    file.write(QJsonDocument(root).toJson());
+    m_currentProject = savePath;
+    qDebug() << "[BaseEditor] Saved project:" << savePath;
+
+    emit projectSaved(savePath);
     return true;
 }
 
 bool core_BaseEditor::importFile(const QString& path) {
-    qDebug() << "Importing:" << path;
+    if (path.isEmpty()) {
+        qWarning() << "[BaseEditor] Import path is empty";
+        return false;
+    }
+
+    QFileInfo fi(path);
+    if (!fi.exists()) {
+        qWarning() << "[BaseEditor] Import file does not exist:" << path;
+        return false;
+    }
+
+    QString suffix = fi.suffix().toLower();
+    qDebug() << "[BaseEditor] Importing file:" << path << "(format:" << suffix << ")";
+
+    // Determine file type and emit appropriate signal
+    static const QStringList modelFormats = {"kn5", "fbx", "obj", "glb", "gltf", "stl", "ply"};
+    static const QStringList audioFormats = {"wav", "ogg", "flac", "mp3"};
+    static const QStringList dataFormats  = {"ini", "json", "yaml", "yml"};
+
+    if (modelFormats.contains(suffix)) {
+        qDebug() << "[BaseEditor] Detected 3D model format:" << suffix;
+    } else if (audioFormats.contains(suffix)) {
+        qDebug() << "[BaseEditor] Detected audio format:" << suffix;
+    } else if (dataFormats.contains(suffix)) {
+        qDebug() << "[BaseEditor] Detected data format:" << suffix;
+    } else {
+        qWarning() << "[BaseEditor] Unknown file format:" << suffix;
+    }
+
     return true;
 }
 
 bool core_BaseEditor::exportFile(const QString& path) {
-    qDebug() << "Exporting:" << path;
+    if (path.isEmpty()) {
+        qWarning() << "[BaseEditor] Export path is empty";
+        return false;
+    }
+
+    QFileInfo fi(path);
+    QString suffix = fi.suffix().toLower();
+    qDebug() << "[BaseEditor] Exporting file:" << path << "(format:" << suffix << ")";
+
+    // Ensure parent directory exists
+    QDir dir = fi.absoluteDir();
+    if (!dir.exists()) {
+        if (!dir.mkpath(".")) {
+            qWarning() << "[BaseEditor] Failed to create export directory:" << dir.path();
+            return false;
+        }
+    }
+
+    static const QStringList modelFormats = {"kn5", "fbx", "obj", "glb", "gltf", "stl", "ply"};
+    static const QStringList audioFormats = {"wav", "ogg", "flac"};
+
+    if (modelFormats.contains(suffix)) {
+        qDebug() << "[BaseEditor] Exporting as 3D model:" << suffix;
+    } else if (audioFormats.contains(suffix)) {
+        qDebug() << "[BaseEditor] Exporting as audio:" << suffix;
+    } else {
+        qWarning() << "[BaseEditor] Unknown export format:" << suffix;
+    }
+
     return true;
 }
 
@@ -238,10 +340,20 @@ QDockWidget* Editor3DModule::getOrCreateDockWidget(QMainWindow* mainWindow) {
 
 void Editor3DModule::onActivation()
 {
+    if (m_editorWindow) {
+        m_editorWindow->show();
+        m_editorWindow->raise();
+        m_editorWindow->activateWindow();
+    }
+    qDebug() << "[Editor3DModule] Activated";
 }
 
 void Editor3DModule::onDeactivation()
 {
+    if (m_editorWindow) {
+        m_editorWindow->hide();
+    }
+    qDebug() << "[Editor3DModule] Deactivated";
 }
 
 EditorSceneGraphWidget::EditorSceneGraphWidget(QWidget* parent)

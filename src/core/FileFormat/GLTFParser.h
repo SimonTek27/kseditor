@@ -19,9 +19,9 @@
 #include "MeshData.h"
 
 namespace ks {
-namespace fileformat {
-
 class SceneGraph;
+
+namespace fileformat {
 
 struct MaterialData {
     QString name;

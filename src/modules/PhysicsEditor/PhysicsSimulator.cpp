@@ -1091,7 +1091,7 @@ void phys_Simulator::applyCollisionDamage(double impactForce) {
     m_damage.bodyDamage = std::min(1.0, m_damage.bodyDamage + normalizedForce * 0.3);
 
     // Aero damage
-    if (impactForce > 5000.0) {
+    if (impactForce >= 5000.0) {
         m_damage.aeroDamage = std::min(1.0, m_damage.aeroDamage + normalizedForce * 0.7);
     }
 

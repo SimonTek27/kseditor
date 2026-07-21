@@ -1,5 +1,6 @@
 #include "LiveryEditorWidget.h"
 #include "LiveryPainter.h"
+#include "VectorDesignCanvas.h"
 #include <QHBoxLayout>
 #include <QSplitter>
 #include <QLabel>
@@ -67,7 +68,33 @@ void LiveryEditorWidget::setupUI()
 
     setupSkinPanel(scrollContent, formLayout);
     setupLayerPanel(scrollContent, formLayout);
+
+    // Edit mode selection (Raster / Vector)
+    QWidget* modeWidget = new QWidget(scrollContent);
+    QHBoxLayout* modeLayout = new QHBoxLayout(modeWidget);
+    modeLayout->setContentsMargins(0, 0, 0, 0);
+    modeLayout->setSpacing(4);
+
+    QLabel* modeLabel = new QLabel(tr("Mode:"), modeWidget);
+    modeLabel->setStyleSheet("color: #aaaaaa; font-size: 11px;");
+    modeLayout->addWidget(modeLabel);
+
+    m_editModeGroup = new QButtonGroup(modeWidget);
+    m_rasterModeRadio = new QRadioButton(tr("Raster"), modeWidget);
+    m_rasterModeRadio->setChecked(true);
+    m_rasterModeRadio->setStyleSheet("QRadioButton { color: #ccc; font-size: 11px; }");
+    m_vectorModeRadio = new QRadioButton(tr("Vector"), modeWidget);
+    m_vectorModeRadio->setStyleSheet("QRadioButton { color: #ccc; font-size: 11px; }");
+    m_editModeGroup->addButton(m_rasterModeRadio, 0);
+    m_editModeGroup->addButton(m_vectorModeRadio, 1);
+    modeLayout->addWidget(m_rasterModeRadio);
+    modeLayout->addWidget(m_vectorModeRadio);
+    modeLayout->addStretch();
+
+    formLayout->addRow("", modeWidget);
+
     setupPaintPanel(scrollContent, formLayout);
+    setupVectorPanel(scrollContent, formLayout);
     setupLicensePlatePanel(scrollContent, formLayout);
 
     QWidget* actionsWidget = new QWidget(scrollContent);
@@ -153,8 +180,12 @@ void LiveryEditorWidget::setupUI()
     connect(m_opacitySlider, &QSlider::valueChanged, this, &LiveryEditorWidget::onLayerOpacityChanged);
     connect(m_visibleCheck, &QCheckBox::stateChanged, this, &LiveryEditorWidget::onLayerVisibilityChanged);
     connect(m_colorBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onColorSelected);
+    connect(m_secondaryColorBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onSecondaryColorSelected);
+    connect(m_brushTypeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &LiveryEditorWidget::onBrushTypeChanged);
     connect(m_brushSizeSlider, &QSlider::valueChanged, this, &LiveryEditorWidget::onBrushSizeChanged);
     connect(m_brushHardnessSlider, &QSlider::valueChanged, this, &LiveryEditorWidget::onBrushHardnessChanged);
+    connect(m_brushStrengthSlider, &QSlider::valueChanged, this, &LiveryEditorWidget::onBrushStrengthChanged);
+    connect(m_brushFlowSlider, &QSlider::valueChanged, this, &LiveryEditorWidget::onBrushFlowChanged);
     connect(m_generatePlateBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onLicensePlateGenerate);
     connect(m_saveSkinBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onSaveSkin);
     connect(m_refreshBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onRefreshSkins);
@@ -163,6 +194,19 @@ void LiveryEditorWidget::setupUI()
     connect(m_templateBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onCreateFromTemplate);
     connect(m_undoBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onUndo);
     connect(m_redoBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onRedo);
+
+    // Vector tool connections
+    connect(m_editModeGroup, &QButtonGroup::idClicked,
+            this, &LiveryEditorWidget::onEditModeChanged);
+    connect(m_vectorToolCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &LiveryEditorWidget::onVectorToolChanged);
+    connect(m_vectorFillColorBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onVectorFillColor);
+    connect(m_vectorStrokeColorBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onVectorStrokeColor);
+    connect(m_vectorStrokeWidthSlider, &QSlider::valueChanged, this, &LiveryEditorWidget::onVectorStrokeWidthChanged);
+    connect(m_vectorFilledCheck, &QCheckBox::stateChanged, this, &LiveryEditorWidget::onVectorDrawFilledChanged);
+    connect(m_vectorDeleteBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onVectorDeleteSelected);
+    connect(m_vectorClearBtn, &QPushButton::clicked, this, &LiveryEditorWidget::onVectorClearAll);
+    connect(m_vectorCanvas, &VectorDesignCanvas::shapesChanged, this, &LiveryEditorWidget::onVectorShapesChanged);
 
     // Update undo/redo button states
     connect(m_editor, &LiveryEditor::liveryModified, this, [this]() {
@@ -282,7 +326,7 @@ void LiveryEditorWidget::setupLayerPanel(QWidget* parent, QFormLayout* layout)
     propsLayout->addRow(tr("Name:"), m_layerNameEdit);
 
     m_layerTypeCombo = new QComboBox(m_layerPropsGroup);
-    m_layerTypeCombo->addItems({"decal", "paint", "texture"});
+    m_layerTypeCombo->addItems({"decal", "paint", "texture", "vector"});
     m_layerTypeCombo->setStyleSheet("background: #2d2d2d; color: #fff; border: 1px solid #444; padding: 2px;");
     propsLayout->addRow(tr("Type:"), m_layerTypeCombo);
 
@@ -316,9 +360,31 @@ void LiveryEditorWidget::setupPaintPanel(QWidget* parent, QFormLayout* layout)
     paintLayout->setContentsMargins(6, 10, 6, 6);
     paintLayout->setSpacing(4);
 
-    m_colorBtn = new QPushButton(tr("Color"), m_paintGroup);
+    m_brushTypeCombo = new QComboBox(m_paintGroup);
+    m_brushTypeCombo->addItems({
+        tr("Brush"), tr("Airbrush"), tr("Square Brush"),
+        tr("Eraser"), tr("Smudge"), tr("Blur"), tr("Sharpen"),
+        tr("Clone"), tr("Healing"), tr("Dodge"), tr("Burn"),
+        tr("Fill"), tr("Gradient"), tr("Stamp")
+    });
+    m_brushTypeCombo->setStyleSheet("background: #2d2d2d; color: #fff; border: 1px solid #444; padding: 2px;");
+    paintLayout->addRow(tr("Tool:"), m_brushTypeCombo);
+
+    QWidget* colorRow = new QWidget(m_paintGroup);
+    QHBoxLayout* colorLayout = new QHBoxLayout(colorRow);
+    colorLayout->setContentsMargins(0, 0, 0, 0);
+    colorLayout->setSpacing(4);
+
+    m_colorBtn = new QPushButton(tr("Color"), colorRow);
     m_colorBtn->setStyleSheet("QPushButton { background: #cc0000; color: #fff; border: 1px solid #555; padding: 4px; }");
-    paintLayout->addRow(tr("Brush Color:"), m_colorBtn);
+    colorLayout->addWidget(m_colorBtn);
+
+    m_secondaryColorBtn = new QPushButton(tr("2nd"), colorRow);
+    m_secondaryColorBtn->setStyleSheet("QPushButton { background: #ffffff; color: #333; border: 1px solid #555; padding: 4px; }");
+    m_secondaryColorBtn->setToolTip(tr("Secondary color (gradient end)"));
+    colorLayout->addWidget(m_secondaryColorBtn);
+
+    paintLayout->addRow(tr("Colors:"), colorRow);
 
     QWidget* sizeWidget = new QWidget(m_paintGroup);
     QHBoxLayout* sizeLayout = new QHBoxLayout(sizeWidget);
@@ -343,6 +409,30 @@ void LiveryEditorWidget::setupPaintPanel(QWidget* parent, QFormLayout* layout)
     hardnessLayout->addWidget(m_brushHardnessSlider);
     hardnessLayout->addWidget(m_brushHardnessLabel);
     paintLayout->addRow(tr("Hardness:"), hardnessWidget);
+
+    QWidget* strengthWidget = new QWidget(m_paintGroup);
+    QHBoxLayout* strengthLayout = new QHBoxLayout(strengthWidget);
+    strengthLayout->setContentsMargins(0, 0, 0, 0);
+    m_brushStrengthSlider = new QSlider(Qt::Horizontal, strengthWidget);
+    m_brushStrengthSlider->setRange(1, 100);
+    m_brushStrengthSlider->setValue(100);
+    m_brushStrengthLabel = new QLabel("100%", strengthWidget);
+    m_brushStrengthLabel->setFixedWidth(35);
+    strengthLayout->addWidget(m_brushStrengthSlider);
+    strengthLayout->addWidget(m_brushStrengthLabel);
+    paintLayout->addRow(tr("Strength:"), strengthWidget);
+
+    QWidget* flowWidget = new QWidget(m_paintGroup);
+    QHBoxLayout* flowLayout = new QHBoxLayout(flowWidget);
+    flowLayout->setContentsMargins(0, 0, 0, 0);
+    m_brushFlowSlider = new QSlider(Qt::Horizontal, flowWidget);
+    m_brushFlowSlider->setRange(1, 100);
+    m_brushFlowSlider->setValue(100);
+    m_brushFlowLabel = new QLabel("100%", flowWidget);
+    m_brushFlowLabel->setFixedWidth(35);
+    flowLayout->addWidget(m_brushFlowSlider);
+    flowLayout->addWidget(m_brushFlowLabel);
+    paintLayout->addRow(tr("Flow:"), flowWidget);
 
     m_painterWidget = new LiveryPainterWidget(this);
     m_painterWidget->setMinimumHeight(200);
@@ -382,6 +472,79 @@ void LiveryEditorWidget::setupLicensePlatePanel(QWidget* parent, QFormLayout* la
     plateLayout->addRow("", m_generatePlateBtn);
 
     layout->addRow("", m_plateGroup);
+}
+
+void LiveryEditorWidget::setupVectorPanel(QWidget* parent, QFormLayout* layout)
+{
+    m_vectorToolsGroup = new QGroupBox(tr("Vector Tools"), parent);
+    m_vectorToolsGroup->setStyleSheet(
+        "QGroupBox { color: #aaaaaa; border: 1px solid #444; font-size: 11px; margin-top: 4px; }"
+    );
+    m_vectorToolsGroup->setVisible(false);
+    QFormLayout* vectorLayout = new QFormLayout(m_vectorToolsGroup);
+    vectorLayout->setContentsMargins(6, 10, 6, 6);
+    vectorLayout->setSpacing(4);
+
+    m_vectorToolCombo = new QComboBox(m_vectorToolsGroup);
+    m_vectorToolCombo->addItems({
+        tr("Select"), tr("Rectangle"), tr("Ellipse"),
+        tr("Line"), tr("Polygon"), tr("Pen")
+    });
+    m_vectorToolCombo->setStyleSheet("background: #2d2d2d; color: #fff; border: 1px solid #444; padding: 2px;");
+    vectorLayout->addRow(tr("Tool:"), m_vectorToolCombo);
+
+    QWidget* vectorColorRow = new QWidget(m_vectorToolsGroup);
+    QHBoxLayout* vectorColorLayout = new QHBoxLayout(vectorColorRow);
+    vectorColorLayout->setContentsMargins(0, 0, 0, 0);
+    vectorColorLayout->setSpacing(4);
+
+    m_vectorFillColorBtn = new QPushButton(tr("Fill"), vectorColorRow);
+    m_vectorFillColorBtn->setStyleSheet("QPushButton { background: #cc0000; color: #fff; border: 1px solid #555; padding: 4px; }");
+    vectorColorLayout->addWidget(m_vectorFillColorBtn);
+
+    m_vectorStrokeColorBtn = new QPushButton(tr("Stroke"), vectorColorRow);
+    m_vectorStrokeColorBtn->setStyleSheet("QPushButton { background: #000000; color: #fff; border: 1px solid #555; padding: 4px; }");
+    vectorColorLayout->addWidget(m_vectorStrokeColorBtn);
+
+    m_vectorFilledCheck = new QCheckBox(tr("Filled"), vectorColorRow);
+    m_vectorFilledCheck->setChecked(true);
+    m_vectorFilledCheck->setStyleSheet("QCheckBox { color: #ccc; }");
+    vectorColorLayout->addWidget(m_vectorFilledCheck);
+
+    vectorLayout->addRow(tr("Colors:"), vectorColorRow);
+
+    QWidget* strokeWidthWidget = new QWidget(m_vectorToolsGroup);
+    QHBoxLayout* strokeWidthLayout = new QHBoxLayout(strokeWidthWidget);
+    strokeWidthLayout->setContentsMargins(0, 0, 0, 0);
+    m_vectorStrokeWidthSlider = new QSlider(Qt::Horizontal, strokeWidthWidget);
+    m_vectorStrokeWidthSlider->setRange(1, 20);
+    m_vectorStrokeWidthSlider->setValue(2);
+    m_vectorStrokeWidthLabel = new QLabel("2px", strokeWidthWidget);
+    m_vectorStrokeWidthLabel->setFixedWidth(30);
+    strokeWidthLayout->addWidget(m_vectorStrokeWidthSlider);
+    strokeWidthLayout->addWidget(m_vectorStrokeWidthLabel);
+    vectorLayout->addRow(tr("Stroke W:"), strokeWidthWidget);
+
+    QWidget* vectorActionsRow = new QWidget(m_vectorToolsGroup);
+    QHBoxLayout* vectorActionsLayout = new QHBoxLayout(vectorActionsRow);
+    vectorActionsLayout->setContentsMargins(0, 0, 0, 0);
+    vectorActionsLayout->setSpacing(4);
+
+    m_vectorDeleteBtn = new QPushButton(tr("Delete"), vectorActionsRow);
+    m_vectorDeleteBtn->setStyleSheet("QPushButton { background: #6a3a3a; color: #fff; border: 1px solid #775; padding: 4px; }");
+    vectorActionsLayout->addWidget(m_vectorDeleteBtn);
+
+    m_vectorClearBtn = new QPushButton(tr("Clear All"), vectorActionsRow);
+    m_vectorClearBtn->setStyleSheet("QPushButton { background: #5a3a3a; color: #fff; border: 1px solid #665; padding: 4px; }");
+    vectorActionsLayout->addWidget(m_vectorClearBtn);
+
+    vectorLayout->addRow(tr("Actions:"), vectorActionsRow);
+
+    m_vectorCanvas = new VectorDesignCanvas(this);
+    m_vectorCanvas->setMinimumHeight(200);
+    vectorLayout->addRow(tr("Canvas:"), m_vectorCanvas);
+
+    layout->addRow("", m_vectorToolsGroup);
 }
 
 void LiveryEditorWidget::refreshSkinList()
@@ -456,14 +619,41 @@ void LiveryEditorWidget::onLayerSelected(QListWidgetItem* current)
         clearLayerUI();
         return;
     }
+
     updateLayerUI();
+
+    int row = m_layerList->currentRow();
+    const auto& config = m_editor->currentConfig();
+
+    if (row >= 0 && row < config.layers.size()) {
+        const auto& layer = config.layers[row];
+        bool isVector = (layer.type == "vector");
+
+        // Block signals so setChecked doesn't trigger onEditModeChanged
+        m_editModeGroup->blockSignals(true);
+        m_rasterModeRadio->setChecked(!isVector);
+        m_vectorModeRadio->setChecked(isVector);
+        m_editModeGroup->blockSignals(false);
+
+        m_paintGroup->setVisible(!isVector);
+        m_vectorToolsGroup->setVisible(isVector);
+
+        if (isVector) {
+            QJsonDocument doc = QJsonDocument::fromJson(layer.vectorData.toUtf8());
+            if (doc.isArray()) {
+                m_vectorCanvas->deserializeShapes(doc.array());
+            } else {
+                m_vectorCanvas->clearAll();
+            }
+        }
+    }
 }
 
 void LiveryEditorWidget::onAddLayer()
 {
     LiverySystem::LiveryLayer layer;
     layer.name = QString("layer_%1").arg(m_editor->currentConfig().layers.size() + 1);
-    layer.type = "decal";
+    layer.type = m_vectorModeRadio->isChecked() ? "vector" : "decal";
     layer.opacity = 1.0f;
     layer.position[0] = 0.0f;
     layer.position[1] = 0.0f;
@@ -557,6 +747,13 @@ void LiveryEditorWidget::onLayerVisibilityChanged(int state)
     }
 }
 
+void LiveryEditorWidget::onBrushTypeChanged(int index)
+{
+    LiveryPaintBrush brush;
+    brush.type = static_cast<LiveryPaintBrush::Type>(index);
+    m_painterWidget->setBrush(brush);
+}
+
 void LiveryEditorWidget::onBrushSizeChanged(int size)
 {
     m_brushSizeLabel->setText(QString::number(size));
@@ -567,11 +764,29 @@ void LiveryEditorWidget::onBrushHardnessChanged(int value)
     m_brushHardnessLabel->setText(QString("%1%").arg(value));
 }
 
+void LiveryEditorWidget::onBrushStrengthChanged(int value)
+{
+    m_brushStrengthLabel->setText(QString("%1%").arg(value));
+}
+
+void LiveryEditorWidget::onBrushFlowChanged(int value)
+{
+    m_brushFlowLabel->setText(QString("%1%").arg(value));
+}
+
 void LiveryEditorWidget::onColorSelected()
 {
     QColor color = QColorDialog::getColor(Qt::red, this, tr("Brush Color"));
     if (color.isValid()) {
         m_colorBtn->setStyleSheet(QString("QPushButton { background: %1; color: #fff; border: 1px solid #555; padding: 4px; }").arg(color.name()));
+    }
+}
+
+void LiveryEditorWidget::onSecondaryColorSelected()
+{
+    QColor color = QColorDialog::getColor(Qt::white, this, tr("Secondary Color"));
+    if (color.isValid()) {
+        m_secondaryColorBtn->setStyleSheet(QString("QPushButton { background: %1; color: #333; border: 1px solid #555; padding: 4px; }").arg(color.name()));
     }
 }
 
@@ -796,6 +1011,102 @@ void LiveryEditorWidget::onPaletteColorSelected(const QColor& color)
     // Apply selected palette color to the brush
     m_colorBtn->setStyleSheet(QString("QPushButton { background: %1; color: #fff; border: 1px solid #555; padding: 4px; }")
                               .arg(color.name()));
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Vector Design Tool Slots
+// ═══════════════════════════════════════════════════════════════════════
+
+void LiveryEditorWidget::onEditModeChanged(int mode)
+{
+    bool isVector = (mode == 1);
+
+    m_paintGroup->setVisible(!isVector);
+    m_vectorToolsGroup->setVisible(isVector);
+
+    if (isVector) {
+        // Vector mode: sync current layer's vector data to canvas
+        int row = m_layerList->currentRow();
+        if (row >= 0) {
+            const auto& config = m_editor->currentConfig();
+            if (row < config.layers.size() && config.layers[row].type == "vector") {
+                QJsonDocument doc = QJsonDocument::fromJson(config.layers[row].vectorData.toUtf8());
+                if (doc.isArray()) {
+                    m_vectorCanvas->deserializeShapes(doc.array());
+                }
+            }
+        }
+    } else {
+        // Raster mode: save vector layer data
+        syncVectorLayerData();
+    }
+
+    liveryModified();
+}
+
+void LiveryEditorWidget::onVectorToolChanged(int index)
+{
+    m_vectorCanvas->setActiveTool(static_cast<VectorDesignCanvas::Tool>(index));
+}
+
+void LiveryEditorWidget::onVectorFillColor()
+{
+    QColor color = QColorDialog::getColor(m_vectorCanvas->fillColor(), this, tr("Fill Color"));
+    if (color.isValid()) {
+        m_vectorCanvas->setFillColor(color);
+        m_vectorFillColorBtn->setStyleSheet(QString("QPushButton { background: %1; color: #fff; border: 1px solid #555; padding: 4px; }").arg(color.name()));
+    }
+}
+
+void LiveryEditorWidget::onVectorStrokeColor()
+{
+    QColor color = QColorDialog::getColor(m_vectorCanvas->strokeColor(), this, tr("Stroke Color"));
+    if (color.isValid()) {
+        m_vectorCanvas->setStrokeColor(color);
+        m_vectorStrokeColorBtn->setStyleSheet(QString("QPushButton { background: %1; color: #fff; border: 1px solid #555; padding: 4px; }").arg(color.name()));
+    }
+}
+
+void LiveryEditorWidget::onVectorStrokeWidthChanged(int value)
+{
+    m_vectorStrokeWidthLabel->setText(QString("%1px").arg(value));
+    m_vectorCanvas->setStrokeWidth(value);
+}
+
+void LiveryEditorWidget::onVectorDrawFilledChanged(int state)
+{
+    m_vectorCanvas->setDrawFilled(state == Qt::Checked);
+}
+
+void LiveryEditorWidget::onVectorDeleteSelected()
+{
+    m_vectorCanvas->deleteSelected();
+}
+
+void LiveryEditorWidget::onVectorClearAll()
+{
+    m_vectorCanvas->clearAll();
+}
+
+void LiveryEditorWidget::onVectorShapesChanged()
+{
+    syncVectorLayerData();
+    liveryModified();
+}
+
+void LiveryEditorWidget::syncVectorLayerData()
+{
+    int row = m_layerList->currentRow();
+    if (row < 0) return;
+
+    auto& config = m_editor->currentConfig();
+    if (row >= config.layers.size()) return;
+
+    if (config.layers[row].type == "vector") {
+        QJsonArray shapes = m_vectorCanvas->serializeShapes();
+        QJsonDocument doc(shapes);
+        config.layers[row].vectorData = QString::fromUtf8(doc.toJson());
+    }
 }
 
 } // namespace ks

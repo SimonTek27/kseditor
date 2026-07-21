@@ -58,6 +58,7 @@
 #include <QHBoxLayout>
 #include <QDesktopServices>
 #include <QUrl>
+#include <QFile>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -119,13 +120,14 @@ void MainWindow::applyWindowFrameTheme(const QString& themeKey) {
 void MainWindow::setupRibbon() {
     m_ribbonBar = new ks::editor::RibbonBar(this);
     
-    // Setup all 6 tabs
+    // Setup all 7 tabs
     setupCarTab();
     setupTrackTab();
     setupCharacterTab();
     setupShowroomTab();
     setupSoundTab();
     setupFontTab();
+    setupPaintTab();
     
     // Add ribbon bar to central widget layout (below title bar)
     QWidget* central = centralWidget();
@@ -1052,6 +1054,96 @@ void MainWindow::setupFontTab() {
     
     fontTab->setCurrentSubTabIndex(0);
     m_ribbonBar->addTab(fontTab);
+}
+
+void MainWindow::setupPaintTab() {
+    auto* paintTab = new ks::editor::RibbonTab("PAINT", QIcon(":/icons/livery.svg"), this);
+
+    // === SUB-TAB: BRUSH ===
+    auto* brushSubTab = paintTab->addSubTab("Brush", QIcon(":/icons/livery.svg"));
+    auto* brushPanel = brushSubTab->addPanel("Tools");
+    auto* brushGroup = brushPanel->addGroup("Brush");
+    auto* brushBtn = brushGroup->addButton(QIcon(":/icons/livery.svg"), "Brush");
+    brushBtn->setShortcut(QKeySequence("B"));
+    brushBtn->setStyle(ks::editor::RibbonButton::Style::Primary);
+    auto* pencilBtn = brushGroup->addButton(QIcon(":/icons/livery.svg"), "Pencil");
+    pencilBtn->setShortcut(QKeySequence("Shift+B"));
+    auto* eraserBtn = brushGroup->addButton(QIcon(":/icons/livery.svg"), "Eraser");
+    eraserBtn->setShortcut(QKeySequence("E"));
+    auto* airbrushBtn = brushGroup->addButton(QIcon(":/icons/livery.svg"), "Airbrush");
+
+    auto* fillPanel = brushSubTab->addPanel("Fill");
+    auto* fillGroup = fillPanel->addGroup("Paint");
+    auto* fillBtn = fillGroup->addButton(QIcon(":/icons/livery.svg"), "Fill");
+    fillBtn->setShortcut(QKeySequence("Shift+G"));
+    auto* gradientBtn = fillGroup->addButton(QIcon(":/icons/livery.svg"), "Gradient");
+    gradientBtn->setShortcut(QKeySequence("G"));
+    auto* cloneBtn = fillGroup->addButton(QIcon(":/icons/livery.svg"), "Clone Stamp");
+    cloneBtn->setShortcut(QKeySequence("S"));
+
+    auto* colorPanel = brushSubTab->addPanel("Colors");
+    auto* colorGroup = colorPanel->addGroup("Swatch");
+    auto* fgColorBtn = colorGroup->addButton(QIcon(":/icons/livery.svg"), "FG Color");
+    auto* bgColorBtn = colorGroup->addButton(QIcon(":/icons/livery.svg"), "BG Color");
+    auto* swapColorsBtn = colorGroup->addButton(QIcon(":/icons/livery.svg"), "Swap");
+    swapColorsBtn->setShortcut(QKeySequence("X"));
+    auto* defaultColorsBtn = colorGroup->addButton(QIcon(":/icons/livery.svg"), "Default");
+    defaultColorsBtn->setShortcut(QKeySequence("D"));
+
+    // === SUB-TAB: SELECT ===
+    auto* selectSubTab = paintTab->addSubTab("Select", QIcon(":/icons/livery.svg"));
+    auto* marqueePanel = selectSubTab->addPanel("Marquee");
+    auto* marqueeGroup = marqueePanel->addGroup("Shape");
+    auto* rectSelectBtn = marqueeGroup->addButton(QIcon(":/icons/livery.svg"), "Rect Sel");
+    rectSelectBtn->setShortcut(QKeySequence("M"));
+    auto* ellipseSelectBtn = marqueeGroup->addButton(QIcon(":/icons/livery.svg"), "Ellipse Sel");
+    ellipseSelectBtn->setShortcut(QKeySequence("Shift+M"));
+    auto* lassoBtn = marqueeGroup->addButton(QIcon(":/icons/livery.svg"), "Lasso");
+    lassoBtn->setShortcut(QKeySequence("L"));
+    auto* magicWandBtn = marqueeGroup->addButton(QIcon(":/icons/livery.svg"), "Magic Wand");
+    magicWandBtn->setShortcut(QKeySequence("W"));
+
+    auto* modPanel = selectSubTab->addPanel("Modify");
+    auto* modGroup = modPanel->addGroup("Actions");
+    auto* deselectBtn = modGroup->addButton(QIcon(":/icons/livery.svg"), "Deselect");
+    deselectBtn->setShortcut(QKeySequence("Ctrl+D"));
+    auto* invertBtn = modGroup->addButton(QIcon(":/icons/livery.svg"), "Invert");
+    invertBtn->setShortcut(QKeySequence("Ctrl+I"));
+
+    // === SUB-TAB: VIEW ===
+    auto* viewSubTab = paintTab->addSubTab("View", QIcon(":/icons/livery.svg"));
+    auto* zoomPanel = viewSubTab->addPanel("Zoom");
+    auto* zoomGroup = zoomPanel->addGroup("Navigate");
+    auto* zoomInBtn = zoomGroup->addButton(QIcon(":/icons/zoom-in.svg"), "Zoom In");
+    zoomInBtn->setShortcut(QKeySequence("Ctrl++"));
+    auto* zoomOutBtn = zoomGroup->addButton(QIcon(":/icons/zoom-out.svg"), "Zoom Out");
+    zoomOutBtn->setShortcut(QKeySequence("Ctrl+-"));
+    auto* fitBtn = zoomGroup->addButton(QIcon(":/icons/livery.svg"), "Fit");
+    fitBtn->setShortcut(QKeySequence("Ctrl+0"));
+    auto* zoomToolBtn = zoomGroup->addButton(QIcon(":/icons/livery.svg"), "Zoom Tool");
+    zoomToolBtn->setShortcut(QKeySequence("Z"));
+
+    auto* viewPanel = viewSubTab->addPanel("Display");
+    auto* viewGroup = viewPanel->addGroup("Toggles");
+    auto* fullscreenBtn = viewGroup->addButton(QIcon(":/icons/livery.svg"), "Fullscreen");
+    fullscreenBtn->setShortcut(QKeySequence("F"));
+    auto* rulersBtn = viewGroup->addButton(QIcon(":/icons/livery.svg"), "Rulers");
+    rulersBtn->setShortcut(QKeySequence("Ctrl+Shift+R"));
+
+    // === SUB-TAB: LAYER ===
+    auto* layerSubTab = paintTab->addSubTab("Layer", QIcon(":/icons/layers.svg"));
+    auto* layerPanel = layerSubTab->addPanel("Ops");
+    auto* layerGroup = layerPanel->addGroup("Actions");
+    auto* newLayerBtn = layerGroup->addButton(QIcon(":/icons/layers.svg"), "New Layer");
+    newLayerBtn->setShortcut(QKeySequence("Ctrl+Shift+N"));
+    auto* dupLayerBtn = layerGroup->addButton(QIcon(":/icons/layers.svg"), "Duplicate");
+    dupLayerBtn->setShortcut(QKeySequence("Ctrl+J"));
+    auto* mergeLayerBtn = layerGroup->addButton(QIcon(":/icons/layers.svg"), "Merge Down");
+    mergeLayerBtn->setShortcut(QKeySequence("Ctrl+E"));
+    auto* flattenBtn = layerGroup->addButton(QIcon(":/icons/layers.svg"), "Flatten");
+
+    paintTab->setCurrentSubTabIndex(0);
+    m_ribbonBar->addTab(paintTab);
 }
 
 // ==================== Constructor / Destructor ====================
@@ -2966,6 +3058,40 @@ bool MainWindow::setSimPath(const QString& path)
     detectCSPVersion();
 
     return true;
+}
+
+void MainWindow::setPaintMode(bool enabled)
+{
+    m_paintMode = enabled;
+    if (!enabled) return;
+
+    // Apply paint theme
+    ks::editor::RibbonThemeManager::instance().applyTheme("paint");
+    ks::editor::RibbonThemeManager::instance().applyWindowFrame(this, "paint");
+
+    // Apply paint QSS theme
+    QFile qssFile(":/ui/styles/paint.qss");
+    if (qssFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qApp->setStyleSheet(QString::fromUtf8(qssFile.readAll()));
+        qssFile.close();
+    }
+
+    // Set window title for paint mode
+    setWindowTitle(tr("LiveryEditor — PhotoGIMP Paint Mode"));
+
+    // Switch to LiveryEditor module
+    int liveryIdx = m_moduleManager->moduleIndex("Livery Editor");
+    if (liveryIdx >= 0) {
+        switchToModule(liveryIdx);
+    }
+
+    // Show ribbon paint tab (index 6 since we have 6 existing tabs)
+    if (m_ribbonBar) {
+        m_ribbonBar->applyTheme("paint");
+        m_ribbonBar->setCurrentIndex(6);
+    }
+
+    LOG_INFO("MainWindow", "Paint mode activated (PhotoGIMP-inspired)");
 }
 
 void MainWindow::setCSPVersion(const QString& version)

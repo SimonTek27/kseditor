@@ -10,6 +10,7 @@
 #include <QVector>
 #include <QMap>
 #include "../editor/EditorModule.h"
+#include "../editor/ModuleGuiBase.h"
 
 namespace ks {
 
@@ -194,7 +195,7 @@ private:
     QVariantList getComponentList();
 };
 
-class FormatToolsModule : public EditorModule {
+class FormatToolsModule : public ModuleGuiBase {
     Q_OBJECT
 public:
     explicit FormatToolsModule(QWidget* parent = nullptr);
@@ -208,6 +209,55 @@ public:
 
     void importFile(const QString& filePath) override;
     void exportFile(const QString& filePath) override;
+
+protected:
+    void buildUI() override;
+
+private slots:
+    void onImportAiLine();
+    void onExportAiLine();
+    void onImportCsv();
+    void onExportCsv();
+    void onImportCameraIni();
+    void onExportCameraIni();
+    void onImportOverlayIni();
+    void onExportOverlayIni();
+    void onGenerateNames();
+
+private:
+    QTabWidget* m_tabWidget = nullptr;
+
+    // AI Line tab
+    QLineEdit* m_aiLinePathEdit = nullptr;
+    QDoubleSpinBox* m_aiScalingSpin = nullptr;
+    QPushButton* m_importAiBtn = nullptr;
+    QPushButton* m_exportAiBtn = nullptr;
+    QTextEdit* m_aiLineOutput = nullptr;
+
+    // CSV tab
+    QLineEdit* m_csvPathEdit = nullptr;
+    QDoubleSpinBox* m_csvScalingSpin = nullptr;
+    QPushButton* m_importCsvBtn = nullptr;
+    QPushButton* m_exportCsvBtn = nullptr;
+    QTextEdit* m_csvOutput = nullptr;
+
+    // Camera/Overlay tab
+    QLineEdit* m_camPathEdit = nullptr;
+    QPushButton* m_importCamBtn = nullptr;
+    QPushButton* m_exportCamBtn = nullptr;
+    QTextEdit* m_camOutput = nullptr;
+    QLineEdit* m_overlayPathEdit = nullptr;
+    QPushButton* m_importOverlayBtn = nullptr;
+    QPushButton* m_exportOverlayBtn = nullptr;
+    QTextEdit* m_overlayOutput = nullptr;
+
+    // Naming tab
+    QLineEdit* m_modderEdit = nullptr;
+    QSpinBox* m_yearSpin = nullptr;
+    QLineEdit* m_manufacturerEdit = nullptr;
+    QLineEdit* m_carNameEdit = nullptr;
+    QPushButton* m_generateNamesBtn = nullptr;
+    QTextEdit* m_namingOutput = nullptr;
 };
 
 }

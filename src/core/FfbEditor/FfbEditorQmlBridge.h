@@ -6,6 +6,7 @@
 #include <QVariantMap>
 #include <QVariantList>
 #include "../editor/EditorModule.h"
+#include "../editor/ModuleGuiBase.h"
 #include "FfbConfigTool.h"
 
 namespace ks {
@@ -96,7 +97,7 @@ private:
     bool m_hasUnsavedChanges = false;
 };
 
-class FfbEditorModule : public EditorModule {
+class FfbEditorModule : public ModuleGuiBase {
     Q_OBJECT
 public:
     explicit FfbEditorModule(QWidget* parent = nullptr);
@@ -113,6 +114,66 @@ public:
 
     QJsonObject serializeProject() const override;
     void deserializeProject(const QJsonObject& data) override;
+
+protected:
+    void buildUI() override;
+
+private slots:
+    void onGainChanged(int v);
+    void onFilterChanged(int v);
+    void onMinForceChanged(int v);
+    void onKerbEffectChanged(int v);
+    void onRoadEffectChanged(int v);
+    void onSlipEffectChanged(int v);
+    void onAbsEffectChanged(int v);
+    void onUndersteerChanged(int v);
+    void onCenterBoostGainChanged(int v);
+    void onCenterBoostRangeChanged(int v);
+    void onGyroToggled(bool on);
+    void onGyroStrengthChanged(int v);
+    void onApplyPreset(const QString& preset);
+    void onLoadFromFile();
+    void onSaveToFile();
+    void onResetDefaults();
+
+private:
+    void syncFromBridge();
+    void syncToBridge();
+
+    QTabWidget* m_tabWidget = nullptr;
+
+    // Settings tab
+    QSlider* m_gainSlider = nullptr;
+    QLabel* m_gainLabel = nullptr;
+    QSlider* m_filterSlider = nullptr;
+    QLabel* m_filterLabel = nullptr;
+    QSlider* m_minForceSlider = nullptr;
+    QLabel* m_minForceLabel = nullptr;
+    QSlider* m_kerbSlider = nullptr;
+    QLabel* m_kerbLabel = nullptr;
+    QSlider* m_roadSlider = nullptr;
+    QLabel* m_roadLabel = nullptr;
+    QSlider* m_slipSlider = nullptr;
+    QLabel* m_slipLabel = nullptr;
+    QSlider* m_absSlider = nullptr;
+    QLabel* m_absLabel = nullptr;
+    QSlider* m_understeerSlider = nullptr;
+    QLabel* m_understeerLabel = nullptr;
+    QSlider* m_cenGainSlider = nullptr;
+    QLabel* m_cenGainLabel = nullptr;
+    QSlider* m_cenRangeSlider = nullptr;
+    QLabel* m_cenRangeLabel = nullptr;
+    QCheckBox* m_gyroCheck = nullptr;
+    QSlider* m_gyroSlider = nullptr;
+    QLabel* m_gyroLabel = nullptr;
+
+    // Presets tab
+    QListWidget* m_presetList = nullptr;
+    QPushButton* m_applyPresetBtn = nullptr;
+    QPushButton* m_loadBtn = nullptr;
+    QPushButton* m_saveBtn = nullptr;
+    QPushButton* m_resetBtn = nullptr;
+    QTextEdit* m_statusLog = nullptr;
 };
 
 } // namespace ks

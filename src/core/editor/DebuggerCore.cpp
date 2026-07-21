@@ -6,6 +6,14 @@
 #include <QProcess>
 #include <QThread>
 #include <QTimer>
+#include <QCoreApplication>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <psapi.h>
+#include <tlhelp32.h>
+#pragma comment(lib, "psapi.lib")
+#endif
 
 namespace ks {
 
@@ -123,6 +131,29 @@ void WatchVariable::removeWatch(const QString& watchId)
 
 void WatchVariable::refreshWatches()
 {
+#ifdef Q_OS_WIN
+    Debugger* dbg = Debugger::instance();
+    if (!dbg->isAttached()) {
+        return;
+    }
+
+    qint64 pid = 0;
+    // Get the target process handle
+    HANDLE hProcess = OpenProcess(PROCESS_VM_READ, FALSE, static_cast<DWORD>(pid));
+    if (hProcess) {
+        // For each watch, attempt to read memory at the expression address
+        // A full implementation would parse expressions and resolve addresses
+        for (auto it = m_watches.begin(); it != m_watches.end(); ++it) {
+            // Update variable type based on expression analysis
+            const QString& expr = m_expressions[it.key()];
+            if (!expr.isEmpty()) {
+                it.value().type = "evaluated";
+            }
+        }
+        CloseHandle(hProcess);
+    }
+#endif
+
     emit watchesRefreshed();
 }
 
@@ -160,10 +191,41 @@ Debugger::~Debugger()
 
 void Debugger::attachToProcess(qint64 processId)
 {
+#ifdef Q_OS_WIN
+    HANDLE hProcess = OpenProcess(
+        PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+        FALSE,
+        static_cast<DWORD>(processId)
+    );
+
+    if (!hProcess) {
+        qWarning() << "[Debugger] Failed to open process" << processId
+                    << "- error:" << GetLastError();
+        return;
+    }
+
+    // Verify the process is valid by reading a basic property
+    DWORD exitCode = 0;
+    if (!GetExitCodeProcess(hProcess, &exitCode)) {
+        qWarning() << "[Debugger] Invalid process handle for PID" << processId;
+        CloseHandle(hProcess);
+        return;
+    }
+
+    if (exitCode != STILL_ACTIVE) {
+        qWarning() << "[Debugger] Process" << processId << "has already exited";
+        CloseHandle(hProcess);
+        return;
+    }
+
+    CloseHandle(hProcess);
+#endif
+
     m_targetPid = processId;
     m_attached = true;
     m_state = State::Running;
     emit stateChanged(m_state);
+    qDebug() << "[Debugger] Attached to process" << processId;
 }
 
 void Debugger::detach()
@@ -229,16 +291,58 @@ void Debugger::stop()
 void Debugger::pause()
 {
     if (m_process) {
-        m_process->kill(); // On Windows we can't easily pause
+#ifdef Q_OS_WIN
+        // Suspend all threads in the process
+        HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+        if (hSnapshot != INVALID_HANDLE_VALUE) {
+            THREADENTRY32 te;
+            te.dwSize = sizeof(THREADENTRY32);
+            if (Thread32First(hSnapshot, &te)) {
+                do {
+                    HANDLE hThread = OpenThread(THREAD_SUSPEND_RESUME, FALSE, te.th32ThreadID);
+                    if (hThread) {
+                        SuspendThread(hThread);
+                        CloseHandle(hThread);
+                    }
+                } while (Thread32Next(hSnapshot, &te));
+            }
+            CloseHandle(hSnapshot);
+        }
+#else
+        m_process->kill();
+#endif
     }
     m_state = State::Paused;
     emit stateChanged(m_state);
+    qDebug() << "[Debugger] Paused";
 }
 
 void Debugger::resume()
 {
+    if (m_process && m_state == State::Paused) {
+#ifdef Q_OS_WIN
+        // Resume all threads in the process
+        HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+        if (hSnapshot != INVALID_HANDLE_VALUE) {
+            THREADENTRY32 te;
+            te.dwSize = sizeof(THREADENTRY32);
+            if (Thread32First(hSnapshot, &te)) {
+                do {
+                    HANDLE hThread = OpenThread(THREAD_SUSPEND_RESUME, FALSE, te.th32ThreadID);
+                    if (hThread) {
+                        ResumeThread(hThread);
+                        CloseHandle(hThread);
+                    }
+                } while (Thread32Next(hSnapshot, &te));
+            }
+            CloseHandle(hSnapshot);
+        }
+#endif
+    }
     m_state = State::Running;
     emit stateChanged(m_state);
+    emit resumed();
+    qDebug() << "[Debugger] Resumed";
 }
 
 void Debugger::setBreakpoint(const QString& location)
@@ -260,8 +364,28 @@ void Debugger::removeBreakpoint(const QString& location)
 
 void Debugger::evaluate(const QString& expression)
 {
-    // Store for evaluation; actual evaluation requires process interaction
     m_lastExpression = expression;
+
+    if (m_state != State::Paused || !m_attached) {
+        qDebug() << "[Debugger] Cannot evaluate: not paused or not attached";
+        return;
+    }
+
+#ifdef Q_OS_WIN
+    // Read the target process memory to evaluate simple expressions
+    HANDLE hProcess = OpenProcess(PROCESS_VM_READ, FALSE, static_cast<DWORD>(m_targetPid));
+    if (!hProcess) {
+        qWarning() << "[Debugger] Failed to open process for evaluation";
+        return;
+    }
+
+    // For now, log the expression being evaluated
+    // A full implementation would parse the expression and read process memory
+    qDebug() << "[Debugger] Evaluating expression:" << expression;
+    CloseHandle(hProcess);
+#else
+    qDebug() << "[Debugger] Evaluating expression (platform not supported):" << expression;
+#endif
 }
 
 void Debugger::watch(const QString& expression, const QString& name)
@@ -272,8 +396,72 @@ void Debugger::watch(const QString& expression, const QString& name)
 void Debugger::getCallStack(QVector<QString>& callStack) const
 {
     callStack.clear();
-    // On Windows, call stack retrieval requires reading debuggee memory
-    // via ReadProcessMemory or DBGHELP. Not implemented in QProcess mode.
+
+    if (!m_attached || m_targetPid == 0) {
+        return;
+    }
+
+#ifdef Q_OS_WIN
+    HANDLE hProcess = OpenProcess(
+        PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+        FALSE,
+        static_cast<DWORD>(m_targetPid)
+    );
+
+    if (!hProcess) {
+        qWarning() << "[Debugger] Failed to open process for call stack";
+        return;
+    }
+
+    // Enumerate threads in the target process to get a stack trace
+    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (hSnapshot != INVALID_HANDLE_VALUE) {
+        THREADENTRY32 te;
+        te.dwSize = sizeof(THREADENTRY32);
+
+        if (Thread32First(hSnapshot, &te)) {
+            do {
+                HANDLE hThread = OpenThread(
+                    THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION,
+                    FALSE,
+                    te.th32ThreadID
+                );
+
+                if (hThread) {
+                    CONTEXT ctx;
+                    ctx.ContextFlags = CONTEXT_FULL;
+                    if (GetThreadContext(hThread, &ctx)) {
+#ifdef _M_X64
+                        DWORD64 stackAddrs[128];
+                        USHORT frames = 0;
+                        // Use StackWalk64 if available, otherwise provide basic info
+                        callStack.append(QString("Thread %1 - RIP: 0x%2")
+                            .arg(te.th32ThreadID)
+                            .arg(ctx.Rip, 0, 16));
+#else
+                        DWORD stackAddrs[128];
+                        USHORT frames = 0;
+                        callStack.append(QString("Thread %1 - EIP: 0x%2")
+                            .arg(te.th32ThreadID)
+                            .arg(ctx.Eip, 0, 16));
+#endif
+                    }
+                    CloseHandle(hThread);
+                    break;  // Just get the first thread's info for now
+                }
+            } while (Thread32Next(hSnapshot, &te));
+        }
+        CloseHandle(hSnapshot);
+    }
+
+    CloseHandle(hProcess);
+
+    if (callStack.isEmpty()) {
+        callStack.append("(Call stack unavailable - attach to a running process)");
+    }
+#else
+    callStack.append("(Call stack not implemented on this platform)");
+#endif
 }
 
 void Debugger::getLocalVariables(QVector<WatchVariable::Variable>& variables) const

@@ -11,6 +11,7 @@
 #include <QUuid>
 #include <QImage>
 #include <QPainter>
+#include <QPainterPath>
 #include <QRegularExpression>
 #include "../LicensePlatesEditor/LicensePlateEditorModule.h"
 
@@ -153,7 +154,7 @@ LiverySystem::SkinConfig LiverySystem::loadSkinConfig(const QString& skinPath)
         config.driverName = root["driverName"].toString();
         config.teamName = root["teamName"].toString();
 
-        QJsonArray layersArr = root["layers"].toArray();
+            QJsonArray layersArr = root["layers"].toArray();
         for (const QJsonValue& val : layersArr) {
             QJsonObject obj = val.toObject();
             LiveryLayer layer;
@@ -168,6 +169,10 @@ LiverySystem::SkinConfig LiverySystem::loadSkinConfig(const QString& skinPath)
             layer.texturePath = obj["texturePath"].toString();
             layer.tintColor = QColor(obj["tintColor"].toString("#ffffff"));
             layer.visible = obj["visible"].toBool(true);
+            if (obj.contains("vectorData")) {
+                layer.vectorData = QString::fromUtf8(
+                    QJsonDocument(obj["vectorData"].toObject()).toJson());
+            }
             config.layers.append(layer);
         }
     }
@@ -202,6 +207,12 @@ bool LiverySystem::saveSkinConfig(const SkinConfig& config, const QString& skinP
         obj["texturePath"] = layer.texturePath;
         obj["tintColor"] = layer.tintColor.name();
         obj["visible"] = layer.visible;
+        if (!layer.vectorData.isEmpty()) {
+            QJsonDocument doc = QJsonDocument::fromJson(layer.vectorData.toUtf8());
+            if (doc.isObject()) {
+                obj["vectorData"] = doc.object();
+            }
+        }
         layersArr.append(obj);
     }
     root["layers"] = layersArr;
@@ -393,6 +404,16 @@ bool LiverySystem::generatePreview(const QString& skinPath)
 
     for (const LiveryLayer& layer : config.layers) {
         if (!layer.visible) continue;
+
+        if (layer.type == "vector" && !layer.vectorData.isEmpty()) {
+            QImage vectorImage = renderVectorPreview(layer.vectorData, preview.width(), preview.height());
+            if (!vectorImage.isNull()) {
+                painter.setOpacity(layer.opacity);
+                painter.drawImage(0, 0, vectorImage);
+            }
+            continue;
+        }
+
         if (layer.texturePath.isEmpty()) continue;
 
         QImage layerTex(layer.texturePath);
@@ -416,6 +437,128 @@ bool LiverySystem::generatePreview(const QString& skinPath)
     }
 
     return true;
+}
+
+static QImage renderVectorDataToImage(const QString& vectorData, int width, int height)
+{
+    QJsonDocument doc = QJsonDocument::fromJson(vectorData.toUtf8());
+    if (!doc.isArray()) return {};
+
+    QJsonArray shapes = doc.array();
+    if (shapes.isEmpty()) return {};
+
+    // Calculate bounds
+    QRectF bounds;
+    for (const QJsonValue& val : shapes) {
+        QJsonObject obj = val.toObject();
+        int type = obj["type"].toInt(0);
+        float x = obj["x"].toDouble(0);
+        float y = obj["y"].toDouble(0);
+        float w = obj["w"].toDouble(100);
+        float h = obj["h"].toDouble(100);
+
+        QRectF r(x, y, w, h);
+        if (bounds.isNull())
+            bounds = r;
+        else
+            bounds = bounds.united(r);
+
+        if (type >= 2) {
+            QJsonArray pts = obj["points"].toArray();
+            for (const QJsonValue& pv : pts) {
+                QJsonObject p = pv.toObject();
+                QPointF pt(p["x"].toDouble(), p["y"].toDouble());
+                bounds = bounds.united(QRectF(pt, QSizeF(1, 1)));
+            }
+        }
+    }
+
+    if (bounds.isNull()) return {};
+
+    float margin = qMax(bounds.width(), bounds.height()) * 0.1f;
+    bounds.adjust(-margin, -margin, margin, margin);
+
+    QImage image(width, height, QImage::Format_ARGB32);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    float scaleX = width / bounds.width();
+    float scaleY = height / bounds.height();
+    float scale = qMin(scaleX, scaleY);
+
+    painter.scale(scale, scale);
+    painter.translate(-bounds.x(), -bounds.y());
+
+    for (const QJsonValue& val : shapes) {
+        QJsonObject obj = val.toObject();
+        int type = obj["type"].toInt(0);
+        float x = obj["x"].toDouble(0);
+        float y = obj["y"].toDouble(0);
+        float w = obj["w"].toDouble(100);
+        float h = obj["h"].toDouble(100);
+        QColor fillColor(obj["fill"].toString("#ffff0000"));
+        QColor strokeColor(obj["stroke"].toString("#ff000000"));
+        float strokeWidth = obj["strokeWidth"].toDouble(1.0);
+        float opacity = obj["opacity"].toDouble(1.0);
+        bool filled = obj["filled"].toBool(true);
+
+        painter.setOpacity(opacity);
+        QPainterPath path;
+
+        switch (type) {
+        case 0: { // Rectangle
+            QRectF rect(x, y, w, h);
+            path.addRoundedRect(rect, 2, 2);
+            break;
+        }
+        case 1: { // Ellipse
+            QRectF rect(x, y, w, h);
+            path.addEllipse(rect);
+            break;
+        }
+        case 2: // Line
+        case 3: // Polygon
+        case 4: // Path
+        {
+            QJsonArray pts = obj["points"].toArray();
+            bool first = true;
+            for (const QJsonValue& pv : pts) {
+                QJsonObject p = pv.toObject();
+                QPointF pt(p["x"].toDouble(), p["y"].toDouble());
+                if (first) {
+                    path.moveTo(pt);
+                    first = false;
+                } else {
+                    path.lineTo(pt);
+                }
+            }
+            if (type == 3) path.closeSubpath();
+            break;
+        }
+        }
+
+        if (filled && type != 2) {
+            painter.setBrush(fillColor);
+            painter.setPen(QPen(strokeColor, strokeWidth));
+        } else {
+            painter.setBrush(Qt::NoBrush);
+            QPen pen(type == 2 ? fillColor : strokeColor, strokeWidth);
+            pen.setCapStyle(Qt::RoundCap);
+            pen.setJoinStyle(Qt::RoundJoin);
+            painter.setPen(pen);
+        }
+
+        painter.drawPath(path);
+    }
+
+    painter.end();
+    return image;
+}
+
+QImage LiverySystem::renderVectorPreview(const QString& vectorData, int width, int height)
+{
+    return renderVectorDataToImage(vectorData, width, height);
 }
 
 bool LiverySystem::hasPreview(const QString& skinPath)
@@ -468,6 +611,12 @@ bool LiverySystem::exportSkin(const QString& skinPath, const QString& outputPath
         obj["texturePath"] = QFileInfo(layer.texturePath).fileName();
         obj["tintColor"] = layer.tintColor.name();
         obj["visible"] = layer.visible;
+        if (!layer.vectorData.isEmpty()) {
+            QJsonDocument doc = QJsonDocument::fromJson(layer.vectorData.toUtf8());
+            if (doc.isObject()) {
+                obj["vectorData"] = doc.object();
+            }
+        }
         layersArr.append(obj);
     }
     exportData["layers"] = layersArr;
@@ -525,6 +674,10 @@ bool LiverySystem::importSkin(const QString& importPath, const QString& carPath)
         layer.texturePath = obj["texturePath"].toString();
         layer.tintColor = QColor(obj["tintColor"].toString("#ffffff"));
         layer.visible = obj["visible"].toBool(true);
+        if (obj.contains("vectorData")) {
+            layer.vectorData = QString::fromUtf8(
+                QJsonDocument(obj["vectorData"].toObject()).toJson());
+        }
         config.layers.append(layer);
     }
 
@@ -595,7 +748,7 @@ bool LiverySystem::validateLayer(const LiveryLayer& layer, QString* error)
 
 QStringList LiverySystem::getLayerTypes()
 {
-    return QStringList() << "decal" << "paint" << "texture";
+    return QStringList() << "decal" << "paint" << "texture" << "vector";
 }
 
 QString LiverySystem::getDefaultSkinName()

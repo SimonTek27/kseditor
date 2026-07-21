@@ -8,6 +8,9 @@
 #include <QImage>
 #include <QList>
 #include "../../core/editor/EditorModule.h"
+#include "../../core/editor/ModuleGuiBase.h"
+
+class QTableWidget;
 
 namespace ks {
 
@@ -127,7 +130,7 @@ private:
     QImage m_lastAtlas;
 };
 
-class FontCreatorEditorModule : public EditorModule {
+class FontCreatorEditorModule : public ModuleGuiBase {
     Q_OBJECT
 public:
     explicit FontCreatorEditorModule(QWidget* parent = nullptr);
@@ -144,6 +147,63 @@ public:
 
     QJsonObject serializeProject() const override;
     void deserializeProject(const QJsonObject& data) override;
+
+protected:
+    void buildUI() override;
+
+private slots:
+    void onGenerateAtlas();
+    void onLoadPreset();
+    void onSavePreset();
+    void onExportACF();
+    void onBrowseOutput();
+    void onFontChanged(int index);
+    void onSizeChanged(int size);
+    void onAtlasWidthChanged(int w);
+    void onAtlasHeightChanged(int h);
+    void onModeChanged(int index);
+
+private:
+    void refreshFonts();
+    void updatePreview();
+
+    QTabWidget* m_tabWidget = nullptr;
+
+    // Font Selection tab
+    QComboBox* m_fontCombo = nullptr;
+    QSpinBox* m_sizeSpin = nullptr;
+    QComboBox* m_weightCombo = nullptr;
+    QCheckBox* m_italicCheck = nullptr;
+    QComboBox* m_modeCombo = nullptr;
+
+    // Atlas Settings tab
+    QSpinBox* m_atlasWidthSpin = nullptr;
+    QSpinBox* m_atlasHeightSpin = nullptr;
+    QSpinBox* m_globalHeightSpin = nullptr;
+    QSpinBox* m_globalVPadSpin = nullptr;
+    QCheckBox* m_hintingCheck = nullptr;
+    QComboBox* m_hintingLevelCombo = nullptr;
+    QCheckBox* m_gridFitCheck = nullptr;
+    QCheckBox* m_subpixelCheck = nullptr;
+    QComboBox* m_aaModeCombo = nullptr;
+    QLineEdit* m_charsetEdit = nullptr;
+
+    // Preview tab
+    QTextEdit* m_previewEdit = nullptr;
+    QLabel* m_previewLabel = nullptr;
+
+    // Export tab
+    QLineEdit* m_outputPathEdit = nullptr;
+    QPushButton* m_browseBtn = nullptr;
+    QPushButton* m_generateBtn = nullptr;
+    QPushButton* m_exportACFBtn = nullptr;
+    QPushButton* m_loadPresetBtn = nullptr;
+    QPushButton* m_savePresetBtn = nullptr;
+    QTextEdit* m_logOutput = nullptr;
+
+    // Glyph info
+    QTableWidget* m_glyphTable = nullptr;
+    QTextEdit* m_statsText = nullptr;
 };
 
 } // namespace ks

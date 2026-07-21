@@ -15,6 +15,7 @@ RibbonThemeManager::RibbonThemeManager() {
     m_themes["showroom"] = showroomTheme();
     m_themes["sound"] = soundTheme();
     m_themes["font"] = fontTheme();
+    m_themes["paint"] = paintTheme();
     m_currentTheme = "car";
     m_fallback = m_themes.value("car");
 }
@@ -152,6 +153,29 @@ RibbonTheme RibbonThemeManager::fontTheme() {
     t.primary = QColor("#e83e8c");
     t.primaryDark = QColor("#c22569");
     t.accent = QColor("#f175a8");
+    return t;
+}
+
+RibbonTheme RibbonThemeManager::paintTheme() {
+    RibbonTheme t;
+    t.name = "Livery Paint";
+    t.primary = QColor("#0066cc");
+    t.primaryDark = QColor("#0050a0");
+    t.accent = QColor("#0088ff");
+    t.background = QColor("#1a1a1c");
+    t.titleBarBg = QColor("#141416");
+    t.titleBarText = QColor("#cccccc");
+    t.panelBg = QColor("#161618");
+    t.groupLabel = QColor("#888888");
+    t.buttonHover = QColor("#222226");
+    t.buttonPressed = QColor("#0066cc");
+    t.borderColor = QColor("#26262a");
+    t.windowBorder = QColor("#202024");
+    t.statusBarBg = QColor("#141416");
+    t.statusBarText = QColor("#999999");
+    t.dockTitleBg = QColor("#161618");
+    t.dockTitleText = QColor("#aaaaaa");
+    t.centralBg = QColor("#1a1a1c");
     return t;
 }
 

@@ -79,6 +79,10 @@ public slots:
     QString cspVersion() const { return m_cspVersion; }
     void setCSPVersion(const QString& version);
 
+    // Paint mode (PhotoGIMP-inspired)
+    void setPaintMode(bool enabled);
+    bool isPaintMode() const { return m_paintMode; }
+
     // Project management
     QString currentProjectPath() const { return m_currentProjectPath; }
     bool hasOpenProject() const { return !m_currentProjectPath.isEmpty(); }
@@ -197,6 +201,7 @@ private:
     void setupShowroomTab();
     void setupSoundTab();
     void setupFontTab();
+    void setupPaintTab();
     void applyWindowFrameTheme(const QString& themeKey);
     QDockWidget* createScriptConsoleDock();
 
@@ -232,6 +237,9 @@ private:
     // Translator for i18n
     QTranslator m_appTranslator;
     QTranslator m_qtTranslator;
+
+    // Paint mode flag
+    bool m_paintMode = false;
 
     // Ribbon UI
     ks::editor::RibbonBar* m_ribbonBar = nullptr;

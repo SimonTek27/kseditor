@@ -18,6 +18,7 @@
 #include <QCursor>
 #include <QDebug>
 #include <QIcon>
+#include <QMouseEvent>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -45,6 +46,25 @@ WelcomeScreen::WelcomeScreen(QWidget* parent) : QDialog(parent, Qt::Dialog | Qt:
     setMinimumSize(600, 550);
     setupUI();
     populateRecentProjects();
+}
+
+void WelcomeScreen::mousePressEvent(QMouseEvent* event) {
+    if (event->button() == Qt::LeftButton && event->pos().y() <= 36) {
+        m_dragPos = event->globalPos() - frameGeometry().topLeft();
+    }
+    QDialog::mousePressEvent(event);
+}
+
+void WelcomeScreen::mouseMoveEvent(QMouseEvent* event) {
+    if (event->buttons() & Qt::LeftButton && !m_dragPos.isNull()) {
+        move(event->globalPos() - m_dragPos);
+    }
+    QDialog::mouseMoveEvent(event);
+}
+
+void WelcomeScreen::mouseReleaseEvent(QMouseEvent* event) {
+    m_dragPos = QPoint();
+    QDialog::mouseReleaseEvent(event);
 }
 
 void WelcomeScreen::onNewClicked() { selectedAction = New; accept(); }

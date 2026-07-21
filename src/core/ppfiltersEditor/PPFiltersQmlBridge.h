@@ -6,7 +6,10 @@
 #include <QVariantMap>
 #include <QVariantList>
 #include "../editor/EditorModule.h"
+#include "../editor/ModuleGuiBase.h"
 #include "PPFilterColorGrading.h"
+
+class QTableWidget;
 
 namespace ks {
 
@@ -78,7 +81,7 @@ private:
     QVariantMap m_currentParams;
 };
 
-class PPFiltersEditorModule : public EditorModule {
+class PPFiltersEditorModule : public ModuleGuiBase {
     Q_OBJECT
 public:
     explicit PPFiltersEditorModule(QWidget* parent = nullptr);
@@ -95,6 +98,45 @@ public:
 
     QJsonObject serializeProject() const override;
     void deserializeProject(const QJsonObject& data) override;
+
+protected:
+    void buildUI() override;
+
+private slots:
+    void onFilterSelected(QListWidgetItem* item);
+    void onLoadFilterDir();
+    void onSaveFilter();
+    void onApplyPreset(const QString& preset);
+    void onStartPreview();
+    void onStopPreview();
+    void onParamChanged();
+
+private:
+    void refreshFilterList();
+
+    QTabWidget* m_tabWidget = nullptr;
+
+    // Filter List tab
+    QListWidget* m_filterList = nullptr;
+    QPushButton* m_loadDirBtn = nullptr;
+    QLabel* m_filterInfoLabel = nullptr;
+
+    // Parameters tab
+    QTableWidget* m_paramTable = nullptr;
+    QPushButton* m_saveBtn = nullptr;
+    QListWidget* m_presetList = nullptr;
+    QPushButton* m_applyPresetBtn = nullptr;
+    QPushButton* m_previewBtn = nullptr;
+    QPushButton* m_stopPreviewBtn = nullptr;
+
+    // Color Grading tab
+    QTableWidget* m_colorGradingTable = nullptr;
+    QListWidget* m_cgPresetList = nullptr;
+    QPushButton* m_applyCgPresetBtn = nullptr;
+    QPushButton* m_exportLutBtn = nullptr;
+
+    // Status
+    QTextEdit* m_statusLog = nullptr;
 };
 
 } // namespace ks

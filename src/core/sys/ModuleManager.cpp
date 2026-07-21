@@ -5,6 +5,7 @@
 #include "../../modules/PhysicsEditor/PhysicsEditor.h"
 #include "../assets/AssetsLibraryModule.h"
 #include "../workshop/WorkshopEditorQmlBridge.h"
+#include "../workshop/WorkshopEditorModule.h"
 #include "../modmanager/ModManager.h"
 #include "../../modules/LicensePlatesEditor/LicensePlateEditorModule.h"
 #include "../modmanager/KsContentRepair.h"
@@ -39,6 +40,22 @@
 #include "../../modules/displayEditor/DisplayEditorModule.h"
 #include "../../core/ppfiltersEditor/PPFiltersQmlBridge.h"
 #include "../../core/ServerConfigEditor/ServerConfigEditorModule.h"
+#include "../../core/vcs/VcsEditorModule.h"
+#include "../../core/archive/ArchiveEditorModule.h"
+#include "../../core/animation/AnimationEditorModule.h"
+#include "../../core/3dprint/ThreeDPrintEditorModule.h"
+#include "../../core/Audio/AudioEditorModule.h"
+#include "../../core/material/MaterialEditorModule.h"
+#include "../../core/network/NetworkEditorModule.h"
+#include "../../core/mesh/MeshEditorModule.h"
+#include "../../core/Graphics/GraphicsEditorModule.h"
+#include "../../core/assets/AssetEditorModule.h"
+#include "../../core/FileFormat/FileFormatEditorModule.h"
+#include "../../core/help/HelpEditorModule.h"
+#include "../../core/modmanager/ModManagerEditorModule.h"
+#include "../../core/sys/SystemEditorModule.h"
+#include "../../core/tools/ToolsEditorModule.h"
+#include "../../core/ui/UIEditorModule.h"
 
 #include <QVBoxLayout>
 #include <QLabel>
@@ -112,6 +129,22 @@ void ModuleManager::loadModules()
     registerModule(new ks::CareerEditorModule(this));
     registerModule(new ks::ServerConfigEditorModule(this));
     registerModule(new ks::ShowroomPPEditorModule(this));
+    registerModule(new ks::VcsEditorModule(this));
+    registerModule(new ks::ArchiveEditorModule(this));
+    registerModule(new ks::AnimationEditorModule(this));
+    registerModule(new ks::printing::ThreeDPrintEditorModule(this));
+    registerModule(new ks::audio::AudioEditorModule(this));
+    registerModule(new ks::material::MaterialEditorModule(this));
+    registerModule(new ks::network::NetworkEditorModule(this));
+    registerModule(new ks::mesh::MeshEditorModule(this));
+    registerModule(new ks::graphics::GraphicsEditorModule(this));
+    registerModule(new ks::assets::AssetEditorModule(this));
+    registerModule(new ks::fileformat::FileFormatEditorModule(this));
+    registerModule(new ks::help::HelpEditorModule(this));
+    registerModule(new ks::modmanager::ModManagerEditorModule(this));
+    registerModule(new ks::sys::SystemEditorModule(this));
+    registerModule(new ks::tools::ToolsEditorModule(this));
+    registerModule(new ks::ui::UIEditorModule(this));
 
     // Sort modules by priority (higher priority first)
     std::sort(m_modules.begin(), m_modules.end(), [](ks::EditorModule* a, ks::EditorModule* b) {

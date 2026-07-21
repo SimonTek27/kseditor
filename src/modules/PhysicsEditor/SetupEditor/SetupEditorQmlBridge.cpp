@@ -1,6 +1,8 @@
 #include "SetupEditorQmlBridge.h"
 #include "CarSetupEditor.h"
 #include "../../../core/sys/LogManager.h"
+#include <QGroupBox>
+#include <QFormLayout>
 #include <cmath>
 #include <algorithm>
 #include <QFile>
@@ -618,48 +620,337 @@ QStringList SetupEditorQmlBridge::getSetupKeys() const {
 // ============================================================================
 
 SetupEditorModule::SetupEditorModule(QWidget* parent)
-    : EditorModule(parent)
-{}
+    : ModuleGuiBase(parent)
+{
+    setObjectName("SetupEditorModule");
+}
 
 bool SetupEditorModule::initialize()
 {
+    if (m_uiBuilt) return true;
+    bool ok = ModuleGuiBase::initialize();
+    syncFromBridge();
     LOG_INFO("SetupEditorModule", "Initializing Setup Editor module");
-    return true;
+    return ok;
 }
 
 void SetupEditorModule::shutdown()
 {
+    ModuleGuiBase::shutdown();
     LOG_INFO("SetupEditorModule", "Shutting down Setup Editor module");
 }
 
 void SetupEditorModule::importFile(const QString& filePath)
 {
-    m_filePath = filePath;
     if (auto* bridge = SetupEditorQmlBridge::instance()) {
         bridge->loadSetup(filePath);
+        syncFromBridge();
+        logSuccess("Loaded setup: " + filePath);
     }
 }
 
 void SetupEditorModule::exportFile(const QString& filePath)
 {
-    m_filePath = filePath;
     if (auto* bridge = SetupEditorQmlBridge::instance()) {
         bridge->saveSetup(filePath);
+        logSuccess("Saved setup: " + filePath);
     }
 }
 
 QJsonObject SetupEditorModule::serializeProject() const
 {
     QJsonObject data;
-    data["filePath"] = m_filePath;
+    auto* bridge = SetupEditorQmlBridge::instance();
+    if (bridge) {
+        data["values"] = QJsonObject::fromVariantMap(bridge->getAllValues());
+    }
     return data;
 }
 
 void SetupEditorModule::deserializeProject(const QJsonObject& data)
 {
-    m_filePath = data["filePath"].toString();
-    if (!m_filePath.isEmpty()) {
-        importFile(m_filePath);
+    if (data.contains("values")) {
+        QVariantMap vals = data["values"].toObject().toVariantMap();
+        if (auto* bridge = SetupEditorQmlBridge::instance()) {
+            for (auto it = vals.begin(); it != vals.end(); ++it) {
+                bridge->setValue(it.key(), it.value().toString());
+            }
+            syncFromBridge();
+        }
+    }
+}
+
+void SetupEditorModule::buildUI()
+{
+    m_tabWidget = new QTabWidget(this);
+    m_tabWidget->setStyleSheet(
+        "QTabWidget::pane { border: 1px solid #3a3a3a; background: #1e1e1e; }"
+        "QTabBar::tab { background: #2d2d2d; color: #aaa; padding: 8px 16px; border: 1px solid #3a3a3a; border-bottom: none; }"
+        "QTabBar::tab:selected { background: #3a5a8a; color: #fff; }"
+        "QTabBar::tab:hover { background: #4a6a9a; }"
+    );
+
+    // Tab 1: Setup Values
+    QWidget* valuesTab = new QWidget();
+    {
+        QVBoxLayout* layout = new QVBoxLayout(valuesTab);
+        layout->setContentsMargins(8, 8, 8, 8);
+        layout->setSpacing(6);
+
+        QGroupBox* suspensionGroup = new QGroupBox("Suspension");
+        QFormLayout* sform = new QFormLayout(suspensionGroup);
+
+        m_frontBumpSpin = new QSpinBox();
+        m_frontBumpSpin->setRange(0, 200);
+        connect(m_frontBumpSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &SetupEditorModule::onValueChanged);
+        sform->addRow("Front Bump:", m_frontBumpSpin);
+
+        m_rearBumpSpin = new QSpinBox();
+        m_rearBumpSpin->setRange(0, 200);
+        connect(m_rearBumpSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &SetupEditorModule::onValueChanged);
+        sform->addRow("Rear Bump:", m_rearBumpSpin);
+
+        m_frontReboundSpin = new QSpinBox();
+        m_frontReboundSpin->setRange(0, 200);
+        connect(m_frontReboundSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &SetupEditorModule::onValueChanged);
+        sform->addRow("Front Rebound:", m_frontReboundSpin);
+
+        m_rearReboundSpin = new QSpinBox();
+        m_rearReboundSpin->setRange(0, 200);
+        connect(m_rearReboundSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &SetupEditorModule::onValueChanged);
+        sform->addRow("Rear Rebound:", m_rearReboundSpin);
+
+        m_frontSpringSpin = new QSpinBox();
+        m_frontSpringSpin->setRange(0, 200);
+        connect(m_frontSpringSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &SetupEditorModule::onValueChanged);
+        sform->addRow("Front Spring Rate:", m_frontSpringSpin);
+
+        m_rearSpringSpin = new QSpinBox();
+        m_rearSpringSpin->setRange(0, 200);
+        connect(m_rearSpringSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &SetupEditorModule::onValueChanged);
+        sform->addRow("Rear Spring Rate:", m_rearSpringSpin);
+
+        m_rideHeightSpin = new QSpinBox();
+        m_rideHeightSpin->setRange(0, 200);
+        connect(m_rideHeightSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &SetupEditorModule::onValueChanged);
+        sform->addRow("Ride Height:", m_rideHeightSpin);
+
+        layout->addWidget(suspensionGroup);
+
+        QGroupBox* aeroGroup = new QGroupBox("Aero & Drivetrain");
+        QFormLayout* aform = new QFormLayout(aeroGroup);
+
+        m_frontWingSpin = new QSpinBox();
+        m_frontWingSpin->setRange(0, 200);
+        connect(m_frontWingSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &SetupEditorModule::onValueChanged);
+        aform->addRow("Front Wing:", m_frontWingSpin);
+
+        m_rearWingSpin = new QSpinBox();
+        m_rearWingSpin->setRange(0, 200);
+        connect(m_rearWingSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &SetupEditorModule::onValueChanged);
+        aform->addRow("Rear Wing:", m_rearWingSpin);
+
+        m_preloadSpin = new QSpinBox();
+        m_preloadSpin->setRange(0, 200);
+        connect(m_preloadSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &SetupEditorModule::onValueChanged);
+        aform->addRow("Preload:", m_preloadSpin);
+
+        m_brakeBiasSpin = new QSpinBox();
+        m_brakeBiasSpin->setRange(0, 100);
+        connect(m_brakeBiasSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &SetupEditorModule::onValueChanged);
+        aform->addRow("Brake Bias (%):", m_brakeBiasSpin);
+
+        m_brakePowerSpin = new QSpinBox();
+        m_brakePowerSpin->setRange(0, 200);
+        connect(m_brakePowerSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &SetupEditorModule::onValueChanged);
+        aform->addRow("Brake Power:", m_brakePowerSpin);
+
+        layout->addWidget(aeroGroup);
+
+        QHBoxLayout* btnLayout = new QHBoxLayout();
+        m_loadBtn = new QPushButton("Load Setup");
+        connect(m_loadBtn, &QPushButton::clicked, this, &SetupEditorModule::onLoadSetup);
+        btnLayout->addWidget(m_loadBtn);
+        m_saveBtn = new QPushButton("Save Setup");
+        connect(m_saveBtn, &QPushButton::clicked, this, &SetupEditorModule::onSaveSetup);
+        btnLayout->addWidget(m_saveBtn);
+        m_resetBtn = new QPushButton("Reset Defaults");
+        connect(m_resetBtn, &QPushButton::clicked, this, &SetupEditorModule::onResetDefaults);
+        btnLayout->addWidget(m_resetBtn);
+        btnLayout->addStretch();
+        layout->addLayout(btnLayout);
+
+        layout->addStretch();
+    }
+    m_tabWidget->addTab(valuesTab, "Values");
+
+    // Tab 2: Analysis
+    QWidget* analysisTab = new QWidget();
+    {
+        QVBoxLayout* layout = new QVBoxLayout(analysisTab);
+        layout->setContentsMargins(8, 8, 8, 8);
+        layout->setSpacing(8);
+
+        QGroupBox* telemetryGroup = new QGroupBox("Telemetry-Driven Setup Analysis");
+        QVBoxLayout* tl = new QVBoxLayout(telemetryGroup);
+        m_importTelemetryBtn = new QPushButton("Import Telemetry Lap");
+        connect(m_importTelemetryBtn, &QPushButton::clicked, this, &SetupEditorModule::onImportTelemetry);
+        tl->addWidget(m_importTelemetryBtn);
+        m_analyzeBtn = new QPushButton("Analyze Setup");
+        connect(m_analyzeBtn, &QPushButton::clicked, this, &SetupEditorModule::onAnalyze);
+        tl->addWidget(m_analyzeBtn);
+        m_analysisOutput = new QTextEdit();
+        m_analysisOutput->setReadOnly(true);
+        m_analysisOutput->setStyleSheet("QTextEdit { background: #0a0a0a; color: #c8c8c8; font-family: Consolas; font-size: 10px; }");
+        tl->addWidget(m_analysisOutput, 1);
+        layout->addWidget(telemetryGroup);
+
+        QGroupBox* telemetryDataGroup = new QGroupBox("Telemetry Data");
+        QVBoxLayout* tdl = new QVBoxLayout(telemetryDataGroup);
+        m_telemetryOutput = new QTextEdit();
+        m_telemetryOutput->setReadOnly(true);
+        m_telemetryOutput->setStyleSheet("QTextEdit { background: #0a0a0a; color: #c8c8c8; font-family: Consolas; font-size: 10px; }");
+        tdl->addWidget(m_telemetryOutput);
+        layout->addWidget(telemetryDataGroup);
+
+        layout->addStretch();
+    }
+    m_tabWidget->addTab(analysisTab, "Analysis");
+
+    // Tab 3: Presets
+    QWidget* presetsTab = new QWidget();
+    {
+        QVBoxLayout* layout = new QVBoxLayout(presetsTab);
+        layout->setContentsMargins(8, 8, 8, 8);
+        layout->setSpacing(8);
+
+        QGroupBox* presetGroup = new QGroupBox("Setup Presets");
+        QVBoxLayout* pl = new QVBoxLayout(presetGroup);
+        m_presetList = new QListWidget();
+        pl->addWidget(m_presetList);
+        m_applyPresetBtn = new QPushButton("Apply Preset");
+        connect(m_applyPresetBtn, &QPushButton::clicked, this, &SetupEditorModule::onApplyPreset);
+        pl->addWidget(m_applyPresetBtn);
+        layout->addWidget(presetGroup);
+
+        m_statusLog = new QTextEdit();
+        m_statusLog->setReadOnly(true);
+        m_statusLog->setMaximumHeight(150);
+        m_statusLog->setStyleSheet("QTextEdit { background: #0a0a0a; color: #c8c8c8; font-family: Consolas; font-size: 10px; }");
+        layout->addWidget(m_statusLog);
+
+        layout->addStretch();
+    }
+    m_tabWidget->addTab(presetsTab, "Presets");
+
+    m_mainLayout->insertWidget(1, m_tabWidget, 1);
+    m_uiBuilt = true;
+}
+
+void SetupEditorModule::syncFromBridge()
+{
+    auto* bridge = SetupEditorQmlBridge::instance();
+    if (!bridge) return;
+    m_frontBumpSpin->setValue(bridge->frontBump());
+    m_rearBumpSpin->setValue(bridge->rearBump());
+    m_frontReboundSpin->setValue(bridge->frontRebound());
+    m_rearReboundSpin->setValue(bridge->rearRebound());
+    m_frontSpringSpin->setValue(bridge->frontSpring());
+    m_rearSpringSpin->setValue(bridge->rearSpring());
+    m_rideHeightSpin->setValue(bridge->rideHeight());
+    m_frontWingSpin->setValue(bridge->frontWing());
+    m_rearWingSpin->setValue(bridge->rearWing());
+    m_preloadSpin->setValue(bridge->preload());
+    m_brakeBiasSpin->setValue(bridge->brakeBias());
+    m_brakePowerSpin->setValue(bridge->brakePower());
+}
+
+void SetupEditorModule::syncToBridge()
+{
+    auto* bridge = SetupEditorQmlBridge::instance();
+    if (!bridge) return;
+    bridge->setFrontBump(m_frontBumpSpin->value());
+    bridge->setRearBump(m_rearBumpSpin->value());
+    bridge->setFrontRebound(m_frontReboundSpin->value());
+    bridge->setRearRebound(m_rearReboundSpin->value());
+    bridge->setFrontSpring(m_frontSpringSpin->value());
+    bridge->setRearSpring(m_rearSpringSpin->value());
+    bridge->setRideHeight(m_rideHeightSpin->value());
+    bridge->setFrontWing(m_frontWingSpin->value());
+    bridge->setRearWing(m_rearWingSpin->value());
+    bridge->setPreload(m_preloadSpin->value());
+    bridge->setBrakeBias(m_brakeBiasSpin->value());
+    bridge->setBrakePower(m_brakePowerSpin->value());
+}
+
+void SetupEditorModule::onLoadSetup()
+{
+    QString path = selectFile("Load Car Setup", "INI Files (*.ini);;All Files (*)");
+    if (path.isEmpty()) return;
+    if (auto* bridge = SetupEditorQmlBridge::instance()) {
+        bridge->loadSetup(path);
+        syncFromBridge();
+        logSuccess("Setup loaded: " + path);
+    }
+}
+
+void SetupEditorModule::onSaveSetup()
+{
+    syncToBridge();
+    QString path = QFileDialog::getSaveFileName(this, "Save Car Setup", QString(), "INI Files (*.ini);;All Files (*)");
+    if (path.isEmpty()) return;
+    if (auto* bridge = SetupEditorQmlBridge::instance()) {
+        bridge->saveSetup(path);
+        logSuccess("Setup saved: " + path);
+    }
+}
+
+void SetupEditorModule::onResetDefaults()
+{
+    if (auto* bridge = SetupEditorQmlBridge::instance()) {
+        bridge->resetToDefault();
+        syncFromBridge();
+        log("Setup reset to defaults");
+    }
+}
+
+void SetupEditorModule::onApplyPreset()
+{
+    auto items = m_presetList->selectedItems();
+    if (items.isEmpty()) return;
+    if (auto* bridge = SetupEditorQmlBridge::instance()) {
+        bridge->applyPreset(items[0]->text());
+        syncFromBridge();
+        m_statusLog->append("Applied preset: " + items[0]->text());
+        logSuccess("Setup preset applied");
+    }
+}
+
+void SetupEditorModule::onValueChanged()
+{
+    syncToBridge();
+}
+
+void SetupEditorModule::onAnalyze()
+{
+    if (auto* bridge = SetupEditorQmlBridge::instance()) {
+        bridge->analyzeSetup();
+        m_analysisOutput->clear();
+        m_analysisOutput->append("Setup analysis complete.");
+        log("Setup analysis performed");
+    }
+}
+
+void SetupEditorModule::onImportTelemetry()
+{
+    QString path = selectFile("Import Telemetry Data", "JSON (*.json);;All Files (*)");
+    if (path.isEmpty()) return;
+    if (auto* bridge = SetupEditorQmlBridge::instance()) {
+        QVariantMap analysis = bridge->importTelemetryLap(QVariantMap());
+        bridge->autoOptimizeSetup();
+        syncFromBridge();
+        m_telemetryOutput->append("Imported telemetry: " + path);
+        logSuccess("Telemetry imported and setup optimized");
     }
 }
 

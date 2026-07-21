@@ -1,5 +1,7 @@
 #include "FormatToolsQmlBridge.h"
 #include "../sys/LogManager.h"
+#include <QGroupBox>
+#include <QFormLayout>
 #include <QFile>
 #include <QFileInfo>
 #include <QDir>
@@ -2194,18 +2196,24 @@ QStringList FormatToolsQmlBridge::flattenTree(const QVariantMap& tree, const QSt
 // ============================================================================
 
 namespace ks {
+
 FormatToolsModule::FormatToolsModule(QWidget* parent)
-    : EditorModule(parent)
-{}
+    : ModuleGuiBase(parent)
+{
+    setObjectName("FormatToolsModule");
+}
 
 bool FormatToolsModule::initialize()
 {
+    if (m_uiBuilt) return true;
+    bool ok = ModuleGuiBase::initialize();
     LOG_INFO("FormatToolsModule", "Initializing Format Tools module");
-    return true;
+    return ok;
 }
 
 void FormatToolsModule::shutdown()
 {
+    ModuleGuiBase::shutdown();
     LOG_INFO("FormatToolsModule", "Shutting down Format Tools module");
 }
 
@@ -2226,4 +2234,289 @@ void FormatToolsModule::exportFile(const QString& filePath)
         emit FormatToolsQmlBridge::instance()->exportComplete(filePath);
     }
 }
+
+void FormatToolsModule::buildUI()
+{
+    m_tabWidget = new QTabWidget(this);
+    m_tabWidget->setStyleSheet(
+        "QTabWidget::pane { border: 1px solid #3a3a3a; background: #1e1e1e; }"
+        "QTabBar::tab { background: #2d2d2d; color: #aaa; padding: 8px 16px; border: 1px solid #3a3a3a; border-bottom: none; }"
+        "QTabBar::tab:selected { background: #3a5a8a; color: #fff; }"
+        "QTabBar::tab:hover { background: #4a6a9a; }"
+    );
+
+    // Tab 1: AI Line
+    QWidget* aiTab = new QWidget();
+    {
+        QVBoxLayout* layout = new QVBoxLayout(aiTab);
+        layout->setContentsMargins(8, 8, 8, 8);
+        layout->setSpacing(8);
+
+        QGroupBox* importGroup = new QGroupBox("AI Line Import");
+        QFormLayout* iform = new QFormLayout(importGroup);
+        m_aiLinePathEdit = new QLineEdit();
+        m_aiLinePathEdit->setPlaceholderText("Path to AI line file (.ai)");
+        iform->addRow("File:", m_aiLinePathEdit);
+        m_aiScalingSpin = new QDoubleSpinBox();
+        m_aiScalingSpin->setRange(0.01, 100.0);
+        m_aiScalingSpin->setValue(1.0);
+        m_aiScalingSpin->setDecimals(3);
+        iform->addRow("Scaling:", m_aiScalingSpin);
+        QHBoxLayout* aiBtnLayout = new QHBoxLayout();
+        m_importAiBtn = new QPushButton("Import AI Line");
+        connect(m_importAiBtn, &QPushButton::clicked, this, &FormatToolsModule::onImportAiLine);
+        aiBtnLayout->addWidget(m_importAiBtn);
+        m_exportAiBtn = new QPushButton("Export AI Line");
+        connect(m_exportAiBtn, &QPushButton::clicked, this, &FormatToolsModule::onExportAiLine);
+        aiBtnLayout->addWidget(m_exportAiBtn);
+        iform->addRow(aiBtnLayout);
+        layout->addWidget(importGroup);
+
+        m_aiLineOutput = new QTextEdit();
+        m_aiLineOutput->setReadOnly(true);
+        m_aiLineOutput->setStyleSheet("QTextEdit { background: #0a0a0a; color: #c8c8c8; font-family: Consolas; font-size: 10px; }");
+        layout->addWidget(m_aiLineOutput, 1);
+    }
+    m_tabWidget->addTab(aiTab, "AI Line");
+
+    // Tab 2: CSV
+    QWidget* csvTab = new QWidget();
+    {
+        QVBoxLayout* layout = new QVBoxLayout(csvTab);
+        layout->setContentsMargins(8, 8, 8, 8);
+        layout->setSpacing(8);
+
+        QGroupBox* csvGroup = new QGroupBox("CSV Border Tools");
+        QFormLayout* cform = new QFormLayout(csvGroup);
+        m_csvPathEdit = new QLineEdit();
+        m_csvPathEdit->setPlaceholderText("Path to CSV file");
+        cform->addRow("File:", m_csvPathEdit);
+        m_csvScalingSpin = new QDoubleSpinBox();
+        m_csvScalingSpin->setRange(0.001, 100.0);
+        m_csvScalingSpin->setValue(0.01);
+        m_csvScalingSpin->setDecimals(4);
+        cform->addRow("Scaling:", m_csvScalingSpin);
+        QHBoxLayout* csvBtnLayout = new QHBoxLayout();
+        m_importCsvBtn = new QPushButton("Import CSV");
+        connect(m_importCsvBtn, &QPushButton::clicked, this, &FormatToolsModule::onImportCsv);
+        csvBtnLayout->addWidget(m_importCsvBtn);
+        m_exportCsvBtn = new QPushButton("Export CSV");
+        connect(m_exportCsvBtn, &QPushButton::clicked, this, &FormatToolsModule::onExportCsv);
+        csvBtnLayout->addWidget(m_exportCsvBtn);
+        cform->addRow(csvBtnLayout);
+        layout->addWidget(csvGroup);
+
+        m_csvOutput = new QTextEdit();
+        m_csvOutput->setReadOnly(true);
+        m_csvOutput->setStyleSheet("QTextEdit { background: #0a0a0a; color: #c8c8c8; font-family: Consolas; font-size: 10px; }");
+        layout->addWidget(m_csvOutput, 1);
+    }
+    m_tabWidget->addTab(csvTab, "CSV");
+
+    // Tab 3: Camera & Overlay
+    QWidget* camTab = new QWidget();
+    {
+        QVBoxLayout* layout = new QVBoxLayout(camTab);
+        layout->setContentsMargins(8, 8, 8, 8);
+        layout->setSpacing(8);
+
+        QGroupBox* camGroup = new QGroupBox("Camera.ini Tools");
+        QVBoxLayout* cl = new QVBoxLayout(camGroup);
+        m_camPathEdit = new QLineEdit();
+        m_camPathEdit->setPlaceholderText("Path to camera.ini");
+        cl->addWidget(m_camPathEdit);
+        QHBoxLayout* camBtnLayout = new QHBoxLayout();
+        m_importCamBtn = new QPushButton("Import Camera.ini");
+        connect(m_importCamBtn, &QPushButton::clicked, this, &FormatToolsModule::onImportCameraIni);
+        camBtnLayout->addWidget(m_importCamBtn);
+        m_exportCamBtn = new QPushButton("Export Camera.ini");
+        connect(m_exportCamBtn, &QPushButton::clicked, this, &FormatToolsModule::onExportCameraIni);
+        camBtnLayout->addWidget(m_exportCamBtn);
+        cl->addLayout(camBtnLayout);
+        m_camOutput = new QTextEdit();
+        m_camOutput->setReadOnly(true);
+        m_camOutput->setMaximumHeight(100);
+        m_camOutput->setStyleSheet("QTextEdit { background: #0a0a0a; color: #c8c8c8; font-family: Consolas; font-size: 10px; }");
+        cl->addWidget(m_camOutput);
+        layout->addWidget(camGroup);
+
+        QGroupBox* overlayGroup = new QGroupBox("Overlay.ini Tools");
+        QVBoxLayout* ol = new QVBoxLayout(overlayGroup);
+        m_overlayPathEdit = new QLineEdit();
+        m_overlayPathEdit->setPlaceholderText("Path to overlay.ini");
+        ol->addWidget(m_overlayPathEdit);
+        QHBoxLayout* overlayBtnLayout = new QHBoxLayout();
+        m_importOverlayBtn = new QPushButton("Import Overlay.ini");
+        connect(m_importOverlayBtn, &QPushButton::clicked, this, &FormatToolsModule::onImportOverlayIni);
+        overlayBtnLayout->addWidget(m_importOverlayBtn);
+        m_exportOverlayBtn = new QPushButton("Export Overlay.ini");
+        connect(m_exportOverlayBtn, &QPushButton::clicked, this, &FormatToolsModule::onExportOverlayIni);
+        overlayBtnLayout->addWidget(m_exportOverlayBtn);
+        ol->addLayout(overlayBtnLayout);
+        m_overlayOutput = new QTextEdit();
+        m_overlayOutput->setReadOnly(true);
+        m_overlayOutput->setMaximumHeight(100);
+        m_overlayOutput->setStyleSheet("QTextEdit { background: #0a0a0a; color: #c8c8c8; font-family: Consolas; font-size: 10px; }");
+        ol->addWidget(m_overlayOutput);
+        layout->addWidget(overlayGroup);
+
+        layout->addStretch();
+    }
+    m_tabWidget->addTab(camTab, "Camera/Overlay");
+
+    // Tab 4: Naming Conventions
+    QWidget* namingTab = new QWidget();
+    {
+        QVBoxLayout* layout = new QVBoxLayout(namingTab);
+        layout->setContentsMargins(8, 8, 8, 8);
+        layout->setSpacing(8);
+
+        QGroupBox* namingGroup = new QGroupBox("Naming Convention Generator");
+        QFormLayout* nform = new QFormLayout(namingGroup);
+        m_modderEdit = new QLineEdit();
+        m_modderEdit->setPlaceholderText("Modder name");
+        nform->addRow("Modder:", m_modderEdit);
+        m_yearSpin = new QSpinBox();
+        m_yearSpin->setRange(1900, 2100);
+        m_yearSpin->setValue(2024);
+        nform->addRow("Year:", m_yearSpin);
+        m_manufacturerEdit = new QLineEdit();
+        m_manufacturerEdit->setPlaceholderText("Manufacturer");
+        nform->addRow("Manufacturer:", m_manufacturerEdit);
+        m_carNameEdit = new QLineEdit();
+        m_carNameEdit->setPlaceholderText("Car name");
+        nform->addRow("Car Name:", m_carNameEdit);
+        m_generateNamesBtn = new QPushButton("Generate Names");
+        connect(m_generateNamesBtn, &QPushButton::clicked, this, &FormatToolsModule::onGenerateNames);
+        nform->addRow(m_generateNamesBtn);
+        layout->addWidget(namingGroup);
+
+        m_namingOutput = new QTextEdit();
+        m_namingOutput->setReadOnly(true);
+        m_namingOutput->setStyleSheet("QTextEdit { background: #0a0a0a; color: #c8c8c8; font-family: Consolas; font-size: 10px; }");
+        layout->addWidget(m_namingOutput, 1);
+    }
+    m_tabWidget->addTab(namingTab, "Naming");
+
+    m_mainLayout->insertWidget(1, m_tabWidget, 1);
+    m_uiBuilt = true;
+}
+
+void FormatToolsModule::onImportAiLine()
+{
+    QString path = m_aiLinePathEdit->text();
+    if (path.isEmpty())
+        path = selectFile("Select AI Line File", "AI Line (*.ai);;All Files (*)");
+    if (path.isEmpty()) return;
+    m_aiLinePathEdit->setText(path);
+
+    auto* bridge = FormatToolsQmlBridge::instance();
+    QVariantMap result = bridge->importAiLine(path, (float)m_aiScalingSpin->value());
+    m_aiLineOutput->append(QString("Imported: %1 (%2 points)")
+        .arg(path).arg(result.value("pointCount", 0).toInt()));
+    log("AI Line imported: " + path);
+}
+
+void FormatToolsModule::onExportAiLine()
+{
+    QString path = QFileDialog::getSaveFileName(this, "Export AI Line File", QString(), "AI Line (*.ai);;All Files (*)");
+    if (path.isEmpty()) return;
+
+    auto* bridge = FormatToolsQmlBridge::instance();
+    bool ok = bridge->exportAiLine(path, QVariantList(), (float)m_aiScalingSpin->value());
+    if (ok) {
+        m_aiLineOutput->append("Exported: " + path);
+        logSuccess("AI Line exported: " + path);
+    }
+}
+
+void FormatToolsModule::onImportCsv()
+{
+    QString path = selectFile("Select CSV File", "CSV (*.csv);;All Files (*)");
+    if (path.isEmpty()) return;
+    m_csvPathEdit->setText(path);
+
+    auto* bridge = FormatToolsQmlBridge::instance();
+    QVariantList result = bridge->importCsv(path, (float)m_csvScalingSpin->value());
+    m_csvOutput->append(QString("Imported CSV: %1 (%2 rows)").arg(path).arg(result.size()));
+    log(QString("CSV imported: %1 rows").arg(result.size()));
+}
+
+void FormatToolsModule::onExportCsv()
+{
+    QString path = QFileDialog::getSaveFileName(this, "Export CSV File", QString(), "CSV (*.csv);;All Files (*)");
+    if (path.isEmpty()) return;
+
+    auto* bridge = FormatToolsQmlBridge::instance();
+    bridge->exportCsv(path, QVariantList(), (float)m_csvScalingSpin->value());
+    m_csvOutput->append("Exported: " + path);
+    logSuccess("CSV exported: " + path);
+}
+
+void FormatToolsModule::onImportCameraIni()
+{
+    QString path = selectFile("Select camera.ini", "INI Files (*.ini);;All Files (*)");
+    if (path.isEmpty()) return;
+    m_camPathEdit->setText(path);
+
+    auto* bridge = FormatToolsQmlBridge::instance();
+    QVariantList cams = bridge->importCameraIni(path);
+    m_camOutput->append(QString("Imported %1 cameras from %2").arg(cams.size()).arg(path));
+    log(QString("Camera.ini imported: %1 cameras").arg(cams.size()));
+}
+
+void FormatToolsModule::onExportCameraIni()
+{
+    QString path = QFileDialog::getSaveFileName(this, "Export camera.ini", QString(), "INI Files (*.ini);;All Files (*)");
+    if (path.isEmpty()) return;
+
+    auto* bridge = FormatToolsQmlBridge::instance();
+    bridge->exportCameraIni(path, QVariantList());
+    m_camOutput->append("Exported: " + path);
+    logSuccess("Camera.ini exported: " + path);
+}
+
+void FormatToolsModule::onImportOverlayIni()
+{
+    QString path = selectFile("Select overlay.ini", "INI Files (*.ini);;All Files (*)");
+    if (path.isEmpty()) return;
+    m_overlayPathEdit->setText(path);
+
+    auto* bridge = FormatToolsQmlBridge::instance();
+    QVariantList overlays = bridge->importOverlayIni(path);
+    m_overlayOutput->append(QString("Imported %1 overlays from %2").arg(overlays.size()).arg(path));
+    log(QString("Overlay.ini imported: %1 overlays").arg(overlays.size()));
+}
+
+void FormatToolsModule::onExportOverlayIni()
+{
+    QString path = QFileDialog::getSaveFileName(this, "Export overlay.ini", QString(), "INI Files (*.ini);;All Files (*)");
+    if (path.isEmpty()) return;
+
+    auto* bridge = FormatToolsQmlBridge::instance();
+    bridge->exportOverlayIni(path, QVariantList());
+    m_overlayOutput->append("Exported: " + path);
+    logSuccess("Overlay.ini exported: " + path);
+}
+
+void FormatToolsModule::onGenerateNames()
+{
+    auto* bridge = FormatToolsQmlBridge::instance();
+    QString carName = bridge->generateCarName(
+        m_modderEdit->text(),
+        m_yearSpin->value(),
+        m_manufacturerEdit->text(),
+        m_carNameEdit->text()
+    );
+    QString prefix = bridge->generatePrefix(m_manufacturerEdit->text());
+    m_namingOutput->clear();
+    m_namingOutput->append("Generated Car Name: " + carName);
+    m_namingOutput->append("Manufacturer Prefix: " + prefix);
+    m_namingOutput->append("");
+    QVariantMap tree = bridge->getComponentTree();
+    QVariantList components = bridge->generateComponentNames(carName, m_manufacturerEdit->text());
+    m_namingOutput->append(QString("Component Count: %1").arg(components.size()));
+    logSuccess("Names generated for: " + carName);
+}
+
 } // namespace ks

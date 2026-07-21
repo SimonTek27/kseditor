@@ -207,12 +207,19 @@ static int appMain(int argc, char *argv[])
             fe.exec();
             return 0;
         }
+        if (cmd == "-paint" || cmd == "--paint") {
+            MainWindow window(QString());
+            window.setPaintMode(true);
+            window.show();
+            return app.exec();
+        }
         if (cmd == "-h" || cmd == "--help") {
             QMessageBox::information(nullptr, "ksEditor Help",
                 "ksEditor 1.0.0 - Assetto Corsa Modding Suite\n\n"
                 "Usage: kseditor.exe [options]\n\n"
                 "Options:\n"
                 "  -font, --font    Open font editor directly\n"
+                "  -paint, --paint  Open LiveryEditor in PhotoGIMP paint mode\n"
                 "  -nohw, --nohw    Disable hardware acceleration\n"
                 "  -h, --help       Show this help message\n"
                 "  <file.ksproj>    Open a project file");
@@ -259,19 +266,27 @@ static int appMain(int argc, char *argv[])
     try {
         if (welcome.selectedAction == WelcomeScreen::New) {
             NewProjectDialog newDlg;
-            if (newDlg.exec() == QDialog::Accepted && !newDlg.projectPath.isEmpty()) {
-                projectPath = newDlg.projectPath;
+            if (newDlg.exec() != QDialog::Accepted || newDlg.projectPath.isEmpty()) {
+                qDebug() << "New Project dialog cancelled, exiting";
+                return 0;
             }
+            projectPath = newDlg.projectPath;
         } else if (welcome.selectedAction == WelcomeScreen::NewBlank) {
             // Start with blank project - MainWindow will show with empty project
         } else if (welcome.selectedAction == WelcomeScreen::Open) {
             projectPath = QFileDialog::getExistingDirectory(nullptr,
                 "Open Project Folder",
                 QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation));
-        } else if (welcome.selectedAction == WelcomeScreen::Recent) {
-            if (!welcome.recentPath.isEmpty() && QDir(welcome.recentPath).exists()) {
-                projectPath = welcome.recentPath;
+            if (projectPath.isEmpty()) {
+                qDebug() << "Open dialog cancelled, exiting";
+                return 0;
             }
+        } else if (welcome.selectedAction == WelcomeScreen::Recent) {
+            if (welcome.recentPath.isEmpty() || !QDir(welcome.recentPath).exists()) {
+                qDebug() << "Recent project path invalid, exiting";
+                return 0;
+            }
+            projectPath = welcome.recentPath;
         } else if (welcome.selectedAction == WelcomeScreen::Help) {
             // Show help - for now just start with empty project
         }
@@ -300,15 +315,17 @@ static int appMain(int argc, char *argv[])
     }
 }
 
+static int sehSafeMain(int argc, char *argv[])
+{
+    return appMain(argc, argv);
+}
+
 int main(int argc, char *argv[])
 {
 #ifdef _WIN32
     __try {
-        return appMain(argc, argv);
+        return sehSafeMain(argc, argv);
     } __except(1) {
-        QMessageBox::critical(nullptr, "Fatal Error",
-            "A system error (access violation) occurred.\n\n"
-            "The application encountered a critical error and must close.");
         return 1;
     }
 #else

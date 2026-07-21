@@ -1249,7 +1249,21 @@ int CurveEditorWidget::hitTestPoint(const QPointF& pos) const
     return -1;
 }
 
-int CurveEditorWidget::hitTestTangent(const QPointF&) const { return -1; }
+int CurveEditorWidget::hitTestTangent(const QPointF& pos) const {
+    float threshold = 8.0f;
+    for (int i = 0; i < m_points.size(); ++i) {
+        const auto& pt = m_points[i];
+        if (!pt.autoTangents) {
+            QPointF inPos = dataToWidget(pt.x + pt.inTangentX, pt.y + pt.inTangentY);
+            if (std::hypot(pos.x() - inPos.x(), pos.y() - inPos.y()) < threshold)
+                return i * 2;
+            QPointF outPos = dataToWidget(pt.x + pt.outTangentX, pt.y + pt.outTangentY);
+            if (std::hypot(pos.x() - outPos.x(), pos.y() - outPos.y()) < threshold)
+                return i * 2 + 1;
+        }
+    }
+    return -1;
+}
 
 void CurveEditorWidget::addPoint(float x, float y)
 {

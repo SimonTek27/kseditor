@@ -21,8 +21,8 @@ public:
     explicit RigGenerator(QObject* parent = nullptr) : QObject(parent) {}
     virtual ~RigGenerator() = default;
 
-    virtual void generateRig(QJsonObject& config) {}
-    virtual bool validateRig(const QJsonObject& config) const { return true; }
+    virtual void generateRig(QJsonObject& config);
+    virtual bool validateRig(const QJsonObject& config) const;
 
     bool generateTireRigFromParams(const QJsonObject& params);
     bool generateEngineRigFromParams(const QJsonObject& params);

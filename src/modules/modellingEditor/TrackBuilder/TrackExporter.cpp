@@ -11,6 +11,9 @@
 #include <QRegularExpression>
 #include <cmath>
 #include <QImage>
+#include <QPainter>
+#include <QPen>
+#include <QPainterPath>
 #include <cstring>
 #include <limits>
 
@@ -202,6 +205,26 @@ bool TrackExporter::exportTerrain(const TrackProject& p, const QString& dir)
     if (m_terrain) {
         QImage himg=m_terrain->toHeightmapImage(512);
         himg.save(dir+"/models/heightmap.png");
+
+        // Generate normal map from heightmap for terrain texturing
+        QImage nmap(512, 512, QImage::Format_RGB32);
+        nmap.fill(QColor(128, 128, 255));  // Default flat normal (0,0,1)
+        const int gw = m_terrain->gridW();
+        const int gh = m_terrain->gridH();
+        const float dxW = m_terrain->worldW() / (gw - 1);
+        const float dzW = m_terrain->worldH() / (gh - 1);
+        for (int y = 1; y < 511; ++y) {
+            for (int x = 1; x < 511; ++x) {
+                float wx = float(x) / 510.0f * m_terrain->worldW() - m_terrain->worldW() * 0.5f;
+                float wz = float(y) / 510.0f * m_terrain->worldH() - m_terrain->worldH() * 0.5f;
+                QVector3D n = m_terrain->normalAtWorld(wx, wz);
+                int r = qBound(0, int((n.x() * 0.5f + 0.5f) * 255), 255);
+                int g = qBound(0, int((n.y() * 0.5f + 0.5f) * 255), 255);
+                int b = qBound(0, int((n.z() * 0.5f + 0.5f) * 255), 255);
+                nmap.setPixelColor(x, y, QColor(r, g, b));
+            }
+        }
+        nmap.save(dir+"/models/normalmap.png");
     }
     return true;
 }
@@ -507,9 +530,75 @@ bool TrackExporter::exportUIJson(const TrackProject& p, const QString& dir)
 
     writeFile(uiDir+"/ui_track.json",QJsonDocument(ui).toJson());
 
-    // Placeholder outline image
-    QImage preview(512,320,QImage::Format_RGB32);
+    // Track outline preview image
+    const int imgW = 512, imgH = 320;
+    QImage preview(imgW, imgH, QImage::Format_RGB32);
     preview.fill(QColor("#1a1a2e"));
+
+    if (!p.roads.isEmpty()) {
+        // Calculate bounding box of all road points
+        float minX = 1e9f, minZ = 1e9f, maxX = -1e9f, maxZ = -1e9f;
+        for (const auto& road : p.roads) {
+            for (const auto& sp : road.points) {
+                minX = qMin(minX, sp.position.x());
+                minZ = qMin(minZ, sp.position.z());
+                maxX = qMax(maxX, sp.position.x());
+                maxZ = qMax(maxZ, sp.position.z());
+            }
+        }
+
+        if (maxX > minX && maxZ > minZ) {
+            const float margin = 30.0f;
+            float scaleX = (imgW - 2 * margin) / (maxX - minX);
+            float scaleZ = (imgH - 2 * margin) / (maxZ - minZ);
+            float scale = qMin(scaleX, scaleZ);
+
+            QPainter painter(&preview);
+            painter.setRenderHint(QPainter::Antialiasing);
+
+            // Draw track outline
+            painter.setPen(QPen(QColor("#4fc3f7"), 3));
+            for (const auto& road : p.roads) {
+                if (road.points.size() < 2) continue;
+                QPainterPath path;
+                for (int i = 0; i < road.points.size(); ++i) {
+                    float px = margin + (road.points[i].position.x() - minX) * scale;
+                    float py = imgH - margin - (road.points[i].position.z() - minZ) * scale;
+                    if (i == 0) path.moveTo(px, py);
+                    else path.lineTo(px, py);
+                }
+                painter.drawPath(path);
+            }
+
+            // Draw start positions
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(QColor("#00ff88"));
+            for (const auto& sp : p.startPositions) {
+                float px = margin + (sp.position.x() - minX) * scale;
+                float py = imgH - margin - (sp.position.z() - minZ) * scale;
+                painter.drawEllipse(QPointF(px, py), 5, 5);
+            }
+
+            // Draw pit boxes
+            painter.setBrush(QColor("#ff8800"));
+            for (const auto& pit : p.pitPositions) {
+                float px = margin + (pit.position.x() - minX) * scale;
+                float py = imgH - margin - (pit.position.z() - minZ) * scale;
+                painter.drawRect(QRectF(px - 4, py - 4, 8, 8));
+            }
+
+            // Draw timing sectors
+            painter.setPen(QPen(QColor("#ffcc00"), 2));
+            for (const auto& sec : p.timingSectors) {
+                float px = margin + (sec.position.x() - minX) * scale;
+                float py = imgH - margin - (sec.position.z() - minZ) * scale;
+                painter.drawLine(QPointF(px - 10, py), QPointF(px + 10, py));
+            }
+
+            painter.end();
+        }
+    }
+
     preview.save(uiDir+"/preview.png");
     preview.save(uiDir+"/outline.png");
 

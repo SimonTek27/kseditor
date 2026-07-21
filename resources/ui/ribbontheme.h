@@ -66,6 +66,7 @@ namespace ks {
             static RibbonTheme showroomTheme();
             static RibbonTheme soundTheme();
             static RibbonTheme fontTheme();
+            static RibbonTheme paintTheme();
 
         private:
             RibbonThemeManager();

@@ -11,7 +11,7 @@ namespace ks {
 
 RaceConfigEditorModule::RaceConfigEditorModule(QWidget* parent) : EditorModule(parent) {}
 bool RaceConfigEditorModule::initialize() { LOG_INFO("RaceConfigEditorModule", "Initialized"); return true; }
-void RaceConfigEditorModule::shutdown() {}
+void RaceConfigEditorModule::shutdown() { LOG_INFO("RaceConfigEditorModule", "Shutdown"); }
 
 QDockWidget* RaceConfigEditorModule::getOrCreateDockWidget(QMainWindow* mainWindow)
 {

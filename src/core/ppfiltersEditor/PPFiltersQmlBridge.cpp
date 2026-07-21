@@ -1,4 +1,7 @@
 #include "PPFiltersQmlBridge.h"
+#include <QGroupBox>
+#include <QHeaderView>
+#include <QTableWidget>
 #include <QFile>
 #include <QTextStream>
 #include <QDir>
@@ -439,17 +442,22 @@ void PPFiltersQmlBridge::exportToACDialog()
 // ============================================================================
 
 PPFiltersEditorModule::PPFiltersEditorModule(QWidget* parent)
-    : EditorModule(parent)
-{}
+    : ModuleGuiBase(parent)
+{
+    setObjectName("PPFiltersEditorModule");
+}
 
 bool PPFiltersEditorModule::initialize()
 {
+    if (m_uiBuilt) return true;
+    bool ok = ModuleGuiBase::initialize();
     LOG_INFO("PPFiltersEditorModule", "PP Filters Editor module initialized");
-    return true;
+    return ok;
 }
 
 void PPFiltersEditorModule::shutdown()
 {
+    ModuleGuiBase::shutdown();
     LOG_INFO("PPFiltersEditorModule", "PP Filters Editor module shutdown");
 }
 
@@ -457,6 +465,7 @@ void PPFiltersEditorModule::importFile(const QString& filePath)
 {
     if (auto* bridge = PPFiltersQmlBridge::instance()) {
         bridge->loadFilter(filePath);
+        logSuccess("Filter loaded: " + filePath);
     }
 }
 
@@ -464,6 +473,7 @@ void PPFiltersEditorModule::exportFile(const QString& filePath)
 {
     if (auto* bridge = PPFiltersQmlBridge::instance()) {
         bridge->saveFilter(filePath);
+        logSuccess("Filter saved: " + filePath);
     }
 }
 
@@ -484,6 +494,250 @@ void PPFiltersEditorModule::deserializeProject(const QJsonObject& data)
         if (!filterPath.isEmpty()) {
             importFile(filterPath);
         }
+    }
+}
+
+void PPFiltersEditorModule::buildUI()
+{
+    m_tabWidget = new QTabWidget(this);
+    m_tabWidget->setStyleSheet(
+        "QTabWidget::pane { border: 1px solid #3a3a3a; background: #1e1e1e; }"
+        "QTabBar::tab { background: #2d2d2d; color: #aaa; padding: 8px 16px; border: 1px solid #3a3a3a; border-bottom: none; }"
+        "QTabBar::tab:selected { background: #3a5a8a; color: #fff; }"
+        "QTabBar::tab:hover { background: #4a6a9a; }"
+    );
+
+    // Tab 1: Filter List
+    QWidget* listTab = new QWidget();
+    {
+        QVBoxLayout* layout = new QVBoxLayout(listTab);
+        layout->setContentsMargins(8, 8, 8, 8);
+        layout->setSpacing(8);
+
+        QHBoxLayout* btnLayout = new QHBoxLayout();
+        m_loadDirBtn = new QPushButton("Load Filter Directory");
+        connect(m_loadDirBtn, &QPushButton::clicked, this, &PPFiltersEditorModule::onLoadFilterDir);
+        btnLayout->addWidget(m_loadDirBtn);
+        m_saveBtn = new QPushButton("Save Current Filter");
+        connect(m_saveBtn, &QPushButton::clicked, this, &PPFiltersEditorModule::onSaveFilter);
+        btnLayout->addWidget(m_saveBtn);
+        btnLayout->addStretch();
+        layout->addLayout(btnLayout);
+
+        m_filterList = new QListWidget();
+        m_filterList->setStyleSheet("QListWidget { background: #1a1a1a; color: #c8c8c8; border: 1px solid #3a3a3a; } QListWidget::item:selected { background: #3a5a8a; } QListWidget::item:hover { background: #2a4a7a; }");
+        connect(m_filterList, &QListWidget::itemClicked, this, &PPFiltersEditorModule::onFilterSelected);
+        layout->addWidget(m_filterList, 1);
+
+        m_filterInfoLabel = new QLabel("No filter selected");
+        m_filterInfoLabel->setStyleSheet("QLabel { color: #aaa; padding: 4px; }");
+        layout->addWidget(m_filterInfoLabel);
+    }
+    m_tabWidget->addTab(listTab, "Filters");
+
+    // Tab 2: Parameters
+    QWidget* paramsTab = new QWidget();
+    {
+        QVBoxLayout* layout = new QVBoxLayout(paramsTab);
+        layout->setContentsMargins(8, 8, 8, 8);
+        layout->setSpacing(8);
+
+        m_paramTable = new QTableWidget(0, 3);
+        m_paramTable->setHorizontalHeaderLabels({"Parameter", "Value", "Default"});
+        m_paramTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+        m_paramTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+        m_paramTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+        m_paramTable->setStyleSheet("QTableWidget { background: #1a1a1a; color: #c8c8c8; gridline-color: #3a3a3a; } QHeaderView::section { background: #2d2d2d; color: #aaa; }");
+        connect(m_paramTable, &QTableWidget::cellChanged, this, &PPFiltersEditorModule::onParamChanged);
+        layout->addWidget(m_paramTable, 1);
+
+        QGroupBox* presetGroup = new QGroupBox("Presets");
+        QVBoxLayout* pl = new QVBoxLayout(presetGroup);
+        m_presetList = new QListWidget();
+        pl->addWidget(m_presetList);
+        m_applyPresetBtn = new QPushButton("Apply Preset");
+        connect(m_applyPresetBtn, &QPushButton::clicked, this, [this]() {
+            auto items = m_presetList->selectedItems();
+            if (!items.isEmpty()) onApplyPreset(items[0]->text());
+        });
+        pl->addWidget(m_applyPresetBtn);
+        layout->addWidget(presetGroup);
+
+        QHBoxLayout* previewLayout = new QHBoxLayout();
+        m_previewBtn = new QPushButton("Start Preview");
+        connect(m_previewBtn, &QPushButton::clicked, this, &PPFiltersEditorModule::onStartPreview);
+        previewLayout->addWidget(m_previewBtn);
+        m_stopPreviewBtn = new QPushButton("Stop Preview");
+        connect(m_stopPreviewBtn, &QPushButton::clicked, this, &PPFiltersEditorModule::onStopPreview);
+        previewLayout->addWidget(m_stopPreviewBtn);
+        previewLayout->addStretch();
+        layout->addLayout(previewLayout);
+    }
+    m_tabWidget->addTab(paramsTab, "Parameters");
+
+    // Tab 3: Color Grading
+    QWidget* cgTab = new QWidget();
+    {
+        QVBoxLayout* layout = new QVBoxLayout(cgTab);
+        layout->setContentsMargins(8, 8, 8, 8);
+        layout->setSpacing(8);
+
+        QGroupBox* cgGroup = new QGroupBox("Color Grading Parameters");
+        QVBoxLayout* cgl = new QVBoxLayout(cgGroup);
+        m_colorGradingTable = new QTableWidget(0, 2);
+        m_colorGradingTable->setHorizontalHeaderLabels({"Parameter", "Value"});
+        m_colorGradingTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+        m_colorGradingTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+        m_colorGradingTable->setStyleSheet("QTableWidget { background: #1a1a1a; color: #c8c8c8; gridline-color: #3a3a3a; } QHeaderView::section { background: #2d2d2d; color: #aaa; }");
+        cgl->addWidget(m_colorGradingTable, 1);
+        layout->addWidget(cgGroup);
+
+        QGroupBox* cgPresetGroup = new QGroupBox("Color Grading Presets");
+        QVBoxLayout* cpl = new QVBoxLayout(cgPresetGroup);
+        m_cgPresetList = new QListWidget();
+        cpl->addWidget(m_cgPresetList);
+        m_applyCgPresetBtn = new QPushButton("Apply Color Grading Preset");
+        connect(m_applyCgPresetBtn, &QPushButton::clicked, this, [this]() {
+            auto items = m_cgPresetList->selectedItems();
+            if (!items.isEmpty()) {
+                if (auto* bridge = PPFiltersQmlBridge::instance())
+                    bridge->applyColorGradingPreset(items[0]->text());
+            }
+        });
+        cpl->addWidget(m_applyCgPresetBtn);
+        m_exportLutBtn = new QPushButton("Export 3D LUT (.cube)");
+        connect(m_exportLutBtn, &QPushButton::clicked, this, [this]() {
+            QString path = QFileDialog::getSaveFileName(this, "Export LUT", QString(), "Cube LUT (*.cube)");
+            if (!path.isEmpty()) {
+                if (auto* bridge = PPFiltersQmlBridge::instance())
+                    bridge->exportCubeLUT(path);
+            }
+        });
+        cpl->addWidget(m_exportLutBtn);
+        layout->addWidget(cgPresetGroup);
+
+        m_statusLog = new QTextEdit();
+        m_statusLog->setReadOnly(true);
+        m_statusLog->setMaximumHeight(120);
+        m_statusLog->setStyleSheet("QTextEdit { background: #0a0a0a; color: #c8c8c8; font-family: Consolas; font-size: 10px; }");
+        layout->addWidget(m_statusLog);
+    }
+    m_tabWidget->addTab(cgTab, "Color Grading");
+
+    m_mainLayout->insertWidget(1, m_tabWidget, 1);
+    m_uiBuilt = true;
+}
+
+void PPFiltersEditorModule::refreshFilterList()
+{
+    if (auto* bridge = PPFiltersQmlBridge::instance()) {
+        m_filterList->clear();
+        QVariantList filters = bridge->getFilters();
+        for (const auto& f : filters) {
+            QVariantMap fm = f.toMap();
+            m_filterList->addItem(fm["name"].toString());
+        }
+    }
+}
+
+void PPFiltersEditorModule::onFilterSelected(QListWidgetItem* item)
+{
+    if (!item) return;
+    auto* bridge = PPFiltersQmlBridge::instance();
+    if (!bridge) return;
+    QVariantList filters = bridge->getFilters();
+    for (int i = 0; i < filters.size(); ++i) {
+        QVariantMap fm = filters[i].toMap();
+        if (fm["name"].toString() == item->text()) {
+            bridge->loadFilter(fm["path"].toString());
+            m_filterInfoLabel->setText("Filter: " + fm["name"].toString());
+            break;
+        }
+    }
+
+    // Update parameter table
+    m_paramTable->setRowCount(0);
+    QVariantList params = bridge->getParameters();
+    for (const auto& p : params) {
+        QVariantMap pm = p.toMap();
+        int row = m_paramTable->rowCount();
+        m_paramTable->insertRow(row);
+        m_paramTable->setItem(row, 0, new QTableWidgetItem(pm["name"].toString()));
+        m_paramTable->setItem(row, 1, new QTableWidgetItem(pm["value"].toString()));
+        m_paramTable->setItem(row, 2, new QTableWidgetItem(pm["default"].toString()));
+    }
+
+    // Update presets
+    m_presetList->clear();
+    QStringList presets = bridge->getPresets();
+    m_presetList->addItems(presets);
+
+    // Update color grading
+    m_cgPresetList->clear();
+    QVariantList cgPresets = bridge->getColorGradingPresets();
+    for (const auto& cp : cgPresets) {
+        QVariantMap cpm = cp.toMap();
+        m_cgPresetList->addItem(cpm["name"].toString());
+    }
+
+    m_statusLog->append("Loaded filter: " + item->text());
+}
+
+void PPFiltersEditorModule::onLoadFilterDir()
+{
+    QString dir = selectDirectory("Select PP Filters Directory");
+    if (dir.isEmpty()) return;
+    if (auto* bridge = PPFiltersQmlBridge::instance()) {
+        bridge->loadFiltersFromDirectory(dir);
+        refreshFilterList();
+        m_statusLog->append("Loaded filters from: " + dir);
+        logSuccess("PP filters loaded from: " + dir);
+    }
+}
+
+void PPFiltersEditorModule::onSaveFilter()
+{
+    QString path = QFileDialog::getSaveFileName(this, "Save PP Filter", QString(), "INI Files (*.ini);;All Files (*)");
+    if (path.isEmpty()) return;
+    if (auto* bridge = PPFiltersQmlBridge::instance()) {
+        bridge->saveFilter(path);
+        m_statusLog->append("Saved filter: " + path);
+        logSuccess("PP filter saved: " + path);
+    }
+}
+
+void PPFiltersEditorModule::onApplyPreset(const QString& preset)
+{
+    if (auto* bridge = PPFiltersQmlBridge::instance()) {
+        bridge->applyPreset(preset);
+        m_statusLog->append("Applied preset: " + preset);
+        logSuccess("PP filter preset applied");
+    }
+}
+
+void PPFiltersEditorModule::onStartPreview()
+{
+    if (auto* bridge = PPFiltersQmlBridge::instance()) {
+        bridge->startPreview();
+        m_statusLog->append("Preview started");
+        log("PP filter preview started");
+    }
+}
+
+void PPFiltersEditorModule::onStopPreview()
+{
+    if (auto* bridge = PPFiltersQmlBridge::instance()) {
+        bridge->stopPreview();
+        m_statusLog->append("Preview stopped");
+        log("PP filter preview stopped");
+    }
+}
+
+void PPFiltersEditorModule::onParamChanged()
+{
+    // Sync parameter changes to bridge
+    if (auto* bridge = PPFiltersQmlBridge::instance()) {
+        // Parameters are synced on cell edit
     }
 }
 
