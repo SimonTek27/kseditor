@@ -247,8 +247,13 @@ signals:
 
 private:
     QString m_serverUrl = "http://localhost:8081";
+    QString m_serverName;
+    QString m_serverAbout;
     QString m_currentTrack;
     QString m_currentCar;
+    QStringList m_currentCars;
+    int m_maxCars = 20;
+    bool m_isPublic = false;
     bool m_sessionActive = false;
     float m_timeScale = 1.0f;
     QString m_weatherCondition;

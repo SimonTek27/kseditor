@@ -13,8 +13,11 @@
 #include <QFormLayout>
 #include <QProgressBar>
 #include <QLineEdit>
+#include <QTimer>
 
 namespace ks {
+class ModManagerModule;
+
 namespace modmanager {
 
 class ModManagerEditorModule : public ModuleGuiBase {
@@ -86,6 +89,9 @@ private:
     QProgressBar* m_repairProgress = nullptr;
     QLabel* m_repairStatusLabel = nullptr;
     QTreeWidget* m_issueTree = nullptr;
+
+    ks::ModManagerModule* m_manager = nullptr;
+    QTimer* m_refreshTimer = nullptr;
 };
 
 } // namespace modmanager

@@ -258,6 +258,12 @@ private:
     QLineEdit* m_carNameEdit = nullptr;
     QPushButton* m_generateNamesBtn = nullptr;
     QTextEdit* m_namingOutput = nullptr;
+
+    // Stored imported data for re-export
+    QVariantMap m_importedAiLine;
+    QVariantList m_importedCsvData;
+    QVariantList m_importedCameras;
+    QVariantList m_importedOverlays;
 };
 
 }

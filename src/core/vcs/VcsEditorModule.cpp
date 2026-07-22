@@ -104,13 +104,25 @@ void VcsEditorModule::shutdown() {
 }
 
 void VcsEditorModule::importFile(const QString& filePath) {
-    Q_UNUSED(filePath);
-    log("Import not applicable for VCS module");
+    QFileInfo info(filePath);
+    if (info.isDir()) {
+        m_currentRepoPath = filePath;
+        m_repoPathEdit->setText(filePath);
+        refreshAll();
+        logSuccess("Loaded repository: " + filePath);
+    } else {
+        log("Import not applicable for VCS module - select a git directory");
+    }
 }
 
 void VcsEditorModule::exportFile(const QString& filePath) {
-    Q_UNUSED(filePath);
-    log("Export not applicable for VCS module");
+    if (m_currentRepoPath.isEmpty()) {
+        logError("No repository to export");
+        return;
+    }
+    log("Export: pushing to remotes...");
+    runGitCommand({"push", "--all"}, m_currentRepoPath);
+    logSuccess("Exported (pushed) repository");
 }
 
 void VcsEditorModule::buildUI() {
@@ -789,7 +801,13 @@ void VcsEditorModule::populateHistory() {
 
 // Slots
 void VcsEditorModule::onRepoPathChanged(const QString& path) {
-    Q_UNUSED(path);
+    m_currentRepoPath = path;
+    if (QDir(path).exists(".git")) {
+        refreshAll();
+        updateStatusLabel("Repository loaded", true);
+    } else {
+        updateStatusLabel("No git repository", false);
+    }
 }
 
 void VcsEditorModule::onRefreshClicked() {
@@ -835,8 +853,13 @@ void VcsEditorModule::onCloneRepoClicked() {
 }
 
 void VcsEditorModule::onBranchChanged(const QString& branch) {
-    Q_UNUSED(branch);
-    // Could update the branch info display
+    if (!branch.isEmpty()) {
+        runGitCommand({"checkout", branch}, m_currentRepoPath);
+        updateStatusLabel(QString("Switched to branch: %1").arg(branch), true);
+        populateLog();
+        if (m_gitWidget) m_gitWidget->refresh();
+        log("Switched to branch: " + branch);
+    }
 }
 
 void VcsEditorModule::onCreateBranchClicked() {
@@ -967,7 +990,11 @@ void VcsEditorModule::onLogItemClicked(QTreeWidgetItem* item, int column) {
 }
 
 void VcsEditorModule::onRemoteChanged(int index) {
-    Q_UNUSED(index);
+    if (index >= 0 && index < m_remotesList->count()) {
+        QListWidgetItem* item = m_remotesList->item(index);
+        QString text = item ? item->text() : QString();
+        log("Selected remote: " + text);
+    }
 }
 
 void VcsEditorModule::onAddRemoteClicked() {
@@ -1019,7 +1046,14 @@ void VcsEditorModule::onStashPopClicked() {
 }
 
 void VcsEditorModule::onTagClicked() {
-    Q_UNUSED(this);
+    auto* item = m_tagsList ? m_tagsList->currentItem() : nullptr;
+    if (item) {
+        QString tagName = item->text();
+        log(QString("Tag: %1").arg(tagName));
+        QString info = runGitCommand({"tag", "-l", "-n", tagName}, m_currentRepoPath);
+        if (!info.isEmpty())
+            log("Tag info: " + info.trimmed());
+    }
 }
 
 void VcsEditorModule::onCreateTagClicked() {
@@ -1051,8 +1085,18 @@ void VcsEditorModule::onShowContextMenu(const QPoint& pos) {
 }
 
 void VcsEditorModule::onFileItemClicked(QTreeWidgetItem* item, int column) {
-    Q_UNUSED(item);
-    Q_UNUSED(column);
+    if (!item) return;
+    QString filePath = item->data(0, Qt::UserRole).toString();
+    if (!filePath.isEmpty()) {
+        QString diff = runGitCommand({"diff", "--", filePath}, m_currentRepoPath);
+        if (diff.isEmpty())
+            diff = runGitCommand({"diff", "--cached", "--", filePath}, m_currentRepoPath);
+        if (!diff.isEmpty() && m_commitDetails) {
+            m_commitDetails->clear();
+            m_commitDetails->append("=== Diff: " + filePath + " ===\n");
+            m_commitDetails->append(diff);
+        }
+    }
 }
 
 void VcsEditorModule::loadSettings() {

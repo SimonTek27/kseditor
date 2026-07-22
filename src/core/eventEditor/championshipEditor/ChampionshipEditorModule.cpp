@@ -11,6 +11,7 @@
 #include <QJsonArray>
 #include <QStackedWidget>
 #include <QScrollArea>
+#include <QHeaderView>
 
 namespace ks {
 
@@ -111,6 +112,21 @@ QWidget* ChampionshipEditorModule::createChampionshipProps() {
     gl->addWidget(new QLabel(tr("Tier 3 (Gold):")), 4, 0); gl->addWidget(m_goalTier3Spin, 4, 1);
     l->addWidget(gb, r++, 0, 1, 2);
 
+    auto* ptsGb = new QGroupBox(tr("Points for Place"));
+    auto* ptsL = new QVBoxLayout(ptsGb);
+    m_pointsList = new QListWidget();
+    m_pointsValueSpin = new QSpinBox(); m_pointsValueSpin->setRange(0, 9999);
+    auto* ptsBtnL = new QHBoxLayout();
+    ptsBtnL->addWidget(new QLabel(tr("Value:")));
+    ptsBtnL->addWidget(m_pointsValueSpin);
+    m_addPointsBtn = new QPushButton(tr("Add"));
+    m_removePointsBtn = new QPushButton(tr("Remove"));
+    ptsBtnL->addWidget(m_addPointsBtn);
+    ptsBtnL->addWidget(m_removePointsBtn);
+    ptsL->addWidget(m_pointsList);
+    ptsL->addLayout(ptsBtnL);
+    l->addWidget(ptsGb, r++, 0, 1, 2);
+
     auto* champConnections = new QWidget(this);
     champConnections->setVisible(false);
     connect(m_champNameEdit, &QLineEdit::textChanged, this, &ChampionshipEditorModule::onChampionshipPropChanged);
@@ -123,6 +139,8 @@ QWidget* ChampionshipEditorModule::createChampionshipProps() {
     connect(m_goalTier1Spin, QOverload<int>::of(&QSpinBox::valueChanged), this, &ChampionshipEditorModule::onChampionshipPropChanged);
     connect(m_goalTier2Spin, QOverload<int>::of(&QSpinBox::valueChanged), this, &ChampionshipEditorModule::onChampionshipPropChanged);
     connect(m_goalTier3Spin, QOverload<int>::of(&QSpinBox::valueChanged), this, &ChampionshipEditorModule::onChampionshipPropChanged);
+    connect(m_addPointsBtn, &QPushButton::clicked, this, &ChampionshipEditorModule::onAddPoints);
+    connect(m_removePointsBtn, &QPushButton::clicked, this, &ChampionshipEditorModule::onRemovePoints);
 
     l->setRowStretch(l->rowCount(), 1);
     return w;
@@ -138,16 +156,25 @@ QWidget* ChampionshipEditorModule::createEventProps() {
     m_evTrackEdit = new QLineEdit();
     m_evConfigTrackEdit = new QLineEdit();
     m_evModelEdit = new QLineEdit();
+    m_evModelConfigEdit = new QLineEdit();
     m_evSkinEdit = new QLineEdit();
     m_evCarsSpin = new QSpinBox(); m_evCarsSpin->setRange(0, 99);
     m_evAiLevelSpin = new QSpinBox(); m_evAiLevelSpin->setRange(0, 100);
     m_evRaceLapsSpin = new QSpinBox(); m_evRaceLapsSpin->setRange(0, 999);
+    m_evPenaltiesSpin = new QSpinBox(); m_evPenaltiesSpin->setRange(0, 3);
+    m_evDriftModeCheck = new QCheckBox(tr("Drift Mode"));
+    m_evFixedSetupCheck = new QCheckBox(tr("Fixed Setup"));
     m_evSunAngleSpin = new QSpinBox(); m_evSunAngleSpin->setRange(0, 360);
+    m_evTimeMultSpin = new QDoubleSpinBox(); m_evTimeMultSpin->setRange(0.1, 24.0); m_evTimeMultSpin->setSingleStep(0.1);
+    m_evCloudSpeedSpin = new QDoubleSpinBox(); m_evCloudSpeedSpin->setRange(0.0, 10.0); m_evCloudSpeedSpin->setSingleStep(0.1);
     m_evAmbientSpin = new QSpinBox(); m_evAmbientSpin->setRange(-20, 60);
     m_evRoadSpin = new QSpinBox(); m_evRoadSpin->setRange(-20, 80);
+    m_evDynamicTrackSpin = new QSpinBox(); m_evDynamicTrackSpin->setRange(0, 10);
     m_evSessionTypeCombo = new QComboBox();
     m_evSessionTypeCombo->addItems({tr("Practice"), tr("Qualify"), tr("Race"), tr("Hotlap"), tr("Time Attack"), tr("Drift"), tr("Drag")});
     m_evSessionNameEdit = new QLineEdit();
+    m_evSpawnSetEdit = new QLineEdit(); m_evSpawnSetEdit->setPlaceholderText("START");
+    m_evStartPosSpin = new QSpinBox(); m_evStartPosSpin->setRange(0, 99);
     m_evSessionLapsSpin = new QSpinBox(); m_evSessionLapsSpin->setRange(0, 999);
     m_evDurationSpin = new QSpinBox(); m_evDurationSpin->setRange(0, 999);
 
@@ -157,24 +184,33 @@ QWidget* ChampionshipEditorModule::createEventProps() {
     l->addWidget(new QLabel(tr("Track:")), r, 0); l->addWidget(m_evTrackEdit, r++, 1);
     l->addWidget(new QLabel(tr("Config:")), r, 0); l->addWidget(m_evConfigTrackEdit, r++, 1);
     l->addWidget(new QLabel(tr("Car Model:")), r, 0); l->addWidget(m_evModelEdit, r++, 1);
+    l->addWidget(new QLabel(tr("Model Config:")), r, 0); l->addWidget(m_evModelConfigEdit, r++, 1);
     l->addWidget(new QLabel(tr("Car Skin:")), r, 0); l->addWidget(m_evSkinEdit, r++, 1);
     l->addWidget(new QLabel(tr("Opponents:")), r, 0); l->addWidget(m_evCarsSpin, r++, 1);
     l->addWidget(new QLabel(tr("AI Level:")), r, 0); l->addWidget(m_evAiLevelSpin, r++, 1);
     l->addWidget(new QLabel(tr("Race Laps:")), r, 0); l->addWidget(m_evRaceLapsSpin, r++, 1);
+    l->addWidget(m_evPenaltiesSpin, r, 0); l->addWidget(new QLabel(tr("(Penalties)")), r++, 1);
+    l->addWidget(m_evDriftModeCheck, r++, 0, 1, 2);
+    l->addWidget(m_evFixedSetupCheck, r++, 0, 1, 2);
 
     auto* envGb = new QGroupBox(tr("Environment"));
     auto* envL = new QGridLayout(envGb);
     envL->addWidget(new QLabel(tr("Sun Angle:")), 0, 0); envL->addWidget(m_evSunAngleSpin, 0, 1);
-    envL->addWidget(new QLabel(tr("Ambient \u00b0C:")), 1, 0); envL->addWidget(m_evAmbientSpin, 1, 1);
-    envL->addWidget(new QLabel(tr("Road \u00b0C:")), 2, 0); envL->addWidget(m_evRoadSpin, 2, 1);
+    envL->addWidget(new QLabel(tr("Time Mult:")), 1, 0); envL->addWidget(m_evTimeMultSpin, 1, 1);
+    envL->addWidget(new QLabel(tr("Cloud Speed:")), 2, 0); envL->addWidget(m_evCloudSpeedSpin, 2, 1);
+    envL->addWidget(new QLabel(tr("Ambient \u00b0C:")), 3, 0); envL->addWidget(m_evAmbientSpin, 3, 1);
+    envL->addWidget(new QLabel(tr("Road \u00b0C:")), 4, 0); envL->addWidget(m_evRoadSpin, 4, 1);
+    envL->addWidget(new QLabel(tr("Dynamic Track:")), 5, 0); envL->addWidget(m_evDynamicTrackSpin, 5, 1);
     l->addWidget(envGb, r++, 0, 1, 2);
 
     auto* sessGb = new QGroupBox(tr("Session"));
     auto* sessL = new QGridLayout(sessGb);
     sessL->addWidget(new QLabel(tr("Type:")), 0, 0); sessL->addWidget(m_evSessionTypeCombo, 0, 1);
     sessL->addWidget(new QLabel(tr("Name:")), 1, 0); sessL->addWidget(m_evSessionNameEdit, 1, 1);
-    sessL->addWidget(new QLabel(tr("Laps:")), 2, 0); sessL->addWidget(m_evSessionLapsSpin, 2, 1);
-    sessL->addWidget(new QLabel(tr("Duration (min):")), 3, 0); sessL->addWidget(m_evDurationSpin, 3, 1);
+    sessL->addWidget(new QLabel(tr("Spawn Set:")), 2, 0); sessL->addWidget(m_evSpawnSetEdit, 2, 1);
+    sessL->addWidget(new QLabel(tr("Start Pos:")), 3, 0); sessL->addWidget(m_evStartPosSpin, 3, 1);
+    sessL->addWidget(new QLabel(tr("Laps:")), 4, 0); sessL->addWidget(m_evSessionLapsSpin, 4, 1);
+    sessL->addWidget(new QLabel(tr("Duration (min):")), 5, 0); sessL->addWidget(m_evDurationSpin, 5, 1);
     l->addWidget(sessGb, r++, 0, 1, 2);
 
     // ── Conditions panel ──
@@ -191,6 +227,23 @@ QWidget* ChampionshipEditorModule::createEventProps() {
     condL->addLayout(condBtnL);
     l->addWidget(condGb, r++, 0, 1, 2);
 
+    // ── Opponents table ──
+    auto* oppGb = new QGroupBox(tr("Opponents"));
+    auto* oppL = new QVBoxLayout(oppGb);
+    m_opponentTable = new QTableWidget(0, 4);
+    m_opponentTable->setHorizontalHeaderLabels({tr("Name"), tr("Car"), tr("Skin"), tr("Level")});
+    m_opponentTable->horizontalHeader()->setStretchLastSection(true);
+    m_opponentTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    oppL->addWidget(m_opponentTable);
+    auto* oppBtnL = new QHBoxLayout();
+    m_addOppBtn = new QPushButton(tr("Add Opponent"));
+    m_removeOppBtn = new QPushButton(tr("Remove"));
+    oppBtnL->addWidget(m_addOppBtn);
+    oppBtnL->addWidget(m_removeOppBtn);
+    oppBtnL->addStretch();
+    oppL->addLayout(oppBtnL);
+    l->addWidget(oppGb, r++, 0, 1, 2);
+
     auto* evConnections = new QWidget(this);
     evConnections->setVisible(false);
     connect(m_evNameEdit, &QLineEdit::textChanged, this, &ChampionshipEditorModule::onEventPropChanged);
@@ -198,15 +251,24 @@ QWidget* ChampionshipEditorModule::createEventProps() {
     connect(m_evTrackEdit, &QLineEdit::textChanged, this, &ChampionshipEditorModule::onEventPropChanged);
     connect(m_evConfigTrackEdit, &QLineEdit::textChanged, this, &ChampionshipEditorModule::onEventPropChanged);
     connect(m_evModelEdit, &QLineEdit::textChanged, this, &ChampionshipEditorModule::onEventPropChanged);
+    connect(m_evModelConfigEdit, &QLineEdit::textChanged, this, &ChampionshipEditorModule::onEventPropChanged);
     connect(m_evSkinEdit, &QLineEdit::textChanged, this, &ChampionshipEditorModule::onEventPropChanged);
     connect(m_evCarsSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &ChampionshipEditorModule::onEventPropChanged);
     connect(m_evAiLevelSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &ChampionshipEditorModule::onEventPropChanged);
     connect(m_evRaceLapsSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &ChampionshipEditorModule::onEventPropChanged);
+    connect(m_evPenaltiesSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &ChampionshipEditorModule::onEventPropChanged);
+    connect(m_evDriftModeCheck, &QCheckBox::toggled, this, &ChampionshipEditorModule::onEventPropChanged);
+    connect(m_evFixedSetupCheck, &QCheckBox::toggled, this, &ChampionshipEditorModule::onEventPropChanged);
     connect(m_evSunAngleSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &ChampionshipEditorModule::onEventPropChanged);
+    connect(m_evTimeMultSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &ChampionshipEditorModule::onEventPropChanged);
+    connect(m_evCloudSpeedSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &ChampionshipEditorModule::onEventPropChanged);
     connect(m_evAmbientSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &ChampionshipEditorModule::onEventPropChanged);
     connect(m_evRoadSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &ChampionshipEditorModule::onEventPropChanged);
+    connect(m_evDynamicTrackSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &ChampionshipEditorModule::onEventPropChanged);
     connect(m_evSessionTypeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ChampionshipEditorModule::onEventPropChanged);
     connect(m_evSessionNameEdit, &QLineEdit::textChanged, this, &ChampionshipEditorModule::onEventPropChanged);
+    connect(m_evSpawnSetEdit, &QLineEdit::textChanged, this, &ChampionshipEditorModule::onEventPropChanged);
+    connect(m_evStartPosSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &ChampionshipEditorModule::onEventPropChanged);
     connect(m_evSessionLapsSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &ChampionshipEditorModule::onEventPropChanged);
     connect(m_evDurationSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &ChampionshipEditorModule::onEventPropChanged);
 
@@ -296,6 +358,10 @@ QDockWidget* ChampionshipEditorModule::getOrCreateDockWidget(QMainWindow* mainWi
     connect(m_removeEventBtn, &QPushButton::clicked, this, &ChampionshipEditorModule::onRemoveEvent);
     connect(m_addCondBtn, &QPushButton::clicked, this, &ChampionshipEditorModule::onAddCondition);
     connect(m_removeCondBtn, &QPushButton::clicked, this, &ChampionshipEditorModule::onRemoveCondition);
+    connect(m_addPointsBtn, &QPushButton::clicked, this, &ChampionshipEditorModule::onAddPoints);
+    connect(m_removePointsBtn, &QPushButton::clicked, this, &ChampionshipEditorModule::onRemovePoints);
+    connect(m_addOppBtn, &QPushButton::clicked, this, &ChampionshipEditorModule::onAddOpponent);
+    connect(m_removeOppBtn, &QPushButton::clicked, this, &ChampionshipEditorModule::onRemoveOpponent);
 
     return m_dockWidget;
 }
@@ -586,6 +652,9 @@ void ChampionshipEditorModule::populateChampionshipProps(int index) {
     m_goalTier1Spin->setValue(c.goals.tier1);
     m_goalTier2Spin->setValue(c.goals.tier2);
     m_goalTier3Spin->setValue(c.goals.tier3);
+    m_pointsList->clear();
+    for (int p : c.pointsForPlace)
+        m_pointsList->addItem(QString::number(p));
 }
 
 void ChampionshipEditorModule::populateEventProps(int champIdx, int eventIdx) {
@@ -597,15 +666,24 @@ void ChampionshipEditorModule::populateEventProps(int champIdx, int eventIdx) {
     m_evTrackEdit->setText(e.track);
     m_evConfigTrackEdit->setText(e.configTrack);
     m_evModelEdit->setText(e.model);
+    m_evModelConfigEdit->setText(e.modelConfig);
     m_evSkinEdit->setText(e.skin);
     m_evCarsSpin->setValue(e.cars);
     m_evAiLevelSpin->setValue(e.aiLevel);
     m_evRaceLapsSpin->setValue(e.raceLaps);
+    m_evPenaltiesSpin->setValue(e.penalties);
+    m_evDriftModeCheck->setChecked(e.driftMode);
+    m_evFixedSetupCheck->setChecked(e.fixedSetup);
     m_evSunAngleSpin->setValue(e.sunAngle);
+    m_evTimeMultSpin->setValue(e.timeMult);
+    m_evCloudSpeedSpin->setValue(e.cloudSpeed);
     m_evAmbientSpin->setValue(e.ambientTemp);
     m_evRoadSpin->setValue(e.roadTemp);
+    m_evDynamicTrackSpin->setValue(e.dynamicTrackPreset);
     m_evSessionTypeCombo->setCurrentIndex(qBound(0, e.sessionType - 1, 6));
     m_evSessionNameEdit->setText(e.sessionName);
+    m_evSpawnSetEdit->setText(e.spawnSet);
+    m_evStartPosSpin->setValue(e.startingPosition);
     m_evSessionLapsSpin->setValue(e.sessionLaps);
     m_evDurationSpin->setValue(e.durationMinutes);
 
@@ -614,6 +692,17 @@ void ChampionshipEditorModule::populateEventProps(int champIdx, int eventIdx) {
     for (int i = 0; i < e.conditions.size(); ++i) {
         const auto& c = e.conditions[i];
         m_condList->addItem(tr("Cond %1: %2 = %3").arg(i + 1).arg(c.type).arg(c.objective));
+    }
+
+    // Populate opponents table
+    const auto& champ = m_championships[champIdx];
+    m_opponentTable->setRowCount(champ.opponents.size());
+    for (int i = 0; i < champ.opponents.size(); ++i) {
+        const auto& op = champ.opponents[i];
+        m_opponentTable->setItem(i, 0, new QTableWidgetItem(op.name));
+        m_opponentTable->setItem(i, 1, new QTableWidgetItem(op.car));
+        m_opponentTable->setItem(i, 2, new QTableWidgetItem(op.skin));
+        m_opponentTable->setItem(i, 3, new QTableWidgetItem(QString::number(op.level)));
     }
 }
 
@@ -716,6 +805,9 @@ void ChampionshipEditorModule::onChampionshipPropChanged() {
     c.goals.tier1 = m_goalTier1Spin->value();
     c.goals.tier2 = m_goalTier2Spin->value();
     c.goals.tier3 = m_goalTier3Spin->value();
+    c.pointsForPlace.clear();
+    for (int i = 0; i < m_pointsList->count(); ++i)
+        c.pointsForPlace.append(m_pointsList->item(i)->text().toInt());
     m_championshipList->currentItem()->setText(c.name.isEmpty() ? c.dirName : c.name);
 }
 
@@ -727,15 +819,24 @@ void ChampionshipEditorModule::onEventPropChanged() {
     e.track = m_evTrackEdit->text();
     e.configTrack = m_evConfigTrackEdit->text();
     e.model = m_evModelEdit->text();
+    e.modelConfig = m_evModelConfigEdit->text();
     e.skin = m_evSkinEdit->text();
     e.cars = m_evCarsSpin->value();
     e.aiLevel = m_evAiLevelSpin->value();
     e.raceLaps = m_evRaceLapsSpin->value();
+    e.penalties = m_evPenaltiesSpin->value();
+    e.driftMode = m_evDriftModeCheck->isChecked();
+    e.fixedSetup = m_evFixedSetupCheck->isChecked();
     e.sunAngle = m_evSunAngleSpin->value();
+    e.timeMult = m_evTimeMultSpin->value();
+    e.cloudSpeed = m_evCloudSpeedSpin->value();
     e.ambientTemp = m_evAmbientSpin->value();
     e.roadTemp = m_evRoadSpin->value();
+    e.dynamicTrackPreset = m_evDynamicTrackSpin->value();
     e.sessionType = m_evSessionTypeCombo->currentIndex() + 1;
     e.sessionName = m_evSessionNameEdit->text();
+    e.spawnSet = m_evSpawnSetEdit->text();
+    e.startingPosition = m_evStartPosSpin->value();
     e.sessionLaps = m_evSessionLapsSpin->value();
     e.durationMinutes = m_evDurationSpin->value();
     m_eventList->currentItem()->setText(tr("Event %1: %2").arg(m_selectedEvent + 1).arg(e.name));
@@ -951,10 +1052,63 @@ void ChampionshipEditorModule::deserializeProject(const QJsonObject& data)
         m_championships.append(champ);
     }
 
-    loadDirToUI();
+    // Populate UI from deserialized data instead of reloading from disk
+    m_championshipList->blockSignals(true);
+    m_championshipList->clear();
+    for (const auto& c : m_championships)
+        m_championshipList->addItem(c.name.isEmpty() ? c.dirName : c.name);
+    m_championshipList->blockSignals(false);
+    m_eventList->clear();
     if (m_selectedChamp >= 0 && m_selectedChamp < m_championships.size()) {
         onChampionshipSelected(m_selectedChamp);
     }
+}
+
+void ChampionshipEditorModule::onAddPoints() {
+    if (m_selectedChamp < 0) return;
+    int val = m_pointsValueSpin->value();
+    m_pointsList->addItem(QString::number(val));
+    m_championships[m_selectedChamp].pointsForPlace.append(val);
+    m_statusLabel->setText(tr("Added points: %1").arg(val));
+}
+
+void ChampionshipEditorModule::onRemovePoints() {
+    if (m_selectedChamp < 0) return;
+    int row = m_pointsList->currentRow();
+    if (row < 0) return;
+    m_pointsList->model()->removeRow(row);
+    if (row < m_championships[m_selectedChamp].pointsForPlace.size())
+        m_championships[m_selectedChamp].pointsForPlace.removeAt(row);
+    m_statusLabel->setText(tr("Removed points entry"));
+}
+
+void ChampionshipEditorModule::onAddOpponent() {
+    if (m_selectedChamp < 0) return;
+    OpponentDriver op;
+    op.name = tr("New Driver");
+    op.car = "abarth500";
+    op.level = 100;
+    m_championships[m_selectedChamp].opponents.append(op);
+    int idx = m_championships[m_selectedChamp].opponents.size() - 1;
+    m_opponentTable->setRowCount(idx + 1);
+    m_opponentTable->setItem(idx, 0, new QTableWidgetItem(op.name));
+    m_opponentTable->setItem(idx, 1, new QTableWidgetItem(op.car));
+    m_opponentTable->setItem(idx, 2, new QTableWidgetItem(op.skin));
+    m_opponentTable->setItem(idx, 3, new QTableWidgetItem(QString::number(op.level)));
+    m_statusLabel->setText(tr("Added opponent"));
+}
+
+void ChampionshipEditorModule::onRemoveOpponent() {
+    if (m_selectedChamp < 0) return;
+    int row = m_opponentTable->currentRow();
+    if (row < 0 || row >= m_championships[m_selectedChamp].opponents.size()) return;
+    m_championships[m_selectedChamp].opponents.removeAt(row);
+    for (int i = row; i < m_opponentTable->rowCount() - 1; ++i) {
+        for (int c = 0; c < 4; ++c)
+            m_opponentTable->setItem(i, c, m_opponentTable->takeItem(i + 1, c));
+    }
+    m_opponentTable->setRowCount(m_opponentTable->rowCount() - 1);
+    m_statusLabel->setText(tr("Removed opponent"));
 }
 
 void ChampionshipEditorModule::onAddCondition() {

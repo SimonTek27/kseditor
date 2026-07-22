@@ -1,4 +1,7 @@
 #include "ModManagerEditorModule.h"
+#include "ModManager.h"
+#include "ContentRepairTool.h"
+#include "ContentBrowser.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -13,9 +16,29 @@
 #include <QStandardPaths>
 #include <QMenu>
 #include <QAction>
+#include <QSplitter>
+#include <QScrollArea>
+#include <QCheckBox>
+#include <QSpinBox>
+#include <QComboBox>
+#include <QLineEdit>
+#include <QLabel>
+#include <QProgressBar>
+#include <QTimer>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QSettings>
+#include <QApplication>
+#include <QClipboard>
+#include <QFileSystemWatcher>
+#include <QDirIterator>
+#include <QCryptographicHash>
 
 namespace ks {
 namespace modmanager {
+
+using ks::ModManagerModule;
 
 ModManagerEditorModule::ModManagerEditorModule(QWidget* parent)
     : ModuleGuiBase(parent)
@@ -43,38 +66,84 @@ ModManagerEditorModule::ModManagerEditorModule(QWidget* parent)
     , m_repairProgress(nullptr)
     , m_repairStatusLabel(nullptr)
     , m_issueTree(nullptr)
+    , m_manager(nullptr)
+    , m_refreshTimer(nullptr)
 {
     setObjectName("ModManagerEditorModule");
 }
 
 bool ModManagerEditorModule::initialize() {
     if (m_uiBuilt) return true;
+    
     ModuleGuiBase::initialize();
+    
+    // Get ModManager instance
+    m_manager = ModManagerModule::instance();
+    if (!m_manager) {
+        logError("ModManager not available");
+        return false;
+    }
+    
+    // Connect to ModManager signals
+    connect(m_manager, &ModManagerModule::modsChanged, this, &ModManagerEditorModule::populateModTree);
+    connect(m_manager, &ModManagerModule::modInstalled, this, [this](const QString& name) {
+        logSuccess(QString("Mod installed: %1").arg(name));
+        populateModTree();
+    });
+    connect(m_manager, &ModManagerModule::modUninstalled, this, [this](const QString& name) {
+        log(QString("Mod uninstalled: %1").arg(name));
+        populateModTree();
+    });
+    connect(m_manager, &ModManagerModule::updatesAvailable, this, [this](int count) {
+        logSuccess(QString("%1 updates available").arg(count));
+    });
+    connect(m_manager, &ModManagerModule::profileChanged, this, [this](const QString& name) {
+        logSuccess(QString("Profile switched to: %1").arg(name));
+        populateProfiles();
+    });
+    connect(m_manager, &ModManagerModule::batchInstallProgress, this, [this](int current, int total, const QString& modName) {
+        m_repairProgress->setVisible(true);
+        m_repairProgress->setMaximum(total);
+        m_repairProgress->setValue(current);
+        m_repairStatusLabel->setText(QString("Installing %1 (%2/%3)").arg(modName).arg(current).arg(total));
+    });
+    connect(m_manager, &ModManagerModule::batchInstallFinished, this, [this](int successCount, int failCount) {
+        m_repairProgress->setVisible(false);
+        logSuccess(QString("Batch install: %1 success, %2 failed").arg(successCount).arg(failCount));
+    });
+    connect(m_manager, &ModManagerModule::integrityCheckProgress, this, [this](int current, int total, const QString& modName) {
+        m_repairProgress->setVisible(true);
+        m_repairProgress->setMaximum(total);
+        m_repairProgress->setValue(current);
+        m_repairStatusLabel->setText(QString("Verifying %1 (%2/%3)").arg(modName).arg(current).arg(total));
+    });
+    connect(m_manager, &ModManagerModule::integrityCheckFinished, this, [this](int totalChecked, int totalCorrupted) {
+        m_repairProgress->setVisible(false);
+        logSuccess(QString("Integrity check: %1 checked, %2 corrupted").arg(totalChecked).arg(totalCorrupted));
+    });
+    connect(m_manager, &ModManagerModule::downloadProgress, this, [this](const QString& modName, int percent) {
+        m_repairProgress->setVisible(true);
+        m_repairProgress->setMaximum(100);
+        m_repairProgress->setValue(percent);
+        m_repairStatusLabel->setText(QString("Downloading %1: %2%").arg(modName).arg(percent));
+    });
+    
+    // Auto-refresh timer
+    m_refreshTimer = new QTimer(this);
+    connect(m_refreshTimer, &QTimer::timeout, this, &ModManagerEditorModule::onRefreshMods);
+    m_refreshTimer->start(30000); // Refresh every 30 seconds
+    
+    populateModTree();
+    populateProfiles();
     return true;
 }
 
 void ModManagerEditorModule::shutdown() {
+    if (m_refreshTimer) {
+        m_refreshTimer->stop();
+    }
     m_uiBuilt = false;
 }
-
-void ModManagerEditorModule::importFile(const QString& filePath) {
-    if (filePath.isEmpty()) return;
-    QFileInfo fi(filePath);
-    QString suffix = fi.suffix().toLower();
-    if (suffix == "zip" || suffix == "7z" || suffix == "rar" || suffix == "tar" || suffix == "gz") {
-        log(QString("Installing mod package: %1").arg(filePath));
-    } else {
-        logError(QString("Unsupported mod package format: %1").arg(suffix));
-    }
-}
-
-void ModManagerEditorModule::exportFile(const QString& filePath) {
-    if (filePath.isEmpty()) return;
-    log(QString("Exporting mod package to: %1").arg(filePath));
-}
-
-void ModManagerEditorModule::onActivation() {}
-void ModManagerEditorModule::onDeactivation() {}
 
 void ModManagerEditorModule::buildUI() {
     m_tabWidget = new QTabWidget();
@@ -307,7 +376,10 @@ void ModManagerEditorModule::onDeleteProfile() {
 }
 
 void ModManagerEditorModule::onProfileSelected(int index) {
-    Q_UNUSED(index);
+    if (index >= 0 && index < m_profileCombo->count()) {
+        QString profile = m_profileCombo->itemText(index);
+        log(QString("Selected profile: %1").arg(profile));
+    }
 }
 
 void ModManagerEditorModule::onVerifyContent() {

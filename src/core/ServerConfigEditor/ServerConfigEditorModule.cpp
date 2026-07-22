@@ -218,6 +218,8 @@ void ServerConfigEditorModule::onRemoveEntry()
 void ServerConfigEditorModule::onServerPropChanged()
 {
     if (m_updating) return;
+    saveConfigFromUI();
+    m_statusLabel->setText(tr("Modified"));
 }
 void ServerConfigEditorModule::loadConfigToUI()
 {
@@ -313,8 +315,35 @@ QJsonObject ServerConfigEditorModule::serializeProject() const
     data["serverPath"] = m_serverPath;
     QJsonObject cfg;
     cfg["name"] = m_config.name;
+    cfg["description"] = m_config.description;
+    cfg["password"] = m_config.password;
+    cfg["adminPassword"] = m_config.adminPassword;
+    cfg["ip"] = m_config.ip;
     cfg["port"] = m_config.port;
+    cfg["httpPort"] = m_config.httpPort;
+    cfg["maxClients"] = m_config.maxClients;
+    cfg["slotCount"] = m_config.slotCount;
+    cfg["track"] = m_config.track;
     cfg["sessionType"] = m_config.sessionType;
+    cfg["sessionDuration"] = m_config.sessionDuration;
+    cfg["lapsCount"] = m_config.lapsCount;
+    cfg["waitTime"] = m_config.waitTime;
+    cfg["weather"] = m_config.weather;
+    cfg["timeOfDay"] = m_config.timeOfDay;
+    cfg["sunAngle"] = m_config.sunAngle;
+    cfg["useRealWeather"] = m_config.useRealWeather;
+    cfg["timeMultiplier"] = m_config.timeMultiplier;
+    cfg["trackConfig"] = m_config.trackConfig;
+    cfg["gripModifier"] = m_config.gripModifier;
+    cfg["dynamicTrack"] = m_config.dynamicTrack;
+    cfg["trackConditions"] = m_config.trackConditions;
+    cfg["isLocked"] = m_config.isLocked;
+    cfg["allowAutopilot"] = m_config.allowAutopilot;
+    cfg["allowVirtualMirror"] = m_config.allowVirtualMirror;
+    cfg["maxBallast"] = m_config.maxBallast;
+    cfg["dumpInterval"] = m_config.dumpInterval;
+    cfg["enableCsp"] = m_config.enableCsp;
+    cfg["cspVersion"] = m_config.cspVersion;
     data["config"] = cfg;
     return data;
 }
@@ -324,8 +353,36 @@ void ServerConfigEditorModule::deserializeProject(const QJsonObject& data)
     m_serverPath = data["serverPath"].toString();
     QJsonObject cfg = data["config"].toObject();
     m_config.name = cfg["name"].toString();
+    m_config.description = cfg["description"].toString();
+    m_config.password = cfg["password"].toString();
+    m_config.adminPassword = cfg["adminPassword"].toString();
+    m_config.ip = cfg["ip"].toString();
     m_config.port = cfg["port"].toInt(9600);
+    m_config.httpPort = cfg["httpPort"].toInt(8080);
+    m_config.maxClients = cfg["maxClients"].toInt(20);
+    m_config.slotCount = cfg["slotCount"].toInt(30);
+    m_config.track = cfg["track"].toInt(0);
     m_config.sessionType = cfg["sessionType"].toInt(0);
+    m_config.sessionDuration = cfg["sessionDuration"].toInt(600);
+    m_config.lapsCount = cfg["lapsCount"].toInt(0);
+    m_config.waitTime = cfg["waitTime"].toInt(15);
+    m_config.weather = cfg["weather"].toString();
+    m_config.timeOfDay = (float)cfg["timeOfDay"].toDouble(12.0);
+    m_config.sunAngle = (float)cfg["sunAngle"].toDouble(0.0);
+    m_config.useRealWeather = cfg["useRealWeather"].toBool(false);
+    m_config.timeMultiplier = cfg["timeMultiplier"].toInt(1);
+    m_config.trackConfig = cfg["trackConfig"].toString();
+    m_config.gripModifier = (float)cfg["gripModifier"].toDouble(1.0);
+    m_config.dynamicTrack = cfg["dynamicTrack"].toBool(true);
+    m_config.trackConditions = cfg["trackConditions"].toInt(1);
+    m_config.isLocked = cfg["isLocked"].toBool(false);
+    m_config.allowAutopilot = cfg["allowAutopilot"].toBool(false);
+    m_config.allowVirtualMirror = cfg["allowVirtualMirror"].toBool(true);
+    m_config.maxBallast = cfg["maxBallast"].toInt(0);
+    m_config.dumpInterval = cfg["dumpInterval"].toInt(0);
+    m_config.enableCsp = cfg["enableCsp"].toBool(false);
+    m_config.cspVersion = cfg["cspVersion"].toString();
+    m_config.cspSettings.clear();
     loadConfigToUI();
 }
 

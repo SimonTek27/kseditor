@@ -193,6 +193,18 @@ void SpecialEventsEditorModule::loadDirToUI()
         e.name = sub;
         e.iniPath = dir.absoluteFilePath(sub + "/event.ini");
         e.previewPath = dir.absoluteFilePath(sub + "/preview.png");
+        QFile f(e.iniPath);
+        if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QTextStream in(&f);
+            while (!in.atEnd()) {
+                QString line = in.readLine().trimmed();
+                if (line.contains('=') && !line.startsWith('[')) {
+                    int eq = line.indexOf('=');
+                    e.settings[line.left(eq).trimmed()] = line.mid(eq + 1).trimmed();
+                }
+            }
+            f.close();
+        }
         m_events.append(e);
         m_eventList->addItem(sub);
     }

@@ -14,6 +14,7 @@
 #include <QMenu>
 #include <QAction>
 #include <QApplication>
+#include <QClipboard>
 
 namespace ks {
 namespace printing {
@@ -433,7 +434,11 @@ void ThreeDPrintEditorModule::updateSlicePreview() {
 }
 
 void ThreeDPrintEditorModule::applyProfile(const QString& name) {
-    Q_UNUSED(name);
+    int idx = m_slicePresetCombo->findText(name);
+    if (idx >= 0) {
+        m_slicePresetCombo->setCurrentIndex(idx);
+        log(QString("Applied profile: %1").arg(name));
+    }
 }
 
 void ThreeDPrintEditorModule::onOpenModel() {
@@ -501,43 +506,48 @@ void ThreeDPrintEditorModule::onSlicePresetChanged(int index) {
 }
 
 void ThreeDPrintEditorModule::onLayerHeightChanged(double value) {
-    Q_UNUSED(value);
+    log(QString("Layer height: %1 mm").arg(value, 0, 'f', 2));
+    updateSlicePreview();
 }
 
 void ThreeDPrintEditorModule::onInfillChanged(int value) {
-    Q_UNUSED(value);
+    log(QString("Infill: %1%").arg(value));
+    updateSlicePreview();
 }
 
 void ThreeDPrintEditorModule::onInfillPatternChanged(int index) {
-    Q_UNUSED(index);
+    QStringList patterns = {"Grid", "Triangles", "Zigzag", "Gyroid", "Honeycomb", "Concentric"};
+    log(QString("Infill pattern: %1").arg(patterns.value(index)));
 }
 
 void ThreeDPrintEditorModule::onSupportToggled(bool checked) {
     m_supportOverhangSpin->setEnabled(checked);
+    log(QString("Support: %1").arg(checked ? "On" : "Off"));
 }
 
 void ThreeDPrintEditorModule::onAdhesionTypeChanged(int index) {
-    Q_UNUSED(index);
+    QStringList types = {"Skirt", "Brim", "Raft", "None"};
+    log(QString("Adhesion: %1").arg(types.value(index)));
 }
 
 void ThreeDPrintEditorModule::onFilamentDiameterChanged(double value) {
-    Q_UNUSED(value);
+    log(QString("Filament diameter: %1 mm").arg(value, 0, 'f', 2));
 }
 
 void ThreeDPrintEditorModule::onNozzleTempChanged(int value) {
-    Q_UNUSED(value);
+    log(QString("Nozzle temp: %1°C").arg(value));
 }
 
 void ThreeDPrintEditorModule::onBedTempChanged(int value) {
-    Q_UNUSED(value);
+    log(QString("Bed temp: %1°C").arg(value));
 }
 
 void ThreeDPrintEditorModule::onFanSpeedChanged(int value) {
-    Q_UNUSED(value);
+    log(QString("Fan speed: %1%").arg(value));
 }
 
 void ThreeDPrintEditorModule::onPrintSpeedChanged(int value) {
-    Q_UNUSED(value);
+    log(QString("Print speed: %1 mm/s").arg(value));
 }
 
 void ThreeDPrintEditorModule::onGenerateGCode() {
@@ -667,7 +677,16 @@ void ThreeDPrintEditorModule::onHomeAll() {
 }
 
 void ThreeDPrintEditorModule::onShowGCodeContextMenu(const QPoint& pos) {
-    Q_UNUSED(pos);
+    QMenu menu(this);
+    QAction* copyAct = menu.addAction("Copy Line");
+    connect(copyAct, &QAction::triggered, this, [this]() {
+        QTextCursor cursor = m_gCodeOutput->textCursor();
+        if (cursor.hasSelection())
+            QApplication::clipboard()->setText(cursor.selectedText());
+    });
+    QAction* selectAllAct = menu.addAction("Select All");
+    connect(selectAllAct, &QAction::triggered, m_gCodeOutput, &QTextEdit::selectAll);
+    menu.exec(m_gCodeOutput->viewport()->mapToGlobal(pos));
 }
 
 } // namespace printing

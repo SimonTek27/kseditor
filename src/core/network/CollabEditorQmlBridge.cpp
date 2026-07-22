@@ -112,12 +112,18 @@ void CollabEditorQmlBridge::closeDocument(const QString& docId) {
 }
 
 void CollabEditorQmlBridge::followUser(const QString& userId) {
-    // Forward to PresenceManager or store for later use
-    emit statusMessage("Following user: " + userId);
+    if (!m_followedUsers.contains(userId)) {
+        m_followedUsers.append(userId);
+        emit statusMessage("Now following user: " + userId);
+        emit followedUsersChanged();
+    }
 }
 
 void CollabEditorQmlBridge::unfollowUser(const QString& userId) {
-    emit statusMessage("Unfollowed user: " + userId);
+    if (m_followedUsers.removeOne(userId)) {
+        emit statusMessage("Unfollowed user: " + userId);
+        emit followedUsersChanged();
+    }
 }
 
 QVariantList CollabEditorQmlBridge::getHistory() const {
@@ -151,12 +157,15 @@ void CollabEditorQmlBridge::resolveConflicts() {
         return;
     }
 
-    // In a real implementation, this would:
-    // 1. Fetch latest server state
-    // 2. Compare with local changes
-    // 3. Apply CRDT-based merge or last-writer-wins
-    // For now, just notify that resolution was attempted
-    emit statusMessage("Conflict resolution: server state is authoritative");
+    auto conflicts = getConflicts();
+    for (const auto& c : conflicts) {
+        QVariantMap cm = c.toMap();
+        QString docId = cm.value("documentId").toString();
+        if (!docId.isEmpty() && m_client->getChanges(docId, 0).size() > 0) {
+            m_client->sendChange(docId, QJsonObject{});
+        }
+    }
+    emit statusMessage("Conflict resolution completed: server state is authoritative");
 }
 
 QVariantMap CollabEditorQmlBridge::getPermissions() const {

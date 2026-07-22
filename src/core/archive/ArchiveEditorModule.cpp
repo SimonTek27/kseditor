@@ -8,6 +8,7 @@
 #include <QTreeWidgetItem>
 #include <QMessageBox>
 #include <QInputDialog>
+#include <QLabel>
 #include <cstddef>
 
 static quint32 crc32_compute(const QByteArray& data) {
@@ -164,8 +165,12 @@ void ArchiveEditorModule::importFile(const QString& filePath) {
 }
 
 void ArchiveEditorModule::exportFile(const QString& filePath) {
-    // Not applicable for archive editor
-    Q_UNUSED(filePath);
+    if (m_currentArchive.isEmpty()) {
+        logError("No archive loaded to export");
+        return;
+    }
+    log(QString("Exporting archive: %1 -> %2").arg(m_currentArchive, filePath));
+    QFile::copy(m_currentArchive, filePath);
 }
 
 void ArchiveEditorModule::buildUI() {
@@ -390,6 +395,10 @@ void ArchiveEditorModule::setupCreateTab() {
     m_fileList->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_fileList, &QListWidget::customContextMenuRequested, this, &ArchiveEditorModule::showFileListContextMenu);
     filesLayout->addWidget(m_fileList);
+    
+    m_fileCountLabel = new QLabel("Files: 0 | Total: 0 B");
+    m_fileCountLabel->setStyleSheet("color: #888; font-size: 10px; padding: 2px 4px;");
+    filesLayout->addWidget(m_fileCountLabel);
     
     layout->addWidget(filesGroup, 1);
     
@@ -906,7 +915,13 @@ void ArchiveEditorModule::addDirectoryToList(const QString& dir) {
 }
 
 void ArchiveEditorModule::updateFileListCount() {
-    // Could update a label
+    int count = m_fileList->count();
+    qint64 totalSize = 0;
+    for (int i = 0; i < count; ++i) {
+        QListWidgetItem* item = m_fileList->item(i);
+        totalSize += QFileInfo(item->data(Qt::UserRole).toString()).size();
+    }
+    m_fileCountLabel->setText(QString("Files: %1 | Total: %2").arg(count).arg(formatSize(totalSize)));
 }
 
 void ArchiveEditorModule::showFileListContextMenu(const QPoint& pos) {
@@ -1220,6 +1235,14 @@ void ArchiveEditorModule::processBatch() {
     QString msg = QString("Batch complete: %1 succeeded, %2 failed").arg(success).arg(failed);
     if (failed == 0) logSuccess(msg);
     else logError(msg);
+}
+
+QString ArchiveEditorModule::formatSize(qint64 bytes) const {
+    if (bytes < 1024) return QString("%1 B").arg(bytes);
+    if (bytes < 1024LL * 1024) return QString("%1 KB").arg(bytes / 1024.0, 0, 'f', 1);
+    if (bytes < 1024LL * 1024 * 1024) return QString("%1 MB").arg(bytes / (1024.0 * 1024.0), 0, 'f', 1);
+    if (bytes < 1024LL * 1024 * 1024 * 1024) return QString("%1 GB").arg(bytes / (1024.0 * 1024.0 * 1024.0), 0, 'f', 1);
+    return QString("%1 TB").arg(bytes / (1024.0 * 1024.0 * 1024.0 * 1024.0), 0, 'f', 1);
 }
 
 } // namespace ks

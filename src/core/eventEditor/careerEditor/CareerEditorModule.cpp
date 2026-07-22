@@ -119,7 +119,14 @@ void CareerEditorModule::loadDirToUI()
     m_series.clear(); m_seriesList->clear();
     QDir dir(m_dir);
     for (const QString& sub : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-        m_series.append({sub, dir.absoluteFilePath(sub + "/series.ini")});
+        QString iniPath = dir.absoluteFilePath(sub + "/series.ini");
+        QString info;
+        QFile f(iniPath);
+        if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            info = QString::fromUtf8(f.readAll()).trimmed();
+            f.close();
+        }
+        m_series.append({sub, info});
         m_seriesList->addItem(sub);
     }
     m_statusLabel->setText(tr("Loaded %1 series").arg(m_series.size()));

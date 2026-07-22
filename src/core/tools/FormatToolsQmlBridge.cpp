@@ -2411,9 +2411,9 @@ void FormatToolsModule::onImportAiLine()
     m_aiLinePathEdit->setText(path);
 
     auto* bridge = FormatToolsQmlBridge::instance();
-    QVariantMap result = bridge->importAiLine(path, (float)m_aiScalingSpin->value());
+    m_importedAiLine = bridge->importAiLine(path, (float)m_aiScalingSpin->value());
     m_aiLineOutput->append(QString("Imported: %1 (%2 points)")
-        .arg(path).arg(result.value("pointCount", 0).toInt()));
+        .arg(path).arg(m_importedAiLine.value("pointCount", 0).toInt()));
     log("AI Line imported: " + path);
 }
 
@@ -2423,7 +2423,8 @@ void FormatToolsModule::onExportAiLine()
     if (path.isEmpty()) return;
 
     auto* bridge = FormatToolsQmlBridge::instance();
-    bool ok = bridge->exportAiLine(path, QVariantList(), (float)m_aiScalingSpin->value());
+    QVariantList vertices = m_importedAiLine.value("idealLine").toList();
+    bool ok = bridge->exportAiLine(path, vertices, (float)m_aiScalingSpin->value());
     if (ok) {
         m_aiLineOutput->append("Exported: " + path);
         logSuccess("AI Line exported: " + path);
@@ -2437,9 +2438,9 @@ void FormatToolsModule::onImportCsv()
     m_csvPathEdit->setText(path);
 
     auto* bridge = FormatToolsQmlBridge::instance();
-    QVariantList result = bridge->importCsv(path, (float)m_csvScalingSpin->value());
-    m_csvOutput->append(QString("Imported CSV: %1 (%2 rows)").arg(path).arg(result.size()));
-    log(QString("CSV imported: %1 rows").arg(result.size()));
+    m_importedCsvData = bridge->importCsv(path, (float)m_csvScalingSpin->value());
+    m_csvOutput->append(QString("Imported CSV: %1 (%2 rows)").arg(path).arg(m_importedCsvData.size()));
+    log(QString("CSV imported: %1 rows").arg(m_importedCsvData.size()));
 }
 
 void FormatToolsModule::onExportCsv()
@@ -2448,7 +2449,7 @@ void FormatToolsModule::onExportCsv()
     if (path.isEmpty()) return;
 
     auto* bridge = FormatToolsQmlBridge::instance();
-    bridge->exportCsv(path, QVariantList(), (float)m_csvScalingSpin->value());
+    bridge->exportCsv(path, m_importedCsvData, (float)m_csvScalingSpin->value());
     m_csvOutput->append("Exported: " + path);
     logSuccess("CSV exported: " + path);
 }
@@ -2460,9 +2461,9 @@ void FormatToolsModule::onImportCameraIni()
     m_camPathEdit->setText(path);
 
     auto* bridge = FormatToolsQmlBridge::instance();
-    QVariantList cams = bridge->importCameraIni(path);
-    m_camOutput->append(QString("Imported %1 cameras from %2").arg(cams.size()).arg(path));
-    log(QString("Camera.ini imported: %1 cameras").arg(cams.size()));
+    m_importedCameras = bridge->importCameraIni(path);
+    m_camOutput->append(QString("Imported %1 cameras from %2").arg(m_importedCameras.size()).arg(path));
+    log(QString("Camera.ini imported: %1 cameras").arg(m_importedCameras.size()));
 }
 
 void FormatToolsModule::onExportCameraIni()
@@ -2471,7 +2472,7 @@ void FormatToolsModule::onExportCameraIni()
     if (path.isEmpty()) return;
 
     auto* bridge = FormatToolsQmlBridge::instance();
-    bridge->exportCameraIni(path, QVariantList());
+    bridge->exportCameraIni(path, m_importedCameras);
     m_camOutput->append("Exported: " + path);
     logSuccess("Camera.ini exported: " + path);
 }
@@ -2483,9 +2484,9 @@ void FormatToolsModule::onImportOverlayIni()
     m_overlayPathEdit->setText(path);
 
     auto* bridge = FormatToolsQmlBridge::instance();
-    QVariantList overlays = bridge->importOverlayIni(path);
-    m_overlayOutput->append(QString("Imported %1 overlays from %2").arg(overlays.size()).arg(path));
-    log(QString("Overlay.ini imported: %1 overlays").arg(overlays.size()));
+    m_importedOverlays = bridge->importOverlayIni(path);
+    m_overlayOutput->append(QString("Imported %1 overlays from %2").arg(m_importedOverlays.size()).arg(path));
+    log(QString("Overlay.ini imported: %1 overlays").arg(m_importedOverlays.size()));
 }
 
 void FormatToolsModule::onExportOverlayIni()
@@ -2494,7 +2495,7 @@ void FormatToolsModule::onExportOverlayIni()
     if (path.isEmpty()) return;
 
     auto* bridge = FormatToolsQmlBridge::instance();
-    bridge->exportOverlayIni(path, QVariantList());
+    bridge->exportOverlayIni(path, m_importedOverlays);
     m_overlayOutput->append("Exported: " + path);
     logSuccess("Overlay.ini exported: " + path);
 }

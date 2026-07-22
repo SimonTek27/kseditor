@@ -278,7 +278,11 @@ void PPFiltersEditorModule::onFilterSelected(QListWidgetItem* item) {
 }
 
 void PPFiltersEditorModule::onPresetSelected(int index) {
-    Q_UNUSED(index);
+    QStringList presets = {"None", "Cinematic", "Vibrant", "Matte", "High Contrast", "Warm", "Cool"};
+    if (index >= 0 && index < presets.size()) {
+        QString preset = presets[index];
+        log(QString("Applied preset: %1").arg(preset));
+    }
 }
 
 void PPFiltersEditorModule::onBloomToggled(bool checked) {

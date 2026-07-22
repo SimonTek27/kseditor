@@ -968,13 +968,18 @@ void AnimationEditorModule::onAnimationSelected(QTreeWidgetItem* item, int colum
 }
 
 void AnimationEditorModule::onKeyframeSelected(int row, int column) {
-    Q_UNUSED(column);
-    // Could show keyframe details in properties
+    if (row >= 0 && row < m_keyframeTable->rowCount()) {
+        QTableWidgetItem* timeItem = m_keyframeTable->item(row, 1);
+        QTableWidgetItem* valItem = m_keyframeTable->item(row, 2);
+        if (timeItem && valItem)
+            log(QString("Keyframe: t=%1 val=%2").arg(timeItem->text(), valItem->text()));
+    }
 }
 
 void AnimationEditorModule::onInterpolationChanged(int index) {
-    // Apply to selected keyframes
-    Q_UNUSED(index);
+    QStringList types = {"Linear", "Step", "Cubic", "Quadratic", "Sine", "Elastic"};
+    QString interp = types.value(index, "Linear");
+    log(QString("Interpolation: %1").arg(interp));
 }
 
 void AnimationEditorModule::onAddTrack() {
@@ -1182,7 +1187,15 @@ void AnimationEditorModule::onStateContextMenu(const QPoint& pos) {
 }
 
 void AnimationEditorModule::onTransitionContextMenu(const QPoint& pos) {
-    Q_UNUSED(pos);
+    QMenu menu(this);
+    QAction* addAct = menu.addAction("Add Transition");
+    connect(addAct, &QAction::triggered, this, &AnimationEditorModule::onAddTransition);
+    QAction* removeAct = menu.addAction("Remove Transition");
+    connect(removeAct, &QAction::triggered, this, [this]() {
+        auto* item = m_stateTree->currentItem();
+        if (item) delete item;
+    });
+    menu.exec(m_stateTree->viewport()->mapToGlobal(pos));
 }
 
 void AnimationEditorModule::rebuildTracksFromTable() {

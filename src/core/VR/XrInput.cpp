@@ -86,6 +86,18 @@ void XrInput::updateButtonState(ButtonState& state, bool newValue)
     state.current = newValue;
 }
 
+void XrInput::onControllerStateChanged()
+{
+    auto updateFromCtrl = [this](Hand hand, const XrControllerState& ctrl) {
+        checkButtonEdge(hand, Trigger, ctrl.triggerClicked);
+        checkButtonEdge(hand, Grip, ctrl.squeezeValue);
+        checkButtonEdge(hand, Menu, ctrl.menuClicked);
+        if (ctrl.aimValid) emit poseUpdated((int)hand);
+    };
+    updateFromCtrl(Left, m_xr->leftController());
+    updateFromCtrl(Right, m_xr->rightController());
+}
+
 void XrInput::checkButtonEdge(Hand hand, Button button, bool newValue)
 {
     auto& state = hand == Left ? m_leftButtons[button] : m_rightButtons[button];

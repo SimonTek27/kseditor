@@ -95,6 +95,7 @@ private:
     QCheckBox* m_encryptNamesCheck = nullptr;
     QComboBox* m_splitCombo = nullptr;
     QListWidget* m_fileList = nullptr;
+    QLabel* m_fileCountLabel = nullptr;
 
     // Test tab
     QWidget* m_testTab = nullptr;

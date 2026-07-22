@@ -101,7 +101,13 @@ void WorkshopEditorModule::importFile(const QString& filePath) {
     QFileInfo info(filePath);
     if (info.suffix().toLower() == "ksmod" || info.suffix().toLower() == "zip") {
         log(QString("Importing mod package: %1").arg(filePath));
-        // In real implementation, would call m_manager->installPackage()
+        auto result = m_manager->installPackage(filePath, m_manager->dataDir() + "/installed/", true);
+        if (result.success) {
+            logSuccess(QString("Imported: %1").arg(info.fileName()));
+            loadItems();
+        } else {
+            logError("Import failed: " + result.errors.join("; "));
+        }
     } else {
         logError("Unsupported file format for import");
     }
@@ -113,7 +119,12 @@ void WorkshopEditorModule::exportFile(const QString& filePath) {
         return;
     }
     log(QString("Exporting mod: %1 to %2").arg(m_lastSelectedWorkshopItem.name, filePath));
-    // In real implementation, would call m_manager->createWorkshopPackage()
+    auto result = m_manager->createWorkshopPackage(m_lastSelectedWorkshopItem.packagePath, QFileInfo(filePath).absolutePath(), m_lastSelectedWorkshopItem);
+    if (result.success) {
+        logSuccess(QString("Exported: %1").arg(filePath));
+    } else {
+        logError("Export failed: " + result.errors.join("; "));
+    }
 }
 
 void WorkshopEditorModule::buildUI() {
@@ -627,26 +638,19 @@ void WorkshopEditorModule::onInstallClicked() {
     
     log(QString("Installing: %1").arg(m_lastSelectedWorkshopItem.name));
     
-    QProgressDialog progress("Installing mod...", "Cancel", 0, 100, this);
-    progress.setWindowModality(Qt::WindowModal);
-    progress.setMinimumDuration(0);
-    
-    for (int i = 0; i <= 100; i += 10) {
-        progress.setValue(i);
-        QApplication::processEvents();
-        if (progress.wasCanceled()) break;
-        QThread::msleep(50);
+    QString installDir = m_manager->dataDir() + "/installed/";
+    auto result = m_manager->installPackage(m_lastSelectedWorkshopItem.packagePath, installDir, true);
+    if (result.success) {
+        m_manager->setInstalled(m_lastSelectedWorkshopItem.id, true);
+        m_lastSelectedWorkshopItem.isInstalled = true;
+        m_lastSelectedWorkshopItem.packagePath = installDir + m_lastSelectedWorkshopItem.id + ".ksmod";
+        updateItemDetails(&m_lastSelectedWorkshopItem);
+        updateButtonStates();
+        loadItems();
+        logSuccess(QString("Installed: %1").arg(m_lastSelectedWorkshopItem.name));
+    } else {
+        logError("Install failed: " + result.errors.join("; "));
     }
-    
-    // In real implementation: m_manager->installPackage(...)
-    m_lastSelectedWorkshopItem.isInstalled = true;
-    m_lastSelectedWorkshopItem.packagePath = m_manager->dataDir() + "/installed/" + m_lastSelectedWorkshopItem.id + ".ksmod";
-    
-    updateItemDetails(&m_lastSelectedWorkshopItem);
-    updateButtonStates();
-    loadItems();
-    
-    logSuccess(QString("Installed: %1").arg(m_lastSelectedWorkshopItem.name));
 }
 
 void WorkshopEditorModule::onUninstallClicked() {
@@ -658,15 +662,16 @@ void WorkshopEditorModule::onUninstallClicked() {
     
     log(QString("Uninstalling: %1").arg(m_lastSelectedWorkshopItem.name));
     
-    // In real implementation: m_manager->removeItem(m_lastSelectedWorkshopItem.id);
-    m_lastSelectedWorkshopItem.isInstalled = false;
-    m_lastSelectedWorkshopItem.packagePath.clear();
-    
-    updateItemDetails(&m_lastSelectedWorkshopItem);
-    updateButtonStates();
-    loadItems();
-    
-    logSuccess(QString("Uninstalled: %1").arg(m_lastSelectedWorkshopItem.name));
+    if (m_manager->setInstalled(m_lastSelectedWorkshopItem.id, false)) {
+        m_lastSelectedWorkshopItem.isInstalled = false;
+        m_lastSelectedWorkshopItem.packagePath.clear();
+        updateItemDetails(&m_lastSelectedWorkshopItem);
+        updateButtonStates();
+        loadItems();
+        logSuccess(QString("Uninstalled: %1").arg(m_lastSelectedWorkshopItem.name));
+    } else {
+        logError("Uninstall failed");
+    }
 }
 
 void WorkshopEditorModule::onUpdateClicked() {
@@ -674,23 +679,25 @@ void WorkshopEditorModule::onUpdateClicked() {
     
     log(QString("Checking updates for: %1").arg(m_lastSelectedWorkshopItem.name));
     
-    // In real implementation: check for updates
-    WorkshopManager::UpdateInfo update;
-    update.itemId = m_lastSelectedWorkshopItem.id;
-    update.name = m_lastSelectedWorkshopItem.name;
-    update.currentVersion = m_lastSelectedWorkshopItem.version;
-    update.availableVersion = "1.1.0"; // Simulated
-    
-    if (confirmAction("Update Available", 
-        QString("Update '%1' from %2 to %3?")
-            .arg(m_lastSelectedWorkshopItem.name, update.currentVersion, update.availableVersion))) {
-        
-        // In real implementation: m_manager->updateItem(...)
-        m_lastSelectedWorkshopItem.version = update.availableVersion;
-        updateItemDetails(&m_lastSelectedWorkshopItem);
-        loadItems();
-        logSuccess(QString("Updated: %1 to %2").arg(m_lastSelectedWorkshopItem.name, update.availableVersion));
+    auto updates = m_manager->checkForUpdates();
+    for (const auto& u : updates) {
+        if (u.itemId == m_lastSelectedWorkshopItem.id) {
+            if (confirmAction("Update Available", 
+                QString("Update '%1' from %2 to %3?")
+                    .arg(m_lastSelectedWorkshopItem.name, u.currentVersion, u.availableVersion))) {
+                
+                QString packagePath = m_manager->dataDir() + "/packages/" + u.itemId + "_" + u.availableVersion + ".ksmod";
+                if (m_manager->updateItem(u.itemId, u.availableVersion, packagePath)) {
+                    m_lastSelectedWorkshopItem.version = u.availableVersion;
+                    updateItemDetails(&m_lastSelectedWorkshopItem);
+                    loadItems();
+                    logSuccess(QString("Updated: %1 to %2").arg(m_lastSelectedWorkshopItem.name, u.availableVersion));
+                }
+            }
+            return;
+        }
     }
+    log("No update available for " + m_lastSelectedWorkshopItem.name);
 }
 
 void WorkshopEditorModule::onPublishClicked() {
@@ -727,33 +734,29 @@ void WorkshopEditorModule::onPublishClicked() {
     
     log(QString("Publishing: %1 v%2").arg(name, version));
     
-    QProgressDialog progress("Publishing...", "Cancel", 0, 100, this);
-    progress.setWindowModality(Qt::WindowModal);
-    progress.setMinimumDuration(0);
-    
-    for (int i = 0; i <= 100; i += 10) {
-        progress.setValue(i);
-        QApplication::processEvents();
-        if (progress.wasCanceled()) break;
-        QThread::msleep(50);
+    auto pkgResult = m_manager->createWorkshopPackage(sourcePath, m_manager->dataDir() + "/packages/", item);
+    if (!pkgResult.success) {
+        logError("Package creation failed: " + pkgResult.errors.join("; "));
+        return;
     }
     
-    // In real implementation: m_manager->publishItem(item, packagePath);
-    item.isInstalled = true;
-    item.packagePath = m_manager->dataDir() + "/packages/" + item.id + ".ksmod";
-    
-    logSuccess(QString("Published: %1 v%2").arg(name, version));
-    
-    // Clear form
-    m_pubNameEdit->clear();
-    m_pubVersionEdit->setText("1.0.0");
-    m_pubDescEdit->clear();
-    m_pubTagsEdit->clear();
-    m_pubSourcePathEdit->clear();
-    m_pubDepsEdit->clear();
-    m_pubConflictsEdit->clear();
-    
-    loadItems();
+    if (m_manager->publishItem(item, pkgResult.packagePath)) {
+        item.isInstalled = true;
+        item.packagePath = pkgResult.packagePath;
+        logSuccess(QString("Published: %1 v%2").arg(name, version));
+        
+        // Clear form
+        m_pubNameEdit->clear();
+        m_pubVersionEdit->setText("1.0.0");
+        m_pubDescEdit->clear();
+        m_pubTagsEdit->clear();
+        m_pubSourcePathEdit->clear();
+        m_pubDepsEdit->clear();
+        m_pubConflictsEdit->clear();
+        loadItems();
+    } else {
+        logError("Publishing failed");
+    }
 }
 
 void WorkshopEditorModule::onCreateModClicked() {
@@ -781,11 +784,13 @@ void WorkshopEditorModule::onCreateModClicked() {
     
     log(QString("Creating package for: %1").arg(name));
     
-    // In real implementation: m_manager->createWorkshopPackage(sourcePath, outputDir, item);
-    QString packagePath = m_manager->dataDir() + "/packages/" + item.id + ".ksmod";
-    
-    logSuccess(QString("Package created: %1").arg(packagePath));
-    m_pubSourcePathEdit->setText(packagePath);
+    auto result = m_manager->createWorkshopPackage(sourcePath, m_manager->dataDir() + "/packages/", item);
+    if (result.success) {
+        logSuccess(QString("Package created: %1").arg(result.packagePath));
+        m_pubSourcePathEdit->setText(result.packagePath);
+    } else {
+        logError("Package creation failed: " + result.errors.join("; "));
+    }
 }
 
 void WorkshopEditorModule::onImportModClicked() {
@@ -815,13 +820,15 @@ void WorkshopEditorModule::onRemoveModClicked() {
         
         log(QString("Removing: %1").arg(m_lastSelectedWorkshopItem.name));
         
-        // In real implementation: m_manager->removeItem(m_lastSelectedWorkshopItem.id);
-        loadItems();
-        m_itemDetails->clear();
-        m_hasSelection = false;
-        updateButtonStates();
-        
-        logSuccess(QString("Removed: %1").arg(m_lastSelectedWorkshopItem.name));
+        if (m_manager->removeItem(m_lastSelectedWorkshopItem.id)) {
+            loadItems();
+            m_itemDetails->clear();
+            m_hasSelection = false;
+            updateButtonStates();
+            logSuccess(QString("Removed: %1").arg(m_lastSelectedWorkshopItem.name));
+        } else {
+            logError("Remove failed");
+        }
     }
 }
 
@@ -836,13 +843,15 @@ void WorkshopEditorModule::onRateClicked() {
     if (ok) {
         log(QString("Rating %1: %2 stars").arg(m_lastSelectedWorkshopItem.name, QString::number(rating)));
         
-        // In real implementation: m_manager->rateItem(m_lastSelectedWorkshopItem.id, rating);
-        m_lastSelectedWorkshopItem.rating = rating;
-        m_lastSelectedWorkshopItem.ratingCount++;
-        
-        updateItemDetails(&m_lastSelectedWorkshopItem);
-        loadItems();
-        logSuccess("Rating submitted");
+        if (m_manager->rateItem(m_lastSelectedWorkshopItem.id, rating)) {
+            m_lastSelectedWorkshopItem.rating = rating;
+            m_lastSelectedWorkshopItem.ratingCount++;
+            updateItemDetails(&m_lastSelectedWorkshopItem);
+            loadItems();
+            logSuccess("Rating submitted");
+        } else {
+            logError("Failed to submit rating");
+        }
     }
 }
 
@@ -858,18 +867,7 @@ void WorkshopEditorModule::onResolveDepsClicked() {
     
     log(QString("Resolving dependencies for: %1").arg(m_lastSelectedWorkshopItem.name));
     
-    struct DepInfo {
-        QString depName;
-        bool satisfied = false;
-    };
-    struct DepResolution {
-        bool allSatisfied = true;
-        QVector<DepInfo> dependencies;
-        QStringList missingDeps;
-        QStringList conflictingItems;
-    } res;
-    res.allSatisfied = true;
-    res.dependencies = {{"dependency1", true}};
+    auto res = m_manager->resolveDependencies(m_lastSelectedWorkshopItem.id);
     
     QString msg = "Dependency Resolution:\n";
     msg += res.allSatisfied ? "✓ All dependencies satisfied\n" : "✗ Some dependencies missing\n";
@@ -890,10 +888,7 @@ void WorkshopEditorModule::onResolveDepsClicked() {
 void WorkshopEditorModule::onCheckUpdatesClicked() {
     log("Checking for updates...");
     
-    // In real implementation: QVector<WorkshopManager::UpdateInfo> updates = m_manager->checkForUpdates();
-    QVector<WorkshopManager::UpdateInfo> updates;
-    updates.append({"mod1", "Example Mod", "1.0.0", "1.1.0"});
-    updates.append({"mod2", "Another Mod", "2.3.1", "2.4.0"});
+    QVector<WorkshopManager::UpdateInfo> updates = m_manager->checkForUpdates();
     
     if (updates.isEmpty()) {
         QMessageBox::information(this, "Updates", "All mods are up to date!");

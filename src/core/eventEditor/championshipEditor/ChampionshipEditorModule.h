@@ -9,8 +9,11 @@
 #include <QLineEdit>
 #include <QTextEdit>
 #include <QSpinBox>
+#include <QDoubleSpinBox>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QTabWidget>
+#include <QTableWidget>
 #include <QStackedWidget>
 #include <QMap>
 
@@ -120,6 +123,10 @@ private slots:
     void onEventPropChanged();
     void onAddCondition();
     void onRemoveCondition();
+    void onAddPoints();
+    void onRemovePoints();
+    void onAddOpponent();
+    void onRemoveOpponent();
 
 private:
     void setupUi();
@@ -159,15 +166,24 @@ private:
     QLineEdit* m_evTrackEdit = nullptr;
     QLineEdit* m_evConfigTrackEdit = nullptr;
     QLineEdit* m_evModelEdit = nullptr;
+    QLineEdit* m_evModelConfigEdit = nullptr;
     QLineEdit* m_evSkinEdit = nullptr;
     QSpinBox* m_evCarsSpin = nullptr;
     QSpinBox* m_evAiLevelSpin = nullptr;
     QSpinBox* m_evRaceLapsSpin = nullptr;
+    QSpinBox* m_evPenaltiesSpin = nullptr;
+    QCheckBox* m_evDriftModeCheck = nullptr;
+    QCheckBox* m_evFixedSetupCheck = nullptr;
     QSpinBox* m_evSunAngleSpin = nullptr;
+    QDoubleSpinBox* m_evTimeMultSpin = nullptr;
+    QDoubleSpinBox* m_evCloudSpeedSpin = nullptr;
     QSpinBox* m_evAmbientSpin = nullptr;
     QSpinBox* m_evRoadSpin = nullptr;
+    QSpinBox* m_evDynamicTrackSpin = nullptr;
     QComboBox* m_evSessionTypeCombo = nullptr;
     QLineEdit* m_evSessionNameEdit = nullptr;
+    QLineEdit* m_evSpawnSetEdit = nullptr;
+    QSpinBox* m_evStartPosSpin = nullptr;
     QSpinBox* m_evSessionLapsSpin = nullptr;
     QSpinBox* m_evDurationSpin = nullptr;
 
@@ -183,6 +199,17 @@ private:
     QListWidget* m_condList = nullptr;
     QPushButton* m_addCondBtn = nullptr;
     QPushButton* m_removeCondBtn = nullptr;
+
+    // Points for place
+    QListWidget* m_pointsList = nullptr;
+    QSpinBox* m_pointsValueSpin = nullptr;
+    QPushButton* m_addPointsBtn = nullptr;
+    QPushButton* m_removePointsBtn = nullptr;
+
+    // Opponents
+    QTableWidget* m_opponentTable = nullptr;
+    QPushButton* m_addOppBtn = nullptr;
+    QPushButton* m_removeOppBtn = nullptr;
 
     QVector<ChampionshipEntry> m_championships;
     int m_selectedChamp = -1;

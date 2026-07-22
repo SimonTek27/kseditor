@@ -69,12 +69,26 @@ void XrIntegration::shutdown()
 bool XrIntegration::startVR()
 {
     if (!m_initialized) return false;
-    return true; // VR rendering is handled via renderFrame
+
+    if (!m_manager->isSessionRunning()) {
+        emit error("VR session not ready yet. Ensure XrManager is initialized.");
+        return false;
+    }
+
+    emit sessionActiveChanged(true);
+    return true;
 }
 
 void XrIntegration::stopVR()
 {
-    // Stop called through XrManager shutdown
+    if (m_manager->isSessionRunning()) {
+        m_manager->shutdown();
+    }
+
+    m_viewportRenderer->shutdown();
+    m_initialized = false;
+    emit sessionActiveChanged(false);
+    emit initializedChanged(false);
 }
 
 bool XrIntegration::renderFrame()

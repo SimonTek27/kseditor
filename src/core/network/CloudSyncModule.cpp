@@ -645,29 +645,35 @@ table{width:100%;border-collapse:collapse}td,th{padding:8px;text-align:left;bord
 
 QVariantMap RemoteAPI::getServerInfo() {
     QVariantMap info;
-    info["name"] = "Local Server";
+    info["name"] = m_serverName;
+    info["about"] = m_serverAbout;
     info["version"] = "1.0";
-    info["track"] = "Imola";
-    info["cars"] = 0;
+    info["track"] = m_currentTrack.isEmpty() ? "Unknown" : m_currentTrack;
+    info["cars"] = m_currentCars.size();
+    info["maxCars"] = m_maxCars;
+    info["isPublic"] = m_isPublic;
     return info;
 }
 
 QVector<QVariantMap> RemoteAPI::getConnectedPlayers() {
-    if (!m_sessionActive) return {};
     QVector<QVariantMap> players;
-    QVariantMap local;
-    local["name"] = "Host";
-    local["car"] = m_currentCar;
-    local["track"] = m_currentTrack;
-    local["ping"] = 0;
-    local["isHost"] = true;
-    players.append(local);
+    if (m_sessionActive) {
+        for (const auto& c : m_currentCars) {
+            QVariantMap p;
+            p["name"] = c;
+            p["track"] = m_currentTrack;
+            p["ping"] = 0;
+            p["isHost"] = (c == m_currentCars.first());
+            players.append(p);
+        }
+    }
     return players;
 }
 
 bool RemoteAPI::startSession(const QString& track, const QString& car) {
     m_currentTrack = track;
     m_currentCar = car;
+    m_currentCars = {car};
     m_sessionActive = true;
     emit sessionStarted(track, car);
     return true;
@@ -1462,12 +1468,30 @@ void CloudPresetLibrary::ratePreset(const QString& presetId, int rating)
 {
     int clampedRating = qBound(1, rating, 5);
     m_presetRatings[presetId] = clampedRating;
+    if (m_cloudService && m_cloudService->isLoggedIn()) {
+        QNetworkRequest request(QUrl(m_cloudService->serverUrl() + "/api/presets/" + presetId + "/rate"));
+        request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        request.setRawHeader("Authorization", ("Bearer " + m_authToken).toUtf8());
+        QJsonObject body;
+        body["rating"] = clampedRating;
+        QNetworkReply* reply = m_cloudService->networkManager()->post(request, QJsonDocument(body).toJson());
+        connect(reply, &QNetworkReply::finished, reply, &QNetworkReply::deleteLater);
+    }
     emit presetRated(presetId, clampedRating);
 }
 
 void CloudPresetLibrary::reportPreset(const QString& presetId, const QString& reason)
 {
     m_presetReports[presetId].append(reason);
+    if (m_cloudService && m_cloudService->isLoggedIn()) {
+        QNetworkRequest request(QUrl(m_cloudService->serverUrl() + "/api/presets/" + presetId + "/report"));
+        request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        request.setRawHeader("Authorization", ("Bearer " + m_authToken).toUtf8());
+        QJsonObject body;
+        body["reason"] = reason;
+        QNetworkReply* reply = m_cloudService->networkManager()->post(request, QJsonDocument(body).toJson());
+        connect(reply, &QNetworkReply::finished, reply, &QNetworkReply::deleteLater);
+    }
     emit presetReported(presetId, reason);
 }
 
@@ -1560,8 +1584,33 @@ void CloudBackupSystem::restoreBackup(const QString& backupId, const QString& ta
     }
 
     QDir().mkpath(targetPath);
+    QString backupDir = QDir::temp().absoluteFilePath("ksbackup_" + backupId);
 
-    emit restoreProgress(100.0f);
+    int total = backup.includedPaths.size();
+    for (int i = 0; i < total; ++i) {
+        const QString& srcPath = backup.includedPaths[i];
+        QFileInfo info(srcPath);
+        QString src = backupDir + "/" + info.fileName();
+        QString dest = targetPath + "/" + info.fileName();
+
+        if (QFileInfo(src).isDir()) {
+            QDirIterator it(src, QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+            while (it.hasNext()) {
+                QString f = it.next();
+                QString rel = QDir(src).relativeFilePath(f);
+                QString td = dest + "/" + rel;
+                if (QFileInfo(f).isDir())
+                    QDir().mkpath(td);
+                else
+                    QFile::copy(f, td);
+            }
+        } else {
+            QFile::copy(src, dest);
+        }
+
+        emit restoreProgress((float)(i + 1) / total * 100.0f);
+    }
+
     emit restoreComplete();
 }
 

@@ -59,6 +59,7 @@ signals:
     void userLeft(const QString& userId, const QString& userName);
     void errorOccurred(const QString& message);
     void statusMessage(const QString& message);
+    void followedUsersChanged();
 
 private:
     explicit CollabEditorQmlBridge(QObject* parent = nullptr);
@@ -70,6 +71,7 @@ private:
     QString m_host;
     int m_port = 8080;
     QString m_userName = "User";
+    QStringList m_followedUsers;
 };
 
 }
