@@ -257,13 +257,10 @@ int CspConfigHandler::findNextIndex(const QVariantMap& sections, const QString& 
     int maxIdx = -1;
     for (auto it = sections.constBegin(); it != sections.constEnd(); ++it) {
         if (isSectionType(it.key(), type)) {
-            QRegularExpression re(QString(R"((\d+)\.\.\.|\b(\d+)$)"));
+            QRegularExpression re(QString(R"(.*?_(\d+)$)"));
             QRegularExpressionMatch m = re.match(it.key());
             if (m.hasMatch()) {
-                if (!m.captured(1).isEmpty()) {
-                    return -1;
-                }
-                int idx = m.captured(2).toInt();
+                int idx = m.captured(1).toInt();
                 if (idx > maxIdx) maxIdx = idx;
             }
         }

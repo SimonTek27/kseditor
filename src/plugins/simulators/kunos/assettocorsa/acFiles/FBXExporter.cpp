@@ -3,6 +3,7 @@
 #include <QFileInfo>
 #include <QDebug>
 #include <QDateTime>
+#include <functional>
 
 namespace ks {
 
@@ -335,8 +336,39 @@ bool FBXImporter::importFromFBX(const QString& path,
     }
 
     if (version == "Binary") {
-        qWarning() << "FBXImporter: Binary FBX — only ASCII supported in this build";
-        return false;
+        // Parse binary FBX via parseNode() tree walker
+        int offset = 27; // skip 21-byte "Kaydara FBX Binary  " + 2 reserved + 4 version
+        FBXNode root = parseNode(data, offset);
+        if (root.name.isEmpty()) {
+            qWarning() << "FBXImporter: Failed to parse binary FBX structure";
+            return false;
+        }
+
+        // Walk the node tree for Geometry nodes
+        std::function<void(const FBXNode&, int depth)> walkTree;
+        walkTree = [&](const FBXNode& node, int /*depth*/) {
+            if (node.name == "Geometry") {
+                MeshData m;
+                m.name = node.properties.value("0", "Mesh");
+                for (const FBXNode& child : node.children) {
+                    parseMeshNode(child, m);
+                }
+                if (!m.vertices.isEmpty())
+                    meshes.append(m);
+            }
+            for (const FBXNode& child : node.children) {
+                walkTree(child, 1);
+            }
+        };
+        walkTree(root, 0);
+
+        if (meshes.isEmpty()) {
+            qWarning() << "FBXImporter: No geometry found in binary FBX";
+            return false;
+        }
+
+        qInfo() << "FBXImporter: Parsed" << meshes.size() << "meshes from binary FBX:" << path;
+        return true;
     }
 
     // ASCII FBX parser — extract Geometry blocks
