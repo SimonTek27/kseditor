@@ -586,8 +586,8 @@ set(ASSETTOCORSA_SOURCES
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/FBXExporter.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/Kn5Previewer.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/LODExporter.cpp
-    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/anim/KSAnimFormat.cpp
-    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/header/KNHFormat.cpp
+    ${ASSETTOCORSA_PLUGIN_DIR}/KSAnimFormat.cpp
+    ${ASSETTOCORSA_PLUGIN_DIR}/KNHFormat.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/shaders/KsShaders.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/ACSharedMemory.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/ACDParser.cpp
@@ -615,8 +615,8 @@ set(ASSETTOCORSA_HEADERS
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/FBXExporter.h
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/Kn5Previewer.h
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/LODExporter.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/anim/KSAnimFormat.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/header/KNHFormat.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/KSAnimFormat.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/KNHFormat.h
     ${ASSETTOCORSA_PLUGIN_DIR}/shaders/KsShaders.h
     ${ASSETTOCORSA_PLUGIN_DIR}/ACSharedMemory.h
     ${ASSETTOCORSA_PLUGIN_DIR}/ACDParser.h
