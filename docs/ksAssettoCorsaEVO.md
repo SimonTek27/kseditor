@@ -22,7 +22,7 @@ kseditor.exe
               │     getInstallPath/setInstallPath
               ├── Backed by KsPlugin (singleton in kseditor_lib)
               └── 18+ sub-modules:
-                    ContentBrowser, KsContentPaths, KsRunner,
+                    ContentBrowser, KsContentPaths, KsAssettoCorsaRunner,
                     QmlBridges, SetupComparison, WorkshopModule,
                     AssetsLibraryModule, ACSharedMemory,
                     ACLivePreviewBridge, KN5Parser, KN5Decrypt,
@@ -143,7 +143,7 @@ extern "C" {
 | `ACEPluginEntry.cpp` | Plugin lifecycle (C API) | `ksAssettoCorsa.cpp` |
 | `ACEPackageParser` | Parse `.kspkg` protobuf archives | Community tools (ACEvo.Package) |
 | `ACEContentManager` | Discover installed cars/tracks | `KsContentPaths` |
-| `ACERunner` | Launch ACE with parameters | `KsRunner` |
+| `ACERunner` | Launch ACE with parameters | `KsAssettoCorsaRunner` |
 | `ACEQmlBridge` | QML-C++ interop for UI | `QmlBridges` |
 | `ACESharedMemory` | Read ACE telemetry | `ACSharedMemory` |
 | `ACELivePreview` | Audio preview from live data | `ACLivePreviewBridge` |

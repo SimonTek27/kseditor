@@ -40,7 +40,7 @@ implementations:
 | **SetupComparison** | ✅ Fixed | Full 25+ field comparison with suspension, alignment, tyre models |
 | **KsShaders** | ✅ Fixed | `QOpenGLFunctions`-based shader compile/link/bind with uniform caching |
 | **ACSharedMemory** | ✅ Fixed | Complete field parsing matching AC SDK structures |
-| **KsRunner** | ✅ Fixed | Stdout/stderr capture, CSP path detection, process lifecycle |
+| **KsAssettoCorsaRunner** | ✅ Fixed | Stdout/stderr capture, CSP path detection, process lifecycle |
 | **ContentBrowser** | ✅ Fixed | Extended car/track info fields (year, engine, geotags, etc.) |
 | **KsContentPaths** | ✅ Fixed | Content directory validation |
 | **ACLivePreviewBridge** | ✅ Present | Live preview bridge for AC |

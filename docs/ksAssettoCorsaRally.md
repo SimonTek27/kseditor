@@ -17,7 +17,7 @@ kseditor.exe
   └── PluginManager (loads .dll from bin/plugins/)
         └── ksAssettoCorsa.dll  (SHARED library, ~40+ source files)
               ├── Extern ""C"" API: 8 entry-point functions
-              └── 18+ sub-modules (ContentBrowser, KsContentPaths, KsRunner,
+              └── 18+ sub-modules (ContentBrowser, KsContentPaths, KsAssettoCorsaRunner,
                     QmlBridges, SetupComparison, WorkshopModule,
                     AssetsLibraryModule, ACSharedMemory, ACLivePreviewBridge,
                     KN5Parser, KN5Decrypt, ACDParser, CspConfigParser,

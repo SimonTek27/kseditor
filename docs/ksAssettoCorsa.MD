@@ -25,7 +25,7 @@ kseditor.exe
               └── Sub-modules:
                     ├── Content Browser     ─ ContentBrowser.h/.cpp
                     ├── Content Paths       ─ KsContentPaths.h/.cpp
-                    ├── Game Launcher       ─ KsRunner.h/.cpp
+                    ├── Game Launcher       ─ KsAssettoCorsaRunner.h/.cpp
                     ├── QML Bridges (5)     ─ QmlBridges.h/.cpp
                     ├── Setup Comparison    ─ SetupComparison.h/.cpp
                     ├── Workshop Module     ─ WorkshopModule.h/.cpp
@@ -112,7 +112,7 @@ src/plugins/simulators/kunos/assettocorsa/
 │
 ├── ContentBrowser.h/.cpp         # Content discovery UI
 ├── KsContentPaths.h/.cpp         # AC content path detection
-├── KsRunner.h/.cpp               # Game launcher
+├── KsAssettoCorsaRunner.h/.cpp               # Game launcher
 ├── WorkshopModule.h/.cpp         # Steam Workshop integration
 ├── AssetsLibraryModule.h/.cpp    # SQLite asset DB
 ├── SetupComparison.h/.cpp        # Setup load/save/compare

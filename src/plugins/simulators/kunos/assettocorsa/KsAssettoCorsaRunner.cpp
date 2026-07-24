@@ -1,4 +1,4 @@
-#include "KsRunner.h"
+#include "KsAssettoCorsaRunner.h"
 #include "KsContentPaths.h"
 #include <QDebug>
 #include <QMessageBox>
@@ -7,9 +7,9 @@
 
 namespace ks {
 
-KsRunner* KsRunner::s_instance = nullptr;
+KsAssettoCorsaRunner* KsAssettoCorsaRunner::s_instance = nullptr;
 
-KsRunner::KsRunner(QObject* parent)
+KsAssettoCorsaRunner::KsAssettoCorsaRunner(QObject* parent)
     : QObject(parent)
 {
     QStringList installs = KsPaths::findAllInstallations();
@@ -18,24 +18,24 @@ KsRunner::KsRunner(QObject* parent)
     } else {
         m_ksPath = "C:/Program Files (x86)/Steam/steamapps/common/assettocorsa";
     }
-    m_status = validateKsPath() ? KsRunnerStatus::Ready : KsRunnerStatus::NotFound;
+    m_status = validateKsPath() ? KsAssettoCorsaRunnerStatus::Ready : KsAssettoCorsaRunnerStatus::NotFound;
 }
 
-KsRunner* KsRunner::instance() {
+KsAssettoCorsaRunner* KsAssettoCorsaRunner::instance() {
     if (!s_instance) {
-        s_instance = new KsRunner();
+        s_instance = new KsAssettoCorsaRunner();
     }
     return s_instance;
 }
 
-bool KsRunner::setKsPath(const QString& path) {
+bool KsAssettoCorsaRunner::setKsPath(const QString& path) {
     m_ksPath = path;
-    m_status = validateKsPath() ? KsRunnerStatus::Ready : KsRunnerStatus::NotFound;
+    m_status = validateKsPath() ? KsAssettoCorsaRunnerStatus::Ready : KsAssettoCorsaRunnerStatus::NotFound;
     emit statusChanged(m_status);
-    return m_status == KsRunnerStatus::Ready;
+    return m_status == KsAssettoCorsaRunnerStatus::Ready;
 }
 
-bool KsRunner::validateKsPath() {
+bool KsAssettoCorsaRunner::validateKsPath() {
     if (m_ksPath.isEmpty()) return false;
     QFileInfo exeInfo(m_ksPath + "/assetto_corsa.exe");
     if (exeInfo.exists()) return true;
@@ -46,7 +46,7 @@ bool KsRunner::validateKsPath() {
     return contentDir.exists();
 }
 
-QString KsRunner::findKsExecutable() const {
+QString KsAssettoCorsaRunner::findKsExecutable() const {
     QStringList candidates = {
         m_ksPath + "/assetto_corsa.exe",
         m_ksPath + "/acs.exe",
@@ -72,7 +72,7 @@ QString KsRunner::findKsExecutable() const {
     return QString();
 }
 
-QString KsRunner::findCspExecutable() const {
+QString KsAssettoCorsaRunner::findCspExecutable() const {
     // CSP (Custom Shaders Patch) lives alongside the AC executable
     QString exeDir = QFileInfo(findKsExecutable()).absolutePath();
     QStringList cspCandidates = {
@@ -88,16 +88,16 @@ QString KsRunner::findCspExecutable() const {
     return QString();
 }
 
-bool KsRunner::testConnection() {
+bool KsAssettoCorsaRunner::testConnection() {
     return validateKsPath();
 }
 
-void KsRunner::onProcessStarted() {
-    m_status = KsRunnerStatus::Running;
+void KsAssettoCorsaRunner::onProcessStarted() {
+    m_status = KsAssettoCorsaRunnerStatus::Running;
     emit statusChanged(m_status);
 }
 
-void KsRunner::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus) {
+void KsAssettoCorsaRunner::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus) {
     QProcess* p = qobject_cast<QProcess*>(sender());
     if (p) {
         QByteArray stdOut = p->readAllStandardOutput();
@@ -111,20 +111,20 @@ void KsRunner::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus) 
         m_process = nullptr;
     }
     m_status = (exitStatus == QProcess::NormalExit && exitCode == 0)
-               ? KsRunnerStatus::Ready
-               : KsRunnerStatus::Error;
+               ? KsAssettoCorsaRunnerStatus::Ready
+               : KsAssettoCorsaRunnerStatus::Error;
     emit statusChanged(m_status);
     emit processExited(exitCode);
 }
 
-void KsRunner::onProcessError(QProcess::ProcessError error) {
+void KsAssettoCorsaRunner::onProcessError(QProcess::ProcessError error) {
     m_lastError = QString("Process error: %1").arg(static_cast<int>(error));
-    m_status = KsRunnerStatus::Error;
+    m_status = KsAssettoCorsaRunnerStatus::Error;
     emit statusChanged(m_status);
     emit launchFailed(m_lastError);
 }
 
-bool KsRunner::launchKs(const QString& track, const QString& car) {
+bool KsAssettoCorsaRunner::launchKs(const QString& track, const QString& car) {
     // Kill any existing process
     if (m_process) {
         m_process->kill();
@@ -136,7 +136,7 @@ bool KsRunner::launchKs(const QString& track, const QString& car) {
     QString exePath = findKsExecutable();
     if (exePath.isEmpty()) {
         m_lastError = "Assetto Corsa executable not found. Please set correct path.";
-        m_status = KsRunnerStatus::NotFound;
+        m_status = KsAssettoCorsaRunnerStatus::NotFound;
         emit launchFailed(m_lastError);
         return false;
     }
@@ -156,10 +156,10 @@ bool KsRunner::launchKs(const QString& track, const QString& car) {
     m_process->setWorkingDirectory(m_ksPath);
     m_process->setProcessChannelMode(QProcess::MergedChannels);
 
-    connect(m_process, &QProcess::started, this, &KsRunner::onProcessStarted);
+    connect(m_process, &QProcess::started, this, &KsAssettoCorsaRunner::onProcessStarted);
     connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, &KsRunner::onProcessFinished);
-    connect(m_process, &QProcess::errorOccurred, this, &KsRunner::onProcessError);
+            this, &KsAssettoCorsaRunner::onProcessFinished);
+    connect(m_process, &QProcess::errorOccurred, this, &KsAssettoCorsaRunner::onProcessError);
 
     m_process->start();
 
@@ -167,11 +167,11 @@ bool KsRunner::launchKs(const QString& track, const QString& car) {
     return true;
 }
 
-bool KsRunner::launchTimeTrial(const QString& track) {
+bool KsAssettoCorsaRunner::launchTimeTrial(const QString& track) {
     return launchKs(track, QString());
 }
 
-bool KsRunner::launchPractice(const QString& track) {
+bool KsAssettoCorsaRunner::launchPractice(const QString& track) {
     QString exePath = findKsExecutable();
     if (exePath.isEmpty()) {
         m_lastError = "KS not found";
@@ -199,16 +199,16 @@ bool KsRunner::launchPractice(const QString& track) {
     m_process->setWorkingDirectory(m_ksPath);
     m_process->setProcessChannelMode(QProcess::MergedChannels);
 
-    connect(m_process, &QProcess::started, this, &KsRunner::onProcessStarted);
+    connect(m_process, &QProcess::started, this, &KsAssettoCorsaRunner::onProcessStarted);
     connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, &KsRunner::onProcessFinished);
-    connect(m_process, &QProcess::errorOccurred, this, &KsRunner::onProcessError);
+            this, &KsAssettoCorsaRunner::onProcessFinished);
+    connect(m_process, &QProcess::errorOccurred, this, &KsAssettoCorsaRunner::onProcessError);
 
     m_process->start();
     return true;
 }
 
-bool KsRunner::stopKs() {
+bool KsAssettoCorsaRunner::stopKs() {
     if (!m_process) return false;
     m_process->terminate();
     if (!m_process->waitForFinished(5000)) {
@@ -217,24 +217,24 @@ bool KsRunner::stopKs() {
     }
     m_process->deleteLater();
     m_process = nullptr;
-    m_status = KsRunnerStatus::Ready;
+    m_status = KsAssettoCorsaRunnerStatus::Ready;
     emit statusChanged(m_status);
     return true;
 }
 
-QString KsRunner::getContentPath() const {
+QString KsAssettoCorsaRunner::getContentPath() const {
     return m_ksPath + "/content";
 }
 
-QString KsRunner::getTracksPath() const {
+QString KsAssettoCorsaRunner::getTracksPath() const {
     return m_ksPath + "/content/tracks";
 }
 
-QString KsRunner::getCarsPath() const {
+QString KsAssettoCorsaRunner::getCarsPath() const {
     return m_ksPath + "/content/cars";
 }
 
-bool KsRunner::isRunning() const {
+bool KsAssettoCorsaRunner::isRunning() const {
     return m_process && m_process->state() == QProcess::Running;
 }
 

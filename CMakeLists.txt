@@ -560,7 +560,7 @@ set(ASSETTOCORSA_PLUGIN_MOC_HEADERS
     ${ASSETTOCORSA_PLUGIN_DIR}/QmlBridges.h
     ${ASSETTOCORSA_PLUGIN_DIR}/WorkshopModule.h
     ${ASSETTOCORSA_PLUGIN_DIR}/KsContentPaths.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/KsRunner.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/KsAssettoCorsaRunner.h
     ${ASSETTOCORSA_PLUGIN_DIR}/SetupComparison.h
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/Kn5Previewer.h
     ${ASSETTOCORSA_PLUGIN_DIR}/acCSP/CspConfigParser.h
@@ -577,7 +577,7 @@ set(ASSETTOCORSA_SOURCES
     ${ASSETTOCORSA_PLUGIN_DIR}/AssetsLibraryModule.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/ContentBrowser.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/KsContentPaths.cpp
-    ${ASSETTOCORSA_PLUGIN_DIR}/KsRunner.cpp
+    ${ASSETTOCORSA_PLUGIN_DIR}/KsAssettoCorsaRunner.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/QmlBridges.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/SetupComparison.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/WorkshopModule.cpp
@@ -603,7 +603,7 @@ set(ASSETTOCORSA_HEADERS
     ${ASSETTOCORSA_PLUGIN_DIR}/ksAssettoCorsa_export.h
     ${ASSETTOCORSA_PLUGIN_DIR}/ContentBrowser.h
     ${ASSETTOCORSA_PLUGIN_DIR}/KsContentPaths.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/KsRunner.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/KsAssettoCorsaRunner.h
     ${ASSETTOCORSA_PLUGIN_DIR}/QmlBridges.h
     ${ASSETTOCORSA_PLUGIN_DIR}/SetupComparison.h
     ${ASSETTOCORSA_PLUGIN_DIR}/WorkshopModule.h

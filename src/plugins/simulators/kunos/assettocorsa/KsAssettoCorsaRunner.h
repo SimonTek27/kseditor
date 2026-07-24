@@ -7,18 +7,18 @@
 
 namespace ks {
 
-enum class KsRunnerStatus {
+enum class KsAssettoCorsaRunnerStatus {
     Ready,
     Running,
     Error,
     NotFound
 };
 
-class KsRunner : public QObject {
+class KsAssettoCorsaRunner : public QObject {
     Q_OBJECT
 
 public:
-    static KsRunner* instance();
+    static KsAssettoCorsaRunner* instance();
 
     bool setKsPath(const QString& path);
     QString getKsPath() const { return m_ksPath; }
@@ -29,7 +29,7 @@ public:
     bool launchPractice(const QString& track);
     bool stopKs();
     
-    KsRunnerStatus status() const { return m_status; }
+    KsAssettoCorsaRunnerStatus status() const { return m_status; }
     QString lastError() const { return m_lastError; }
     QString lastOutput() const { return m_lastOutput; }
     bool isRunning() const;
@@ -43,15 +43,15 @@ public:
 signals:
     void launched();
     void launchFailed(const QString& error);
-    void statusChanged(KsRunnerStatus status);
+    void statusChanged(KsAssettoCorsaRunnerStatus status);
     void processExited(int exitCode);
 
 private:
-    explicit KsRunner(QObject* parent = nullptr);
-    static KsRunner* s_instance;
+    explicit KsAssettoCorsaRunner(QObject* parent = nullptr);
+    static KsAssettoCorsaRunner* s_instance;
     
     QString m_ksPath;
-    KsRunnerStatus m_status = KsRunnerStatus::NotFound;
+    KsAssettoCorsaRunnerStatus m_status = KsAssettoCorsaRunnerStatus::NotFound;
     QString m_lastError;
     QString m_lastOutput;
     QProcess* m_process = nullptr;

@@ -4,7 +4,7 @@
 #include "ContentBrowser.h"
 #include "QmlBridges.h"
 #include "SetupComparison.h"
-#include "KsRunner.h"
+#include "KsAssettoCorsaRunner.h"
 #include "KsContentPaths.h"
 #include <QDebug>
 
