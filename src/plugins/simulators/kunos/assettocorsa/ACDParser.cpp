@@ -29,7 +29,6 @@ ACDParser::ACDArchive ACDParser::parse(const QString& acdPath, QString* error) {
 
     // Check if file is encrypted by looking for INI header
     QByteArray headerBytes = file.peek(64);
-    isEncrypted(acdPath);
 
     // Try to detect if this is a raw INI collection or encrypted ACD
     if (headerBytes.startsWith('[')) {

@@ -109,6 +109,9 @@ struct Mesh {
 
     // Decode raw vertexData into typed arrays
     void decodeVertices();
+
+    // Encode typed arrays back into vertexData (inverse of decodeVertices)
+    void encodeVertices();
 };
 
 // ---------------------------------------------------------------------------
@@ -293,7 +296,8 @@ inline void KN5File::extractLODGroups() {
 // ---------------------------------------------------------------------------
 inline void Mesh::decodeVertices() {
     if (vertexData.isEmpty()) return;
-    quint32 stride = vertexLayout.vertexSize > 0 ? vertexLayout.vertexSize : 44;
+    quint32 stride = vertexLayout.vertexSize > 0 ? vertexLayout.vertexSize
+                    : (isSkinnedMesh ? 60u : 44u);
     quint32 count  = (quint32)vertexData.size() / stride;
 
     positions.resize(count);
@@ -348,6 +352,100 @@ inline void Mesh::decodeVertices() {
     }
 }
 
+inline void Mesh::encodeVertices() {
+    // Build vertex layout from populated arrays
+    vertexLayout.attributes.clear();
+    vertexLayout.vertexSize = 0;
+    using AT = AttributeType;
+
+    auto addAttr = [&](AT type, quint8 size) {
+        vertexLayout.attributes.append({type, vertexLayout.vertexSize});
+        vertexLayout.vertexSize += size;
+    };
+
+    addAttr(AT::Position, 12);
+    addAttr(AT::Normal, 12);
+    addAttr(AT::TexCoord0, 8);
+
+    if (!uv1.isEmpty())     addAttr(AT::TexCoord1, 8);
+    if (!tangents.isEmpty())   addAttr(AT::Tangent, 12);
+    if (!bitangents.isEmpty()) addAttr(AT::Bitangent, 12);
+    if (!boneWeights.isEmpty()) {
+        addAttr(AT::BoneWeight, 16);
+        addAttr(AT::BoneIndex, 4);
+    }
+
+    quint32 count = (quint32)positions.size();
+    vertexData.resize(count * vertexLayout.vertexSize);
+
+    auto wf = [&](int o, float f) { memcpy(vertexData.data() + o, &f, 4); };
+    auto wub = [&](int o, quint32 v) {
+        quint8 b[4] = { (quint8)(v & 0xFF), (quint8)((v>>8)&0xFF),
+                        (quint8)((v>>16)&0xFF), (quint8)((v>>24)&0xFF) };
+        memcpy(vertexData.data() + o, b, 4);
+    };
+
+    for (quint32 i = 0; i < count; ++i) {
+        int base = i * vertexLayout.vertexSize;
+
+        int pOff = off(AT::Position);
+        if (pOff >= 0 && i < (quint32)positions.size()) {
+            wf(base + pOff, positions[i].x());
+            wf(base + pOff + 4, positions[i].y());
+            wf(base + pOff + 8, positions[i].z());
+        }
+
+        int nOff = off(AT::Normal);
+        if (nOff >= 0 && i < (quint32)normals.size()) {
+            wf(base + nOff, normals[i].x());
+            wf(base + nOff + 4, normals[i].y());
+            wf(base + nOff + 8, normals[i].z());
+        }
+
+        int t0Off = off(AT::TexCoord0);
+        if (t0Off >= 0 && i < (quint32)uv0.size()) {
+            wf(base + t0Off, uv0[i].x());
+            wf(base + t0Off + 4, uv0[i].y());
+        }
+
+        if (!uv1.isEmpty()) {
+            int t1Off = off(AT::TexCoord1);
+            if (t1Off >= 0 && i < (quint32)uv1.size()) {
+                wf(base + t1Off, uv1[i].x());
+                wf(base + t1Off + 4, uv1[i].y());
+            }
+        }
+        if (!tangents.isEmpty()) {
+            int tOff = off(AT::Tangent);
+            if (tOff >= 0 && i < (quint32)tangents.size()) {
+                wf(base + tOff, tangents[i].x());
+                wf(base + tOff + 4, tangents[i].y());
+                wf(base + tOff + 8, tangents[i].z());
+            }
+        }
+        if (!bitangents.isEmpty()) {
+            int bOff = off(AT::Bitangent);
+            if (bOff >= 0 && i < (quint32)bitangents.size()) {
+                wf(base + bOff, bitangents[i].x());
+                wf(base + bOff + 4, bitangents[i].y());
+                wf(base + bOff + 8, bitangents[i].z());
+            }
+        }
+        if (!boneWeights.isEmpty()) {
+            int wOff = off(AT::BoneWeight);
+            if (wOff >= 0 && i < (quint32)boneWeights.size()) {
+                wf(base + wOff, boneWeights[i].x());
+                wf(base + wOff + 4, boneWeights[i].y());
+                wf(base + wOff + 8, boneWeights[i].z());
+                wf(base + wOff + 12, boneWeights[i].w());
+            }
+            int iOff = off(AT::BoneIndex);
+            if (iOff >= 0 && i < (quint32)boneIndices.size()) {
+                wub(base + iOff, boneIndices[i]);
+            }
+        }
+    }
+}
 
 
 // ---------------------------------------------------------------------------

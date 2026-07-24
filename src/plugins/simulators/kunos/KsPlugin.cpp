@@ -130,11 +130,28 @@ bool KsPlugin::detectInstallation() {
 QStringList KsPlugin::getDefaultInstallationPaths() const {
     QStringList paths;
 
-    QSettings registry("HKEY_LOCAL_MACHINE", QSettings::NativeFormat);
-    QString registryPath = registry.value("SOFTWARE/WOW6432Node/Kunos Simulazioni/AssettoCorsa", "").toString();
-    if (!registryPath.isEmpty()) {
-        paths << registryPath;
+    // Check Windows registry for AC installation (32-bit on 64-bit Windows)
+#ifdef Q_OS_WIN
+    QSettings regWow(QSettings::SystemScope, "Kunos Simulazioni", "Assetto Corsa");
+    QString regPath = regWow.value("installdir").toString();
+    if (regPath.isEmpty())
+        regPath = regWow.value("InstallLocation").toString();
+    if (regPath.isEmpty())
+        regPath = regWow.value("path").toString();
+    if (!regPath.isEmpty())
+        paths << regPath;
+
+    // Also check HKLM\SOFTWARE\Kunos Simulazioni\Assetto Corsa (64-bit)
+    // via NativeFormat workaround
+    {
+        QSettings regHKLM("HKEY_LOCAL_MACHINE\\SOFTWARE\\Kunos Simulazioni", QSettings::NativeFormat);
+        QString p64 = regHKLM.value("Assetto Corsa/installdir").toString();
+        if (p64.isEmpty())
+            p64 = regHKLM.value("Assetto Corsa/InstallLocation").toString();
+        if (!p64.isEmpty() && !paths.contains(p64))
+            paths << p64;
     }
+#endif
 
     paths << QDir::homePath() + "/AppData/Local/Steam/steamapps/core/assettocorsa";
     paths << "C:/Program Files (x86)/Steam/steamapps/core/assettocorsa";
