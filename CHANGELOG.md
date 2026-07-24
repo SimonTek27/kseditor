@@ -189,7 +189,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+[1.16.4]: https://github.com/kseditor/kseditor/releases/tag/v1.16.4
 [0.9.1]: https://github.com/kseditor/kseditor/releases/tag/v0.9.1
-[0.9.0]: https://github.com/kseditor/kseditor/compare/v0.9.1...v0.9.0
+[0.9.0]: https://github.com/kseditor/kseditor/compare/v0.9.0...v0.9.1
 [2.0.0]: https://github.com/kseditor/kseditor/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/kseditor/kseditor/releases/tag/v1.0.0

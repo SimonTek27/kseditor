@@ -80,7 +80,7 @@ static int appMain(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     app.setApplicationName("ksEditor");
-    app.setApplicationVersion("0.9.0");
+    app.setApplicationVersion("1.16.4");
     app.setOrganizationName("ksEditor");
 
     // Load translations

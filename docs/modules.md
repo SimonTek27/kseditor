@@ -172,6 +172,13 @@ ksEditor is organized into two layers: **core modules** (32 system-level subsyst
 
 ---
 
+### help — 6 files — **100% Complete**
+**Capabilities:** Context-sensitive help system: F1 integration with current module detection, QuickStart tutorial with "Don't show again" tracking, help browser with navigation/search, 20+ registered help contexts covering all major modules, and tutorial system with step-by-step guided workflows.
+
+**Alternative Comparison:** Integrated alternative to standalone documentation browsers. Less feature-rich than Qt Assistant but zero-configuration and module-aware.
+
+---
+
 ### archive — 2 files — **100% Complete**
 **Capabilities:** 7-Zip SDK integration for archive operations: create/extract 7z, ZIP, TAR, GZIP, BZIP2, XZ with compression level control, password protection, and progress callbacks. Minimal wrapper for asset packaging.
 
@@ -302,7 +309,7 @@ ksEditor is organized into two layers: **core modules** (32 system-level subsyst
 
 ## Entry Points
 
-- **`src/modules/ksEditor.cpp/.h`** — Main application module
+- **`src/modules/EditorApp.cpp/.h`** — Main application module
 - **`src/main.cpp`** — Application entry
 - **`src/MainWindow.cpp/.h`** — Main window
 - **`src/SDKBackend.cpp/.h`** — SDK integration backend
@@ -324,5 +331,5 @@ All 32 core subsystems and 9 application modules are **100% complete** and produ
 
 | Domain | Status |
 |--------|--------|
-| All Core Subsystems (Audio, Graphics, mesh, FileFormat, material, sys, editor, assets, tools, ui, modmanager, network, Config, AIEditor, animation, workshop, weather, vcs, FfbEditor, ppfiltersEditor, textEditor, archive, formatToolsEditor, Math, eventEditor, ServerConfigEditor, 3dprint, VR, Scripting) | 100% |
+| All Core Subsystems (Audio, Graphics, mesh, FileFormat, material, sys, editor, assets, tools, ui, modmanager, network, Config, AIEditor, animation, workshop, weather, vcs, FfbEditor, ppfiltersEditor, textEditor, help, archive, splitter, formatToolsEditor, Math, eventEditor, ServerConfigEditor, 3dprint, VR, Scripting) | 100% |
 | All Application Modules (modellingEditor, PhysicsEditor, soundEditor, LiveryEditor, ShowroomEditor, displayEditor, LicensePlatesEditor, fontEditor, VREditor) | 100% |

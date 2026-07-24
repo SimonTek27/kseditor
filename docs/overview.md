@@ -35,7 +35,7 @@ src/
 │   ├── vcs/           Git version control integration
 │   ├── archive/       7-Zip archive integration
 │   ├── help/          Context help system with browser
-│   ├── Scripting/     Coroutine manager, debugger frontend
+│   ├── splitter/      Window splitter/tiling management
 │   └── formatTools/   Format conversion tools
 ├── modules/        High-level application modules (9 modules)
 │   ├── modellingEditor/   3D modeling (49 files)

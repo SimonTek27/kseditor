@@ -3,6 +3,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QTextStream>
+#include <QDataStream>
 
 namespace ks {
 
@@ -41,9 +43,93 @@ bool ParticleFormatParser::load(const QString& filePath, ParticleFile& outFile)
         for (const QJsonValue& val : emittersArr) {
             outFile.emitters.append(parseEmitter(val.toObject()));
         }
+    } else if (rawData.left(4) == "KSPF") {
+        // Binary KSPF format
+        QDataStream stream(rawData);
+        stream.setByteOrder(QDataStream::LittleEndian);
+        stream.skipRawData(4); // skip magic
+
+        quint8 headerVersion;
+        stream >> headerVersion;
+        outFile.version = QString("1.%1").arg(headerVersion);
+
+        // Number of emitters
+        quint32 emitterCount;
+        stream >> emitterCount;
+
+        for (quint32 i = 0; i < emitterCount; ++i) {
+            ParticleEmitter emitter;
+
+            // Name (length-prefixed string)
+            quint32 nameLen;
+            stream >> nameLen;
+            if (nameLen > 256) { s_lastError = "Corrupt emitter name"; return false; }
+            QByteArray nameBytes(nameLen, '\0');
+            stream.readRawData(nameBytes.data(), nameLen);
+            emitter.name = QString::fromUtf8(nameBytes);
+
+            // Type (length-prefixed string)
+            quint32 typeLen;
+            stream >> typeLen;
+            if (typeLen > 64) { s_lastError = "Corrupt emitter type"; return false; }
+            QByteArray typeBytes(typeLen, '\0');
+            stream.readRawData(typeBytes.data(), typeLen);
+            emitter.type = QString::fromUtf8(typeBytes);
+
+            stream >> emitter.maxParticles;
+            stream >> emitter.emissionRate;
+            stream >> emitter.lifetime;
+            stream >> emitter.lifetimeRandom;
+            stream >> emitter.spawnRadius;
+            stream >> emitter.spawnConeAngle;
+            stream >> emitter.velocity;
+            stream >> emitter.velocityRandom;
+            stream >> emitter.startSize;
+            stream >> emitter.endSize;
+            stream >> emitter.sizeRandom;
+            stream.readRawData(reinterpret_cast<char*>(emitter.startColor), 16);
+            stream.readRawData(reinterpret_cast<char*>(emitter.endColor), 16);
+            stream.readRawData(reinterpret_cast<char*>(emitter.gravity), 12);
+            stream >> emitter.damping;
+            stream >> emitter.worldSpace;
+            stream >> emitter.startRotation;
+            stream >> emitter.endRotation;
+            stream >> emitter.angularVelocity;
+
+            outFile.emitters.append(emitter);
+        }
+    } else if (rawData.trimmed().left(10).toLower().startsWith("particles")) {
+        // Plain-text particle list format
+        QTextStream in(rawData);
+        QString line;
+        while (in.readLineInto(&line)) {
+            line = line.trimmed();
+            if (line.isEmpty() || line.startsWith('#')) continue;
+
+            auto parts = line.split('=', Qt::SkipEmptyParts);
+            if (parts.size() == 2) {
+                QString key = parts[0].trimmed();
+                QString val = parts[1].trimmed();
+
+                if (key == "name") {
+                    ParticleEmitter emitter;
+                    emitter.name = val;
+                    outFile.emitters.append(emitter);
+                } else if (key == "rate" && !outFile.emitters.isEmpty()) {
+                    outFile.emitters.last().emissionRate = val.toFloat();
+                } else if (key == "lifetime" && !outFile.emitters.isEmpty()) {
+                    outFile.emitters.last().lifetime = val.toFloat();
+                } else if (key == "velocity" && !outFile.emitters.isEmpty()) {
+                    outFile.emitters.last().velocity = val.toFloat();
+                } else if (key == "size" && !outFile.emitters.isEmpty()) {
+                    auto sizes = val.split(' ');
+                    if (sizes.size() >= 1) outFile.emitters.last().startSize = sizes[0].toFloat();
+                    if (sizes.size() >= 2) outFile.emitters.last().endSize = sizes[1].toFloat();
+                }
+            }
+        }
     } else {
-        // Legacy binary/text format fallback - TODO
-        s_lastError = "Unsupported particle file format";
+        s_lastError = "Unsupported particle file format (expected JSON, KSPF binary, or text)";
         return false;
     }
 

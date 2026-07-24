@@ -4,7 +4,7 @@
 
 **ksEditor** is a professional-grade, modular desktop application built with **C++17, Qt6, and Vulkan** for creating and editing content for Assetto Corsa and other Kunos/Steam racing games. It unifies audio engineering, 3D modeling, physics simulation, livery design, telemetry analysis, and content management into a single cohesive IDE-like environment.
 
-> **Version:** 0.9-Enhanced (Unreleased)    
+> **Version:** 1.16.4    
 > **License:** MIT (see [LICENSE.txt](LICENSE.txt))  
 > **Platform:** Windows 10/11 (primary), Linux (experimental)  
 > **Build System:** CMake 3.16+ with vcpkg integration  
@@ -42,7 +42,7 @@
 ### Installation
 
 **Windows (Installer):**
-1. Download `kseditor-1.16-win64.exe` from [Releases](https://github.com/kseditor/kseditor/releases)
+1. Download `kseditor-1.16.4-win64.exe` from [Releases](https://github.com/kseditor/kseditor/releases)
 2. Run installer — includes Vulkan Runtime, VC++ Redistributables, Qt6 libraries
 3. Launch from Start Menu or Desktop shortcut
 4. First-run wizard: select Assetto Corsa installation path, theme (Dark/Light), and default workspace
@@ -138,7 +138,7 @@ kseditor/
 ├── src/
 │   ├── main.cpp                # Application entry, Qt/QML initialization
 │   ├── SDKBackend.cpp/h        # Game SDK integration (Assetto Corsa)
-│   ├── core/                   # 27 system-level subsystems
+│   ├── core/                   # 32 system-level subsystems
 │   │   ├── Audio/              # 62 files — DSP, VST, graph editor, banks
 │   │   ├── Graphics/           # 22 files + 12 GLSL — Vulkan PBR renderer
 │   │   ├── FileFormat/         # 30 files — 50+ format parsers (KN5, FBX, GLB, OBJ, etc.)
@@ -199,11 +199,11 @@ kseditor/
 
 | Subsystem | Files | Completion | Key Capabilities |
 |-----------|-------|------------|------------------|
-| **[Audio](#audio-editor-ksaudiostudio)** | 62 | 100% | Real-time mixing, 3D spatial, VST2/3 hosting, node graph editor, DSP library (all effects), spectrum analysis, KSaudio banks, bank writer/parser, car acoustics, LADSPA host |
-| **[Graphics](#graphics--vulkan-renderer)** | 27 | 100% | Vulkan renderer, ECS scene graph, PBR pipeline, offscreen rendering, compute shaders, texture streaming, render graph, shader hot-reload, PBR material pipeline |
+| **[Audio](#audio-editor-ksaudiostudio-features)** | 62 | 100% | Real-time mixing, 3D spatial, VST2/3 hosting, node graph editor, DSP library (all effects), spectrum analysis, KSaudio banks, bank writer/parser, car acoustics, LADSPA host |
+| **Graphics** | 27 | 100% | Vulkan renderer, ECS scene graph, PBR pipeline, offscreen rendering, compute shaders, texture streaming, render graph, shader hot-reload, PBR material pipeline |
 | **FileFormat** | 52 | 100% | 50+ formats (GLTF, GLB, FBX, Collada, 3DS, PLY, STL, OBJ, STEP, IGES, DXF, VRML, 3MF, Alembic, USD, INI, JSON, AI spline, replay, audio, image, font, material, particle, scene, animation, terrain, physics, collision, project, backup, config, log, script), magic-byte detection, bidirectional conversion, schema validation |
-| **[Mesh](#3d-modeler-ksmodeler)** | 41 | 100% | CSG boolean ops (BSP), UV unwrap (LSCM/ABF++/xatlas), sculpting with brushes, subdivision, rigging/skinning, morph targets, collision mesh gen, normal map baking, weight painting |
-| **[Material](#material-system)** | 20 | 100% | Node-based shader graph (50+ node types, GLSL/HLSL/SPIR-V code gen), PBR templates, texture paint projection, permutation mgmt, material library |
+| **Mesh** | 41 | 100% | CSG boolean ops (BSP), UV unwrap (LSCM/ABF++/xatlas), sculpting with brushes, subdivision, rigging/skinning, morph targets, collision mesh gen, normal map baking, weight painting |
+| **Material** | 20 | 100% | Node-based shader graph (50+ node types, GLSL/HLSL/SPIR-V code gen), PBR templates, texture paint projection, permutation mgmt, material library |
 | **assets** | 30 | 100% | Content-addressable storage, full-text/metadata search, 3D turntable/audio waveform preview, cloud sync (GDrive/Dropbox/OneDrive), dependency graph, file watcher, project manager |
 | **tools** | 55 | 100% | Incremental backup, batch job queue, VHACD convex decomp, quadric-decimation LOD, macro recorder, profiler, validation rules, collision mesh gen, update checker, preview generator |
 | **ui** | 32 | 100% | Virtualized asset list, FS tree with filter, font atlas editor, ANSI terminal, property editors, node graph editor (1.5K loc), splash/welcome screens, terminal widget, file browser |
@@ -536,7 +536,7 @@ Helper scripts: `build.bat`, `compile.bat`, `build.sh`
 ## Key Features by Domain
 
 ### Audio Editor (ksAudioStudio)
-<a id="audio-editor-ksaudiostudio"></a>
+<a id="audio-editor-ksaudiostudio-features"></a>
 - **FMOD Studio 1.08.12 parity** — Import/export .bank projects
 - **62-file audio engine** — Real-time graph processing with topological sort
 - **36 DSP panels** — EQ, compressor, reverb, delay, chorus, distortion, tape emulation, guitar amp, vocal processor, harmonic generator, transient designer, multiband comp, convolution reverb, stereo enhancer, dither/noise shaping
@@ -557,7 +557,7 @@ Helper scripts: `build.bat`, `compile.bat`, `build.sh`
 - **File converters** — KN5, FBX, GLB, OBJ bidirectional
 
 ### Physics Editor
-<a id="physics-editor"></a>
+<a id="physics-editor-features"></a>
 - **Vehicle systems** — Suspension (double-wishbone/MacPherson), brakes (thermal), aero (wings/body/diffuser), tires (Pacejka MF 6.1/6.2), engine (torque curve, rev limiter, turbo), gearbox (ratios, final drive, LSD), differential (viscous/Torsen/clutch), ERS/hybrid (MGU-K/MGU-H, battery, deploy), DRS, damage, weather, fuel
 - **Simulation** — Euler integrator, raycast/sphere overlap, joint mgmt, real-time playback
 - **Tools** — Tire curve editor, setup editor/comparison, lap-time impact calculator, tire temp predictor, setup recommender
@@ -906,7 +906,7 @@ qDebug() << "Predicted lap:" << sim.timeSeconds << "s"
 | Crackling / dropouts | Buffer too small / CPU overload | Increase buffer size (512 → 1024 samples); freeze heavy tracks |
 
 ### Physics Editor
-<a id="physics-editor"></a>
+<a id="physics-editor-troubleshooting"></a>
 
 | Symptom | Likely Cause | Fix |
 |---------|-------------|-----|
@@ -1090,7 +1090,7 @@ Built-in profiler (`View → Profiler` or `Ctrl+Shift+P`):
 | `Ctrl + Shift + R` | Reload Shaders | Hot-reload GLSL during development |
 
 ### Physics Editor
-<a id="physics-editor"></a>
+<a id="physics-editor-shortcuts"></a>
 
 | Shortcut | Action | Notes |
 |----------|--------|-------|
@@ -1106,7 +1106,7 @@ Built-in profiler (`View → Profiler` or `Ctrl+Shift+P`):
 | `Shift + Click` | Reset to Default | On any parameter field |
 
 ### Audio Editor (ksAudioStudio)
-<a id="audio-editor-ksaudiostudio"></a>
+<a id="audio-editor-ksaudiostudio-shortcuts"></a>
 
 | Shortcut | Action | Notes |
 |----------|--------|-------|
@@ -1154,7 +1154,7 @@ A: Yes. ksEditor is released under the MIT License. You can use, modify, and dis
 A: Partially. The 3D modeler, audio editor, and livery tools work standalone. However, the SDKBackend, live telemetry, and AC-specific exporters require a valid AC installation.
 
 **Q: Does ksEditor support other games (rFactor 2, Automobilista, etc.)?**
-A: Not natively in v2.1. The plugin architecture is designed for multi-simulator support, but only the Kunos/AC plugin is fully implemented. Community plugins for other simulators are welcome.
+A: Not natively in v1.16. The plugin architecture is designed for multi-simulator support, but only the Kunos/AC plugin is fully implemented. Community plugins for other simulators are welcome.
 
 **Q: How do I update ksEditor without losing my projects?**
 A: Projects are stored in your workspace folder (default: `Documents/ksEditorProjects/`) and are independent of the application installation. Simply uninstall the old version and install the new one. The project database auto-migrates on first open.
@@ -1279,7 +1279,7 @@ ctest
 | File | Description |
 |------|-------------|
 | [README.md](../README.md) | Quick start, features, build, SDK usage |
-| [CHANGELOG.md](../CHANGELOG.md) | Keep a Changelog format, v1.0.0 → v2.1.0 |
+| [CHANGELOG.md](../CHANGELOG.md) | Keep a Changelog format, v1.0.0 → v1.16.4 |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Dev setup, code style, adding modules/plugins, testing |
 | [overview.md](overview.md) | Architecture diagram, tech stack, feature matrix |
 | [modules.md](modules.md) | Core + app module deep-dive with completion % |
@@ -1316,7 +1316,7 @@ ctest
 
 | Version | Date | Major Additions |
 |---------|------|-----------------|
-| **2.1.0** (unreleased) | 2026-07 | 3D Viewport, Properties Panel, Material Editor, Transform Gizmo, Tool Palette, Layer Panel, DisplayEditor, ModuleManager (7 modules), OBJ/GLB/FBX parsers, full CMake registration |
+| **1.16.4** | 2026-07-24 | All 32 core subsystems + 9 application modules 100% complete, 50+ format parsers, full Vulkan pipeline, VST audio, VR support |
 | **2.0.0** | 2026-04-25 | Sound Editor (FMOD), PP Filters Editor, License Plate Editor, Font Creator, Display Editor, Assets Library, PhysicsSimulator, TimelineEditor, UndoRedo, AutoSave, Validation, Notification, CommandPalette, Backup, Theme, Settings, Cache, UpdateChecker, VersionControl, CloudSync, Collaboration, PluginSystem, ScriptConsole, MacroSystem, TaskSystem, StateMachine, HotkeyAction, ShortcutProfile, PreviewGenerator, SearchFilter, AssetManager, ProjectTemplates, ExportPresets, ImportExportFilters, WizardSystem, MetadataSystem, PerformanceOptimizer, ConsolePanel, DebugTools, LoggingSystem, resources.qrc (89 icons), CI/CD, 13 test suites, i18n (4 langs), CPack/NSIS installer |
 | **1.0.0** | 2026-01-15 | Qt6+QML architecture, 3D Modeler, Physics Editor, Sound Editor stub, Vulkan renderer foundation, scene graph, KN5/ACD/INI parsers, QML UI, Python scripting, ribbon toolbar, database/logging |
 
