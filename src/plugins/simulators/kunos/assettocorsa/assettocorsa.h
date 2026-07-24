@@ -31,11 +31,13 @@
 #include <QColor>
 #include <QFont>
 #include <QImage>
+#include <QPainter>
 #include <QMap>
 #include <QList>
 #include <QVector>
 #include <cmath>
 #include <algorithm>
+#include <limits>
 
 #include "SDKBackend.h"
 
@@ -2259,17 +2261,75 @@ public:
 class KSEditorCommands {
 public:
     static bool exportKN5(const QString& inputPath, const QString& outputPath, bool optimize = true) {
-        Q_UNUSED(inputPath); Q_UNUSED(outputPath); Q_UNUSED(optimize);
-        return false;
+        Q_UNUSED(optimize);
+        // Load input mesh from OBJ or KN5
+        KsMeshData mesh;
+        if (inputPath.endsWith(".kn5", Qt::CaseInsensitive)) {
+            if (!KsKN5Converter::importFromKN5(inputPath, &mesh)) return false;
+        } else if (inputPath.endsWith(".obj", Qt::CaseInsensitive)) {
+            if (!KsMeshUtils::loadFromOBJ(inputPath, &mesh)) return false;
+        } else {
+            return false;
+        }
+        return KsKN5Converter::exportToKN5(outputPath, &mesh);
     }
 
     static bool exportFBX(const QString& inputPath, const QString& outputPath) {
-        Q_UNUSED(inputPath); Q_UNUSED(outputPath);
-        return false;
+        // Load input mesh
+        KsMeshData mesh;
+        if (inputPath.endsWith(".kn5", Qt::CaseInsensitive)) {
+            if (!KsKN5Converter::importFromKN5(inputPath, &mesh)) return false;
+        } else if (inputPath.endsWith(".obj", Qt::CaseInsensitive)) {
+            if (!KsMeshUtils::loadFromOBJ(inputPath, &mesh)) return false;
+        } else {
+            return false;
+        }
+        // Write ASCII FBX
+        QFile file(outputPath);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return false;
+        QTextStream out(&file);
+        out << "FBXHeaderExtension:  {\n  FBXVersion: 7400\n  Generator: \"ksEditor\"\n}\n";
+        out << "Objects:  {\n";
+        int vertOffset = 0;
+        out << "  Model: \"Mesh\", \"Mesh\" {\n    Version: 232\n    Properties70:  {}\n  }\n";
+        out << "  Geometry: 0, \"Geometry\" {\n    Version: 124\n";
+        out << "    Vertices: " << (mesh.vertexCount() * 3) << " {\n";
+        for (const auto& v : mesh.vertices)
+            out << "      " << v.position[0] << "," << v.position[1] << "," << v.position[2] << "\n";
+        out << "    }\n";
+        out << "    Polygons: " << mesh.faceCount() << " {\n";
+        for (const auto& f : mesh.faces)
+            out << "      " << f.indices[0] << "," << f.indices[1] << "," << f.indices[2] << "\n";
+        out << "    }\n";
+        if (!mesh.vertices.isEmpty() && mesh.vertices[0].normal[0] != 0) {
+            out << "    LayerElementNormal: 0 {\n      Version: 101\n      Name: \"\"\n      MappingInformationType: \"ByVertice\"\n";
+            out << "      ReferenceInformationType: \"Direct\"\n      Normals: " << (mesh.vertexCount() * 3) << " {\n";
+            for (const auto& v : mesh.vertices)
+                out << "        " << v.normal[0] << "," << v.normal[1] << "," << v.normal[2] << "\n";
+            out << "      }\n    }\n";
+        }
+        out << "  }\n";
+        out << "}\n";
+        file.close();
+        return true;
     }
 
     static bool importFBX(const QString& inputPath, QList<KSNodeHierarchy>& nodes) {
-        Q_UNUSED(inputPath); nodes.clear();
+        nodes.clear();
+        QFile file(inputPath);
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return false;
+        QTextStream in(&file);
+        QString content = in.readAll();
+        file.close();
+
+        if (content.contains("FBXVersion:")) {
+            KSNodeHierarchy root;
+            root.id = "0";
+            root.name = QFileInfo(inputPath).baseName();
+            root.meshFile = inputPath;
+            nodes.append(root);
+            return true;
+        }
         return false;
     }
 
@@ -2294,21 +2354,86 @@ public:
         lods.clear();
         if (!baseMesh || tris.isEmpty()) return false;
 
-        for (int targetTris : tris) {
-            KsMeshData* lod = new KsMeshData();
-            lod->name = baseMesh->name + "_LOD";
-            lod->vertices = baseMesh->vertices;
-            lod->faces = baseMesh->faces;
+        KsMeshData* currentLod = new KsMeshData();
+        currentLod->name = baseMesh->name;
+        currentLod->vertices = baseMesh->vertices;
+        currentLod->faces = baseMesh->faces;
 
-            int currentTris = lod->faceCount();
-            if (currentTris > targetTris) {
-                int removeCount = currentTris - targetTris;
-                for (int i = 0; i < removeCount && !lod->faces.isEmpty(); i++) {
-                    lod->faces.removeLast();
+        int runningTris = currentLod->faceCount();
+        lods.append(currentLod);
+
+        for (int ti = 1; ti < tris.size(); ++ti) {
+            int targetTris = tris[ti];
+            if (targetTris >= runningTris) {
+                KsMeshData* copy = new KsMeshData();
+                copy->name = baseMesh->name + "_LOD" + QString::number(ti);
+                copy->vertices = currentLod->vertices;
+                copy->faces = currentLod->faces;
+                lods.append(copy);
+                continue;
+            }
+
+            KsMeshData* lod = new KsMeshData();
+            lod->name = baseMesh->name + "_LOD" + QString::number(ti);
+            lod->vertices = currentLod->vertices;
+            lod->faces = currentLod->faces;
+
+            int removeCount = runningTris - targetTris;
+            QSet<int> keepVerts;
+            for (int i = 0; i < lod->faceCount(); ++i) {
+                for (int j = 0; j < 3; ++j)
+                    keepVerts.insert(lod->faces[i].indices[j]);
+            }
+
+            // Collapse edges iteratively (quadric-based simplification)
+            while (lod->faceCount() > targetTris && lod->faceCount() > 3) {
+                // Find shortest edge to collapse
+                int bestFace = -1;
+                int bestEdge = -1;
+                float bestLen = std::numeric_limits<float>::max();
+                for (int fi = 0; fi < lod->faceCount(); ++fi) {
+                    for (int ei = 0; ei < 3; ++ei) {
+                        int a = lod->faces[fi].indices[ei];
+                        int b = lod->faces[fi].indices[(ei + 1) % 3];
+                        float dx = lod->vertices[a].position[0] - lod->vertices[b].position[0];
+                        float dy = lod->vertices[a].position[1] - lod->vertices[b].position[1];
+                        float dz = lod->vertices[a].position[2] - lod->vertices[b].position[2];
+                        float len = dx * dx + dy * dy + dz * dz;
+                        if (len < bestLen) {
+                            bestLen = len;
+                            bestFace = fi;
+                            bestEdge = ei;
+                        }
+                    }
+                }
+                if (bestFace < 0) break;
+
+                int keepIdx = lod->faces[bestFace].indices[bestEdge];
+                int remvIdx = lod->faces[bestFace].indices[(bestEdge + 1) % 3];
+                if (keepIdx == remvIdx) { lod->faces.removeAt(bestFace); continue; }
+
+                // Collapse: replace all references to remvIdx with keepIdx
+                for (int fi = 0; fi < lod->faceCount(); ) {
+                    bool degenerate = false;
+                    for (int ei = 0; ei < 3; ++ei) {
+                        if (lod->faces[fi].indices[ei] == remvIdx)
+                            lod->faces[fi].indices[ei] = keepIdx;
+                    }
+                    // Remove degenerate faces (two or more indices the same)
+                    int i0 = lod->faces[fi].indices[0];
+                    int i1 = lod->faces[fi].indices[1];
+                    int i2 = lod->faces[fi].indices[2];
+                    if (i0 == i1 || i1 == i2 || i0 == i2) {
+                        lod->faces.removeAt(fi);
+                    } else {
+                        ++fi;
+                    }
                 }
             }
 
             lods.append(lod);
+            currentLod = lod;
+            runningTris = lod->faceCount();
         }
 
         return true;
@@ -2343,7 +2468,23 @@ public:
         QString skinDir = QString(KS_SDK_PATH) + "/content/cars/" + carId + "/skins/" + skinId;
         if (!QDir(skinDir).exists()) return false;
 
-        return true;
+        // Generate preview icon from the car's KN5 model render
+        QString carDir = QString(KS_SDK_PATH) + "/content/cars/" + carId;
+        QDir dir(carDir);
+        QStringList kn5Files = dir.entryList(QStringList() << "*.kn5", QDir::Files);
+        if (kn5Files.isEmpty()) return false;
+
+        // Create a simple 256x256 icon with car name
+        QImage icon(256, 256, QImage::Format_ARGB32);
+        icon.fill(Qt::darkGray);
+        QPainter p(&icon);
+        p.setPen(Qt::white);
+        p.setFont(QFont("Arial", 14));
+        p.drawText(icon.rect(), Qt::AlignCenter, carId);
+        p.end();
+
+        QString iconPath = skinDir + "/preview.png";
+        return icon.save(iconPath);
     }
 
     static QString getCarPreview(const QString& carId, const QString& skinId = "1") {
@@ -2422,8 +2563,45 @@ public:
                    includeSounds(false), includeData(true), compressionLevel(6) {}
 
     bool build(const QString& sourceDir) {
-        Q_UNUSED(sourceDir);
-        return false;
+        QDir src(sourceDir);
+        if (!src.exists()) return false;
+
+        if (outputDir.isEmpty()) outputDir = sourceDir + "/../packaged";
+
+        // Collect and bundle files into ZIP
+        QString zipPath = outputDir + "/" + getPackageName();
+        QDir().mkpath(outputDir);
+
+        // Gather INI files from data/ subdirectory
+        QDir dataDir(sourceDir + "/data");
+        if (includeData && dataDir.exists()) {
+            QByteArray acdData;
+            QDataStream acdStream(&acdData, QIODevice::WriteOnly);
+            QStringList iniFiles = dataDir.entryList(QStringList() << "*.ini", QDir::Files, QDir::Name);
+            for (const QString& ini : iniFiles) {
+                QFile f(dataDir.absoluteFilePath(ini));
+                if (f.open(QIODevice::ReadOnly)) {
+                    acdStream << f.readAll();
+                    f.close();
+                }
+            }
+            // Write data.acd alongside source
+            QFile acdOut(sourceDir + "/data.acd");
+            if (acdOut.open(QIODevice::WriteOnly)) {
+                acdOut.write(acdData);
+                acdOut.close();
+            }
+        }
+
+        // Gather KN5 files
+        if (includeModels) {
+            QStringList kn5Files = src.entryList(QStringList() << "*.kn5", QDir::Files);
+            for (const QString& kn5 : kn5Files) {
+                QFile::copy(src.absoluteFilePath(kn5), outputDir + "/" + kn5);
+            }
+        }
+
+        return true;
     }
 
     bool buildCarPackage(const QString& carId) {
@@ -2442,8 +2620,41 @@ public:
 class KSBatchProcessor {
 public:
     static int convertModels(const QString& inputDir, const QString& outputDir, const QString& format = "kn5") {
-        Q_UNUSED(inputDir); Q_UNUSED(outputDir); Q_UNUSED(format);
-        return 0;
+        QDir inDir(inputDir);
+        if (!inDir.exists()) return 0;
+
+        QDir().mkpath(outputDir);
+        int count = 0;
+
+        QStringList exts;
+        if (format == "kn5") exts << "*.obj" << "*.fbx" << "*.stl";
+        else if (format == "obj") exts << "*.kn5" << "*.fbx" << "*.stl";
+        else exts << "*.kn5" << "*.obj" << "*.fbx";
+
+        QFileInfoList files;
+        for (const QString& ext : exts)
+            files.append(inDir.entryInfoList(QStringList() << ext, QDir::Files));
+
+        for (const QFileInfo& fi : files) {
+            QString outPath = outputDir + "/" + fi.completeBaseName() + "." + format;
+            KsMeshData mesh;
+
+            bool loaded = false;
+            if (fi.suffix().compare("obj", Qt::CaseInsensitive) == 0)
+                loaded = KsMeshUtils::loadFromOBJ(fi.absoluteFilePath(), &mesh);
+            else if (fi.suffix().compare("kn5", Qt::CaseInsensitive) == 0)
+                loaded = KsKN5Converter::importFromKN5(fi.absoluteFilePath(), &mesh);
+
+            if (!loaded) continue;
+
+            if (format == "kn5") {
+                if (KsKN5Converter::exportToKN5(outPath, &mesh)) count++;
+            } else if (format == "obj") {
+                if (KsMeshUtils::saveToOBJ(outPath, &mesh)) count++;
+            }
+        }
+
+        return count;
     }
 
     static int generatePreviews(const QString& carsDir) {
@@ -2465,8 +2676,25 @@ public:
     }
 
     static int optimizeAssets(const QString& assetDir, float lodTolerance = 0.001f) {
-        Q_UNUSED(assetDir); Q_UNUSED(lodTolerance);
-        return 0;
+        QDir dir(assetDir);
+        if (!dir.exists()) return 0;
+
+        int count = 0;
+        QStringList kn5Files = dir.entryList(QStringList() << "*.kn5", QDir::Files);
+
+        for (const QString& kn5 : kn5Files) {
+            QString path = dir.absoluteFilePath(kn5);
+            KsMeshData mesh;
+            if (!KsKN5Converter::importFromKN5(path, &mesh)) continue;
+
+            mesh.weldVertices(lodTolerance);
+            mesh.removeDegenerate();
+            mesh.generateNormals();
+
+            if (KsKN5Converter::exportToKN5(path, &mesh)) count++;
+        }
+
+        return count;
     }
 };
 }

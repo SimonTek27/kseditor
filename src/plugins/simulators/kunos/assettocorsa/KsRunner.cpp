@@ -179,27 +179,32 @@ bool KsRunner::launchPractice(const QString& track) {
         return false;
     }
 
+    // Kill any existing process
+    if (m_process) {
+        m_process->kill();
+        m_process->waitForFinished(3000);
+        m_process->deleteLater();
+        m_process = nullptr;
+    }
+
     QStringList args;
     args << "-practice";
     if (!track.isEmpty()) {
         args << "-track" << track;
     }
 
-    QProcess* proc = new QProcess(this);
-    proc->setProgram(exePath);
-    proc->setArguments(args);
-    proc->setWorkingDirectory(m_ksPath);
-    proc->setProcessChannelMode(QProcess::MergedChannels);
+    m_process = new QProcess(this);
+    m_process->setProgram(exePath);
+    m_process->setArguments(args);
+    m_process->setWorkingDirectory(m_ksPath);
+    m_process->setProcessChannelMode(QProcess::MergedChannels);
 
-    connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this, proc](int exitCode, QProcess::ExitStatus) {
-                QByteArray out = proc->readAll();
-                if (!out.isEmpty()) m_lastOutput = QString::fromUtf8(out);
-                proc->deleteLater();
-                emit processExited(exitCode);
-            });
+    connect(m_process, &QProcess::started, this, &KsRunner::onProcessStarted);
+    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, &KsRunner::onProcessFinished);
+    connect(m_process, &QProcess::errorOccurred, this, &KsRunner::onProcessError);
 
-    proc->start();
+    m_process->start();
     return true;
 }
 
