@@ -5,8 +5,6 @@
 #include <QGroupBox>
 #include <QHeaderView>
 #include <QTableWidget>
-#include <cmath>
-#include <algorithm>
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -707,7 +705,7 @@ void TelemetryViewerModule::onLapSelected(int row, int)
     if (!bridge) return;
     QVariantList laps = bridge->getLapData();
     if (row < 0 || row >= laps.size()) return;
-    QVariantMap lap = laps[row].toVariantMap();
+    QVariantMap lap = laps[row].toMap();
     m_lapDetails->clear();
     m_lapDetails->append("Lap " + lap["lapNumber"].toString());
     m_lapDetails->append("  Time: " + lap["lapTime"].toString());

@@ -4,6 +4,8 @@
 #include <cmath>
 #include <QFileInfo>
 #include <cstdlib>
+#define STB_VORBIS_HEADER_ONLY
+#include "stb_vorbis.c"
 
 AudioFormatConverter::AudioFormatConverter(QObject *parent)
     : QObject(parent)
@@ -241,37 +243,44 @@ bool AudioFormatConverter::decodeOgg(const QString &inputPath, QVector<float> &s
     if (!file.open(QIODevice::ReadOnly)) {
         return false;
     }
-
     QByteArray data = file.readAll();
     file.close();
 
-    format.setChannelCount(2);
-    format.setSampleRate(44100);
+    int stbError = 0;
+    stb_vorbis* v = stb_vorbis_open_memory(
+        reinterpret_cast<const unsigned char*>(data.constData()),
+        data.size(), &stbError, nullptr);
+    if (!v) {
+        emit error(QString("Failed to open Ogg Vorbis file (error %1)").arg(stbError));
+        return false;
+    }
+
+    stb_vorbis_info info = stb_vorbis_get_info(v);
+    int channels = info.channels;
+    int sampleRate = info.sample_rate;
+
+    format.setChannelCount(channels);
+    format.setSampleRate(sampleRate);
     format.setSampleFormat(QAudioFormat::Float);
 
-    if (data.size() < 36) return false;
-
-    if (data.mid(0, 4) == "OggS") {
-        int pos = 27;
-        while (pos < data.size() - 8) {
-            if (data.mid(pos, 6) == "\x01vorbis") {
-                int blockSize = 1 << (data[pos + 7] & 0x0F);
-                samples.resize(44100 * 2);
-                for (int i = 0; i < samples.size(); i++) {
-                    samples[i] = sin(2.0 * M_PI * 440.0 * i / 44100.0) * 0.3f;
-                }
-                metadata.durationMs = samples.size() / 2 * 1000 / 44100;
-                return true;
-            }
-            pos++;
-        }
+    unsigned int totalFrames = stb_vorbis_stream_length_in_samples(v);
+    if (totalFrames == 0) {
+        stb_vorbis_close(v);
+        return false;
     }
 
-    samples.resize(44100 * 2);
-    for (int i = 0; i < samples.size(); i++) {
-        samples[i] = sin(2.0 * M_PI * 440.0 * i / 44100.0) * 0.3f;
+    samples.resize(totalFrames * channels);
+    int decoded = stb_vorbis_get_samples_float_interleaved(v, channels, samples.data(), samples.size());
+    stb_vorbis_close(v);
+
+    if (decoded <= 0) {
+        samples.clear();
+        return false;
     }
-    metadata.durationMs = samples.size() / 2 * 1000 / 44100;
+
+    metadata.sampleRate = sampleRate;
+    metadata.channels = channels;
+    metadata.durationMs = totalFrames * 1000 / sampleRate;
 
     return true;
 }

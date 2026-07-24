@@ -12,9 +12,7 @@
 #include <vulkan/vulkan.h>
 
 namespace ks {
-namespace graphics {
 class SceneGraph;
-}
 
 class VREditorModule : public EditorModule {
     Q_OBJECT
@@ -30,13 +28,13 @@ public:
     QString getModuleIcon() const override { return QString(); }
     int getModulePriority() const override { return 50; }
 
-    vr::XrManager* xrManager() { return m_xrManager; }
+    vr::XrManager* xrManager() const { return m_xrManager; }
     vr::XrViewportRenderer* viewportRenderer() { return m_viewportRenderer; }
     vr::XrInput* xrInput() { return m_xrInput; }
 
     bool isVRModeActive() const { return m_vrActive; }
 
-    void setSceneGraph(graphics::SceneGraph* scene) { m_scene = scene; m_buffersDirty = true; }
+    void setSceneGraph(SceneGraph* scene) { m_scene = scene; m_buffersDirty = true; }
     void markSceneDirty() { m_buffersDirty = true; }
 
     QVector3D cameraPosition() const { return m_cameraPosition; }
@@ -92,7 +90,7 @@ private:
     vr::XrViewportRenderer* m_viewportRenderer = nullptr;
     vr::XrInput* m_xrInput = nullptr;
 
-    graphics::SceneGraph* m_scene = nullptr;
+    SceneGraph* m_scene = nullptr;
 
     VkPipeline m_pipeline = VK_NULL_HANDLE;
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;

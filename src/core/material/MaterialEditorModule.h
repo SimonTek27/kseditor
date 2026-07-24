@@ -1,6 +1,10 @@
 #pragma once
 
 #include "core/editor/ModuleGuiBase.h"
+#include "ShaderGraphWidget.h"
+#include <QPainter>
+#include <QImage>
+#include <QMap>
 
 namespace ks {
 namespace material {
@@ -73,7 +77,7 @@ private:
     QWidget* m_shaderGraphTab = nullptr;
     QSplitter* m_shaderGraphSplitter = nullptr;
     QTreeWidget* m_nodePalette = nullptr;
-    QWidget* m_graphCanvas = nullptr;
+    ShaderGraphWidget* m_shaderGraphWidget = nullptr;
     QWidget* m_graphProps = nullptr;
     
     // Texture Paint Tab
@@ -106,6 +110,11 @@ private:
     QString m_currentMaterialPath;
     QString m_currentPreset;
     bool m_livePreview = false;
+
+    // Texture paint canvas
+    QMap<QString, QImage> m_textureImages;
+    QLabel* m_paintPreview = nullptr;
+    QString m_currentTexturePaintSlot;
 };
 
 } // namespace material

@@ -1,7 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Scene3D 2.15
+import QtQuick3D 6.5
 import "../widgets"
 
 Rectangle {

@@ -80,7 +80,9 @@ struct VulkanFunctionTable {
     PFN_vkCmdBindIndexBuffer cmdBindIndexBuffer = nullptr;
     PFN_vkResetCommandBuffer resetCommandBuffer = nullptr;
     PFN_vkCmdPipelineBarrier cmdPipelineBarrier = nullptr;
+    PFN_vkCmdCopyBuffer cmdCopyBuffer = nullptr;
     PFN_vkCmdCopyBufferToImage cmdCopyBufferToImage = nullptr;
+    PFN_vkCmdCopyImageToBuffer cmdCopyImageToBuffer = nullptr;
     PFN_vkCmdBlitImage cmdBlitImage = nullptr;
 
     // Swap chain / surface / presentation
@@ -208,7 +210,9 @@ inline bool loadInstanceFunctions(VkInstance inst) {
     resolveInstance(g_vk, inst, g_vk.cmdBindIndexBuffer, "vkCmdBindIndexBuffer");
     resolveInstance(g_vk, inst, g_vk.resetCommandBuffer, "vkResetCommandBuffer");
     resolveInstance(g_vk, inst, g_vk.cmdPipelineBarrier, "vkCmdPipelineBarrier");
+    resolveInstance(g_vk, inst, g_vk.cmdCopyBuffer, "vkCmdCopyBuffer");
     resolveInstance(g_vk, inst, g_vk.cmdCopyBufferToImage, "vkCmdCopyBufferToImage");
+    resolveInstance(g_vk, inst, g_vk.cmdCopyImageToBuffer, "vkCmdCopyImageToBuffer");
     resolveInstance(g_vk, inst, g_vk.cmdBlitImage, "vkCmdBlitImage");
 
     // Swap chain / surface / presentation (device-level, resolved via vkGetDeviceProcAddr)

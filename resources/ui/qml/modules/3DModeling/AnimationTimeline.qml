@@ -52,7 +52,7 @@ Rectangle {
                 anchors.margins: 4
                 spacing: 4
 
-                KsButton {
+                AppButton {
                     text: "+"
                     width: 22; height: 22
                     font.pixelSize: 12; font.bold: true
@@ -95,7 +95,7 @@ Rectangle {
                     }
                 }
 
-                KsButton {
+                AppButton {
                     text: "\u2716"
                     width: 22; height: 22
                     font.pixelSize: 10
@@ -232,7 +232,7 @@ Rectangle {
                         anchors.margins: 4
                         spacing: 4
 
-                        KsButton {
+                        AppButton {
                             text: "\u23EE"
                             width: 26; height: 22
                             font.pixelSize: 12
@@ -241,7 +241,7 @@ Rectangle {
                             onClicked: { if (Modeler) Modeler.setAnimationTime(0) }
                         }
 
-                        KsButton {
+                        AppButton {
                             text: "\u25B6"
                             width: 26; height: 22
                             font.pixelSize: 12
@@ -251,7 +251,7 @@ Rectangle {
                             ToolTip.visible: hovered; ToolTip.text: isPlaying ? "Pause" : "Play (Space)"
                         }
 
-                        KsButton {
+                        AppButton {
                             text: "\u23F9"
                             width: 26; height: 22
                             font.pixelSize: 12
@@ -300,7 +300,7 @@ Rectangle {
 
                         Item { width: 4 }
 
-                        KsButton {
+                        AppButton {
                             text: "\u25CF"
                             width: 26; height: 22
                             font.pixelSize: 14
@@ -310,7 +310,7 @@ Rectangle {
                             ToolTip.visible: hovered; ToolTip.text: "Add keyframe (K)"
                         }
 
-                        KsButton {
+                        AppButton {
                             text: "\u21BA"
                             width: 26; height: 22
                             font.pixelSize: 14
@@ -400,7 +400,7 @@ Rectangle {
                 spacing: 8
                 Layout.fillWidth: true
 
-                KsButton {
+                AppButton {
                     text: "Jump to"
                     bgcolor: "#E10600"
                     color: "#fff"
@@ -413,7 +413,7 @@ Rectangle {
                     }
                 }
 
-                KsButton {
+                AppButton {
                     text: "Close"
                     bgcolor: "transparent"
                     color: "#aaa"

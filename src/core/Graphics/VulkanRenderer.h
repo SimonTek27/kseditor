@@ -79,6 +79,7 @@ public:
     void createMesh(const QString& name, const QVector<Vertex>& vertices, const QVector<quint32>& indices);
     Mesh* getMesh(const QString& name);
     void destroyMesh(const QString& name);
+    const QMap<QString, Mesh>& allMeshes() const { return m_meshes; }
 
     static uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
@@ -100,6 +101,9 @@ public:
     bool presentImage(uint32_t imageIndex);
     VkRenderPass renderPass() const { return m_renderPass; }
     int swapChainImageCount() const { return m_swapChainImages.size(); }
+    VkExtent2D swapChainExtent() const { return m_swapChainExtent; }
+    int viewportWidth() const { return m_viewportWidth; }
+    int viewportHeight() const { return m_viewportHeight; }
 
     // Offscreen rendering (for preview generation)
     bool createOffscreenRenderTarget(int width, int height, VkFormat colorFormat = VK_FORMAT_R16G16B16A16_SFLOAT);

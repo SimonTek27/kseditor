@@ -33,7 +33,7 @@ Rectangle {
                     font.bold: true
                 }
                 Item { Layout.fillWidth: true }
-                KsButton { text: "Generate"; height: 24; font.pixelSize: 10; bgcolor: "#E10600"; color: "#121212" }
+                AppButton { text: "Generate"; height: 24; font.pixelSize: 10; bgcolor: "#E10600"; color: "#121212" }
             }
         }
 
@@ -45,9 +45,9 @@ Rectangle {
             ColumnLayout {
                 width: 120
 
-                KsButton { height: 32; text: "Pit Crew"; bgcolor: activeCrew === "pit" ? "#E10600" : "#3e3e42"; color: activeCrew === "pit" ? "#121212" : "#ffffff" }
-                KsButton { height: 32; text: "Marshal"; bgcolor: activeCrew === "marshal" ? "#E10600" : "#3e3e42"; color: activeCrew === "marshal" ? "#121212" : "#ffffff" }
-                KsButton { height: 32; text: "Crowd"; bgcolor: activeCrowd === "crowd" ? "#E10600" : "#3e3e42"; color: activeCrew === "crowd" ? "#121212" : "#ffffff" }
+                AppButton { height: 32; text: "Pit Crew"; bgcolor: activeCrew === "pit" ? "#E10600" : "#3e3e42"; color: activeCrew === "pit" ? "#121212" : "#ffffff" }
+                AppButton { height: 32; text: "Marshal"; bgcolor: activeCrew === "marshal" ? "#E10600" : "#3e3e42"; color: activeCrew === "marshal" ? "#121212" : "#ffffff" }
+                AppButton { height: 32; text: "Crowd"; bgcolor: activeCrowd === "crowd" ? "#E10600" : "#3e3e42"; color: activeCrew === "crowd" ? "#121212" : "#ffffff" }
             }
 
             ColumnLayout {
@@ -71,8 +71,8 @@ Rectangle {
 
                 Text { text: "ANIMATION"; color: "#666666"; font.pixelSize: 10; font.bold: true }
                 RowLayout {
-                    KsButton { text: "Start Sequence"; height: 28; bgcolor: "#E10600"; color: "#121212" }
-                    KsButton { text: "Pit Stop Sim"; height: 28; bgcolor: "transparent"; color: "#ffffff" }
+                    AppButton { text: "Start Sequence"; height: 28; bgcolor: "#E10600"; color: "#121212" }
+                    AppButton { text: "Pit Stop Sim"; height: 28; bgcolor: "transparent"; color: "#ffffff" }
                 }
             }
         }

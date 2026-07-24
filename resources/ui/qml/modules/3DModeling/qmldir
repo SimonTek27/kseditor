@@ -1,5 +1,5 @@
 module ksmodeler
 plugin ksmodelerplugin
 
-KSModelerStudio 1.0 KSModelerStudio.qml
+ModelerStudio 1.0 ModelerStudio.qml
 main 1.0 main.qml

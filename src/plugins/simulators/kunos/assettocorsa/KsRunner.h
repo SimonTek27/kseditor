@@ -27,9 +27,14 @@ public:
     bool launchKs(const QString& track = QString(), const QString& car = QString());
     bool launchTimeTrial(const QString& track);
     bool launchPractice(const QString& track);
+    bool stopKs();
     
     KsRunnerStatus status() const { return m_status; }
     QString lastError() const { return m_lastError; }
+    QString lastOutput() const { return m_lastOutput; }
+    bool isRunning() const;
+    
+    QString findCspExecutable() const;
     
     QString getContentPath() const;
     QString getTracksPath() const;
@@ -39,6 +44,7 @@ signals:
     void launched();
     void launchFailed(const QString& error);
     void statusChanged(KsRunnerStatus status);
+    void processExited(int exitCode);
 
 private:
     explicit KsRunner(QObject* parent = nullptr);
@@ -47,10 +53,14 @@ private:
     QString m_ksPath;
     KsRunnerStatus m_status = KsRunnerStatus::NotFound;
     QString m_lastError;
+    QString m_lastOutput;
     QProcess* m_process = nullptr;
     
     bool validateKsPath();
-    QString findKsExecutable();
+    QString findKsExecutable() const;
+    void onProcessStarted();
+    void onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
+    void onProcessError(QProcess::ProcessError error);
 };
 
 }

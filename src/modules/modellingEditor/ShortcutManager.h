@@ -74,7 +74,7 @@ public:
 	void resetToDefaults();
 
 	/**
-	 * @brief Controlla se è disponibile
+	 * @brief Checks if available
 	 */
 	bool isShortcutAvailable(const QString& id) const;
 

@@ -220,11 +220,11 @@ void VectorDesignCanvas::applyZoom(float factor, QPointF centerPos)
 
 void VectorDesignCanvas::mousePressEvent(QMouseEvent* event)
 {
-    QPointF scenePos = mapToScene(event->pos());
+    QPointF scenePos = mapToScene(event->position().toPoint());
 
     if (event->button() == Qt::MiddleButton) {
         m_isPanning = true;
-        m_lastPanPos = event->pos();
+        m_lastPanPos = event->position().toPoint();
         setCursor(Qt::ClosedHandCursor);
         event->accept();
         return;
@@ -253,15 +253,15 @@ void VectorDesignCanvas::mousePressEvent(QMouseEvent* event)
 void VectorDesignCanvas::mouseMoveEvent(QMouseEvent* event)
 {
     if (m_isPanning) {
-        QPoint delta = event->pos() - m_lastPanPos;
+        QPointF delta = event->position().toPoint() - m_lastPanPos;
         horizontalScrollBar()->setValue(horizontalScrollBar()->value() - delta.x());
         verticalScrollBar()->setValue(verticalScrollBar()->value() - delta.y());
-        m_lastPanPos = event->pos();
+        m_lastPanPos = event->position().toPoint();
         event->accept();
         return;
     }
 
-    QPointF scenePos = mapToScene(event->pos());
+    QPointF scenePos = mapToScene(event->position().toPoint());
 
     if (m_activeTool == SelectTool) {
         QGraphicsItem* item = itemAtPos(scenePos);
@@ -439,7 +439,7 @@ void VectorDesignCanvas::drawBackground(QPainter* painter, const QRectF& rect)
 
 void VectorDesignCanvas::handleSelectPress(QMouseEvent* event)
 {
-    QPointF scenePos = mapToScene(event->pos());
+    QPointF scenePos = mapToScene(event->position().toPoint());
     QGraphicsItem* item = itemAtPos(scenePos);
 
     if (item && item->type() == VectorShapeItem::Type) {
@@ -467,7 +467,7 @@ void VectorDesignCanvas::handleSelectPress(QMouseEvent* event)
 
 void VectorDesignCanvas::handleDrawPress(QMouseEvent* event)
 {
-    QPointF scenePos = mapToScene(event->pos());
+    QPointF scenePos = mapToScene(event->position().toPoint());
 
     if (m_activeTool == PolygonTool || m_activeTool == PenTool) {
         m_currentPoints.append(scenePos);
@@ -527,7 +527,7 @@ void VectorDesignCanvas::handleDrawPress(QMouseEvent* event)
 
 void VectorDesignCanvas::handleDrawMove(QMouseEvent* event)
 {
-    QPointF scenePos = mapToScene(event->pos());
+    QPointF scenePos = mapToScene(event->position().toPoint());
 
     if (m_activeTool == PolygonTool || m_activeTool == PenTool) {
         if (m_polyPreview && m_currentPoints.size() >= 1) {
@@ -563,7 +563,7 @@ void VectorDesignCanvas::handleDrawMove(QMouseEvent* event)
     case EllipseTool: {
         QRectF rect = QRectF(m_drawStartPos, m_currentPos).normalized();
         data.position = rect.topLeft();
-        data.size = rect.size();
+        data.size = QPointF(rect.size().width(), rect.size().height());
         break;
     }
     case LineTool:

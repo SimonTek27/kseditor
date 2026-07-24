@@ -41,7 +41,7 @@ Rectangle {
                 Text { text: "PHYSICS PROFILER"; color: "#E10600"; font.pixelSize: 12; font.bold: true }
                 Item { Layout.fillWidth: true }
 
-                KsButton {
+                AppButton {
                     text: PhysicsProfiler.enabled ? "Pause" : "Resume"
                     height: 26
                     font.pixelSize: 10
@@ -50,7 +50,7 @@ Rectangle {
                     onClicked: PhysicsProfiler.enabled = !PhysicsProfiler.enabled
                 }
 
-                KsButton {
+                AppButton {
                     text: "Reset"
                     height: 26
                     font.pixelSize: 10

@@ -38,7 +38,7 @@ Rectangle {
 
                 Item { Layout.fillWidth: true }
 
-                KsButton {
+                AppButton {
                     text: TelemetryFeedback.isActive ? "Stop" : "Start"
                     height: 26
                     font.pixelSize: 10
@@ -50,7 +50,7 @@ Rectangle {
                     }
                 }
 
-                KsButton {
+                AppButton {
                     text: "Load Reference"
                     height: 26
                     font.pixelSize: 10
@@ -59,7 +59,7 @@ Rectangle {
                     onClicked: refLoadDialog.open()
                 }
 
-                KsButton {
+                AppButton {
                     text: "Reset"
                     height: 26
                     font.pixelSize: 10

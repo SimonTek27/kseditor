@@ -23,7 +23,7 @@ KS_ASSETTOCORSA_API const char* getPluginName() {
 }
 
 KS_ASSETTOCORSA_API const char* getPluginVersion() {
-    return "1.0.0";
+    return "0.9.0";
 }
 
 KS_ASSETTOCORSA_API const char* getPluginDescription() {

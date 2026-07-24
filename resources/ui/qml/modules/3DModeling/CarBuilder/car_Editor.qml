@@ -54,7 +54,7 @@ Rectangle {
                 anchors.fill: parent
                 anchors.leftMargin: 10
 
-                KsButton {
+                AppButton {
                     text: "Import"
                     flat: true
                     height: 32
@@ -62,7 +62,7 @@ Rectangle {
                     color: "#ffffff"
                     onClicked: carImportDialog.open()
                 }
-                KsButton {
+                AppButton {
                     text: "Export"
                     flat: true
                     height: 32
@@ -75,7 +75,7 @@ Rectangle {
                     height: 20
                     color: "#444444"
                 }
-                KsButton {
+                AppButton {
                     text: "Save"
                     flat: true
                     height: 32
@@ -122,61 +122,61 @@ Rectangle {
                         font.bold: true
                     }
 
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Basic"
                         bgcolor: activePanel === "basic" ? "#E10600" : "#3e3e42"
                         color: activePanel === "basic" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Engine"
                         bgcolor: activePanel === "engine" ? "#E10600" : "#3e3e42"
                         color: activePanel === "engine" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Transmission"
                         bgcolor: activePanel === "trans" ? "#E10600" : "#3e3e42"
                         color: activePanel === "trans" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Suspension"
                         bgcolor: activePanel === "susp" ? "#E10600" : "#3e3e42"
                         color: activePanel === "susp" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Aerodynamics"
                         bgcolor: activePanel === "aero" ? "#E10600" : "#3e3e42"
                         color: activePanel === "aero" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Brakes"
                         bgcolor: activePanel === "brakes" ? "#E10600" : "#3e3e42"
                         color: activePanel === "brakes" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Tires"
                         bgcolor: activePanel === "tires" ? "#E10600" : "#3e3e42"
                         color: activePanel === "tires" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Electronics"
                         bgcolor: activePanel === "electronics" ? "#E10600" : "#3e3e42"
                         color: activePanel === "electronics" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Fuel"
                         bgcolor: activePanel === "fuel" ? "#E10600" : "#3e3e42"
                         color: activePanel === "fuel" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "CSP Lights"
                         bgcolor: activePanel === "cspLights" ? "#E10600" : "#3e3e42"
@@ -192,25 +192,25 @@ Rectangle {
                         font.bold: true
                     }
 
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Tire Mgmt"
                         bgcolor: activePanel === "tireMgmt" ? "#E10600" : "#3e3e42"
                         color: activePanel === "tireMgmt" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Fuel Calc"
                         bgcolor: activePanel === "fuelCalc" ? "#E10600" : "#3e3e42"
                         color: activePanel === "fuelCalc" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Lap Time"
                         bgcolor: activePanel === "lapTime" ? "#E10600" : "#3e3e42"
                         color: activePanel === "lapTime" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Telemetry"
                         bgcolor: activePanel === "telemetry" ? "#E10600" : "#3e3e42"
@@ -226,8 +226,8 @@ Rectangle {
                         font.bold: true
                     }
 
-                    KsButton { height: 28; text: "Pit Strategy"; bgcolor: "transparent"; color: "#ffffff" }
-                    KsButton { height: 28; text: "Race Strategy"; bgcolor: "transparent"; color: "#ffffff" }
+                    AppButton { height: 28; text: "Pit Strategy"; bgcolor: "transparent"; color: "#ffffff" }
+                    AppButton { height: 28; text: "Race Strategy"; bgcolor: "transparent"; color: "#ffffff" }
 
                     Item { Layout.fillHeight: true }
 
@@ -1071,11 +1071,11 @@ Rectangle {
                         font.bold: true
                     }
 
-                    KsButton { height: 28; text: "Reset All"; bgcolor: "transparent"; color: "#ffffff" }
-                    KsButton { height: 28; text: "Copy Setup"; bgcolor: "transparent"; color: "#ffffff" }
-                    KsButton { height: 28; text: "Paste Setup"; bgcolor: "transparent"; color: "#ffffff" }
-                    KsButton { height: 28; text: "Save Preset"; bgcolor: "#E10600"; color: "#121212" }
-                    KsButton { height: 28; text: "Load Preset"; bgcolor: "transparent"; color: "#ffffff" }
+                    AppButton { height: 28; text: "Reset All"; bgcolor: "transparent"; color: "#ffffff" }
+                    AppButton { height: 28; text: "Copy Setup"; bgcolor: "transparent"; color: "#ffffff" }
+                    AppButton { height: 28; text: "Paste Setup"; bgcolor: "transparent"; color: "#ffffff" }
+                    AppButton { height: 28; text: "Save Preset"; bgcolor: "#E10600"; color: "#121212" }
+                    AppButton { height: 28; text: "Load Preset"; bgcolor: "transparent"; color: "#ffffff" }
 
                     Rectangle { height: 10 }
 
@@ -1086,11 +1086,11 @@ Rectangle {
                         font.bold: true
                     }
 
-                    KsButton { height: 28; text: "Compare"; bgcolor: "transparent"; color: "#ffffff" }
+                    AppButton { height: 28; text: "Compare"; bgcolor: "transparent"; color: "#ffffff" }
 
                     Item { Layout.fillHeight: true }
 
-                    KsButton {
+                    AppButton {
                         height: 36
                         text: "Export Data"
                         bgcolor: "#E10600"

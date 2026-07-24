@@ -10,6 +10,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QStandardPaths>
+#include <QSettings>
 
 namespace ks {
 namespace ppfilters {
@@ -66,8 +67,35 @@ void PPFiltersEditorModule::shutdown() {
 void PPFiltersEditorModule::importFile(const QString& filePath) {
     if (filePath.isEmpty()) return;
     QFileInfo fi(filePath);
-    if (fi.suffix().toLower() == "ini" || fi.suffix().toLower() == "lua") {
-        log(QString("Loading PP filter preset: %1").arg(filePath));
+    if (fi.suffix().toLower() == "ini") {
+        QSettings ps(filePath, QSettings::IniFormat);
+        ps.beginGroup("Bloom");
+        m_bloomCheck->setChecked(ps.value("Enabled", true).toBool());
+        m_bloomIntensitySpin->setValue(ps.value("Intensity", 1.5).toDouble());
+        m_bloomThresholdSpin->setValue(ps.value("Threshold", 1.0).toDouble());
+        m_bloomRadiusSpin->setValue(ps.value("Radius", 30.0).toDouble());
+        ps.endGroup();
+        ps.beginGroup("ToneMapping");
+        m_toneMappingCombo->setCurrentIndex(ps.value("Operator", 0).toInt());
+        m_exposureSpin->setValue(ps.value("Exposure", 1.0).toDouble());
+        m_gammaSpin->setValue(ps.value("Gamma", 2.2).toDouble());
+        ps.endGroup();
+        ps.beginGroup("ColorGrading");
+        m_colorTempSpin->setValue(ps.value("Temperature", 0.0).toDouble());
+        m_saturationSpin->setValue(ps.value("Saturation", 100.0).toDouble());
+        m_contrastSpin->setValue(ps.value("Contrast", 0.0).toDouble());
+        ps.endGroup();
+        ps.beginGroup("LensEffects");
+        m_vignetteCheck->setChecked(ps.value("Vignette", true).toBool());
+        m_vignetteIntensitySpin->setValue(ps.value("VignetteIntensity", 0.5).toDouble());
+        m_vignetteRadiusSpin->setValue(ps.value("VignetteRadius", 1.0).toDouble());
+        m_chromaticAberrationCheck->setChecked(ps.value("ChromaticAberration", false).toBool());
+        m_chromaticAberrationSpin->setValue(ps.value("AberrationAmount", 0.1).toDouble());
+        m_dofCheck->setChecked(ps.value("DepthOfField", false).toBool());
+        m_motionBlurCheck->setChecked(ps.value("MotionBlur", false).toBool());
+        m_motionBlurSamplesSpin->setValue(ps.value("MotionBlurSamples", 16).toInt());
+        ps.endGroup();
+        logSuccess(QString("Filter preset loaded: %1").arg(filePath));
     } else {
         logError(QString("Unsupported filter format: %1").arg(filePath));
     }
@@ -75,7 +103,35 @@ void PPFiltersEditorModule::importFile(const QString& filePath) {
 
 void PPFiltersEditorModule::exportFile(const QString& filePath) {
     if (filePath.isEmpty()) return;
-    log(QString("Exporting PP filter to: %1").arg(filePath));
+    QSettings ps(filePath, QSettings::IniFormat);
+    ps.beginGroup("Bloom");
+    ps.setValue("Enabled", m_bloomCheck->isChecked());
+    ps.setValue("Intensity", m_bloomIntensitySpin->value());
+    ps.setValue("Threshold", m_bloomThresholdSpin->value());
+    ps.setValue("Radius", m_bloomRadiusSpin->value());
+    ps.endGroup();
+    ps.beginGroup("ToneMapping");
+    ps.setValue("Operator", m_toneMappingCombo->currentIndex());
+    ps.setValue("Exposure", m_exposureSpin->value());
+    ps.setValue("Gamma", m_gammaSpin->value());
+    ps.endGroup();
+    ps.beginGroup("ColorGrading");
+    ps.setValue("Temperature", m_colorTempSpin->value());
+    ps.setValue("Saturation", m_saturationSpin->value());
+    ps.setValue("Contrast", m_contrastSpin->value());
+    ps.endGroup();
+    ps.beginGroup("LensEffects");
+    ps.setValue("Vignette", m_vignetteCheck->isChecked());
+    ps.setValue("VignetteIntensity", m_vignetteIntensitySpin->value());
+    ps.setValue("VignetteRadius", m_vignetteRadiusSpin->value());
+    ps.setValue("ChromaticAberration", m_chromaticAberrationCheck->isChecked());
+    ps.setValue("AberrationAmount", m_chromaticAberrationSpin->value());
+    ps.setValue("DepthOfField", m_dofCheck->isChecked());
+    ps.setValue("MotionBlur", m_motionBlurCheck->isChecked());
+    ps.setValue("MotionBlurSamples", m_motionBlurSamplesSpin->value());
+    ps.endGroup();
+    ps.sync();
+    logSuccess(QString("Filter preset saved: %1").arg(filePath));
 }
 
 void PPFiltersEditorModule::onActivation() {}
@@ -278,62 +334,106 @@ void PPFiltersEditorModule::onFilterSelected(QListWidgetItem* item) {
 }
 
 void PPFiltersEditorModule::onPresetSelected(int index) {
-    QStringList presets = {"None", "Cinematic", "Vibrant", "Matte", "High Contrast", "Warm", "Cool"};
-    if (index >= 0 && index < presets.size()) {
-        QString preset = presets[index];
-        log(QString("Applied preset: %1").arg(preset));
+    if (index < 0) return;
+    // Load a predefined preset
+    struct PresetValues { double bloomInt, bloomThresh, bloomRad, exposure, gamma, colorTemp, sat, contrast, vigInt, vigRad, chromA; int tmOp, mbSamp; bool bloomEn, vigEn, chromEn, dofEn, mbEn; };
+    QVector<PresetValues> presets = {
+        {1.5, 1.0, 30.0, 1.0, 2.2, 0.0, 100.0, 0.0, 0.5, 1.0, 0.1, 0, 16, true, true, false, false, false},   // Natural
+        {2.0, 0.8, 25.0, 1.1, 2.2, -5.0, 130.0, 10.0, 0.4, 0.9, 0.05, 0, 16, true, true, false, false, false},   // Vibrant
+        {1.2, 0.5, 20.0, 0.8, 2.4, 3.0, 85.0, 5.0, 0.6, 1.2, 0.15, 2, 32, true, true, true, false, true},         // Cinematic
+        {0.8, 1.2, 35.0, 0.7, 2.6, -10.0, 70.0, 15.0, 0.7, 1.3, 0.0, 3, 16, true, true, false, false, false},     // Moody
+        {1.0, 1.0, 40.0, 0.9, 2.0, 15.0, 60.0, 5.0, 0.5, 1.0, 0.2, 4, 16, true, true, true, false, false},        // Vintage
+        {0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 20.0, 0.6, 1.0, 0.0, 0, 16, false, true, false, false, false},        // B&W
+        {3.0, 0.3, 15.0, 1.5, 2.0, 0.0, 120.0, 20.0, 0.3, 0.8, 0.0, 0, 16, true, false, false, false, false},     // HDR
+    };
+    if (index <= presets.size()) {
+        if (index > 0) {
+            auto& p = presets[index - 1];
+            m_bloomCheck->setChecked(p.bloomEn);
+            m_bloomIntensitySpin->setValue(p.bloomInt);
+            m_bloomThresholdSpin->setValue(p.bloomThresh);
+            m_bloomRadiusSpin->setValue(p.bloomRad);
+            m_toneMappingCombo->setCurrentIndex(p.tmOp);
+            m_exposureSpin->setValue(p.exposure);
+            m_gammaSpin->setValue(p.gamma);
+            m_colorTempSpin->setValue(p.colorTemp);
+            m_saturationSpin->setValue(p.sat);
+            m_contrastSpin->setValue(p.contrast);
+            m_vignetteCheck->setChecked(p.vigEn);
+            m_vignetteIntensitySpin->setValue(p.vigInt);
+            m_vignetteRadiusSpin->setValue(p.vigRad);
+            m_chromaticAberrationCheck->setChecked(p.chromEn);
+            m_chromaticAberrationSpin->setValue(p.chromA);
+            m_dofCheck->setChecked(p.dofEn);
+            m_motionBlurCheck->setChecked(p.mbEn);
+            m_motionBlurSamplesSpin->setValue(p.mbSamp);
+        }
+        log(QString("Applied preset: %1").arg(m_presetCombo->currentText()));
     }
 }
 
 void PPFiltersEditorModule::onBloomToggled(bool checked) {
+    QSettings s; s.setValue("PPFilters/Bloom/Enabled", checked);
     log(QString("Bloom %1").arg(checked ? "enabled" : "disabled"));
 }
 
 void PPFiltersEditorModule::onBloomIntensityChanged(double value) {
+    QSettings s; s.setValue("PPFilters/Bloom/Intensity", value);
     log(QString("Bloom intensity: %1").arg(value, 0, 'f', 2));
 }
 
 void PPFiltersEditorModule::onToneMappingChanged(int index) {
+    QSettings s; s.setValue("PPFilters/ToneMapping/Operator", m_toneMappingCombo->currentText());
     log(QString("Tone mapping operator: %1").arg(m_toneMappingCombo->currentText()));
 }
 
 void PPFiltersEditorModule::onColorTemperatureChanged(double value) {
+    QSettings s; s.setValue("PPFilters/ColorGrading/Temperature", value);
     log(QString("Color temperature: %1").arg(value, 0, 'f', 1));
 }
 
 void PPFiltersEditorModule::onSaturationChanged(double value) {
+    QSettings s; s.setValue("PPFilters/ColorGrading/Saturation", value);
     log(QString("Saturation: %1%").arg(value, 0, 'f', 1));
 }
 
 void PPFiltersEditorModule::onContrastChanged(double value) {
+    QSettings s; s.setValue("PPFilters/ColorGrading/Contrast", value);
     log(QString("Contrast: %1").arg(value, 0, 'f', 1));
 }
 
 void PPFiltersEditorModule::onVignetteToggled(bool checked) {
+    QSettings s; s.setValue("PPFilters/LensEffects/Vignette", checked);
     log(QString("Vignette %1").arg(checked ? "enabled" : "disabled"));
 }
 
 void PPFiltersEditorModule::onVignetteIntensityChanged(double value) {
+    QSettings s; s.setValue("PPFilters/LensEffects/VignetteIntensity", value);
     log(QString("Vignette intensity: %1").arg(value, 0, 'f', 2));
 }
 
 void PPFiltersEditorModule::onChromaticAberrationToggled(bool checked) {
+    QSettings s; s.setValue("PPFilters/LensEffects/ChromaticAberration", checked);
     log(QString("Chromatic aberration %1").arg(checked ? "enabled" : "disabled"));
 }
 
 void PPFiltersEditorModule::onChromaticAberrationChanged(double value) {
+    QSettings s; s.setValue("PPFilters/LensEffects/AberrationAmount", value);
     log(QString("Chromatic aberration amount: %1").arg(value, 0, 'f', 3));
 }
 
 void PPFiltersEditorModule::onDepthOfFieldToggled(bool checked) {
+    QSettings s; s.setValue("PPFilters/LensEffects/DepthOfField", checked);
     log(QString("Depth of field %1").arg(checked ? "enabled" : "disabled"));
 }
 
 void PPFiltersEditorModule::onMotionBlurToggled(bool checked) {
+    QSettings s; s.setValue("PPFilters/LensEffects/MotionBlur", checked);
     log(QString("Motion blur %1").arg(checked ? "enabled" : "disabled"));
 }
 
 void PPFiltersEditorModule::onMotionBlurChanged(int value) {
+    QSettings s; s.setValue("PPFilters/LensEffects/MotionBlurSamples", value);
     log(QString("Motion blur samples: %1").arg(value));
 }
 
@@ -341,7 +441,7 @@ void PPFiltersEditorModule::onLoadPreset() {
     QString path = selectFile("Load PP Filter Preset", "Filter Presets (*.ini *.lua);;All Files (*)");
     if (!path.isEmpty()) {
         importFile(path);
-        logSuccess("Filter preset loaded");
+        logSuccess("Filter preset loaded from " + QFileInfo(path).fileName());
     }
 }
 
@@ -349,7 +449,7 @@ void PPFiltersEditorModule::onSavePreset() {
     QString path = selectFile("Save PP Filter Preset", "Filter Presets (*.ini)");
     if (!path.isEmpty()) {
         exportFile(path);
-        logSuccess("Filter preset saved");
+        logSuccess("Filter preset saved to " + QFileInfo(path).fileName());
     }
 }
 
@@ -373,11 +473,14 @@ void PPFiltersEditorModule::onResetFilter() {
         m_dofCheck->setChecked(false);
         m_motionBlurCheck->setChecked(false);
         m_motionBlurSamplesSpin->setValue(16);
+        QSettings s; s.remove("PPFilters");
+        m_presetCombo->setCurrentIndex(0);
         logSuccess("Filters reset to defaults");
     }
 }
 
 void PPFiltersEditorModule::onRealTimePreviewToggled(bool checked) {
+    QSettings s; s.setValue("PPFilters/RealTimePreview", checked);
     log(QString("Real-time preview %1").arg(checked ? "enabled" : "disabled"));
 }
 

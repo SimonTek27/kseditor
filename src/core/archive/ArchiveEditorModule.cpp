@@ -1245,6 +1245,14 @@ QString ArchiveEditorModule::formatSize(qint64 bytes) const {
     return QString("%1 TB").arg(bytes / (1024.0 * 1024.0 * 1024.0 * 1024.0), 0, 'f', 1);
 }
 
+void ArchiveEditorModule::onActivation() {
+    ModuleGuiBase::onActivation();
+}
+
+void ArchiveEditorModule::onDeactivation() {
+    ModuleGuiBase::onDeactivation();
+}
+
 } // namespace ks
 
 #include "ArchiveEditorModule.moc"

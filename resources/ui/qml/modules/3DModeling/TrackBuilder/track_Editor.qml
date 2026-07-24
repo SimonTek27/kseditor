@@ -69,7 +69,7 @@ Rectangle {
 
                 Rectangle { width: 1; height: 20; color: "#444444" }
 
-                KsButton {
+                AppButton {
                     text: "New"
                     flat: true
                     height: 32
@@ -79,7 +79,7 @@ Rectangle {
                         if (Modeler) Modeler.newTrackProject()
                     }
                 }
-                KsButton {
+                AppButton {
                     text: "Open"
                     flat: true
                     height: 32
@@ -87,7 +87,7 @@ Rectangle {
                     color: "#ffffff"
                     onClicked: trackOpenDialog.open()
                 }
-                KsButton {
+                AppButton {
                     text: "Save"
                     flat: true
                     height: 32
@@ -97,7 +97,7 @@ Rectangle {
                         if (Modeler) Modeler.saveTrackProject()
                     }
                 }
-                KsButton {
+                AppButton {
                     text: "Export"
                     flat: true
                     height: 32
@@ -135,56 +135,56 @@ Rectangle {
                     anchors.margins: 4
                     spacing: 4
 
-                    KsButton {
+                    AppButton {
                         height: 48
                         width: 48
                         text: "↗"
                         bgcolor: activeTool === "select" ? "#E10600" : "#3e3e42"
                         color: activeTool === "select" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 48
                         width: 48
                         text: "📍"
                         bgcolor: activeTool === "place" ? "#E10600" : "#3e3e42"
                         color: activeTool === "place" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 48
                         width: 48
                         text: "🛣️"
                         bgcolor: activeTool === "road" ? "#E10600" : "#3e3e42"
                         color: activeTool === "road" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 48
                         width: 48
                         text: "🖌️"
                         bgcolor: activeTool === "paint" ? "#E10600" : "#3e3e42"
                         color: activeTool === "paint" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 48
                         width: 48
                         text: "🏔️"
                         bgcolor: activeTool === "terrain" ? "#E10600" : "#3e3e42"
                         color: activeTool === "terrain" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 48
                         width: 48
                         text: "🌲"
                         bgcolor: activeTool === "props" ? "#E10600" : "#3e3e42"
                         color: activeTool === "props" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 48
                         width: 48
                         text: "💡"
                         bgcolor: activeTool === "lights" ? "#E10600" : "#3e3e42"
                         color: activeTool === "lights" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 48
                         width: 48
                         text: "🚧"
@@ -194,7 +194,7 @@ Rectangle {
 
                     Item { Layout.fillHeight: true }
 
-                    KsButton {
+                    AppButton {
                         height: 48
                         width: 48
                         text: "⚙️"
@@ -224,20 +224,20 @@ Rectangle {
                         font.bold: true
                     }
 
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Satellite Import"
                         bgcolor: "transparent"
                         color: "#ffffff"
                         font.pixelSize: 11
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Terrain"
                         bgcolor: activePanel === "terrain" ? "#E10600" : "transparent"
                         color: activePanel === "terrain" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Texture Paint"
                         bgcolor: activePanel === "paint" ? "#E10600" : "transparent"
@@ -253,31 +253,31 @@ Rectangle {
                         font.bold: true
                     }
 
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Map"
                         bgcolor: activePanel === "map" ? "#E10600" : "transparent"
                         color: activePanel === "map" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Roads"
                         bgcolor: activePanel === "roads" ? "#E10600" : "transparent"
                         color: activePanel === "roads" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Surfaces"
                         bgcolor: activePanel === "surfaces" ? "#E10600" : "transparent"
                         color: activePanel === "surfaces" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Kerbs"
                         bgcolor: activePanel === "kerbs" ? "#E10600" : "transparent"
                         color: activePanel === "kerbs" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Barriers"
                         bgcolor: activePanel === "barriers" ? "#E10600" : "transparent"
@@ -293,9 +293,9 @@ Rectangle {
                         font.bold: true
                     }
 
-                    KsButton { height: 28; text: "Trees"; bgcolor: "transparent"; color: "#ffffff" }
-                    KsButton { height: 28; text: "Nature Props"; bgcolor: "transparent"; color: "#ffffff" }
-                    KsButton { height: 28; text: "Buildings"; bgcolor: "transparent"; color: "#ffffff" }
+                    AppButton { height: 28; text: "Trees"; bgcolor: "transparent"; color: "#ffffff" }
+                    AppButton { height: 28; text: "Nature Props"; bgcolor: "transparent"; color: "#ffffff" }
+                    AppButton { height: 28; text: "Buildings"; bgcolor: "transparent"; color: "#ffffff" }
 
                     Rectangle { height: 10 }
 
@@ -306,11 +306,11 @@ Rectangle {
                         font.bold: true
                     }
 
-                    KsButton { height: 28; text: "Start/Pits"; bgcolor: "transparent"; color: "#ffffff" }
-                    KsButton { height: 28; text: "Race Line"; bgcolor: "transparent"; color: "#ffffff" }
-                    KsButton { height: 28; text: "AI Lines"; bgcolor: "transparent"; color: "#ffffff" }
-                    KsButton { height: 28; text: "Physics Roads"; bgcolor: "transparent"; color: "#ffffff" }
-                    KsButton { height: 28; text: "Checkpoints"; bgcolor: "transparent"; color: "#ffffff" }
+                    AppButton { height: 28; text: "Start/Pits"; bgcolor: "transparent"; color: "#ffffff" }
+                    AppButton { height: 28; text: "Race Line"; bgcolor: "transparent"; color: "#ffffff" }
+                    AppButton { height: 28; text: "AI Lines"; bgcolor: "transparent"; color: "#ffffff" }
+                    AppButton { height: 28; text: "Physics Roads"; bgcolor: "transparent"; color: "#ffffff" }
+                    AppButton { height: 28; text: "Checkpoints"; bgcolor: "transparent"; color: "#ffffff" }
 
                     Rectangle { height: 10 }
 
@@ -321,13 +321,13 @@ Rectangle {
                         font.bold: true
                     }
 
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Track Lights"
                         bgcolor: activePanel === "cspLights" ? "#E10600" : "transparent"
                         color: activePanel === "cspLights" ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Materials"
                         bgcolor: activePanel === "cspMaterials" ? "#E10600" : "transparent"
@@ -415,21 +415,21 @@ Rectangle {
                     anchors { right: parent.right; rightMargin: 10; top: parent.top; topMargin: 10 }
                     spacing: 4
 
-                    KsButton {
+                    AppButton {
                         width: 32
                         height: 32
                         text: "+"
                         bgcolor: "#252526"
                         color: "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         width: 32
                         height: 32
                         text: "-"
                         bgcolor: "#252526"
                         color: "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         width: 32
                         height: 32
                         text: "⟲"
@@ -443,19 +443,19 @@ Rectangle {
                     anchors { left: parent.left; leftMargin: 10; bottom: parent.bottom; bottomMargin: 10 }
                     spacing: 4
 
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Satellite"
                         bgcolor: "#E10600"
                         color: "#121212"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Terrain"
                         bgcolor: "#3e3e42"
                         color: "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Hybrid"
                         bgcolor: "#3e3e42"
@@ -464,13 +464,13 @@ Rectangle {
 
                     Rectangle { width: 20 }
 
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Grid"
                         bgcolor: showGrid ? "#E10600" : "transparent"
                         color: showGrid ? "#121212" : "#ffffff"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Overlay"
                         bgcolor: showOverlay ? "#E10600" : "transparent"
@@ -537,10 +537,10 @@ Rectangle {
                             Text { text: "50%"; color: "#E10600" }
                         }
 
-                        KsButton { height: 32; text: "Raise Terrain"; bgcolor: "transparent"; color: "#ffffff" }
-                        KsButton { height: 32; text: "Lower Terrain"; bgcolor: "transparent"; color: "#ffffff" }
-                        KsButton { height: 32; text: "Smooth"; bgcolor: "transparent"; color: "#ffffff" }
-                        KsButton { height: 32; text: "Flatten"; bgcolor: "transparent"; color: "#ffffff" }
+                        AppButton { height: 32; text: "Raise Terrain"; bgcolor: "transparent"; color: "#ffffff" }
+                        AppButton { height: 32; text: "Lower Terrain"; bgcolor: "transparent"; color: "#ffffff" }
+                        AppButton { height: 32; text: "Smooth"; bgcolor: "transparent"; color: "#ffffff" }
+                        AppButton { height: 32; text: "Flatten"; bgcolor: "transparent"; color: "#ffffff" }
                     }
 
                     if (activeTool === "road") {
@@ -579,8 +579,8 @@ Rectangle {
                             font.pixelSize: 11
                         }
                         RowLayout {
-                            KsButton { height: 28; text: "Tangent"; bgcolor: "#E10600"; color: "#121212" }
-                            KsButton { height: 28; text: "Bezier"; bgcolor: "transparent"; color: "#ffffff" }
+                            AppButton { height: 28; text: "Tangent"; bgcolor: "#E10600"; color: "#121212" }
+                            AppButton { height: 28; text: "Bezier"; bgcolor: "transparent"; color: "#ffffff" }
                         }
 
                         RowLayout {
@@ -926,11 +926,11 @@ Rectangle {
                     }
 
                     RowLayout {
-                        KsButton { height: 28; text: "Undo"; bgcolor: "transparent"; color: "#ffffff" }
-                        KsButton { height: 28; text: "Redo"; bgcolor: "transparent"; color: "#ffffff" }
+                        AppButton { height: 28; text: "Undo"; bgcolor: "transparent"; color: "#ffffff" }
+                        AppButton { height: 28; text: "Redo"; bgcolor: "transparent"; color: "#ffffff" }
                     }
 
-                    KsButton { height: 32; text: "Auto-Save"; bgcolor: "#E10600"; color: "#121212" }
+                    AppButton { height: 32; text: "Auto-Save"; bgcolor: "#E10600"; color: "#121212" }
                 }
             }
         }

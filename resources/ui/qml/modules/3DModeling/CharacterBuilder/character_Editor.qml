@@ -52,7 +52,7 @@ Rectangle {
                 anchors.rightMargin: 10
                 spacing: 8
 
-                KsButton {
+                AppButton {
                     text: "Humanoid"
                     height: 28
                     flat: true
@@ -60,7 +60,7 @@ Rectangle {
                     color: "#ffffff"
                     onClicked: CharacterEditor.createHumanoid(1.8)
                 }
-                KsButton {
+                AppButton {
                     text: "Quadruped"
                     height: 28
                     flat: true
@@ -71,7 +71,7 @@ Rectangle {
 
                 Rectangle { width: 1; height: 24; color: "#333" }
 
-                KsButton {
+                AppButton {
                     text: "Bind Mesh"
                     height: 28
                     flat: true
@@ -79,7 +79,7 @@ Rectangle {
                     color: "#121212"
                     onClicked: CharacterEditor.bindToMesh("selected")
                 }
-                KsButton {
+                AppButton {
                     text: "Normalize"
                     height: 28
                     flat: true
@@ -95,7 +95,7 @@ Rectangle {
                     color: "#aaaaaa"
                     font.pixelSize: 12
                 }
-                KsButton {
+                AppButton {
                     height: 28
                     text: "Import"
                     flat: true
@@ -103,7 +103,7 @@ Rectangle {
                     color: "#ffffff"
                     onClicked: importDialog.open()
                 }
-                KsButton {
+                AppButton {
                     height: 28
                     text: "Export"
                     flat: true
@@ -139,21 +139,21 @@ Rectangle {
                         font.bold: true
                     }
 
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Skeleton"
                         bgcolor: activePanel === "skeleton" ? "#E10600" : "#3e3e42"
                         color: activePanel === "skeleton" ? "#121212" : "#ffffff"
                         onClicked: activePanel = "skeleton"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Weights"
                         bgcolor: activePanel === "weights" ? "#E10600" : "#3e3e42"
                         color: activePanel === "weights" ? "#121212" : "#ffffff"
                         onClicked: activePanel = "weights"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Poses"
                         bgcolor: activePanel === "poses" ? "#E10600" : "#3e3e42"
@@ -170,12 +170,12 @@ Rectangle {
                         font.bold: true
                     }
 
-                    KsButton { height: 28; text: "Driver"; bgcolor: "#3e3e42"; color: "#ffffff"; onClicked: activePanel = "driver" }
-                    KsButton { height: 28; text: "Helmet"; bgcolor: "#3e3e42"; color: "#ffffff"; onClicked: activePanel = "helmet" }
-                    KsButton { height: 28; text: "Suit"; bgcolor: "#3e3e42"; color: "#ffffff"; onClicked: activePanel = "suit" }
-                    KsButton { height: 28; text: "Gloves"; bgcolor: "#3e3e42"; color: "#ffffff"; onClicked: activePanel = "gloves" }
-                    KsButton { height: 28; text: "Face"; bgcolor: "#3e3e42"; color: "#ffffff"; onClicked: activePanel = "face" }
-                    KsButton { height: 28; text: "Hair"; bgcolor: "#3e3e42"; color: "#ffffff"; onClicked: activePanel = "hair" }
+                    AppButton { height: 28; text: "Driver"; bgcolor: "#3e3e42"; color: "#ffffff"; onClicked: activePanel = "driver" }
+                    AppButton { height: 28; text: "Helmet"; bgcolor: "#3e3e42"; color: "#ffffff"; onClicked: activePanel = "helmet" }
+                    AppButton { height: 28; text: "Suit"; bgcolor: "#3e3e42"; color: "#ffffff"; onClicked: activePanel = "suit" }
+                    AppButton { height: 28; text: "Gloves"; bgcolor: "#3e3e42"; color: "#ffffff"; onClicked: activePanel = "gloves" }
+                    AppButton { height: 28; text: "Face"; bgcolor: "#3e3e42"; color: "#ffffff"; onClicked: activePanel = "face" }
+                    AppButton { height: 28; text: "Hair"; bgcolor: "#3e3e42"; color: "#ffffff"; onClicked: activePanel = "hair" }
 
                     Item { Layout.fillHeight: true }
                 }
@@ -376,7 +376,7 @@ Rectangle {
 
                                             RowLayout {
                                                 spacing: 6
-                                                KsButton {
+                                                AppButton {
                                                     text: "Apply"
                                                     height: 26
                                                     bgcolor: "#E10600"
@@ -389,7 +389,7 @@ Rectangle {
                                                         selectedBonePos = Qt.vector3d(posXSpin.value, posYSpin.value, posZSpin.value)
                                                     }
                                                 }
-                                                KsButton {
+                                                AppButton {
                                                     text: "Add Bone"
                                                     height: 26
                                                     bgcolor: "#3e3e42"
@@ -400,7 +400,7 @@ Rectangle {
                                                         CharacterEditor.addBone(name, parentIdx >= 0 ? parentIdx : -1, 0, -0.1, 0)
                                                     }
                                                 }
-                                                KsButton {
+                                                AppButton {
                                                     text: "Remove"
                                                     height: 26
                                                     bgcolor: "#3e3e42"
@@ -503,28 +503,28 @@ Rectangle {
 
                                     RowLayout {
                                         spacing: 8
-                                        KsButton {
+                                        AppButton {
                                             text: "Paint"
                                             height: 28
                                             bgcolor: "#E10600"
                                             color: "#121212"
                                             onClicked: CharacterEditor.paintWeights(weightBoneCombo.currentIndex, 0, 0.9, 0, radiusSlider.value, strengthSlider.value)
                                         }
-                                        KsButton {
+                                        AppButton {
                                             text: "Smooth"
                                             height: 28
                                             bgcolor: "#3e3e42"
                                             color: "#ffffff"
                                             onClicked: CharacterEditor.smoothWeights(weightBoneCombo.currentIndex, radiusSlider.value)
                                         }
-                                        KsButton {
+                                        AppButton {
                                             text: "Normalize All"
                                             height: 28
                                             bgcolor: "#3e3e42"
                                             color: "#ffffff"
                                             onClicked: CharacterEditor.normalizeWeights()
                                         }
-                                        KsButton {
+                                        AppButton {
                                             text: "Auto-Bind"
                                             height: 28
                                             bgcolor: "#E10600"
@@ -569,7 +569,7 @@ Rectangle {
                                             height: 24
                                             placeholderText: "Pose name..."
                                         }
-                                        KsButton {
+                                        AppButton {
                                             text: "Save Current"
                                             height: 28
                                             bgcolor: "#E10600"
@@ -608,14 +608,14 @@ Rectangle {
                                                     Layout.fillWidth: true
                                                 }
 
-                                                KsButton {
+                                                AppButton {
                                                     text: "Apply"
                                                     height: 24
                                                     bgcolor: "#3e3e42"
                                                     color: "#ffffff"
                                                     onClicked: CharacterEditor.applyPose(modelData)
                                                 }
-                                                KsButton {
+                                                AppButton {
                                                     text: "Del"
                                                     height: 24
                                                     bgcolor: "#5a1a1a"
@@ -656,7 +656,7 @@ Rectangle {
                                 ColumnLayout {
                                     anchors.fill: parent; anchors.margins: 10; spacing: 10
                                     RowLayout { Text { text: "Brand:"; color: "#bbb"; Layout.preferredWidth: 70 } ComboBox { Layout.fillWidth: true; model: ["Bell","Sparco","Schuberth","Alpinestars","Puma"] } }
-                                    RowLayout { Text { text: "Color:"; color: "#bbb"; Layout.preferredWidth: 70 } KsButton { height: 28; text: "Select"; bgcolor: "transparent"; color: "#ffffff" } }
+                                    RowLayout { Text { text: "Color:"; color: "#bbb"; Layout.preferredWidth: 70 } AppButton { height: 28; text: "Select"; bgcolor: "transparent"; color: "#ffffff" } }
                                 }
                             }
                         }
@@ -671,7 +671,7 @@ Rectangle {
                                 ColumnLayout {
                                     anchors.fill: parent; anchors.margins: 10; spacing: 10
                                     RowLayout { Text { text: "Team:"; color: "#bbb"; Layout.preferredWidth: 70 } TextField { text: "Team Name"; Layout.fillWidth: true } }
-                                    RowLayout { Text { text: "Primary:"; color: "#bbb"; Layout.preferredWidth: 70 } KsButton { height: 28; text: "Select"; bgcolor: "transparent"; color: "#ffffff" } }
+                                    RowLayout { Text { text: "Primary:"; color: "#bbb"; Layout.preferredWidth: 70 } AppButton { height: 28; text: "Select"; bgcolor: "transparent"; color: "#ffffff" } }
                                     RowLayout { CheckBox { checked: true } Text { text: "Number Display"; color: "#bbb" } }
                                     RowLayout { CheckBox { checked: true } Text { text: "Sponsor Logos"; color: "#bbb" } }
                                 }
@@ -688,7 +688,7 @@ Rectangle {
                                 ColumnLayout {
                                     anchors.fill: parent; anchors.margins: 10; spacing: 10
                                     RowLayout { Text { text: "Brand:"; color: "#bbb"; Layout.preferredWidth: 70 } ComboBox { Layout.fillWidth: true; model: ["Alpinestars","Sparco","OMP","Racequip"] } }
-                                    RowLayout { Text { text: "Color:"; color: "#bbb"; Layout.preferredWidth: 70 } KsButton { height: 28; text: "Select"; bgcolor: "transparent"; color: "#ffffff" } }
+                                    RowLayout { Text { text: "Color:"; color: "#bbb"; Layout.preferredWidth: 70 } AppButton { height: 28; text: "Select"; bgcolor: "transparent"; color: "#ffffff" } }
                                 }
                             }
                         }
@@ -720,7 +720,7 @@ Rectangle {
                                 ColumnLayout {
                                     anchors.fill: parent; anchors.margins: 10; spacing: 10
                                     RowLayout { Text { text: "Style:"; color: "#bbb"; Layout.preferredWidth: 70 } ComboBox { Layout.fillWidth: true; model: ["Short","Medium","Long","Ponytail","Bald"] } }
-                                    RowLayout { Text { text: "Color:"; color: "#bbb"; Layout.preferredWidth: 70 } KsButton { height: 28; text: "Select"; bgcolor: "transparent"; color: "#ffffff" } }
+                                    RowLayout { Text { text: "Color:"; color: "#bbb"; Layout.preferredWidth: 70 } AppButton { height: 28; text: "Select"; bgcolor: "transparent"; color: "#ffffff" } }
                                 }
                             }
                         }
@@ -748,7 +748,7 @@ Rectangle {
                         font.bold: true
                     }
 
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Reset Pose"
                         bgcolor: "transparent"
@@ -757,14 +757,14 @@ Rectangle {
                             CharacterEditor.createHumanoid(CharacterEditor.boneCount > 0 ? 1.8 : 1.8)
                         }
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Reset Skeleton"
                         bgcolor: "transparent"
                         color: "#ffffff"
                         onClicked: CharacterEditor.createHumanoid(1.8)
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Save Preset"
                         bgcolor: "#E10600"
@@ -774,7 +774,7 @@ Rectangle {
 
                     Item { Layout.fillHeight: true }
 
-                    KsButton {
+                    AppButton {
                         height: 36
                         text: "Apply"
                         bgcolor: "#E10600"

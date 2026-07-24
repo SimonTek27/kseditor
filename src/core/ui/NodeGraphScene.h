@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QGraphicsScene>
+#include <QGraphicsRectItem>
 #include <QObject>
 
 namespace ks {
@@ -18,6 +19,10 @@ protected:
     void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
     void mouseMoveEvent(QGraphicsSceneMouseEvent* event) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent* event) override;
+
+private:
+    QGraphicsRectItem* m_rubberBand = nullptr;
+    QPointF m_rubberBandOrigin;
 };
 
 } // namespace ui

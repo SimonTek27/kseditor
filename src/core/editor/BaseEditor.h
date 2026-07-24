@@ -6,7 +6,6 @@
 #include <QMainWindow>
 #include <QDockWidget>
 #include <QSplitter>
-#include <QStackedWidget>
 #include <QTreeView>
 #include <QTreeWidget>
 #include <QListWidget>
@@ -28,10 +27,9 @@
 #include <QSlider>
 #include <QPushButton>
 #include <QButtonGroup>
-#include <QStackedWidget>
-#include <QListWidget>
 #include <QInputDialog>
 #include <QMimeData>
+#include <QStackedWidget>
 
 #include <vector>
 #include <unordered_map>

@@ -99,6 +99,21 @@ QVariantMap CspConfigHandler::loadConfig(const QString& path) {
 
 bool CspConfigHandler::saveConfig(const QString& path, const QVariantMap& sections) {
     QDir().mkpath(QFileInfo(path).absolutePath());
+
+    // Create backup of existing file
+    if (QFileInfo::exists(path)) {
+        QString backupPath = path + ".bak";
+        // Only keep the last 3 backups
+        QFile::remove(backupPath + ".3");
+        if (QFile::exists(backupPath + ".2"))
+            QFile::rename(backupPath + ".2", backupPath + ".3");
+        if (QFile::exists(backupPath + ".1"))
+            QFile::rename(backupPath + ".1", backupPath + ".2");
+        if (QFile::exists(backupPath))
+            QFile::rename(backupPath, backupPath + ".1");
+        QFile::copy(path, backupPath);
+    }
+
     return writeIniFile(path, sections);
 }
 

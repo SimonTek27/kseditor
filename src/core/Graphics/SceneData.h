@@ -21,10 +21,10 @@ class PBRMaterial;
 
 // Project-level serialization format
 struct ProjectData {
-    QString formatVersion = "2.1.0";
-    QString editorVersion = "2.1.0";
+    QString formatVersion = "0.9.0";
+    QString editorVersion = "0.9.0";
     QString name;
-    QString version = "1.0.0";
+    QString version = "0.9.0";
     QString description;
     QString author;
     

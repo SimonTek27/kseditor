@@ -18,14 +18,19 @@
 #include <QListWidget>
 #include <QProgressBar>
 
+class WaveProcessor;
+class WaveformEngine;
+class QTcpSocket;
 namespace ks {
+class AudioRecorder;
 namespace audio {
+class TextToSpeech;
 
 class AudioEditorModule : public ModuleGuiBase {
     Q_OBJECT
 public:
     explicit AudioEditorModule(QWidget* parent = nullptr);
-    ~AudioEditorModule() override = default;
+    ~AudioEditorModule() override;
 
     bool initialize() override;
     void shutdown() override;
@@ -70,12 +75,19 @@ private slots:
     void onSampleRateChanged(int index);
     void onBufferSizeChanged(int index);
 
+    // TTS slots
+    void onTtsSpeak();
+    void onTtsStop();
+    void onTtsClear();
+    void onTtsSaveToWav();
+
 private:
     void setupEngineSoundTab();
     void setupRecordingTab();
     void setupEffectsTab();
     void setupSoundBanksTab();
     void setupSettingsTab();
+    void setupTtsTab();
     void refreshEffects();
     void refreshBanks();
     void refreshSamples();
@@ -138,6 +150,25 @@ private:
     QPushButton* m_connectToSimBtn = nullptr;
     QPushButton* m_disconnectFromSimBtn = nullptr;
     QLabel* m_connectionStatusLabel = nullptr;
+
+    WaveProcessor* m_waveProcessor = nullptr;
+    ks::AudioRecorder* m_audioRecorder = nullptr;
+    QTcpSocket* m_tcpSocket = nullptr;
+    QString m_loadedAudioPath;
+
+    // TTS tab
+    QWidget* m_ttsTab = nullptr;
+    QTextEdit* m_ttsInputEdit = nullptr;
+    QPushButton* m_ttsSpeakBtn = nullptr;
+    QPushButton* m_ttsStopBtn = nullptr;
+    QPushButton* m_ttsClearBtn = nullptr;
+    QPushButton* m_ttsSaveBtn = nullptr;
+    QComboBox* m_ttsVoiceCombo = nullptr;
+    QSlider* m_ttsRateSlider = nullptr;
+    QLabel* m_ttsRateLabel = nullptr;
+    QSlider* m_ttsVolumeSlider = nullptr;
+    QLabel* m_ttsVolumeLabel = nullptr;
+    TextToSpeech* m_tts = nullptr;
 };
 
 } // namespace audio

@@ -1,4 +1,8 @@
 #include "GraphicsEditorModule.h"
+#include "VulkanRenderer.h"
+#include "VulkanShaderLoader.h"
+#include "RenderGraph.h"
+#include "SceneMesh.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -14,6 +18,7 @@
 #include <QMenu>
 #include <QAction>
 #include <QApplication>
+#include <QSettings>
 
 namespace ks {
 namespace graphics {
@@ -284,34 +289,90 @@ void GraphicsEditorModule::setupSettingsTab() {
 
 void GraphicsEditorModule::populateSceneGraph() {
     m_sceneTree->clear();
-    auto* root = new QTreeWidgetItem(m_sceneTree, {"Root", "Group", "0", "Yes"});
-    auto* car = new QTreeWidgetItem(root, {"Car Body", "Mesh", "12450", "Yes"});
-    car->addChild(new QTreeWidgetItem({"Wheels_FL", "Mesh", "3200", "Yes"}));
-    car->addChild(new QTreeWidgetItem({"Wheels_FR", "Mesh", "3200", "Yes"}));
-    car->addChild(new QTreeWidgetItem({"Wheels_RL", "Mesh", "3200", "Yes"}));
-    car->addChild(new QTreeWidgetItem({"Wheels_RR", "Mesh", "3200", "Yes"}));
-    root->addChild(new QTreeWidgetItem({"Interior", "Group", "0", "Yes"}));
-    root->addChild(new QTreeWidgetItem({"Environment", "Group", "0", "Yes"}));
+    auto* renderer = VulkanRenderer::instance();
+    if (!renderer) return;
+
+    const auto& meshes = renderer->allMeshes();
+    for (auto it = meshes.constBegin(); it != meshes.constEnd(); ++it) {
+        auto* item = new QTreeWidgetItem(m_sceneTree, {
+            it.key(),
+            "Mesh",
+            QString::number(it->vertices.size()),
+            it.key().startsWith("_") ? "No" : "Yes"
+        });
+        item->setCheckState(3, it.key().startsWith("_") ? Qt::Unchecked : Qt::Checked);
+    }
     m_sceneTree->expandAll();
 }
 
 void GraphicsEditorModule::populateRenderGraph() {
     m_passTree->clear();
-    m_passTree->addTopLevelItem(new QTreeWidgetItem({"GBuffer Pass", "Geometry", "1920x1080", "Yes"}));
-    m_passTree->addTopLevelItem(new QTreeWidgetItem({"Shadow Pass", "Shadow", "1024x1024", "Yes"}));
-    m_passTree->addTopLevelItem(new QTreeWidgetItem({"Lighting Pass", "Lighting", "1920x1080", "Yes"}));
-    m_passTree->addTopLevelItem(new QTreeWidgetItem({"SSAO Pass", "Post Process", "960x540", "Yes"}));
-    m_passTree->addTopLevelItem(new QTreeWidgetItem({"Bloom Pass", "Post Process", "480x270", "Yes"}));
-    m_passTree->addTopLevelItem(new QTreeWidgetItem({"Tone Mapping", "Post Process", "1920x1080", "Yes"}));
-    m_passTree->addTopLevelItem(new QTreeWidgetItem({"UI Overlay", "UI", "1920x1080", "Yes"}));
+    auto* renderer = VulkanRenderer::instance();
+    if (!renderer || !renderer->device()) {
+        m_passTree->addTopLevelItem(new QTreeWidgetItem({"No Render Graph", "N/A", "N/A", "No"}));
+        return;
+    }
+
+    // Report swap chain info as the main render pass
+    int scCount = renderer->swapChainImageCount();
+    if (scCount > 0) {
+        auto* swapItem = new QTreeWidgetItem(m_passTree, {
+            "Swap Chain Pass", "Color Output",
+            QString("%1x%2").arg(renderer->swapChainExtent().width).arg(renderer->swapChainExtent().height),
+            "Yes"
+        });
+        swapItem->setCheckState(3, Qt::Checked);
+    }
+
+    // Show render pass if available
+    if (renderer->renderPass()) {
+        auto* rpItem = new QTreeWidgetItem(m_passTree, {
+            "Main RenderPass", "Geometry",
+            QString("%1x%2").arg(renderer->viewportWidth()).arg(renderer->viewportHeight()),
+            "Yes"
+        });
+        rpItem->setCheckState(3, Qt::Checked);
+    }
+
+    // Show shader loader pipelines as compute/passes
+    auto* shaderLoader = renderer->shaderLoader();
+    if (shaderLoader) {
+        QStringList pipelines = shaderLoader->loadedPipelineNames();
+        for (const auto& pn : pipelines) {
+            auto* plItem = new QTreeWidgetItem(m_passTree, {
+                pn, "Shader Pipeline", "N/A", "Yes"
+            });
+            plItem->setCheckState(3, Qt::Checked);
+        }
+    }
+
+    if (m_passTree->topLevelItemCount() == 0) {
+        m_passTree->addTopLevelItem(new QTreeWidgetItem({"No active passes", "N/A", "N/A", "No"}));
+    }
 }
 
 void GraphicsEditorModule::populateShaders() {
     m_shaderTree->clear();
-    m_shaderTree->addTopLevelItem(new QTreeWidgetItem({"Default Vertex", "Vertex Shader", "GLSL", "Yes"}));
-    m_shaderTree->addTopLevelItem(new QTreeWidgetItem({"Default Fragment", "Fragment Shader", "GLSL", "Yes"}));
-    m_shaderTree->addTopLevelItem(new QTreeWidgetItem({"PBR Shader", "Fragment Shader", "GLSL", "Yes"}));
-    m_shaderTree->addTopLevelItem(new QTreeWidgetItem({"Skybox Shader", "Vertex Shader", "GLSL", "Yes"}));
+    auto* renderer = VulkanRenderer::instance();
+    if (!renderer || !renderer->shaderLoader()) {
+        m_shaderTree->addTopLevelItem(new QTreeWidgetItem({"No shaders loaded", "N/A", "N/A", "No"}));
+        return;
+    }
+
+    auto* shaderLoader = renderer->shaderLoader();
+    QStringList shaderNames = shaderLoader->loadedShaderNames();
+    for (const auto& name : shaderNames) {
+        m_shaderTree->addTopLevelItem(new QTreeWidgetItem({name, "Shader", "SPIR-V", "Yes"}));
+    }
+
+    QStringList pipelineNames = shaderLoader->loadedPipelineNames();
+    for (const auto& name : pipelineNames) {
+        m_shaderTree->addTopLevelItem(new QTreeWidgetItem({name, "Pipeline", "SPIR-V", "Yes"}));
+    }
+
+    if (shaderNames.isEmpty() && pipelineNames.isEmpty()) {
+        m_shaderTree->addTopLevelItem(new QTreeWidgetItem({"No shaders loaded", "N/A", "N/A", "No"}));
+    }
 }
 
 void GraphicsEditorModule::onSceneNodeSelected(QTreeWidgetItem* item, int column) {
@@ -345,59 +406,73 @@ void GraphicsEditorModule::onEffectToggled(QTreeWidgetItem* item, int column) {
 }
 
 void GraphicsEditorModule::onResolutionChanged(int index) {
+    QSettings s; s.setValue("Graphics/Resolution", m_resolutionCombo->currentText());
     log(QString("Resolution changed to: %1").arg(m_resolutionCombo->currentText()));
 }
 
 void GraphicsEditorModule::onVSyncToggled(bool checked) {
+    QSettings s; s.setValue("Graphics/VSync", checked);
     log(QString("V-Sync %1").arg(checked ? "enabled" : "disabled"));
 }
 
 void GraphicsEditorModule::onMSAAChanged(int index) {
+    QSettings s; s.setValue("Graphics/MSAA", m_msaaCombo->currentText());
     log(QString("MSAA set to: %1").arg(m_msaaCombo->currentText()));
 }
 
 void GraphicsEditorModule::onShadowQualityChanged(int index) {
+    QSettings s; s.setValue("Graphics/ShadowQuality", m_shadowQualityCombo->currentText());
     log(QString("Shadow quality set to: %1").arg(m_shadowQualityCombo->currentText()));
 }
 
 void GraphicsEditorModule::onTextureQualityChanged(int index) {
+    QSettings s; s.setValue("Graphics/TextureQuality", m_textureQualityCombo->currentText());
     log(QString("Texture quality set to: %1").arg(m_textureQualityCombo->currentText()));
 }
 
 void GraphicsEditorModule::onAnisotropyChanged(int value) {
+    QSettings s; s.setValue("Graphics/Anisotropy", value);
     log(QString("Anisotropic filtering set to: %1x").arg(value));
 }
 
 void GraphicsEditorModule::onGammaChanged(double value) {
+    QSettings s; s.setValue("Graphics/Gamma", value);
     log(QString("Gamma set to: %1").arg(value, 0, 'f', 2));
 }
 
 void GraphicsEditorModule::onExposureChanged(double value) {
+    QSettings s; s.setValue("Graphics/Exposure", value);
     log(QString("Exposure set to: %1").arg(value, 0, 'f', 3));
 }
 
 void GraphicsEditorModule::onBloomToggled(bool checked) {
+    QSettings s; s.setValue("Graphics/Bloom", checked);
     log(QString("Bloom %1").arg(checked ? "enabled" : "disabled"));
 }
 
 void GraphicsEditorModule::onSSAOToggled(bool checked) {
+    QSettings s; s.setValue("Graphics/SSAO", checked);
     log(QString("SSAO %1").arg(checked ? "enabled" : "disabled"));
 }
 
 void GraphicsEditorModule::onSSRToggled(bool checked) {
+    QSettings s; s.setValue("Graphics/SSR", checked);
     log(QString("SSR %1").arg(checked ? "enabled" : "disabled"));
 }
 
 void GraphicsEditorModule::onDOFToggled(bool checked) {
+    QSettings s; s.setValue("Graphics/DOF", checked);
     log(QString("Depth of Field %1").arg(checked ? "enabled" : "disabled"));
 }
 
 void GraphicsEditorModule::onDrawDistanceChanged(int value) {
     m_drawDistanceLabel->setText(QString("%1 m").arg(value));
+    QSettings s; s.setValue("Graphics/DrawDistance", value);
 }
 
 void GraphicsEditorModule::onFOVChanged(int value) {
     m_fovLabel->setText(QString("%1 deg").arg(value));
+    QSettings s; s.setValue("Graphics/FOV", value);
 }
 
 void GraphicsEditorModule::onAddShader() {
@@ -433,6 +508,7 @@ void GraphicsEditorModule::onRemovePass() {
 void GraphicsEditorModule::onLoadScene() {
     QString path = selectFile("Load Scene", "Scene Files (*.kn5 *.fbx *.gltf *.glb);;All Files (*)");
     if (!path.isEmpty()) {
+        QSettings s; s.setValue("Graphics/LastScenePath", path);
         log(QString("Loading scene: %1").arg(path));
     }
 }
@@ -440,6 +516,7 @@ void GraphicsEditorModule::onLoadScene() {
 void GraphicsEditorModule::onExportScreenshot() {
     QString path = selectFile("Export Screenshot", "Images (*.png *.jpg *.bmp *.tga)");
     if (!path.isEmpty()) {
+        QSettings s; s.setValue("Graphics/LastScreenshotPath", path);
         log(QString("Exporting screenshot to: %1").arg(path));
     }
 }
@@ -456,6 +533,7 @@ void GraphicsEditorModule::onResetDefaults() {
         m_exposureSpin->setValue(1.0);
         m_drawDistanceSlider->setValue(1000);
         m_fovSlider->setValue(75);
+        QSettings s; s.remove("Graphics");
         logSuccess("Graphics settings reset to defaults");
     }
 }

@@ -34,11 +34,8 @@
 #include <QComboBox>
 #include <QMessageBox>
 #include <QNetworkRequest>
-#include <QJsonDocument>
 #include <QNetworkReply>
 #include <QNetworkAccessManager>
-#include <QJsonArray>
-#include <QJsonObject>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QTimer>

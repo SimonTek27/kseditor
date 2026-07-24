@@ -78,9 +78,9 @@ Rectangle {
                         selectedColor: TexturePainter.brushColor
                         onAccepted: TexturePainter.setBrushColor(selectedColor)
                     }
-                    KsButton { text: "Black"; height: 22; bgcolor: "#3e3e42"; color: "#fff"
+                    AppButton { text: "Black"; height: 22; bgcolor: "#3e3e42"; color: "#fff"
                         onClicked: TexturePainter.setBrushColor("#000000") }
-                    KsButton { text: "White"; height: 22; bgcolor: "#3e3e42"; color: "#fff"
+                    AppButton { text: "White"; height: 22; bgcolor: "#3e3e42"; color: "#fff"
                         onClicked: TexturePainter.setBrushColor("#ffffff") }
                 }
 
@@ -113,7 +113,7 @@ Rectangle {
                                 }
                                 color: "#ccc"; font.pixelSize: 9; Layout.fillWidth: true
                             }
-                            KsButton { text: "V"; height: 18; width: 22; bgcolor: "#3e3e42"; color: "#fff"; font.pixelSize: 8
+                            AppButton { text: "V"; height: 18; width: 22; bgcolor: "#3e3e42"; color: "#fff"; font.pixelSize: 8
                                 onClicked: TexturePainter.setLayerVisible(index, !(true)) }
                         }
                         MouseArea { anchors.fill: parent; onClicked: TexturePainter.setCurrentLayer(index) }
@@ -121,13 +121,13 @@ Rectangle {
                 }
 
                 RowLayout { Layout.fillWidth: true
-                    KsButton { text: "+"; height: 22; bgcolor: "#3e3e42"; color: "#fff"
+                    AppButton { text: "+"; height: 22; bgcolor: "#3e3e42"; color: "#fff"
                         onClicked: TexturePainter.addLayer() }
-                    KsButton { text: "-"; height: 22; bgcolor: "#3e3e42"; color: "#fff"
+                    AppButton { text: "-"; height: 22; bgcolor: "#3e3e42"; color: "#fff"
                         onClicked: TexturePainter.removeLayer(TexturePainter.currentLayer) }
-                    KsButton { text: "Up"; height: 22; bgcolor: "#3e3e42"; color: "#fff"
+                    AppButton { text: "Up"; height: 22; bgcolor: "#3e3e42"; color: "#fff"
                         onClicked: TexturePainter.moveLayer(TexturePainter.currentLayer, TexturePainter.currentLayer - 1) }
-                    KsButton { text: "Dn"; height: 22; bgcolor: "#3e3e42"; color: "#fff"
+                    AppButton { text: "Dn"; height: 22; bgcolor: "#3e3e42"; color: "#fff"
                         onClicked: TexturePainter.moveLayer(TexturePainter.currentLayer, TexturePainter.currentLayer + 1) }
                 }
 
@@ -148,19 +148,19 @@ Rectangle {
                 // Filters
                 Text { text: "FILTERS"; color: "#888"; font.pixelSize: 9; font.bold: true; leftPadding: 8 }
                 Flow { Layout.fillWidth: true; spacing: 3
-                    KsButton { text: "Blur"; height: 22; bgcolor: "#3e3e42"; color: "#fff"; onClicked: TexturePainter.applyBlur(5) }
-                    KsButton { text: "Sharpen"; height: 22; bgcolor: "#3e3e42"; color: "#fff"; onClicked: TexturePainter.applySharpen(0.5) }
-                    KsButton { text: "Noise"; height: 22; bgcolor: "#3e3e42"; color: "#fff"; onClicked: TexturePainter.applyNoise(0.1) }
-                    KsButton { text: "Emboss"; height: 22; bgcolor: "#3e3e42"; color: "#fff"; onClicked: TexturePainter.applyEmboss() }
-                    KsButton { text: "Invert"; height: 22; bgcolor: "#3e3e42"; color: "#fff"; onClicked: TexturePainter.applyInvert() }
+                    AppButton { text: "Blur"; height: 22; bgcolor: "#3e3e42"; color: "#fff"; onClicked: TexturePainter.applyBlur(5) }
+                    AppButton { text: "Sharpen"; height: 22; bgcolor: "#3e3e42"; color: "#fff"; onClicked: TexturePainter.applySharpen(0.5) }
+                    AppButton { text: "Noise"; height: 22; bgcolor: "#3e3e42"; color: "#fff"; onClicked: TexturePainter.applyNoise(0.1) }
+                    AppButton { text: "Emboss"; height: 22; bgcolor: "#3e3e42"; color: "#fff"; onClicked: TexturePainter.applyEmboss() }
+                    AppButton { text: "Invert"; height: 22; bgcolor: "#3e3e42"; color: "#fff"; onClicked: TexturePainter.applyInvert() }
                 }
 
                 // Undo/Redo
                 Text { text: "UNDO"; color: "#888"; font.pixelSize: 9; font.bold: true; leftPadding: 8 }
                 RowLayout { Layout.fillWidth: true
-                    KsButton { id: undoBtn; text: "Undo"; height: 22; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#fff"; enabled: false
+                    AppButton { id: undoBtn; text: "Undo"; height: 22; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#fff"; enabled: false
                         onClicked: TexturePainter.undo() }
-                    KsButton { id: redoBtn; text: "Redo"; height: 22; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#fff"; enabled: false
+                    AppButton { id: redoBtn; text: "Redo"; height: 22; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#fff"; enabled: false
                         onClicked: TexturePainter.redo() }
                 }
 
@@ -170,18 +170,18 @@ Rectangle {
                 // Fill tools
                 Text { text: "FILL"; color: "#888"; font.pixelSize: 9; font.bold: true; leftPadding: 8 }
                 RowLayout { Layout.fillWidth: true
-                    KsButton { text: "Flood Fill"; height: 22; Layout.fillWidth: true; bgcolor: "#E10600"; color: "#121212"
+                    AppButton { text: "Flood Fill"; height: 22; Layout.fillWidth: true; bgcolor: "#E10600"; color: "#121212"
                         onClicked: { /* click on canvas to flood fill */ } }
-                    KsButton { text: "Clear Canvas"; height: 22; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#fff"
+                    AppButton { text: "Clear Canvas"; height: 22; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#fff"
                         onClicked: TexturePainter.clearCanvas() }
                 }
 
                 // Load/Save
                 Text { text: "FILE"; color: "#888"; font.pixelSize: 9; font.bold: true; leftPadding: 8 }
                 RowLayout { Layout.fillWidth: true
-                    KsButton { text: "Load"; height: 22; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#fff"
+                    AppButton { text: "Load"; height: 22; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#fff"
                         onClicked: loadDialog.open() }
-                    KsButton { text: "Save"; height: 22; Layout.fillWidth: true; bgcolor: "#E10600"; color: "#121212"
+                    AppButton { text: "Save"; height: 22; Layout.fillWidth: true; bgcolor: "#E10600"; color: "#121212"
                         onClicked: saveDialog.open() }
                 }
 

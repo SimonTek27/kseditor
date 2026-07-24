@@ -1,4 +1,6 @@
 #include "WelcomeScreen.h"
+#include "core/help/HelpSystem.h"
+#include "core/help/HelpBrowser.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -19,6 +21,7 @@
 #include <QDebug>
 #include <QIcon>
 #include <QMouseEvent>
+#include <QCollator>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -42,7 +45,7 @@ static bool isPathDriveReady(const QString& path) {
 }
 
 WelcomeScreen::WelcomeScreen(QWidget* parent) : QDialog(parent, Qt::Dialog | Qt::FramelessWindowHint) {
-    setWindowTitle("ksEditor 1.16");
+    setWindowTitle("ksEditor 0.9.0");
     setMinimumSize(600, 550);
     setupUI();
     populateRecentProjects();
@@ -70,7 +73,9 @@ void WelcomeScreen::mouseReleaseEvent(QMouseEvent* event) {
 void WelcomeScreen::onNewClicked() { selectedAction = New; accept(); }
 void WelcomeScreen::onNewBlankClicked() { selectedAction = NewBlank; accept(); }
 void WelcomeScreen::onOpenClicked() { selectedAction = Open; accept(); }
-void WelcomeScreen::onHelpClicked() { selectedAction = Help; accept(); }
+void WelcomeScreen::onHelpClicked() {
+    ks::HelpSystem::instance()->showHelp();
+}
 
 void WelcomeScreen::onRecentDoubleClicked(QListWidgetItem* item) {
     selectedAction = Recent;
@@ -120,8 +125,7 @@ void WelcomeScreen::setupUI() {
     settingsBtn->setStyleSheet("background: transparent; border: none; color: #cccccc;");
     settingsBtn->setToolTip("Settings");
     connect(settingsBtn, &QPushButton::clicked, this, [this]() {
-        selectedAction = Help; // Reuse Help for now, could add separate Settings action
-        accept();
+        ks::HelpSystem::instance()->showHelp();
     });
     titleLayout->addWidget(settingsBtn);
 
@@ -258,6 +262,7 @@ void WelcomeScreen::populateRecentProjects() {
     };
     searchPaths.append(steamPaths);
 
+    QMap<QString, QString> entries;
     for (const QString& basePath : searchPaths) {
         if (!isPathDriveReady(basePath))
             continue;
@@ -268,13 +273,31 @@ void WelcomeScreen::populateRecentProjects() {
                 QDir subDir(basePath + "/" + sub);
                 if (subDir.exists()) {
                     for (const QString& project : subDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-                        QListWidgetItem* item = new QListWidgetItem(sub + "/" + project, m_recentList);
-                        item->setData(Qt::UserRole, subDir.absoluteFilePath(project));
-                        item->setToolTip(subDir.absoluteFilePath(project));
+                        QString display = sub + "/" + project;
+                        if (!entries.contains(display))
+                            entries.insert(display, subDir.absoluteFilePath(project));
                     }
                 }
             }
         }
+    }
+
+    QCollator collator;
+    collator.setNumericMode(true);
+    QStringList sorted = entries.keys();
+    std::sort(sorted.begin(), sorted.end(), [&](const QString& a, const QString& b) {
+        return collator.compare(a, b) < 0;
+    });
+
+    const int maxProjects = 50;
+    int count = 0;
+    for (const QString& display : sorted) {
+        if (count >= maxProjects)
+            break;
+        QListWidgetItem* item = new QListWidgetItem(display, m_recentList);
+        item->setData(Qt::UserRole, entries.value(display));
+        item->setToolTip(entries.value(display));
+        ++count;
     }
 
     updateProjectCount();

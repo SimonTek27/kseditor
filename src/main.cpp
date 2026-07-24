@@ -34,7 +34,7 @@
 #include "modules/PhysicsEditor/PhysicsQmlBridge.h"
 #include "core/Audio/AudioQMLBridge.h"
 #include "core/Audio/AudioEngineQML.h"
-#include "core/Audio/KSAudioModuleBridge.h"
+#include "core/Audio/AudioModuleBridge.h"
 #include "core/AIEditor/AIEditorQmlBridge.h"
 #include "core/tools/FormatToolsQmlBridge.h"
 #include "core/modmanager/ModManagerQmlBridge.h"
@@ -55,11 +55,10 @@
 #include "core/assets/AssetsLibraryQmlBridge.h"
 #include "core/mesh/MeshDataBridge.h"
 #include "core/material/TexturePaintQmlBridge.h"
-#include "core/3dprint/ThreeDPrintQmlBridge.h"
 #include "core/mesh/MeshLoaderQML.h"
 #include "modules/modellingEditor/SceneMeshGeometry.h"
 #include "qml/modules/CspConfigQmlBridge.h"
-#include "qml/modules/KsContentQMLBridge.h"
+#include "qml/modules/ContentQMLBridge.h"
 #include "modules/modellingEditor/CharacterBuilder/CharacterEditorQmlBridge.h"
 #include "core/network/CollabEditorQmlBridge.h"
 
@@ -81,7 +80,7 @@ static int appMain(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     app.setApplicationName("ksEditor");
-    app.setApplicationVersion("1.0.0");
+    app.setApplicationVersion("0.9.0");
     app.setOrganizationName("ksEditor");
 
     // Load translations
@@ -166,7 +165,7 @@ static int appMain(int argc, char *argv[])
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::CollabEditorQmlBridge::instance(); });
     qmlRegisterSingletonType<ks::CspConfigQmlBridge>("ksEditor.CspConfig", 1, 0, "CspConfig",
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::CspConfigQmlBridge::instance(); });
-    qmlRegisterType<KsContentQMLBridge>("ksEditor.Content", 1, 0, "Content");
+    qmlRegisterType<ContentQMLBridge>("ksEditor.Content", 1, 0, "Content");
     qmlRegisterType<MeshLoaderQML>("ksEditor.MeshLoader", 1, 0, "MeshLoader");
     qmlRegisterType<ks::SceneMeshGeometry>("ksEditor.Modeler", 1, 0, "SceneMeshGeometry");
     qmlRegisterSingletonType<ks::editor::BoolOpQmlBridge>("ksEditor.BoolOp", 1, 0, "BoolOp",
@@ -208,14 +207,14 @@ static int appMain(int argc, char *argv[])
             return 0;
         }
         if (cmd == "-paint" || cmd == "--paint") {
-            MainWindow window(QString());
+            MainWindow window{QString()};
             window.setPaintMode(true);
             window.show();
             return app.exec();
         }
         if (cmd == "-h" || cmd == "--help") {
             QMessageBox::information(nullptr, "ksEditor Help",
-                "ksEditor 1.0.0 - Assetto Corsa Modding Suite\n\n"
+                "ksEditor 0.9.0 - Assetto Corsa Modding Suite\n\n"
                 "Usage: kseditor.exe [options]\n\n"
                 "Options:\n"
                 "  -font, --font    Open font editor directly\n"
@@ -250,8 +249,15 @@ static int appMain(int argc, char *argv[])
     bool accepted = false;
     try {
         accepted = (welcome.exec() == QDialog::Accepted);
+    } catch (const std::exception& e) {
+        qDebug() << "Exception during WelcomeScreen::exec():" << e.what();
+        QMessageBox::warning(nullptr, "Startup Error",
+            QString("An error occurred while showing the welcome screen:\n%1").arg(e.what()));
+        accepted = false;
     } catch (...) {
-        qDebug() << "Exception during WelcomeScreen::exec()";
+        qDebug() << "Unknown exception during WelcomeScreen::exec()";
+        QMessageBox::warning(nullptr, "Startup Error",
+            "An unknown error occurred while showing the welcome screen.");
         accepted = false;
     }
 
@@ -288,7 +294,7 @@ static int appMain(int argc, char *argv[])
             }
             projectPath = welcome.recentPath;
         } else if (welcome.selectedAction == WelcomeScreen::Help) {
-            // Show help - for now just start with empty project
+            // Start with empty project
         }
     } catch (const std::exception& e) {
         QMessageBox::critical(nullptr, "Error",

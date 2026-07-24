@@ -1,8 +1,11 @@
 #include "SceneMesh.h"
+#include "VulkanFunctions.h"
+#include "VulkanRenderer.h"
 #include <QJsonObject>
 #include <QJsonArray>
 #include <algorithm>
 #include <limits>
+#include <cstring>
 
 namespace ks {
 namespace graphics {
@@ -28,30 +31,147 @@ void SceneMesh::setGeometry(const SceneMeshGeometry& geometry)
 
 bool SceneMesh::createBuffers(VkDevice device, VkPhysicalDevice physDev, VkQueue queue, VkCommandPool pool)
 {
-    Q_UNUSED(device); Q_UNUSED(physDev); Q_UNUSED(queue); Q_UNUSED(pool);
     if (m_geometry.vertices.isEmpty() || m_geometry.indices.isEmpty()) return false;
-    m_buffersValid = true;
-    return true;
+
+    destroyBuffers(device);
+
+    VkDeviceSize vertexSize = static_cast<VkDeviceSize>(m_geometry.vertices.size() * sizeof(SceneVertex));
+    VkDeviceSize indexSize = static_cast<VkDeviceSize>(m_geometry.indices.size() * sizeof(uint32_t));
+
+    if (vertexSize == 0 || indexSize == 0) return false;
+
+    if (g_vk.createBuffer && g_vk.allocateMemory && g_vk.bindBufferMemory) {
+        VkBuffer stagingVertexBuf = VK_NULL_HANDLE;
+        VkDeviceMemory stagingVertexMem = VK_NULL_HANDLE;
+        VkBuffer stagingIndexBuf = VK_NULL_HANDLE;
+        VkDeviceMemory stagingIndexMem = VK_NULL_HANDLE;
+
+        VkBufferCreateInfo sbCi{};
+        sbCi.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        sbCi.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+        sbCi.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        auto createStaging = [&](VkDeviceSize size, VkBuffer& buf, VkDeviceMemory& mem) {
+            sbCi.size = size;
+            if (g_vk.createBuffer(device, &sbCi, nullptr, &buf) != VK_SUCCESS) return false;
+            VkMemoryRequirements smr;
+            g_vk.getBufferMemoryRequirements(device, buf, &smr);
+            VkMemoryAllocateInfo sai{};
+            sai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+            sai.allocationSize = smr.size;
+            sai.memoryTypeIndex = VulkanRenderer::findMemoryType(physDev, smr.memoryTypeBits,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+            if (g_vk.allocateMemory(device, &sai, nullptr, &mem) != VK_SUCCESS) {
+                g_vk.destroyBuffer(device, buf, nullptr); buf = VK_NULL_HANDLE;
+                return false;
+            }
+            g_vk.bindBufferMemory(device, buf, mem, 0);
+            return true;
+        };
+
+        auto fillStaging = [&](VkDeviceMemory mem, VkDeviceSize size, const void* data) {
+            void* mapped = nullptr;
+            if (g_vk.mapMemory(device, mem, 0, size, 0, &mapped) == VK_SUCCESS) {
+                memcpy(mapped, data, static_cast<size_t>(size));
+                g_vk.unmapMemory(device, mem);
+            }
+        };
+
+        bool haveVertexStaging = createStaging(vertexSize, stagingVertexBuf, stagingVertexMem);
+        bool haveIndexStaging = createStaging(indexSize, stagingIndexBuf, stagingIndexMem);
+
+        if (haveVertexStaging)
+            fillStaging(stagingVertexMem, vertexSize, m_geometry.vertices.constData());
+        if (haveIndexStaging)
+            fillStaging(stagingIndexMem, indexSize, m_geometry.indices.constData());
+
+        auto createDeviceBuffer = [&](VkDeviceSize size, VkBufferUsageFlags usage,
+                                       VkBuffer& buf, VkDeviceMemory& mem) {
+            VkBufferCreateInfo ci{};
+            ci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+            ci.size = size;
+            ci.usage = usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+            ci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+            if (g_vk.createBuffer(device, &ci, nullptr, &buf) != VK_SUCCESS) return false;
+            VkMemoryRequirements mr;
+            g_vk.getBufferMemoryRequirements(device, buf, &mr);
+            VkMemoryAllocateInfo ai{};
+            ai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+            ai.allocationSize = mr.size;
+            ai.memoryTypeIndex = VulkanRenderer::findMemoryType(physDev, mr.memoryTypeBits,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+            if (g_vk.allocateMemory(device, &ai, nullptr, &mem) != VK_SUCCESS) {
+                g_vk.destroyBuffer(device, buf, nullptr); buf = VK_NULL_HANDLE;
+                return false;
+            }
+            g_vk.bindBufferMemory(device, buf, mem, 0);
+            return true;
+        };
+
+        bool haveVBuf = createDeviceBuffer(vertexSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                            m_vertexBuffer, m_vertexMemory);
+        bool haveIBuf = createDeviceBuffer(indexSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                                            m_indexBuffer, m_indexMemory);
+
+        if (haveVBuf && haveIBuf && haveVertexStaging && haveIndexStaging) {
+            VkCommandBufferAllocateInfo cmdAi{};
+            cmdAi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+            cmdAi.commandPool = pool;
+            cmdAi.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+            cmdAi.commandBufferCount = 1;
+
+            VkCommandBuffer cmdBuf = VK_NULL_HANDLE;
+            if (g_vk.allocateCommandBuffers(device, &cmdAi, &cmdBuf) == VK_SUCCESS) {
+                VkCommandBufferBeginInfo bi{};
+                bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+                bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+                if (g_vk.beginCommandBuffer(cmdBuf, &bi) == VK_SUCCESS) {
+                    VkBufferCopy region{};
+                    region.size = vertexSize;
+                    g_vk.cmdCopyBuffer(cmdBuf, stagingVertexBuf, m_vertexBuffer, 1, &region);
+                    region.size = indexSize;
+                    region.srcOffset = 0;
+                    region.dstOffset = 0;
+                    g_vk.cmdCopyBuffer(cmdBuf, stagingIndexBuf, m_indexBuffer, 1, &region);
+                    g_vk.endCommandBuffer(cmdBuf);
+
+                    VkSubmitInfo si{};
+                    si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+                    si.commandBufferCount = 1;
+                    si.pCommandBuffers = &cmdBuf;
+                    g_vk.queueSubmit(queue, 1, &si, VK_NULL_HANDLE);
+                    g_vk.queueWaitIdle(queue);
+                    g_vk.freeCommandBuffers(device, pool, 1, &cmdBuf);
+                }
+            }
+        }
+
+        if (stagingVertexBuf && stagingVertexMem) {
+            g_vk.destroyBuffer(device, stagingVertexBuf, nullptr);
+            g_vk.freeMemory(device, stagingVertexMem, nullptr);
+        }
+        if (stagingIndexBuf && stagingIndexMem) {
+            g_vk.destroyBuffer(device, stagingIndexBuf, nullptr);
+            g_vk.freeMemory(device, stagingIndexMem, nullptr);
+        }
+    }
+
+    m_buffersValid = (m_vertexBuffer != VK_NULL_HANDLE && m_indexBuffer != VK_NULL_HANDLE);
+    emit buffersCreated();
+    return m_buffersValid;
 }
 
 void SceneMesh::destroyBuffers(VkDevice device)
 {
-    Q_UNUSED(device);
-    if (m_vertexBuffer) {
-        vkDestroyBuffer(device, m_vertexBuffer, nullptr);
-        m_vertexBuffer = VK_NULL_HANDLE;
+    if (!device) return;
+    if (g_vk.destroyBuffer) {
+        if (m_vertexBuffer) { g_vk.destroyBuffer(device, m_vertexBuffer, nullptr); m_vertexBuffer = VK_NULL_HANDLE; }
+        if (m_indexBuffer)  { g_vk.destroyBuffer(device, m_indexBuffer, nullptr); m_indexBuffer = VK_NULL_HANDLE; }
     }
-    if (m_indexBuffer) {
-        vkDestroyBuffer(device, m_indexBuffer, nullptr);
-        m_indexBuffer = VK_NULL_HANDLE;
-    }
-    if (m_vertexMemory) {
-        vkFreeMemory(device, m_vertexMemory, nullptr);
-        m_vertexMemory = VK_NULL_HANDLE;
-    }
-    if (m_indexMemory) {
-        vkFreeMemory(device, m_indexMemory, nullptr);
-        m_indexMemory = VK_NULL_HANDLE;
+    if (g_vk.freeMemory) {
+        if (m_vertexMemory) { g_vk.freeMemory(device, m_vertexMemory, nullptr); m_vertexMemory = VK_NULL_HANDLE; }
+        if (m_indexMemory)  { g_vk.freeMemory(device, m_indexMemory, nullptr); m_indexMemory = VK_NULL_HANDLE; }
     }
     m_buffersValid = false;
 }

@@ -73,6 +73,26 @@ struct CarDetailInfo {
     bool isModified;
     qint64 totalSize;
     QString parentPath;
+
+    // Extended fields
+    int year;
+    QString engineType;
+    int engineCylinders;
+    int displacement;
+    int torque;
+    QString frontTyreSize;
+    QString rearTyreSize;
+    int topSpeed;
+    int acceleration;
+    int braking;
+    int cornering;
+    int stability;
+    QString transmission;
+    QString drivetrainSpec;
+    QString weightDistribution;
+    QString description;
+    QString tags;
+    QStringList kn5Files;
 };
 
 struct TrackDetailInfo {
@@ -86,6 +106,14 @@ struct TrackDetailInfo {
     int skinCount;
     qint64 totalSize;
     QString parentPath;
+
+    // Extended fields
+    QString city;
+    float width;
+    int lapsCount;
+    QString description;
+    QString geotags;
+    bool hasMapImage;
 };
 
 class Browser {

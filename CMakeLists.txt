@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(kseditor
-    VERSION 2.1.0
+    VERSION 0.9.0
     LANGUAGES C CXX
 )
 
@@ -269,12 +269,7 @@ file(GLOB_RECURSE PLUGIN_SOURCES_EXCLUDE
 )
 list(REMOVE_ITEM ALL_SOURCES ${PLUGIN_SOURCES_EXCLUDE})
 
-# OpenXR 1.1.61 header is incompatible with MSVC 2026 toolchain - exclude VR module for now
-file(GLOB_RECURSE VR_BROKEN_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/modules/VREditor/*.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/core/VR/*.cpp
-)
-list(REMOVE_ITEM ALL_SOURCES ${VR_BROKEN_SOURCES})
+# VR module re-enabled: OpenXR headers now compatible with MSVC 2026
 
 # Re-add plugin sources that were excluded by PLUGIN_SOURCES_EXCLUDE but needed in the library
 list(APPEND ALL_SOURCES
@@ -292,12 +287,7 @@ file(GLOB_RECURSE ALL_HEADERS
 
 list(REMOVE_ITEM ALL_HEADERS ${PLUGIN_SOURCES_EXCLUDE})
 
-# VR module headers excluded due to OpenXR incompatibility
-file(GLOB_RECURSE VR_BROKEN_HEADERS
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/modules/VREditor/*.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/core/VR/*.h
-)
-list(REMOVE_ITEM ALL_HEADERS ${VR_BROKEN_HEADERS})
+# VR module headers re-enabled
 
 file(GLOB BROKEN_HEADERS
 )
@@ -351,6 +341,7 @@ endif()
 
 target_include_directories(kseditor_lib PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/stb"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/openxr/include"
 )
 
 if(HAS_LIBIGL)
@@ -382,7 +373,7 @@ target_link_libraries(kseditor_lib PRIVATE
 )
 
 if(WIN32)
-    target_link_libraries(kseditor_lib PRIVATE opengl32 dwmapi dwrite)
+    target_link_libraries(kseditor_lib PRIVATE opengl32 dwmapi dwrite ole32 sapi)
 endif()
 
 # FMOD removed — using kseditor software audio engine
@@ -405,9 +396,12 @@ if(HAS_BULLET)
 endif()
 
 if(HAS_7ZIP)
+    # 7zip symbols are duplicated when both kseditor.exe and ksAssettoCorsa.dll
+    # consume kseditor_lib (e.g. IID_* from DllExports.obj vs SevenZipLibrary.obj).
+    # The /FORCE:MULTIPLE flags on the exe and DLL handle this.
     target_link_libraries(kseditor_lib PRIVATE 7zip)
 else()
-    # Archive source files still need 7zip headers for compilation
+    # Archive source files still need 7zip headers for compilation (unit tests etc.)
     target_include_directories(kseditor_lib PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/external/7zip/C"
         "${CMAKE_CURRENT_SOURCE_DIR}/external/7zip/CPP"
@@ -547,9 +541,11 @@ endif()
 set_property(TARGET kseditor PROPERTY CXX_STANDARD 17)
 set_property(TARGET kseditor PROPERTY CXX_STANDARD_REQUIRED ON)
 
-# NOTE: /FORCE:MULTIPLE is required because 7zip static library symbols are
-# duplicated when both kseditor.exe and ksAssettoCorsa.dll link kseditor_lib.
-# TODO: Consider building 7zip as a shared library to eliminate ODR violations.
+# /FORCE:MULTIPLE is required because 7zip static library IID_* symbols are
+# duplicated when both kseditor.exe and ksAssettoCorsa.dll link kseditor_lib
+# which contains both 7zip static archives and kseditor's own SevenZipLibrary.obj.
+# Similar duplicates exist for Ribbon/RenderGraph/ModManager classes whose
+# implementations appear in more than one translation unit within kseditor_lib.
 if(MSVC)
     target_link_options(kseditor PRIVATE "LINKER:/FORCE:MULTIPLE")
 endif()
@@ -571,6 +567,7 @@ set(ASSETTOCORSA_PLUGIN_MOC_HEADERS
     ${ASSETTOCORSA_PLUGIN_DIR}/acCSP/CspConfigHandler.h
     ${ASSETTOCORSA_PLUGIN_DIR}/ACSharedMemory.h
     ${ASSETTOCORSA_PLUGIN_DIR}/ACLivePreviewBridge.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/AssetsLibraryModule.h
 )
 
 qt6_wrap_cpp(ASSETTOCORSA_MOC_SOURCES ${ASSETTOCORSA_PLUGIN_MOC_HEADERS})
@@ -601,6 +598,7 @@ set(ASSETTOCORSA_SOURCES
 )
 
 set(ASSETTOCORSA_HEADERS
+    ${ASSETTOCORSA_PLUGIN_DIR}/assettocorsa.h
     ${ASSETTOCORSA_PLUGIN_DIR}/AssetsLibraryModule.h
     ${ASSETTOCORSA_PLUGIN_DIR}/ksAssettoCorsa_export.h
     ${ASSETTOCORSA_PLUGIN_DIR}/ContentBrowser.h
@@ -690,9 +688,13 @@ set_target_properties(ksAssettoCorsa PROPERTIES
 
 target_link_libraries(ksAssettoCorsa PRIVATE kseditor_lib)
 
-if(MSVC)
-    target_link_options(ksAssettoCorsa PRIVATE "LINKER:/FORCE:MULTIPLE" "LINKER:/ignore:4006")
+if(HAS_7ZIP)
+    target_link_libraries(ksAssettoCorsa PRIVATE 7zip)
 endif()
+
+# /FORCE:MULTIPLE resolves duplicate Q_OBJECT symbols when plugin DLL links
+# against kseditor_lib (static lib) which also contains the same Q_OBJECT classes.
+target_link_options(ksAssettoCorsa PRIVATE /FORCE:MULTIPLE)
 
 if(MSVC)
     target_compile_options(ksAssettoCorsa PRIVATE /Zc:__cplusplus /FS)

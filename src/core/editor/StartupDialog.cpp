@@ -1,7 +1,7 @@
 #include "StartupDialog.h"
 #include "sys/LogManager.h"
 #include "sys/SettingsManager.h"
-#include "assets/KsPaths.h"
+#include "assets/SimInstallDetector.h"
 
 #include <QApplication>
 #include <QMessageBox>

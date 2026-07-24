@@ -199,7 +199,7 @@ bool ProjectSerializer::migrateProject(ProjectData& data, const QString& fromVer
         }
     }
 
-    data.formatVersion = "2.1.0";
+    data.formatVersion = "0.9.0";
     return true;
 }
 

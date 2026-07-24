@@ -62,6 +62,7 @@ public:
         change.timestamp = QDateTime::currentDateTime();
         
         m_changes[change.transactionId].append(change);
+        m_transactions[change.transactionId].changes.append(change);
     }
 
     QVector<Change> getChanges(const QString& transactionId) const;
@@ -99,6 +100,7 @@ private:
     QStack<QString> m_transactionStack;
     QMap<QString, ModuleSnapshotCallback> m_snapshotCallbacks;
     QMap<QString, ModuleRestoreCallback> m_restoreCallbacks;
+    QMap<QString, QObject*> m_modules;
     mutable QMutex m_mutex;
 };
 

@@ -150,7 +150,7 @@ Rectangle {
 
                 Item { Layout.fillWidth: true }
 
-                KsButton {
+                AppButton {
                     text: "Import"
                     flat: true
                     height: 32
@@ -158,7 +158,7 @@ Rectangle {
                     color: "#ffffff"
                     onClicked: importDialog.open()
                 }
-                KsButton {
+                AppButton {
                     text: "Export"
                     flat: true
                     height: 32
@@ -206,8 +206,8 @@ Rectangle {
                         }
                     }
 
-                    // Import KsButton
-                    KsButton {
+                    // Import AppButton
+                    AppButton {
                         height: 36
                         text: "+ Import Asset"
                         bgcolor: "#E10600"
@@ -227,7 +227,7 @@ Rectangle {
                             model: root.categoriesModel
                             anchors.margins: 10
                             spacing: 4
-                            delegate: KsButton {
+                            delegate: AppButton {
                                 width: ListView.view.width
                                 height: 36
                                 text: modelData
@@ -337,13 +337,13 @@ Rectangle {
 
                         Item { Layout.fillWidth: true }
 
-                        KsButton {
+                        AppButton {
                             height: 30; width: 30; text: "⊞"
                             bgcolor: viewMode === "grid" ? "#E1060033" : "transparent"
                             color: viewMode === "grid" ? "#E10600" : "#ffffff"
                             onClicked: root.viewMode = "grid"
                         }
-                        KsButton {
+                        AppButton {
                             height: 30; width: 30; text: "☰"
                             bgcolor: viewMode === "list" ? "#E1060033" : "transparent"
                             color: viewMode === "list" ? "#E10600" : "#666666"
@@ -586,7 +586,7 @@ Rectangle {
                     Item { Layout.fillHeight: true }
 
                     // Actions
-                    KsButton {
+                    AppButton {
                         height: 32
                         text: "Open in 3D Editor"
                         bgcolor: "#E10600"
@@ -600,7 +600,7 @@ Rectangle {
                             }
                         }
                     }
-                    KsButton {
+                    AppButton {
                         height: 32
                         text: "Import to Project"
                         bgcolor: "transparent"
@@ -613,7 +613,7 @@ Rectangle {
                             }
                         }
                     }
-                    KsButton {
+                    AppButton {
                         height: 32
                         text: "Copy Path"
                         bgcolor: "transparent"
@@ -626,7 +626,7 @@ Rectangle {
                             }
                         }
                     }
-                    KsButton {
+                    AppButton {
                         height: 32
                         text: "Delete"
                         bgcolor: "transparent"

@@ -22,7 +22,6 @@
 #include <Qt3DRender/QRenderSettings>
 
 // Qt6 3D Render (Vulkan backend)
-#include <Qt3DRender/QRenderSettings>
 #include <Qt3DRender/QRenderSurfaceSelector>
 #include <Qt3DRender/QViewport>
 #include <Qt3DRender/QCameraSelector>

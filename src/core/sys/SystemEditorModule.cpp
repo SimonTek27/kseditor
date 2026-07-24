@@ -13,6 +13,8 @@
 #include <QStandardPaths>
 #include <QMenu>
 #include <QAction>
+#include <QSettings>
+#include <QDesktopServices>
 
 namespace ks {
 namespace sys {
@@ -163,11 +165,16 @@ void SystemEditorModule::setupLogViewerTab() {
     m_logViewer = new QTextEdit();
     m_logViewer->setReadOnly(true);
     m_logViewer->setStyleSheet("QTextEdit { background: #1a1a1a; color: #c8c8c8; font-family: Consolas, monospace; font-size: 9pt; }");
-    m_logViewer->append("[2024-01-15 10:00:00] [INFO] ksEditor started");
-    m_logViewer->append("[2024-01-15 10:00:01] [INFO] Module Manager initialized");
-    m_logViewer->append("[2024-01-15 10:00:02] [INFO] Graphics module loaded");
-    m_logViewer->append("[2024-01-15 10:00:03] [WARN] VR module disabled: OpenXR not available");
-    m_logViewer->append("[2024-01-15 10:00:04] [INFO] Audio engine initialized");
+    // Load real log file if available
+    QString logPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/kseditor.log";
+    QFile logFile(logPath);
+    if (logFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        m_logViewer->setPlainText(logFile.readAll());
+        logFile.close();
+    } else {
+        m_logViewer->append("[SYSTEM] Log file not found: " + logPath);
+        m_logViewer->append("[SYSTEM] Application logging may not be initialized");
+    }
     layout->addWidget(m_logViewer);
 
     connect(m_clearLogBtn, &QPushButton::clicked, this, &SystemEditorModule::onClearLog);
@@ -241,23 +248,63 @@ void SystemEditorModule::onPluginToggled(QTreeWidgetItem* item, int column) {
 void SystemEditorModule::onSettingChanged() {}
 
 void SystemEditorModule::onSaveSettings() {
-    log("Saving system settings...");
-    logSuccess("Settings saved");
+    QSettings settings;
+    settings.beginGroup("SystemEditor");
+    if (!m_settingsTree) {
+        logWarning("Settings tree not available, saving defaults");
+        settings.setValue("language", 0);
+        settings.setValue("autoSaveInterval", 5);
+        settings.setValue("maxRecentFiles", 20);
+        settings.setValue("threadPoolSize", 8);
+        settings.setValue("useVulkan", true);
+        settings.setValue("backgroundIndexing", true);
+    } else {
+        for (int i = 0; i < m_settingsTree->topLevelItemCount(); ++i) {
+            auto* item = m_settingsTree->topLevelItem(i);
+            for (int j = 1; j < item->columnCount(); ++j)
+                settings.setValue(item->text(0) + "/col" + QString::number(j), item->text(j));
+        }
+    }
+    settings.endGroup();
+    logSuccess("Settings saved to registry");
 }
 
 void SystemEditorModule::onLoadSettings() {
-    log("Loading system settings...");
-    logSuccess("Settings loaded");
+    QSettings settings;
+    settings.beginGroup("SystemEditor");
+    if (!m_settingsTree) {
+        log("Settings tree not available, skipping load");
+    } else {
+        for (int i = 0; i < m_settingsTree->topLevelItemCount(); ++i) {
+            auto* item = m_settingsTree->topLevelItem(i);
+            for (int j = 1; j < item->columnCount(); ++j) {
+                QString val = settings.value(item->text(0) + "/col" + QString::number(j)).toString();
+                if (!val.isEmpty()) item->setText(j, val);
+            }
+        }
+    }
+    settings.endGroup();
+    logSuccess("Settings loaded from registry");
 }
 
 void SystemEditorModule::onResetSettings() {
     if (confirmAction("Reset Settings", "Reset all system settings to defaults?")) {
+        QSettings settings;
+        settings.remove("SystemEditor");
+        // Reload default values
+        for (int i = 0; i < m_settingsTree->topLevelItemCount(); ++i) {
+            auto* item = m_settingsTree->topLevelItem(i);
+            for (int j = 1; j < item->columnCount(); ++j)
+                item->setText(j, QString());
+        }
         logSuccess("Settings reset to defaults");
     }
 }
 
 void SystemEditorModule::onViewLog() {
-    log("Opening log file...");
+    QString logPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/kseditor.log";
+    QDesktopServices::openUrl(QUrl::fromLocalFile(logPath));
+    log(QString("Opening log file: %1").arg(logPath));
 }
 
 void SystemEditorModule::onClearLog() {

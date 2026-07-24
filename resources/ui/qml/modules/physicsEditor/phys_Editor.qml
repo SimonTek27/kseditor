@@ -71,7 +71,7 @@ Rectangle {
                 anchors.fill: parent
                 anchors.leftMargin: 10
 
-                KsButton {
+                AppButton {
                     text: "Import"
                     flat: true
                     height: 32
@@ -79,7 +79,7 @@ Rectangle {
                     color: "#ffffff"
                     onClicked: importDialog.open()
                 }
-                KsButton {
+                AppButton {
                     text: "Export"
                     flat: true
                     height: 32
@@ -92,7 +92,7 @@ Rectangle {
                     height: 20
                     color: "#444444"
                 }
-                KsButton {
+                AppButton {
                     text: "Validate"
                     flat: true
                     height: 32
@@ -109,7 +109,7 @@ Rectangle {
                     height: 20
                     color: "#444444"
                 }
-                KsButton {
+                AppButton {
                     text: "Simulate"
                     flat: true
                     height: 32
@@ -159,70 +159,70 @@ Rectangle {
                         font.bold: true
                     }
 
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Suspension"
                         bgcolor: activePanel === "suspension" ? "#E10600" : "#3e3e42"
                         color: activePanel === "suspension" ? "#121212" : "#ffffff"
                         onClicked: activePanel = "suspension"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Wheels"
                         bgcolor: activePanel === "wheels" ? "#E10600" : "#3e3e42"
                         color: activePanel === "wheels" ? "#121212" : "#ffffff"
                         onClicked: activePanel = "wheels"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Tires"
                         bgcolor: activePanel === "tires" ? "#E10600" : "#3e3e42"
                         color: activePanel === "tires" ? "#121212" : "#ffffff"
                         onClicked: activePanel = "tires"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Aerodynamics"
                         bgcolor: activePanel === "aero" ? "#E10600" : "#3e3e42"
                         color: activePanel === "aero" ? "#121212" : "#ffffff"
                         onClicked: activePanel = "aero"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Engine"
                         bgcolor: activePanel === "engine" ? "#E10600" : "#3e3e42"
                         color: activePanel === "engine" ? "#121212" : "#ffffff"
                         onClicked: activePanel = "engine"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Transmission"
                         bgcolor: activePanel === "trans" ? "#E10600" : "#3e3e42"
                         color: activePanel === "trans" ? "#121212" : "#ffffff"
                         onClicked: activePanel = "trans"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Brakes"
                         bgcolor: activePanel === "brakes" ? "#E10600" : "#3e3e42"
                         color: activePanel === "brakes" ? "#121212" : "#ffffff"
                         onClicked: activePanel = "brakes"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Steering"
                         bgcolor: activePanel === "steering" ? "#E10600" : "#3e3e42"
                         color: activePanel === "steering" ? "#121212" : "#ffffff"
                         onClicked: activePanel = "steering"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Driver"
                         bgcolor: activePanel === "driver" ? "#E10600" : "#3e3e42"
                         color: activePanel === "driver" ? "#121212" : "#ffffff"
                         onClicked: activePanel = "driver"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "AI Config"
                         bgcolor: activePanel === "ai" ? "#E10600" : "#3e3e42"
@@ -239,21 +239,21 @@ Rectangle {
                         font.bold: true
                     }
 
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Colliders"
                         bgcolor: "#3e3e42"
                         color: "#ffffff"
                         onClicked: colliderExportDialog.open()
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "LODs"
                         bgcolor: "#3e3e42"
                         color: "#ffffff"
                         onClicked: lodsImportDialog.open()
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Mirrors"
                         bgcolor: "#3e3e42"
@@ -262,7 +262,7 @@ Rectangle {
                             if (Physics) Physics.statusMessage("Mirror setup not yet implemented")
                         }
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Exhaust"
                         bgcolor: "#3e3e42"
@@ -274,7 +274,7 @@ Rectangle {
 
                     Item { Layout.fillHeight: true }
 
-                    KsButton {
+                    AppButton {
                         height: 32
                         text: "Advanced"
                         bgcolor: "#E10600"
@@ -983,7 +983,7 @@ Rectangle {
                             }
 
                             RowLayout {
-                                KsButton {
+                                AppButton {
                                     height: 28
                                     text: "Validate"
                                     bgcolor: "#E10600"
@@ -995,7 +995,7 @@ Rectangle {
                                         }
                                     }
                                 }
-                                KsButton {
+                                AppButton {
                                     height: 28
                                     text: "Export"
                                     bgcolor: "#ff6600"

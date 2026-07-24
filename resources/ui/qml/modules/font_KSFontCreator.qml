@@ -80,7 +80,7 @@ Rectangle {
                 anchors.leftMargin: 10
                 anchors.rightMargin: 10
 
-                KsButton {
+                AppButton {
                     text: "Open"
                     flat: true
                     height: 32
@@ -88,7 +88,7 @@ Rectangle {
                     color: "#ffffff"
                     onClicked: fontOpenDialog.open()
                 }
-                KsButton {
+                AppButton {
                     text: "Save"
                     flat: true
                     height: 32
@@ -101,7 +101,7 @@ Rectangle {
                     height: 20
                     color: "#444444"
                 }
-                KsButton {
+                AppButton {
                     text: "Generate Atlas"
                     flat: true
                     height: 32
@@ -112,7 +112,7 @@ Rectangle {
 
                 Rectangle { width: 1; height: 20; color: "#444444" }
 
-                KsButton {
+                AppButton {
                     text: "Extract Kerning"
                     flat: true
                     height: 32
@@ -277,7 +277,7 @@ Rectangle {
                                 height: 32
                                 spacing: 0
 
-                                KsButton {
+                                AppButton {
                                     Layout.fillWidth: true
                                     height: 32
                                     flat: true
@@ -286,7 +286,7 @@ Rectangle {
                                     color: root.rightTabIndex === 0 ? "#121212" : "#ffffff"
                                     onClicked: root.rightTabIndex = 0
                                 }
-                                KsButton {
+                                AppButton {
                                     Layout.fillWidth: true
                                     height: 32
                                     flat: true
@@ -295,7 +295,7 @@ Rectangle {
                                     color: root.rightTabIndex === 1 ? "#121212" : "#ffffff"
                                     onClicked: root.rightTabIndex = 1
                                 }
-                                KsButton {
+                                AppButton {
                                     Layout.fillWidth: true
                                     height: 32
                                     flat: true
@@ -388,7 +388,7 @@ Rectangle {
                                             height: 24
                                             from: -20; to: 20; value: 0
                                         }
-                                        KsButton {
+                                        AppButton {
                                             text: "Set"
                                             height: 24
                                             flat: true
@@ -463,7 +463,7 @@ Rectangle {
                                                                 }
                                                             }
                                                         }
-                                                        KsButton {
+                                                        AppButton {
                                                             text: "X"
                                                             height: 22
                                                             width: 24
@@ -482,7 +482,7 @@ Rectangle {
 
                                     RowLayout {
                                         spacing: 6
-                                        KsButton {
+                                        AppButton {
                                             text: "Extract"
                                             height: 26
                                             flat: true
@@ -490,7 +490,7 @@ Rectangle {
                                             color: "#ffffff"
                                             onClicked: if (FontCreator) FontCreator.extractKerning()
                                         }
-                                        KsButton {
+                                        AppButton {
                                             text: "Clear All"
                                             height: 26
                                             flat: true
@@ -574,7 +574,7 @@ Rectangle {
 
                                             RowLayout {
                                                 spacing: 6
-                                                KsButton {
+                                                AppButton {
                                                     text: "Apply Ranges"
                                                     height: 26
                                                     flat: true
@@ -584,7 +584,7 @@ Rectangle {
                                                         if (FontCreator) FontCreator.applyCombinedCharset()
                                                     }
                                                 }
-                                                KsButton {
+                                                AppButton {
                                                     text: "Clear"
                                                     height: 26
                                                     flat: true
@@ -618,7 +618,7 @@ Rectangle {
 
                                     Item { Layout.fillHeight: true }
 
-                                    KsButton {
+                                    AppButton {
                                         height: 36
                                         text: "Export " + root.exportFormat
                                         bgcolor: "#E10600"

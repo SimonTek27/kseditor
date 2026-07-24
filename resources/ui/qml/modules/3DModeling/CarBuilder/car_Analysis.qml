@@ -33,8 +33,8 @@ Rectangle {
                     font.bold: true
                 }
                 Item { Layout.fillWidth: true }
-                KsButton { text: "Import Data"; height: 24; font.pixelSize: 10; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { text: "Export"; height: 24; font.pixelSize: 10; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { text: "Import Data"; height: 24; font.pixelSize: 10; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { text: "Export"; height: 24; font.pixelSize: 10; bgcolor: "transparent"; color: "#ffffff" }
             }
         }
 
@@ -55,19 +55,19 @@ Rectangle {
 
                     Text { text: "TOOLS"; color: "#666666"; font.pixelSize: 10; font.bold: true }
 
-                    KsButton { height: 26; text: "Telemetry"; font.pixelSize: 10; bgcolor: activeTool === "telemetry" ? "#E10600" : "#3e3e42"; color: activeTool === "telemetry" ? "#121212" : "#ffffff" }
-                    KsButton { height: 26; text: "Lap Analysis"; font.pixelSize: 10; bgcolor: activeTool === "lapAnalysis" ? "#E10600" : "#3e3e42"; color: activeTool === "lapAnalysis" ? "#121212" : "#ffffff" }
-                    KsButton { height: 26; text: "Tire Monitor"; font.pixelSize: 10; bgcolor: activeTool === "tireMonitor" ? "#E10600" : "#3e3e42"; color: activeTool === "tireMonitor" ? "#121212" : "#ffffff" }
-                    KsButton { height: 26; text: "Damage Report"; font.pixelSize: 10; bgcolor: activeTool === "damage" ? "#E10600" : "#3e3e42"; color: activeTool === "damage" ? "#121212" : "#ffffff" }
-                    KsButton { height: 26; text: "Pit Stop Sim"; font.pixelSize: 10; bgcolor: activeTool === "pitStop" ? "#E10600" : "#3e3e42"; color: activeTool === "pitStop" ? "#121212" : "#ffffff" }
-                    KsButton { height: 26; text: "Power Curve"; font.pixelSize: 10; bgcolor: activeTool === "power" ? "#E10600" : "#3e3e42"; color: activeTool === "power" ? "#121212" : "#ffffff" }
-                    KsButton { height: 26; text: "Replay"; font.pixelSize: 10; bgcolor: activeTool === "replay" ? "#E10600" : "#3e3e42"; color: activeTool === "replay" ? "#121212" : "#ffffff" }
-                    KsButton { height: 26; text: "Comparison"; font.pixelSize: 10; bgcolor: activeTool === "comparison" ? "#E10600" : "#3e3e42"; color: activeTool === "comparison" ? "#121212" : "#ffffff" }
-                    KsButton { height: 26; text: "Championship"; font.pixelSize: 10; bgcolor: activeTool === "championship" ? "#E10600" : "#3e3e42"; color: activeTool === "championship" ? "#121212" : "#ffffff" }
+                    AppButton { height: 26; text: "Telemetry"; font.pixelSize: 10; bgcolor: activeTool === "telemetry" ? "#E10600" : "#3e3e42"; color: activeTool === "telemetry" ? "#121212" : "#ffffff" }
+                    AppButton { height: 26; text: "Lap Analysis"; font.pixelSize: 10; bgcolor: activeTool === "lapAnalysis" ? "#E10600" : "#3e3e42"; color: activeTool === "lapAnalysis" ? "#121212" : "#ffffff" }
+                    AppButton { height: 26; text: "Tire Monitor"; font.pixelSize: 10; bgcolor: activeTool === "tireMonitor" ? "#E10600" : "#3e3e42"; color: activeTool === "tireMonitor" ? "#121212" : "#ffffff" }
+                    AppButton { height: 26; text: "Damage Report"; font.pixelSize: 10; bgcolor: activeTool === "damage" ? "#E10600" : "#3e3e42"; color: activeTool === "damage" ? "#121212" : "#ffffff" }
+                    AppButton { height: 26; text: "Pit Stop Sim"; font.pixelSize: 10; bgcolor: activeTool === "pitStop" ? "#E10600" : "#3e3e42"; color: activeTool === "pitStop" ? "#121212" : "#ffffff" }
+                    AppButton { height: 26; text: "Power Curve"; font.pixelSize: 10; bgcolor: activeTool === "power" ? "#E10600" : "#3e3e42"; color: activeTool === "power" ? "#121212" : "#ffffff" }
+                    AppButton { height: 26; text: "Replay"; font.pixelSize: 10; bgcolor: activeTool === "replay" ? "#E10600" : "#3e3e42"; color: activeTool === "replay" ? "#121212" : "#ffffff" }
+                    AppButton { height: 26; text: "Comparison"; font.pixelSize: 10; bgcolor: activeTool === "comparison" ? "#E10600" : "#3e3e42"; color: activeTool === "comparison" ? "#121212" : "#ffffff" }
+                    AppButton { height: 26; text: "Championship"; font.pixelSize: 10; bgcolor: activeTool === "championship" ? "#E10600" : "#3e3e42"; color: activeTool === "championship" ? "#121212" : "#ffffff" }
 
                     Item { Layout.fillHeight: true }
 
-                    KsButton { text: "Run All"; height: 28; bgcolor: "#E10600"; color: "#121212" }
+                    AppButton { text: "Run All"; height: 28; bgcolor: "#E10600"; color: "#121212" }
                 }
             }
 
@@ -127,7 +127,7 @@ Rectangle {
 
                     Item { Layout.fillHeight: true }
 
-                    KsButton { text: "Clear Data"; height: 28; bgcolor: "#ef4444"; color: "#ffffff" }
+                    AppButton { text: "Clear Data"; height: 28; bgcolor: "#ef4444"; color: "#ffffff" }
                 }
             }
         }

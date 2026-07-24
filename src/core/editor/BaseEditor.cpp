@@ -71,7 +71,7 @@ bool core_BaseEditor::saveProject(const QString& path) {
     QJsonObject root;
     QFileInfo fi(savePath);
     root["name"] = fi.completeBaseName();
-    root["version"] = "2.1.0";
+    root["version"] = "0.9.0";
 
     QFile file(savePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {

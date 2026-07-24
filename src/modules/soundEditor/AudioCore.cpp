@@ -1,7 +1,7 @@
 #include "AudioCore.h"
-#include "core/Audio/KSAudio.h"
-#include "core/Audio/KSFSPROImporter.h"
-#include "core/Audio/KSBankWriter.h"
+#include "core/Audio/AudioTypes.h"
+#include "core/Audio/FSPROImporter.h"
+#include "core/Audio/BankWriter.h"
 
 #include <QFile>
 #include <QJsonDocument>

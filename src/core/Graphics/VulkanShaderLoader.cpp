@@ -1,7 +1,7 @@
 #include "VulkanShaderLoader.h"
 #include "VulkanFunctions.h"
 #include "core/Graphics/ShaderParamRegistry.h"
-#include "core/Config/KsConfigLoader.h"
+#include "core/Config/ConfigLoader.h"
 #include "core/Config/PPFilterPreset.h"
 #include <QFile>
 #include <QByteArray>

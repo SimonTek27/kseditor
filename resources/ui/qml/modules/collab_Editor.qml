@@ -33,7 +33,7 @@ Rectangle {
                 anchors.fill: parent
                 anchors.leftMargin: 10
 
-                KsButton {
+                AppButton {
                     text: "Connect"
                     flat: true
                     height: 32
@@ -49,7 +49,7 @@ Rectangle {
                         }
                     }
                 }
-                KsButton {
+                AppButton {
                     text: "Disconnect"
                     flat: true
                     height: 32
@@ -99,42 +99,42 @@ Rectangle {
                     anchors.margins: 10
                     spacing: 4
 
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Session"
                         bgcolor: activePanel === "session" ? "#E10600" : "#3e3e42"
                         color: activePanel === "session" ? "#121212" : "#ffffff"
                         onClicked: activePanel = "session"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Users"
                         bgcolor: activePanel === "users" ? "#E10600" : "#3e3e42"
                         color: activePanel === "users" ? "#121212" : "#ffffff"
                         onClicked: activePanel = "users"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Chat"
                         bgcolor: activePanel === "chat" ? "#E10600" : "#3e3e42"
                         color: activePanel === "chat" ? "#121212" : "#ffffff"
                         onClicked: activePanel = "chat"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "History"
                         bgcolor: activePanel === "history" ? "#E10600" : "#3e3e42"
                         color: activePanel === "history" ? "#121212" : "#ffffff"
                         onClicked: activePanel = "history"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Conflicts"
                         bgcolor: activePanel === "conflicts" ? "#E10600" : "#3e3e42"
                         color: activePanel === "conflicts" ? "#121212" : "#ffffff"
                         onClicked: activePanel = "conflicts"
                     }
-                    KsButton {
+                    AppButton {
                         height: 28
                         text: "Permissions"
                         bgcolor: activePanel === "permissions" ? "#E10600" : "#3e3e42"
@@ -295,7 +295,7 @@ Rectangle {
                                     }
                                 }
                             }
-                            KsButton {
+                            AppButton {
                                 height: 36
                                 text: "Send"
                                 bgcolor: "#E10600"
@@ -417,7 +417,7 @@ Rectangle {
                             }
                         }
 
-                        KsButton {
+                        AppButton {
                             height: 32
                             text: "Auto-Resolve"
                             bgcolor: "#E10600"

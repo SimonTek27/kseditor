@@ -85,7 +85,7 @@ Rectangle {
                 anchors.fill: parent
                 anchors.leftMargin: 10
 
-                KsButton {
+                AppButton {
                     text: "New"
                     flat: true
                     height: 32
@@ -95,7 +95,7 @@ Rectangle {
                         if (LicensePlates) LicensePlates.generatePlate()
                     }
                 }
-                KsButton {
+                AppButton {
                     text: "Open"
                     flat: true
                     height: 32
@@ -103,7 +103,7 @@ Rectangle {
                     color: "#ffffff"
                     onClicked: plateOpenDialog.open()
                 }
-                KsButton {
+                AppButton {
                     text: "Save"
                     flat: true
                     height: 32
@@ -285,7 +285,7 @@ Rectangle {
                                 font.pixelSize: 12
                             }
 
-                            KsButton {
+                            AppButton {
                                 height: 28
                                 text: "Standard"
                                 bgcolor: selectedStyle === "Standard" ? "#E10600" : "#3e3e42"
@@ -295,7 +295,7 @@ Rectangle {
                                     if (LicensePlates) LicensePlates.setStyle("Standard")
                                 }
                             }
-                            KsButton {
+                            AppButton {
                                 height: 28
                                 text: "Vintage"
                                 bgcolor: selectedStyle === "Vintage" ? "#E10600" : "#3e3e42"
@@ -305,7 +305,7 @@ Rectangle {
                                     if (LicensePlates) LicensePlates.setStyle("Vintage")
                                 }
                             }
-                            KsButton {
+                            AppButton {
                                 height: 28
                                 text: "Embossed"
                                 bgcolor: selectedStyle === "Embossed" ? "#E10600" : "#3e3e42"
@@ -413,21 +413,21 @@ Rectangle {
 
                         Item { Layout.fillWidth: true }
 
-                        KsButton {
+                        AppButton {
                             height: 28
                             text: "DDS"
                             bgcolor: exportFormat === "DDS" ? "#E10600" : "transparent"
                             color: exportFormat === "DDS" ? "#121212" : "#ffffff"
                             onClicked: root.exportFormat = "DDS"
                         }
-                        KsButton {
+                        AppButton {
                             height: 28
                             text: "PNG"
                             bgcolor: exportFormat === "PNG" ? "#E10600" : "transparent"
                             color: exportFormat === "PNG" ? "#121212" : "#ffffff"
                             onClicked: root.exportFormat = "PNG"
                         }
-                        KsButton {
+                        AppButton {
                             height: 28
                             text: "TGA"
                             bgcolor: exportFormat === "TGA" ? "#E10600" : "transparent"
@@ -435,7 +435,7 @@ Rectangle {
                             onClicked: root.exportFormat = "TGA"
                         }
 
-                        KsButton {
+                        AppButton {
                             height: 32
                             text: "Export"
                             bgcolor: "#E10600"
@@ -514,7 +514,7 @@ Rectangle {
                     RowLayout {
                         Text { text: "Batch Generator"; color: "white"; font.bold: true; font.pixelSize: 14 }
                         Item { Layout.fillWidth: true }
-                        KsButton {
+                        AppButton {
                             height: 28
                             text: "Generate All Countries"
                             bgcolor: "transparent"
@@ -578,7 +578,7 @@ Rectangle {
                         font.pixelSize: 14
                     }
 
-                    KsButton {
+                    AppButton {
                         height: 32
                         text: "Save Preset"
                         bgcolor: "#E10600"
@@ -592,7 +592,7 @@ Rectangle {
 
                     Rectangle { height: 5; color: "transparent" }
 
-                    KsButton {
+                    AppButton {
                         height: 40
                         text: "EU Standard"
                         bgcolor: "transparent"
@@ -603,7 +603,7 @@ Rectangle {
                             root.selectedStyle = "Standard"
                         }
                     }
-                    KsButton {
+                    AppButton {
                         height: 40
                         text: "German Black"
                         bgcolor: "transparent"
@@ -614,7 +614,7 @@ Rectangle {
                             root.selectedStyle = "Standard"
                         }
                     }
-                    KsButton {
+                    AppButton {
                         height: 40
                         text: "UK Yellow"
                         bgcolor: "transparent"
@@ -625,7 +625,7 @@ Rectangle {
                             root.selectedStyle = "Standard"
                         }
                     }
-                    KsButton {
+                    AppButton {
                         height: 40
                         text: "JDM White"
                         bgcolor: "transparent"
@@ -636,7 +636,7 @@ Rectangle {
                             root.selectedStyle = "Standard"
                         }
                     }
-                    KsButton {
+                    AppButton {
                         height: 40
                         text: "US Retro"
                         bgcolor: "transparent"
@@ -661,7 +661,7 @@ Rectangle {
                     Text { text: "Format: " + exportFormat; color: "#bbbbbb"; font.pixelSize: 11 }
                     Text { text: "Compression: BC1"; color: "#bbbbbb"; font.pixelSize: 11 }
 
-                    KsButton {
+                    AppButton {
                         height: 36
                         text: "Batch Export All"
                         bgcolor: "#E10600"

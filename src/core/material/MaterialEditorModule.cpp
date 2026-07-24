@@ -1,4 +1,5 @@
 #include "MaterialEditorModule.h"
+#include "ShaderGraphWidget.h"
 #include "core/editor/ModuleGuiBase.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -16,6 +17,9 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QSettings>
+#include <QProcess>
+#include <QStandardPaths>
+#include <QPixmap>
 
 namespace ks {
 namespace material {
@@ -35,7 +39,7 @@ MaterialEditorModule::MaterialEditorModule(QWidget* parent)
     , m_shaderGraphTab(nullptr)
     , m_shaderGraphSplitter(nullptr)
     , m_nodePalette(nullptr)
-    , m_graphCanvas(nullptr)
+    , m_shaderGraphWidget(nullptr)
     , m_graphProps(nullptr)
     , m_texturePaintTab(nullptr)
     , m_brushToolCombo(nullptr)
@@ -218,16 +222,17 @@ void MaterialEditorModule::setupShaderGraphTab() {
     m_shaderGraphTab = new QWidget();
     QVBoxLayout* layout = new QVBoxLayout(m_shaderGraphTab);
     layout->setContentsMargins(4, 4, 4, 4);
-    
+
     m_shaderGraphSplitter = createSplitter();
-    
+
     // Left: Node palette
     QGroupBox* paletteGroup = createGroupBox("Node Palette");
     QVBoxLayout* paletteLayout = new QVBoxLayout(paletteGroup);
-    
+
     m_nodePalette = createTreeWidget({"Nodes"});
     m_nodePalette->setHeaderHidden(true);
-    
+    m_nodePalette->setDragEnabled(true);
+
     QStringList categories = {"Inputs", "Math", "Vector", "Texture", "Color", "Output"};
     QStringList inputNodes = {"Position", "Normal", "UV", "View Direction", "Light Direction", "Time", "Float", "Vector2", "Vector3", "Vector4", "Color"};
     QStringList mathNodes = {"Add", "Subtract", "Multiply", "Divide", "Power", "Sqrt", "Sin", "Cos", "Tan", "Abs", "Min", "Max", "Clamp", "Saturate", "Lerp", "Step", "Smoothstep"};
@@ -235,12 +240,12 @@ void MaterialEditorModule::setupShaderGraphTab() {
     QStringList textureNodes = {"Sample 2D", "Sample Cube", "Sample 3D", "Texture Coords", "Triplanar"};
     QStringList colorNodes = {"Gamma", "Linear", "HSV to RGB", "RGB to HSV", "Brightness", "Contrast", "Saturation", "Hue Shift", "Color Ramp"};
     QStringList outputNodes = {"Surface Output", "Emission", "Alpha", "Normal Output", "Displacement"};
-    
+
     QMap<QString, QStringList> nodeMap = {
         {"Inputs", inputNodes}, {"Math", mathNodes}, {"Vector", vectorNodes},
         {"Texture", textureNodes}, {"Color", colorNodes}, {"Output", outputNodes}
     };
-    
+
     for (const QString& cat : categories) {
         QTreeWidgetItem* catItem = new QTreeWidgetItem(m_nodePalette, QStringList() << cat);
         catItem->setExpanded(true);
@@ -251,47 +256,75 @@ void MaterialEditorModule::setupShaderGraphTab() {
     }
     m_nodePalette->expandAll();
     paletteLayout->addWidget(m_nodePalette);
-    
+
     m_shaderGraphSplitter->addWidget(paletteGroup);
-    
-    // Center: Graph canvas placeholder
-    m_graphCanvas = new QWidget();
-    m_graphCanvas->setStyleSheet("background: #1a1a1a; border: 1px dashed #3a3a3a;");
-    QVBoxLayout* canvasLayout = new QVBoxLayout(m_graphCanvas);
-    canvasLayout->addWidget(createLabel("Shader Graph Canvas\n(Drag nodes from palette)", "color: #666; font-size: 14px;"), 0, Qt::AlignCenter);
-    m_shaderGraphSplitter->addWidget(m_graphCanvas);
-    
+
+    // Center: Live shader graph canvas
+    m_shaderGraphWidget = new ShaderGraphWidget();
+    m_shaderGraphWidget->setNodePalette(m_nodePalette);
+    m_shaderGraphWidget->setGraph(QUuid());  // creates default graph
+
+    connect(m_shaderGraphWidget, &ShaderGraphWidget::graphChanged, this, [this]() {
+        if (m_livePreview) updateMaterialPreview();
+    });
+    connect(m_shaderGraphWidget, &ShaderGraphWidget::statusMessage, this, [this](const QString& msg) {
+        log(msg);
+    });
+
+    m_shaderGraphSplitter->addWidget(m_shaderGraphWidget);
+
     // Right: Node properties
     m_graphProps = new QWidget();
     QVBoxLayout* propsLayout = new QVBoxLayout(m_graphProps);
-    
+
     QGroupBox* propsGroup = createGroupBox("Node Properties");
     QVBoxLayout* propsGroupLayout = new QVBoxLayout(propsGroup);
-    
+
     QTreeWidget* nodeProps = createTreeWidget({"Property", "Value"});
     nodeProps->header()->setSectionResizeMode(0, QHeaderView::Stretch);
     propsGroupLayout->addWidget(nodeProps);
-    
+
     propsLayout->addWidget(propsGroup);
     propsLayout->addStretch();
-    
+
     m_shaderGraphSplitter->addWidget(m_graphProps);
     m_shaderGraphSplitter->setStretchFactor(0, 1);
     m_shaderGraphSplitter->setStretchFactor(1, 3);
     m_shaderGraphSplitter->setStretchFactor(2, 1);
-    
+
     layout->addWidget(m_shaderGraphSplitter, 1);
-    
+
     // Compile/Export buttons
     QHBoxLayout* shaderBtnLayout = new QHBoxLayout();
     QPushButton* compileBtn = createButton("Compile Shader", "success");
-    connect(compileBtn, &QPushButton::clicked, this, []() { qDebug() << "Compile shader"; });
+    connect(compileBtn, &QPushButton::clicked, m_shaderGraphWidget, &ShaderGraphWidget::onCompile);
     shaderBtnLayout->addWidget(compileBtn);
-    
+
     QPushButton* validateBtn = createButton("Validate");
-    connect(validateBtn, &QPushButton::clicked, this, []() { qDebug() << "Validate shader"; });
+    connect(validateBtn, &QPushButton::clicked, m_shaderGraphWidget, &ShaderGraphWidget::onValidate);
     shaderBtnLayout->addWidget(validateBtn);
-    
+
+    QPushButton* exportBtn = createButton("Export HLSL", "primary");
+    connect(exportBtn, &QPushButton::clicked, this, [this]() {
+        if (!m_shaderGraphWidget || m_shaderGraphWidget->graphId().isNull()) return;
+        QString path = selectFile("Export Shader", "HLSL (*.hlsl);;GLSL (*.glsl);;Metal (*.metal)", 
+            QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation));
+        if (path.isEmpty()) return;
+
+        ShaderExportOptions opts;
+        if (path.endsWith(".hlsl")) opts.target = ShaderExportOptions::Target::HLSL;
+        else if (path.endsWith(".glsl")) opts.target = ShaderExportOptions::Target::GLSL;
+        else if (path.endsWith(".metal")) opts.target = ShaderExportOptions::Target::Metal;
+        opts.outputDirectory = QFileInfo(path).absolutePath();
+
+        if (ShaderExporter::instance()->exportGraph(m_shaderGraphWidget->graphId(), opts)) {
+            logSuccess("Shader exported to: " + path);
+        } else {
+            logError("Shader export failed");
+        }
+    });
+    shaderBtnLayout->addWidget(exportBtn);
+
     shaderBtnLayout->addStretch();
     layout->addLayout(shaderBtnLayout);
 }
@@ -324,19 +357,45 @@ void MaterialEditorModule::setupTexturePaintTab() {
     m_brushStrengthSpin->setMaximumWidth(80);
     toolLayout->addWidget(m_brushStrengthSpin);
     
+    // Update preview when slot changes
+    connect(m_textureSlotCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
+        m_currentTexturePaintSlot = m_textureSlotCombo->currentText();
+        if (m_textureImages.contains(m_currentTexturePaintSlot)) {
+            m_paintPreview->setPixmap(QPixmap::fromImage(m_textureImages[m_currentTexturePaintSlot]));
+        }
+    });
+    
     toolLayout->addStretch();
     layout->addWidget(toolGroup);
     
     // Main area
     QSplitter* paintSplitter = createSplitter();
     
-    // Viewport placeholder
-    QWidget* viewport = new QWidget();
-    viewport->setStyleSheet("background: #1a1a1a; border: 1px solid #3a3a3a;");
-    viewport->setMinimumSize(512, 512);
-    QVBoxLayout* vpLayout = new QVBoxLayout(viewport);
-    vpLayout->addWidget(createLabel("3D Viewport\n(Texture painting on mesh)", "color: #666; font-size: 14px;"), 0, Qt::AlignCenter);
-    paintSplitter->addWidget(viewport);
+    // Texture paint canvas
+    m_currentTexturePaintSlot = "Albedo";
+    m_paintPreview = new QLabel();
+    m_paintPreview->setMinimumSize(512, 512);
+    m_paintPreview->setStyleSheet("background: #1a1a1a; border: 1px solid #3a3a3a;");
+    m_paintPreview->setAlignment(Qt::AlignCenter);
+    // Initialize paint textures
+    QStringList texSlots = {"Albedo", "Normal", "Roughness", "Metalness", "AO", "Emissive", "Height"};
+    for (const QString& slot : texSlots) {
+        m_textureImages[slot] = QImage(512, 512, QImage::Format_ARGB32);
+        m_textureImages[slot].fill(qRgba(128, 128, 128, 255));
+    }
+    // Paint a checkerboard on Albedo as default
+    QPainter checker(&m_textureImages["Albedo"]);
+    for (int y = 0; y < 512; y += 32) {
+        for (int x = 0; x < 512; x += 32) {
+            if ((x / 32 + y / 32) % 2 == 0)
+                checker.fillRect(x, y, 32, 32, qRgb(180, 180, 180));
+            else
+                checker.fillRect(x, y, 32, 32, qRgb(140, 140, 140));
+        }
+    }
+    checker.end();
+    m_paintPreview->setPixmap(QPixmap::fromImage(m_textureImages["Albedo"]));
+    paintSplitter->addWidget(m_paintPreview);
     
     // Layers panel
     QWidget* layersWidget = new QWidget();
@@ -399,19 +458,61 @@ void MaterialEditorModule::setupTexturePaintTab() {
     // Action buttons
     QHBoxLayout* paintBtnLayout = new QHBoxLayout();
     m_paintBtn = createButton("Paint", "success");
-    connect(m_paintBtn, &QPushButton::clicked, this, []() { qDebug() << "Paint mode"; });
+    connect(m_paintBtn, &QPushButton::clicked, this, [this]() {
+        m_currentTexturePaintSlot = m_textureSlotCombo->currentText();
+        QImage& img = m_textureImages[m_currentTexturePaintSlot];
+        QPainter painter(&img);
+        int brushSize = m_brushSizeSpin->value();
+        int cx = img.width() / 2, cy = img.height() / 2;
+        QColor paintColor(220, 50, 50);
+        painter.setBrush(paintColor);
+        painter.setPen(Qt::NoPen);
+        painter.drawEllipse(QPoint(cx, cy), brushSize / 2, brushSize / 2);
+        painter.end();
+        m_paintPreview->setPixmap(QPixmap::fromImage(img));
+        log(QString("Painted on %1 slot").arg(m_currentTexturePaintSlot));
+    });
     paintBtnLayout->addWidget(m_paintBtn);
     
     m_eraseBtn = createButton("Erase", "warning");
-    connect(m_eraseBtn, &QPushButton::clicked, this, []() { qDebug() << "Erase mode"; });
+    connect(m_eraseBtn, &QPushButton::clicked, this, [this]() {
+        m_currentTexturePaintSlot = m_textureSlotCombo->currentText();
+        QImage& img = m_textureImages[m_currentTexturePaintSlot];
+        QPainter painter(&img);
+        int brushSize = m_brushSizeSpin->value();
+        int cx = img.width() / 2, cy = img.height() / 2;
+        painter.setCompositionMode(QPainter::CompositionMode_Clear);
+        painter.drawEllipse(QPoint(cx, cy), brushSize / 2, brushSize / 2);
+        painter.end();
+        m_paintPreview->setPixmap(QPixmap::fromImage(img));
+        log(QString("Erased on %1 slot").arg(m_currentTexturePaintSlot));
+    });
     paintBtnLayout->addWidget(m_eraseBtn);
     
     m_fillBtn = createButton("Fill");
-    connect(m_fillBtn, &QPushButton::clicked, this, []() { qDebug() << "Fill"; });
+    connect(m_fillBtn, &QPushButton::clicked, this, [this]() {
+        m_currentTexturePaintSlot = m_textureSlotCombo->currentText();
+        QImage& img = m_textureImages[m_currentTexturePaintSlot];
+        img.fill(qRgba(160, 160, 160, 255));
+        m_paintPreview->setPixmap(QPixmap::fromImage(img));
+        log(QString("Filled %1 slot").arg(m_currentTexturePaintSlot));
+    });
     paintBtnLayout->addWidget(m_fillBtn);
     
     m_bakeBtn = createButton("Bake Textures", "primary");
-    connect(m_bakeBtn, &QPushButton::clicked, this, []() { qDebug() << "Bake textures"; });
+    connect(m_bakeBtn, &QPushButton::clicked, this, [this]() {
+        QString bakeDir = selectFile("Select Bake Output Directory", "", QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation));
+        if (bakeDir.isEmpty()) return;
+        QStringList texSlots = {"Albedo", "Normal", "Roughness", "Metalness", "AO", "Emissive", "Height"};
+        int baked = 0;
+        for (const QString& slot : texSlots) {
+            if (m_textureImages.contains(slot) && !m_textureImages[slot].isNull()) {
+                QString path = bakeDir + "/" + slot.toLower() + ".png";
+                if (m_textureImages[slot].save(path, "PNG")) baked++;
+            }
+        }
+        logSuccess(QString("Baked %1/%2 textures to %3").arg(baked).arg(texSlots.size()).arg(bakeDir));
+    });
     paintBtnLayout->addWidget(m_bakeBtn);
     
     paintBtnLayout->addStretch();
@@ -1022,6 +1123,17 @@ void MaterialEditorModule::loadPresets() {
 
 void MaterialEditorModule::savePresets() {
     // Already handled via QSettings
+}
+
+void MaterialEditorModule::onActivation() {
+    ModuleGuiBase::onActivation();
+}
+
+void MaterialEditorModule::onDeactivation() {
+    ModuleGuiBase::onDeactivation();
+}
+
+void MaterialEditorModule::onNewMaterial() {
 }
 
 } // namespace material

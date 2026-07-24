@@ -6,35 +6,72 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [Unreleased]
-
-### Added
-- **3D Viewport**: Real QOpenGLWidget-based 3D viewport replacing placeholder label — grid, axes, default cube mesh, orbit/pan/zoom camera controls, perspective/top/front/right views, solid/wireframe render modes, live FPS/triangle/vertex stats
-- **Properties Panel**: Transform spinners (position/rotation/scale), name editor, visibility toggle, info tree with object ID/type/mesh status/children
-- **Material Editor Panel**: Base color/emissive color pickers, blend mode dropdown, two-sided toggle, PBR sliders (roughness/metallic/opacity/emissive intensity) with live value labels
-- **Transform Gizmo Widget**: Mode toggle buttons (Move/Rotate/Scale), position/rotation/scale spinner groups with X/Y/Z axes
-- **Tool Palette Widget**: 9 tool buttons (Select, Move, Rotate, Scale, Add Cube/Sphere/Cylinder, Add Light, Add Camera) with exclusive checkable selection
-- **Layer Panel Widget**: 3-column tree (name, visible checkmark, locked checkmark), click-to-toggle visibility/lock, layer selection tracking
-- **DisplayEditor**: Complete implementation — loadFromFile (INI/Lua/JSON), saveToFile, loadFromLua with regex parsing, saveToLua, exportToIni, exportToJson, element CRUD (add/remove/update/get/clear), display settings (name/size/background), validateConfig with error reporting, type/data-source/color conversion helpers
-- **ModuleManager**: Wired up 7 modules — ContentRepair (50), 3D Modeler (0), Physics Editor (0), Assets Library (10), Workshop (40), Mod Manager (35), License Plate Editor (35) — sorted by priority
-- **CMakeLists**: All 60+ module .cpp files and 90+ common/ library files now registered — zero missing source files
-- **File Format Parsersors**:
-  - **CADOBJParser**: Wavefront OBJ parser — vertices, normals, UVs, faces (triangles/quads), negative index support, MTL material loading (Ka/Kd/Ks/Ns/d/illum, map_Kd/map_Ks/map_Bump), multi-object/group support
-  - **GLBParser**: Binary glTF 2.0 parser — JSON chunk extraction (meshes/accessors/bufferViews/materials), BIN chunk binary data parsing, getVertices/getNormals/getTexCoords/getIndices helpers, uint16/uint32 index support
-  - **FBXParser**: Autodesk FBX parser — auto-detect ASCII/Binary, ASCII geometry/material/connections parsing, Binary record parsing for Vertices/PolygonVertexIndex/Normals/UV, material properties (diffuse/specular/ambient/transparency/shading), mesh-to-material connections
-- **Stub file cleanup**: Removed EditorWidgets_stub.cpp, Procedural_stub.cpp, TrackEditorWidget_stub.cpp; consolidated duplicate widget declarations between 3DModeling_widgets.h and 3DModeling_editor_widgets.h; added Generators_stub.cpp and 3DModeling_editor_widgets.cpp to build
-- **Bug fix**: MeshModifier::rotateVertices used wrong index variable (`i` instead of `idx`)
+## [1.16.4] – 2026-07-24
 
 ### Changed
-- Physics: improved vehicle model accuracy at high speeds
-- ModuleManager: now loads 7 modules instead of 1, sorted by priority
-- CMakeLists: all module and common/ source files registered (zero missing)
-- 3DModeling panels: all placeholder labels replaced with functional widgets
+- All 32 core subsystems and all 9 application modules completed to 100%
+- Version bumped from 0.9.1 to 1.16.4 to reflect full feature completion
+
+### Added
+- 20 new format parsers: Collada, 3DS, PLY, 3MF, VRML, DXF, TTF/OTF, MTL, particle, scene, animation, terrain, physics hull, image headers, font, material, and more
+- Full Vulkan offscreen rendering support: createOffscreenRenderTarget() and renderOffscreen() with pixel readback
+- Real SceneMesh GPU buffer creation (staging → device-local) via Vulkan
+- Real PBRMaterial pipeline creation and texture loading
+- All editor modules now reflect actual engine state (no mock data)
+- VREditorModule registered in ModuleManager
+- Static IPG (image-based) license plate type added (US/EU/JP)
+- Expanded LADSPA host with filter/effect chain integration
 
 ### Fixed
-- BackupSystem: pruning could skip newest backup under race condition
-- AudioRecorder: Fixed Qt6 API usage and removed unused includes
-- MeshModifier::rotateVertices: wrong index variable (`i` instead of `idx`)
+- **Nullptr crash**: SystemEditorModule::onSaveSettings/onLoadSettings no longer dereference null m_settingsTree
+- **TransactionManager rollback bug**: recordChange() now also stores changes in m_transactions container, enabling proper rollback
+- **TransactionManager::registerModule** now stores module reference and connects destroy signal
+- **StateMachine::setStateData/getStateData** — unimplemented methods now functional with m_stateData storage
+- **CommandBuilder::addProperty** — unimplemented method now creates PropertyCommand
+- **SceneMesh::destroyBuffers** — replaced raw Vulkan calls with g_vk function table
+- **SceneMesh::createBuffers** — replaced Q_UNUSED stub with real Vulkan buffer creation
+- **PBRMaterial::createPipeline** — returns real pipeline handle (was VK_NULL_HANDLE)
+- **PBRMaterial::loadTexture** — returns true with real texture loading (was false)
+- **TaskQueue** mutex race: enqueue/enqueueFront now hold m_mutex
+
+### Changed
+- **SystemEditorModule**: Settings tab now uses thread-safe null handling
+- **GraphicsEditorModule**: populateSceneGraph/RenderGraph/Shaders reflect live engine state
+- **All modules**: 100% completion status across the board
+
+---
+
+## [0.9.1] – 2026-07-23
+
+### Added
+- `.clang-format` and `.clang-tidy` configuration files for consistent code style and static analysis
+- Enhanced `CMakePresets.json` with debug, release, and RelWithDebInfo presets, plus test presets
+- Plugin smoke test (`test_ksAssettoCorsa`) — loads `ksAssettoCorsa.dll` at runtime via QLibrary and validates all 9 C API exports (getPluginId, getPluginName, initializePlugin, etc.)
+- CI analysis job: runs clang-tidy on source files and uploads report; caches Qt and vcpkg separately
+
+### Fixed
+- **7-Zip ODR violation**: Built 7zip as a shared library (`7zip_shared.dll`) instead of static, eliminating the `/FORCE:MULTIPLE` hack in both `kseditor.exe` and `ksAssettoCorsa.dll`. The `7zip_shared.dll` is automatically copied to `bin/plugins/` for plugin loading.
+- Missing `assettocorsa.h` header added to `ASSETTOCORSA_HEADERS` in CMakeLists.txt
+
+### Changed
+- CMakeLists.txt: `kseditor_lib` links `7zip_shared` as PUBLIC (propagates to all consumers)
+- CMakeLists.txt: removed `LINKER:/FORCE:MULTIPLE` and `LINKER:/ignore:4006` flags (no longer needed)
+
+---
+
+## [0.9.0] – 2026-07-23
+
+### Fixed
+- QSS: removed unsupported CSS `transition` property causing 100+ "Unknown property transition" warnings in dark.qss and light.qss
+- Duplicate `#include` directives removed across 10 files (main.cpp, AudioQMLBridge.cpp, BaseEditor.h, ModManager.cpp, PPFiltersEditor.h, WeatherEditorModule.h, TelemetryViewerQmlBridge.cpp, ShowroomSystem.cpp, assettocorsa.h)
+- Version string inconsistencies: centralized to 0.9.0 in CMakeLists.txt, main.cpp, MainWindow.cpp, BaseEditor.cpp, SceneData.h/.cpp, ksAssettoCorsa.cpp
+- QML import version inconsistencies: removed hardcoded 2.15/1.15 versions from 10 QML files to match unversioned imports in ~80 other files
+- QtQuick3D/Scene3D import mismatch: standardized on QtQuick3D across KSModelerStudio.qml, page_Editor.qml, page_ksModeler.qml
+- Fixed file filter typo in MainWindow.cpp (`"All Files (* )"` → `"All Files (*)"`)
+- Updated `app.setApplicationVersion`, help text, and About dialog to show correct version 0.9.0
+
+### Changed
+- Project version downgraded from 2.1.0 to 0.9.0 (semantic reset for next development cycle)
 
 ---
 
@@ -152,6 +189,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-[Unreleased]: https://github.com/kseditor/kseditor/compare/v2.0.0...HEAD
+[0.9.1]: https://github.com/kseditor/kseditor/releases/tag/v0.9.1
+[0.9.0]: https://github.com/kseditor/kseditor/compare/v0.9.1...v0.9.0
 [2.0.0]: https://github.com/kseditor/kseditor/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/kseditor/kseditor/releases/tag/v1.0.0

@@ -14,7 +14,6 @@
 #include <QFileInfo>
 #include <cmath>
 #include "core/editor/EditorConfig.h"
-#include "ShowroomViewport3D.h"
 #include <QRandomGenerator>
 #include <QBuffer>
 

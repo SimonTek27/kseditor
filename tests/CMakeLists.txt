@@ -181,7 +181,7 @@ ks_add_test(test_font_generator unit/test_FontGenerator.cpp
 )
 ks_add_test(test_audio_effects_advanced unit/test_AudioEffectsAdvanced.cpp)
 ks_add_test(test_content_repair unit/test_ContentRepair.cpp
-    ${COMMON}/modmanager/KsContentRepair.cpp
+    ${COMMON}/modmanager/ContentRepair.cpp
     ${COMMON}/modmanager/ContentRepairTool.cpp
     ${COMMON}/sys/LogManager.cpp
     ${COMMON}/editor/EditorModule.cpp
@@ -362,3 +362,15 @@ foreach(_t ${ALL_TEST_TARGETS})
         endif()
     endif()
 endforeach()
+
+# Plugin smoke test — loads ksAssettoCorsa.dll at runtime via QLibrary and
+# verifies all C API exports. Does NOT link kseditor_lib; purely dynamic.
+if(WIN32)
+    add_executable(test_ksAssettoCorsa unit/test_ksAssettoCorsa.cpp)
+    target_link_libraries(test_ksAssettoCorsa PRIVATE Qt6::Core Qt6::Test)
+    target_include_directories(test_ksAssettoCorsa PRIVATE ${KS_TEST_INCLUDES})
+    target_compile_definitions(test_ksAssettoCorsa PRIVATE WINVER=0x0A00 _WIN32_WINNT=0x0A00)
+    add_test(NAME test_ksAssettoCorsa
+             COMMAND test_ksAssettoCorsa -v2 -o ${CMAKE_BINARY_DIR}/test_ksAssettoCorsa.xml,xunitxml)
+    set_tests_properties(test_ksAssettoCorsa PROPERTIES TIMEOUT 30)
+endif()

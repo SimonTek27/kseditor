@@ -60,7 +60,7 @@ Rectangle {
 
             Repeater {
                 model: ["Union (A ∪ B)", "Difference (A - B)", "Intersection (A ∩ B)", "Symmetric Diff (A △ B)"]
-                KsButton {
+                AppButton {
                     height: 26
                     text: modelData
                     checkable: true
@@ -140,7 +140,7 @@ Rectangle {
             spacing: 8
             Layout.fillWidth: true
 
-            KsButton {
+            AppButton {
                 height: 32
                 text: "Apply"
                 bgcolor: "#E10600"
@@ -162,7 +162,7 @@ Rectangle {
                 }
             }
 
-            KsButton {
+            AppButton {
                 height: 32
                 text: "Cancel"
                 bgcolor: "transparent"

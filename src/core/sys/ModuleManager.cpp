@@ -8,7 +8,7 @@
 #include "../workshop/WorkshopEditorModule.h"
 #include "../modmanager/ModManager.h"
 #include "../../modules/LicensePlatesEditor/LicensePlateEditorModule.h"
-#include "../modmanager/KsContentRepair.h"
+#include "../modmanager/ContentRepair.h"
 #include "../tools/FormatToolsQmlBridge.h"
 #include "../FfbEditor/FfbEditorQmlBridge.h"
 #include "../../modules/ShowroomEditor/ShowroomEditorModule.h"
@@ -42,6 +42,7 @@
 #include "../../core/ServerConfigEditor/ServerConfigEditorModule.h"
 #include "../../core/vcs/VcsEditorModule.h"
 #include "../../core/archive/ArchiveEditorModule.h"
+#include "../../modules/VREditor/VREditorModule.h"
 #include "../../core/animation/AnimationEditorModule.h"
 #include "../../core/3dprint/ThreeDPrintEditorModule.h"
 #include "../../core/Audio/AudioEditorModule.h"
@@ -131,6 +132,7 @@ void ModuleManager::loadModules()
     registerModule(new ks::ShowroomPPEditorModule(this));
     registerModule(new ks::VcsEditorModule(this));
     registerModule(new ks::ArchiveEditorModule(this));
+    registerModule(new ks::VREditorModule(this));
     registerModule(new ks::AnimationEditorModule(this));
     registerModule(new ks::printing::ThreeDPrintEditorModule(this));
     registerModule(new ks::audio::AudioEditorModule(this));

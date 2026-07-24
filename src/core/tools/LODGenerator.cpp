@@ -497,7 +497,7 @@ static LODGenerator::LODLevel preserveFeatures(const LODGenerator::LODLevel& ori
     return result;
 }
 
-static LODGenerator::LODLevel generateCollisionMesh(const LODGenerator::LODLevel& lod)
+LODGenerator::LODLevel LODGenerator::generateCollisionMesh(const LODGenerator::LODLevel& lod)
 {
     LODGenerator::LODLevel result = lod;
     result.vertices.clear();
@@ -539,9 +539,9 @@ static LODGenerator::LODLevel generateCollisionMesh(const LODGenerator::LODLevel
     return result;
 }
 
-static float calculateScreenSize(const LODGenerator::LODLevel& lod,
-                                  float fov,
-                                  int screenHeight)
+float LODGenerator::calculateScreenSize(const LODGenerator::LODLevel& lod,
+                                         float fov,
+                                         int screenHeight)
 {
     if (lod.vertices.isEmpty()) return 0.0f;
 

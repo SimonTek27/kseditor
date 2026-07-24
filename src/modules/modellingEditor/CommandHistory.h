@@ -83,22 +83,22 @@ public:
 	void redo();
 
 	/**
-	 * @brief Controlla se è possibile annullare
+	 * @brief Checks if undo is possible
 	 */
 	bool canUndo() const;
 
 	/**
-	 * @brief Controlla se è possibile ripetere
+	 * @brief Checks if redo is possible
 	 */
 	bool canRedo() const;
 
 	/**
-	 * @brief Descrizione del comando che sarà annullato
+	 * @brief Description of the command that will be undone
 	 */
 	QString undoDescription() const;
 
 	/**
-	 * @brief Descrizione del comando che sarà ripetuto
+	 * @brief Description of the command that will be redone
 	 */
 	QString redoDescription() const;
 
@@ -151,8 +151,8 @@ private:
 };
 
 /**
- * @brief Comando generico per proprietà scalari
- * Salva e ripristina valori di proprietà
+ * @brief Generic command for scalar properties
+ * Saves and restores property values
  */
 class ModelPropertyCommand : public Command {
 public:

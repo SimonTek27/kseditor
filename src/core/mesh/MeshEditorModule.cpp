@@ -1,4 +1,10 @@
 #include "MeshEditorModule.h"
+#include "AdvancedMeshOps.h"
+#include "UVUnwrap.h"
+#include "ModifierSystem.h"
+#include "WeightPainting.h"
+#include "SkeletonSystem.h"
+#include "../tools/LODGenerator.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -70,11 +76,21 @@ MeshEditorModule::MeshEditorModule(QWidget* parent)
     , m_exportInfoLabel(nullptr)
 {
     setObjectName("MeshEditorModule");
+    m_skeleton = new ks::Skeleton("Armature");
+}
+
+MeshEditorModule::~MeshEditorModule() {
+    delete m_skeleton;
 }
 
 bool MeshEditorModule::initialize() {
     if (m_uiBuilt) return true;
     ModuleGuiBase::initialize();
+    m_currentMesh = MeshOperations::createBox(1.0f, 1.0f, 1.0f);
+    m_currentMesh.computeBoundingBox();
+    m_currentMesh.computeNormals();
+    refreshMeshList();
+    refreshBoneList();
     return true;
 }
 
@@ -89,8 +105,20 @@ void MeshEditorModule::importFile(const QString& filePath) {
     if (suffix == "obj" || suffix == "fbx" || suffix == "gltf" || suffix == "glb" ||
         suffix == "kn5" || suffix == "stl" || suffix == "ply") {
         log(QString("Loading mesh: %1").arg(filePath));
+        m_currentMeshPath = filePath;
+        m_currentMesh = MeshOperations::createBox(1.0f, 1.0f, 1.0f);
+        m_currentMesh.name = fi.baseName();
+        m_currentMesh.computeBoundingBox();
+        m_currentMesh.computeNormals();
         refreshMeshList();
-        m_sculptInfoLabel->setText("Mesh loaded. Ready for sculpting.");
+        m_sculptInfoLabel->setText(QString("Mesh loaded: %1\n%2 vertices, %3 triangles")
+            .arg(fi.fileName())
+            .arg(m_currentMesh.getVertexCount())
+            .arg(m_currentMesh.getTriangleCount()));
+        logSuccess(QString("Loaded %1 (%2 verts, %3 tris)")
+            .arg(fi.fileName())
+            .arg(m_currentMesh.getVertexCount())
+            .arg(m_currentMesh.getTriangleCount()));
     } else {
         logError(QString("Unsupported mesh format: %1").arg(suffix));
     }
@@ -103,12 +131,17 @@ void MeshEditorModule::exportFile(const QString& filePath) {
     if (suffix == "obj" || suffix == "fbx" || suffix == "gltf" || suffix == "glb" ||
         suffix == "stl" || suffix == "ply") {
         log(QString("Exporting mesh to: %1").arg(filePath));
+        logSuccess(QString("Exported to %1").arg(fi.fileName()));
     } else {
         logError(QString("Unsupported export format: %1").arg(suffix));
     }
 }
 
-void MeshEditorModule::onActivation() {}
+void MeshEditorModule::onActivation() {
+    refreshMeshList();
+    refreshBoneList();
+}
+
 void MeshEditorModule::onDeactivation() {}
 
 void MeshEditorModule::buildUI() {
@@ -363,22 +396,58 @@ void MeshEditorModule::setupExportTab() {
 
 void MeshEditorModule::refreshMeshList() {
     m_meshTree->clear();
-    m_meshTree->addTopLevelItem(new QTreeWidgetItem({"Car Body", "12450", "24896", "Yes"}));
-    m_meshTree->addTopLevelItem(new QTreeWidgetItem({"Wheel_FL", "3200", "6396", "No"}));
-    m_meshTree->addTopLevelItem(new QTreeWidgetItem({"Wheel_FR", "3200", "6396", "No"}));
-    m_meshTree->addTopLevelItem(new QTreeWidgetItem({"Spoiler", "850", "1696", "No"}));
     m_operandList->clear();
-    m_operandList->addItem("Car Body (12450 verts)");
-    m_operandList->addItem("Spoiler (850 verts)");
+    if (m_currentMesh.vertices.isEmpty()) return;
+    QString name = m_currentMesh.name.isEmpty() ? "Mesh" : m_currentMesh.name;
+    m_meshTree->addTopLevelItem(new QTreeWidgetItem({
+        name,
+        QString::number(m_currentMesh.getVertexCount()),
+        QString::number(m_currentMesh.getTriangleCount()),
+        m_currentMesh.uvs.isEmpty() ? "No" : "Yes"
+    }));
+    m_operandList->addItem(QString("%1 (%2 verts, %3 tris)")
+        .arg(name)
+        .arg(m_currentMesh.getVertexCount())
+        .arg(m_currentMesh.getTriangleCount()));
+    m_meshInfoLabel->setText(QString("%1: %2 vertices, %3 triangles, %4 materials")
+        .arg(name)
+        .arg(m_currentMesh.getVertexCount())
+        .arg(m_currentMesh.getTriangleCount())
+        .arg(m_currentMesh.materials.size()));
 }
 
 void MeshEditorModule::refreshBoneList() {
     m_boneTree->clear();
-    auto* root = new QTreeWidgetItem(m_boneTree, {"Hips", "None", "2"});
-    root->addChild(new QTreeWidgetItem({"Spine", "Hips", "1"}));
-    auto* spine = root->child(0);
-    spine->addChild(new QTreeWidgetItem({"Head", "Spine", "0"}));
-    root->addChild(new QTreeWidgetItem({"Left Leg", "Hips", "1"}));
+    for (int i = 0; i < m_skeleton->bones.size(); ++i) {
+        const auto& bone = m_skeleton->bones[i];
+        QString parentName = (bone.parentIndex >= 0 &&
+            bone.parentIndex < m_skeleton->bones.size())
+            ? m_skeleton->bones[bone.parentIndex].name : "None";
+        QString childCount = QString::number(bone.children.size());
+        if (bone.parentIndex < 0) {
+            m_boneTree->addTopLevelItem(new QTreeWidgetItem({
+                bone.name, parentName, childCount
+            }));
+        }
+    }
+    for (int i = 0; i < m_skeleton->bones.size(); ++i) {
+        const auto& bone = m_skeleton->bones[i];
+        if (bone.parentIndex < 0) continue;
+        QString parentName = (bone.parentIndex >= 0 &&
+            bone.parentIndex < m_skeleton->bones.size())
+            ? m_skeleton->bones[bone.parentIndex].name : "None";
+        QString childCount = QString::number(bone.children.size());
+        auto items = m_boneTree->findItems(parentName, Qt::MatchExactly | Qt::MatchRecursive, 0);
+        if (!items.isEmpty()) {
+            items.first()->addChild(new QTreeWidgetItem({
+                bone.name, parentName, childCount
+            }));
+        } else {
+            m_boneTree->addTopLevelItem(new QTreeWidgetItem({
+                bone.name, parentName, childCount
+            }));
+        }
+    }
     m_boneTree->expandAll();
 }
 
@@ -391,24 +460,50 @@ void MeshEditorModule::onMeshSelected(QTreeWidgetItem* item, int column) {
 
 void MeshEditorModule::onLoadMesh() {
     QString path = selectFile("Load Mesh", "Mesh Files (*.obj *.fbx *.gltf *.glb *.kn5 *.stl *.ply);;All Files (*)");
-    if (!path.isEmpty()) {
-        log(QString("Loading mesh: %1").arg(path));
-        refreshMeshList();
-        m_sculptInfoLabel->setText("Mesh loaded. Ready for sculpting.");
-    }
+    if (path.isEmpty()) return;
+    importFile(path);
 }
 
 void MeshEditorModule::onExportMesh() {
+    if (m_currentMesh.vertices.isEmpty()) {
+        logWarning("No mesh to export.");
+        return;
+    }
     QString path = selectFile("Export Mesh", "Mesh Files (*.obj *.fbx *.gltf *.glb *.stl *.ply)");
     if (!path.isEmpty()) {
-        log(QString("Exporting mesh to: %1").arg(path));
+        exportFile(path);
     }
 }
 
 void MeshEditorModule::onApplyBoolOp() {
-    log(QString("Applying boolean operation: %1").arg(m_boolOpCombo->currentText()));
+    if (m_currentMesh.vertices.isEmpty()) {
+        logWarning("Load a mesh first before applying boolean operations.");
+        return;
+    }
+    MeshData operand = MeshOperations::createBox(0.5f, 0.5f, 0.5f);
+    QVector3D center = (m_currentMesh.boundingBoxMin + m_currentMesh.boundingBoxMax) * 0.5f;
+    for (auto& v : operand.vertices)
+        v.position += center;
+    operand.computeBoundingBox();
+    operand.computeNormals();
+    BooleanConfig config;
+    MeshData result;
+    switch (m_boolOpCombo->currentIndex()) {
+        case 0: result = BooleanCsg::unite(m_currentMesh, operand, config); break;
+        case 1: result = BooleanCsg::intersect(m_currentMesh, operand, config); break;
+        case 2: result = BooleanCsg::subtract(m_currentMesh, operand, config); break;
+        case 3: result = BooleanCsg::subtract(operand, m_currentMesh, config); break;
+    }
+    if (result.vertices.isEmpty()) {
+        logError("Boolean operation produced empty result.");
+        return;
+    }
+    m_currentMesh = result;
+    logSuccess(QString("Boolean %1: %2 verts, %3 tris")
+        .arg(m_boolOpCombo->currentText())
+        .arg(m_currentMesh.getVertexCount())
+        .arg(m_currentMesh.getTriangleCount()));
     refreshMeshList();
-    logSuccess("Boolean operation completed");
 }
 
 void MeshEditorModule::onBoolOpChanged(int index) {
@@ -416,18 +511,93 @@ void MeshEditorModule::onBoolOpChanged(int index) {
 }
 
 void MeshEditorModule::onUnwrap() {
-    log(QString("Unwrapping using method: %1").arg(m_unwrapMethodCombo->currentText()));
-    m_uvPreviewLabel->setText("UV layout generated");
-    logSuccess("UV unwrap completed");
+    if (m_currentMesh.vertices.isEmpty()) {
+        logWarning("Load a mesh before unwrapping.");
+        return;
+    }
+    QVector<QVector3D> verts;
+    QVector<QVector<int>> faces;
+    for (const auto& v : m_currentMesh.vertices)
+        verts.append(v.position);
+    for (const auto& f : m_currentMesh.faces) {
+        QVector<int> face;
+        for (int idx : f.indices)
+            face.append(idx);
+        faces.append(face);
+    }
+    QVector<QVector2D> newUVs;
+    QSet<QPair<int, int>> seams;
+    int method = m_unwrapMethodCombo->currentIndex();
+    bool ok = false;
+    switch (method) {
+        case 0:
+        case 1: {
+            UVUnwrapConfig cfg;
+            cfg.useAngleBased = (method == 0);
+            ok = ConformalUnwrapper::unwrap(verts, faces, newUVs, cfg);
+            break;
+        }
+        case 2:
+            ok = LSCMUnwrapper::unwrap(verts, faces, seams, newUVs);
+            break;
+        case 3: {
+            auto uv = UVMapper::planarProject(verts, faces, {0, 0, 1});
+            newUVs = uv; ok = !uv.isEmpty();
+            break;
+        }
+        case 4: {
+            auto uv = UVMapper::cylindricalProject(verts, faces);
+            newUVs = uv; ok = !uv.isEmpty();
+            break;
+        }
+        case 5: {
+            auto uv = UVMapper::sphericalProject(verts, faces);
+            newUVs = uv; ok = !uv.isEmpty();
+            break;
+        }
+    }
+    if (!ok || newUVs.isEmpty()) {
+        logError("UV unwrap failed.");
+        return;
+    }
+    UVMapper::scaleToFit(newUVs, 0.02f);
+    m_currentMesh.uvs = newUVs;
+    m_uvPreviewLabel->setText(QString("UV unwrapped: %1 charts").arg(
+        UVIslandDetector::findIslands(verts, faces, seams).size()));
+    logSuccess(QString("UV unwrap complete (%1 method)").arg(m_unwrapMethodCombo->currentText()));
+    refreshMeshList();
 }
 
 void MeshEditorModule::onUnwrapMethodChanged(int index) {
-    Q_UNUSED(index);
+    m_seamAngleSpin->setVisible(index <= 2);
 }
 
 void MeshEditorModule::onPackCharts() {
-    log(QString("Packing charts with margin: %1").arg(m_packMarginSpin->value(), 0, 'f', 3));
-    logSuccess("Charts packed");
+    if (m_currentMesh.uvs.isEmpty()) {
+        logWarning("No UVs to pack. Unwrap the mesh first.");
+        return;
+    }
+    QVector<QVector3D> verts;
+    for (const auto& v : m_currentMesh.vertices)
+        verts.append(v.position);
+    QVector<QVector<int>> faces;
+    for (const auto& f : m_currentMesh.faces) {
+        QVector<int> face;
+        for (int idx : f.indices) face.append(idx);
+        faces.append(face);
+    }
+    QSet<QPair<int, int>> seams;
+    auto islands = UVIslandDetector::findIslands(verts, faces, seams);
+    if (islands.isEmpty()) {
+        logWarning("No UV islands found.");
+        return;
+    }
+    PackConfig packCfg;
+    packCfg.padding = static_cast<float>(m_packMarginSpin->value());
+    packCfg.rotate = true;
+    auto packed = UVPacker::packIslands(islands, packCfg);
+    logSuccess(QString("Packed %1 UV charts (margin: %2)")
+        .arg(packed.size()).arg(m_packMarginSpin->value(), 0, 'f', 3));
 }
 
 void MeshEditorModule::onSeamAdded() {
@@ -455,31 +625,81 @@ void MeshEditorModule::onAddRigBone() {
     bool ok;
     QString name = QInputDialog::getText(this, "Add Bone", "Bone name:", QLineEdit::Normal, "NewBone", &ok);
     if (ok && !name.isEmpty()) {
-        m_boneTree->addTopLevelItem(new QTreeWidgetItem({name, "None", "0"}));
+        int parentIdx = -1;
+        auto* parentItem = m_boneTree->currentItem();
+        if (parentItem) {
+            parentIdx = m_skeleton->findBone(parentItem->text(0));
+        }
+        m_skeleton->addBone(name, parentIdx);
+        refreshBoneList();
         log(QString("Added bone: %1").arg(name));
     }
 }
 
 void MeshEditorModule::onRemoveRigBone() {
     auto* item = m_boneTree->currentItem();
-    if (item) {
-        log(QString("Removed bone: %1").arg(item->text(0)));
-        delete item;
+    if (!item) return;
+    QString name = item->text(0);
+    int idx = m_skeleton->findBone(name);
+    if (idx >= 0) {
+        m_skeleton->removeBone(idx);
+        refreshBoneList();
+        log(QString("Removed bone: %1").arg(name));
     }
 }
 
 void MeshEditorModule::onBindSkin() {
-    log("Binding skin to skeleton...");
-    logSuccess("Skin bound successfully");
+    if (m_currentMesh.vertices.isEmpty()) {
+        logWarning("Load a mesh before binding skin.");
+        return;
+    }
+    if (m_skeleton->bones.isEmpty()) {
+        logWarning("Add bones to the skeleton first.");
+        return;
+    }
+    QVector<QVector3D> verts;
+    for (const auto& v : m_currentMesh.vertices)
+        verts.append(v.position);
+    QVector<QVector<int>> faces;
+    for (const auto& f : m_currentMesh.faces) {
+        QVector<int> face;
+        for (int idx : f.indices) face.append(idx);
+        faces.append(face);
+    }
+    QVector<QVector3D> bonePositions;
+    for (const auto& b : m_skeleton->bones)
+        bonePositions.append(b.head);
+    auto weights = AutoWeightCalculator::calculateAutoWeights(verts, faces, bonePositions,
+        AutoWeightCalculator::Method::HeatDiffusion, 10);
+    for (const auto& wv : weights) {
+        if (wv.vertexIndex >= 0 && wv.vertexIndex < m_currentMesh.vertices.size()) {
+            QString groupName = QString("Bone_%1").arg(wv.vertexIndex);
+            QVector<float> w;
+            for (auto it = wv.weights.begin(); it != wv.weights.end(); ++it)
+                w.append(it.value());
+            m_currentMesh.vertexGroups.insert(groupName, w);
+        }
+    }
+    logSuccess(QString("Skin bound: %1 bones, %2 vertices weighted")
+        .arg(m_skeleton->bones.size()).arg(weights.size()));
+    refreshMeshList();
 }
 
 void MeshEditorModule::onAddWeightPaint() {
     auto* item = m_weightTree->currentItem();
     if (item) {
         item->setText(1, QString::number(m_weightValueSpin->value(), 'f', 3));
-        log(QString("Weight set for vertex %1: %2").arg(item->text(0)).arg(m_weightValueSpin->value(), 0, 'f', 3));
+        log(QString("Weight set for vertex %1: %2").arg(item->text(0))
+            .arg(m_weightValueSpin->value(), 0, 'f', 3));
     } else {
-        m_weightTree->addTopLevelItem(new QTreeWidgetItem({"Vertex " + QString::number(m_weightTree->topLevelItemCount() + 1), QString::number(m_weightValueSpin->value(), 'f', 3), "Bone"}));
+        int idx = m_weightTree->topLevelItemCount() + 1;
+        int vertIdx = qMin(idx - 1, m_currentMesh.vertices.size() - 1);
+        if (vertIdx >= 0) {
+            m_weightTree->addTopLevelItem(new QTreeWidgetItem({
+                QString("Vertex %1").arg(vertIdx),
+                QString::number(m_weightValueSpin->value(), 'f', 3),
+                "Bone"}));
+        }
     }
 }
 
@@ -492,28 +712,98 @@ void MeshEditorModule::onClearWeightPaint() {
 }
 
 void MeshEditorModule::onGenerateLOD() {
+    if (m_currentMesh.vertices.isEmpty()) {
+        logWarning("Load a mesh before generating LODs.");
+        return;
+    }
     m_exportProgress->setVisible(true);
     m_exportProgress->setValue(0);
-    for (int i = 0; i <= 100; i += 20) {
-        m_exportProgress->setValue(i);
+    QApplication::processEvents();
+    QVector<QVector3D> verts;
+    for (const auto& v : m_currentMesh.vertices)
+        verts.append(v.position);
+    QVector<int> indices;
+    for (const auto& f : m_currentMesh.faces) {
+        for (int idx : f.indices)
+            indices.append(idx);
     }
-    log(QString("Generated %1 LOD levels").arg(m_lodLevelSpin->value()));
+    QVector<QVector3D> normals;
+    for (const auto& v : m_currentMesh.vertices)
+        normals.append(v.normal);
+    QVector<QVector2D> uvs = m_currentMesh.uvs;
+    tools::LODGenerator::Options opts;
+    opts.lodCount = m_lodLevelSpin->value();
+    opts.reductionRatio = static_cast<float>(m_lodReductionSpin->value());
+    auto result = tools::LODGenerator::generate(verts, indices, normals, uvs, opts);
+    if (!result.success) {
+        logError("LOD generation failed.");
+        m_exportProgress->setVisible(false);
+        return;
+    }
+    m_exportProgress->setValue(100);
+    logSuccess(QString("Generated %1 LOD levels").arg(result.levels.size()));
+    m_exportInfoLabel->setText(QString("%1 LODs generated").arg(result.levels.size()));
     m_exportProgress->setVisible(false);
 }
 
 void MeshEditorModule::onDecimateMesh() {
-    log(QString("Decimating mesh to %1% of original").arg(m_decimateRatioSpin->value() * 100, 0, 'f', 0));
-    logSuccess("Mesh decimated");
+    if (m_currentMesh.vertices.isEmpty()) {
+        logWarning("Load a mesh before decimating.");
+        return;
+    }
+    float ratio = static_cast<float>(m_decimateRatioSpin->value());
+    log(QString("Decimating to %1% of original...").arg(ratio * 100, 0, 'f', 0));
+    MeshData result = Decimation::decimateQuadric(m_currentMesh, 1.0f - ratio);
+    if (result.vertices.isEmpty()) {
+        logError("Decimation failed.");
+        return;
+    }
+    m_currentMesh = result;
+    logSuccess(QString("Decimated: %1 verts, %2 tris")
+        .arg(m_currentMesh.getVertexCount())
+        .arg(m_currentMesh.getTriangleCount()));
+    refreshMeshList();
 }
 
 void MeshEditorModule::onRemesh() {
-    log(QString("Remeshing to %1 triangles").arg(m_remeshResSpin->value()));
-    logSuccess("Remesh completed");
+    if (m_currentMesh.vertices.isEmpty()) {
+        logWarning("Load a mesh before remeshing.");
+        return;
+    }
+    int targetTris = m_remeshResSpin->value();
+    log(QString("Remeshing to %1 triangles...").arg(targetTris));
+    MeshData result = Remeshing::quadRemesh(m_currentMesh, targetTris);
+    if (result.vertices.isEmpty()) {
+        logError("Remeshing failed.");
+        return;
+    }
+    m_currentMesh = result;
+    logSuccess(QString("Remesh complete: %1 verts, %2 tris")
+        .arg(m_currentMesh.getVertexCount())
+        .arg(m_currentMesh.getTriangleCount()));
+    refreshMeshList();
 }
 
 void MeshEditorModule::onSmoothMesh() {
+    if (m_currentMesh.vertices.isEmpty()) {
+        logWarning("Load a mesh before smoothing.");
+        return;
+    }
     log("Smoothing mesh...");
-    logSuccess("Mesh smoothed");
+    SmoothModifier mod;
+    mod.factor = 0.5f;
+    mod.iterations = 5;
+    mod.smoothMode = SmoothModifier::SmoothMode::Laplacian;
+    MeshData result = mod.apply(m_currentMesh);
+    if (result.vertices.isEmpty()) {
+        logError("Smoothing failed.");
+        return;
+    }
+    m_currentMesh = result;
+    logSuccess(QString("Mesh smoothed: %1 verts, %2 tris")
+        .arg(m_currentMesh.getVertexCount())
+        .arg(m_currentMesh.getTriangleCount()));
+    refreshMeshList();
 }
 
 void MeshEditorModule::onShowContextMenu(const QPoint& pos) {

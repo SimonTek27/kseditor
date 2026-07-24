@@ -191,7 +191,7 @@ Rectangle {
                 anchors.margins: 4
                 spacing: 4
 
-                KsButton {
+                AppButton {
                     text: "Select All"
                     height: 20
                     font.pixelSize: 9
@@ -205,7 +205,7 @@ Rectangle {
                         }
                     }
                 }
-                KsButton {
+                AppButton {
                     text: "Deselect"
                     height: 20
                     font.pixelSize: 9
@@ -213,7 +213,7 @@ Rectangle {
                     color: "#ffffff"
                     onClicked: { if (Modeler) Modeler.deselectAll() }
                 }
-                KsButton {
+                AppButton {
                     text: "Delete"
                     height: 20
                     font.pixelSize: 9

@@ -150,15 +150,56 @@ CarDetailInfo Browser::getCarDetails(const QString& carPath) {
     info.name = QFileInfo(carPath).fileName();
     info.parentPath = carPath;
 
-    // Read car data
+    // Read car data from multiple sources
     auto carData = KsD::CarData::readCarData(carPath);
 
+    // [BASIC] section
     info.brand = KsD::IniParser::getValue(carData, "BASIC", "brand", "Unknown");
     info.className = KsD::IniParser::getValue(carData, "BASIC", "class", "Street");
     info.type = KsD::IniParser::getValue(carData, "BASIC", "type", "car");
     info.power = KsD::IniParser::getValue(carData, "BASIC", "power", "0").toInt();
     info.weight = KsD::IniParser::getValue(carData, "BASIC", "weight", "0").toInt();
     info.drivetrain = KsD::IniParser::getValue(carData, "BASIC", "drivetrain", "RWD");
+    info.year = KsD::IniParser::getValue(carData, "BASIC", "year", "0").toInt();
+    info.engineType = KsD::IniParser::getValue(carData, "BASIC", "engine_type", "petrol");
+    info.engineCylinders = KsD::IniParser::getValue(carData, "BASIC", "engine_cylinders", "4").toInt();
+    info.displacement = KsD::IniParser::getValue(carData, "BASIC", "displacement", "0").toInt();
+    info.torque = KsD::IniParser::getValue(carData, "BASIC", "torque", "0").toInt();
+
+    // [CONTACT] section
+    info.frontTyreSize = KsD::IniParser::getValue(carData, "CONTACT", "tyres_front", "");
+    info.rearTyreSize = KsD::IniParser::getValue(carData, "CONTACT", "tyres_rear", "");
+
+    // [PERFORMANCE] section
+    info.topSpeed = KsD::IniParser::getValue(carData, "PERFORMANCE", "top_speed", "0").toInt();
+    info.acceleration = KsD::IniParser::getValue(carData, "PERFORMANCE", "acceleration", "0").toInt();
+    info.braking = KsD::IniParser::getValue(carData, "PERFORMANCE", "braking", "0").toInt();
+    info.cornering = KsD::IniParser::getValue(carData, "PERFORMANCE", "cornering", "0").toInt();
+    info.stability = KsD::IniParser::getValue(carData, "PERFORMANCE", "stability", "0").toInt();
+
+    // [SPECS] section
+    info.transmission = KsD::IniParser::getValue(carData, "SPECS", "transmission", "");
+    info.drivetrainSpec = KsD::IniParser::getValue(carData, "SPECS", "drivetrain", "");
+    info.weightDistribution = KsD::IniParser::getValue(carData, "SPECS", "weight_distribution", "");
+
+    // [HEADER] section
+    info.description = KsD::IniParser::getValue(carData, "HEADER", "description", "");
+    info.tags = KsD::IniParser::getValue(carData, "HEADER", "tags", "");
+
+    // Also read ui_car.json for additional metadata
+    QString uiCarJson = carPath + "/ui/ui_car.json";
+    QFile uiFile(uiCarJson);
+    if (uiFile.open(QIODevice::ReadOnly)) {
+        QJsonDocument doc = QJsonDocument::fromJson(uiFile.readAll());
+        uiFile.close();
+        if (doc.isObject()) {
+            QJsonObject root = doc.object();
+            QJsonObject brands = root["brands"].toObject();
+            if (!brands.isEmpty()) {
+                info.brand = brands.value(info.name).toString();
+            }
+        }
+    }
 
     // Check for sounds
     QDir sfxDir(carPath + "/sfx");
@@ -179,14 +220,19 @@ CarDetailInfo Browser::getCarDetails(const QString& carPath) {
 
     // Check if modified (has loose files)
     QDir carDir(carPath);
-    info.isModified = carDir.exists("data.acd") == false;
+    info.isModified = !carDir.exists("data.acd");
+
+    // KN5 file info
+    QDir dir(carPath);
+    QStringList kn5Files = dir.entryList(QStringList() << "*.kn5", QDir::Files);
+    info.kn5Files = kn5Files;
 
     return info;
 }
 
 TrackDetailInfo Browser::getTrackDetails(const QString& trackPath) {
     TrackDetailInfo info;
-    info.name = QFileInfo(trackPath).filePath();
+    info.name = QFileInfo(trackPath).fileName();
     info.parentPath = trackPath;
 
     // Read track data
@@ -194,8 +240,28 @@ TrackDetailInfo Browser::getTrackDetails(const QString& trackPath) {
 
     info.location = KsD::IniParser::getValue(trackData, "track", "location", "Unknown");
     info.country = KsD::IniParser::getValue(trackData, "track", "country", "Unknown");
+    info.city = KsD::IniParser::getValue(trackData, "track", "city", "");
     info.length = KsD::IniParser::getValue(trackData, "track", "length", "0").toFloat();
     info.pits = KsD::IniParser::getValue(trackData, "track", "pits", "0").toInt();
+    info.width = KsD::IniParser::getValue(trackData, "track", "width", "0").toFloat();
+    info.lapsCount = KsD::IniParser::getValue(trackData, "track", "laps", "0").toInt();
+    info.description = KsD::IniParser::getValue(trackData, "HEADER", "description", "");
+
+    // Read ui_track.json for additional metadata
+    QString uiTrackJson = trackPath + "/ui/ui_track.json";
+    QFile uiFile(uiTrackJson);
+    if (uiFile.open(QIODevice::ReadOnly)) {
+        QJsonDocument doc = QJsonDocument::fromJson(uiFile.readAll());
+        uiFile.close();
+        if (doc.isObject()) {
+            QJsonObject root = doc.object();
+            info.name = root["name"].toString(info.name);
+            info.description = root["description"].toString(info.description);
+            info.geotags = root["geotags"].toString();
+            info.city = root["city"].toString(info.city);
+            info.country = root["country"].toString(info.country);
+        }
+    }
 
     // Check for AI
     QDir aiDir(trackPath + "/ai");
@@ -211,6 +277,9 @@ TrackDetailInfo Browser::getTrackDetails(const QString& trackPath) {
             }
         }
     }
+
+    // Check map image
+    info.hasMapImage = QFileInfo::exists(trackPath + "/map.png");
 
     // Count skins
     QDir skinsDir(trackPath + "/skins");

@@ -167,7 +167,7 @@ bool ModelPropertyCommand::canMergeWith(const Command* other) const {
 	const ModelPropertyCommand* pc = dynamic_cast<const ModelPropertyCommand*>(other);
 	if (!pc) return false;
 
-	// Merge se è la stessa proprietà dello stesso oggetto
+	// Merge if same property of same object
 	return m_objectName == pc->m_objectName && 
 		   m_propertyName == pc->m_propertyName;
 }
@@ -196,7 +196,7 @@ TransformCommand::TransformCommand(
 }
 
 void TransformCommand::execute() {
-	// Applicato già dall'UI
+	// Already applied by the UI
 }
 
 void TransformCommand::undo() {
@@ -272,7 +272,7 @@ CreateObjectCommand::CreateObjectCommand(
 }
 
 void CreateObjectCommand::execute() {
-	// Oggetto è già creato
+	// Object is already created
 }
 
 void CreateObjectCommand::undo() {
@@ -364,7 +364,7 @@ MeshEditCommand::MeshEditCommand(
 }
 
 void MeshEditCommand::execute() {
-	// Mesh è già modificato
+	// Mesh is already modified
 }
 
 void MeshEditCommand::undo() {

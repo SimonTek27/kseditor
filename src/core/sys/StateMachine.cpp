@@ -151,6 +151,16 @@ QVector<StateMachine::Transition> StateMachine::getTransitions() const
     return m_transitions.values().toVector();
 }
 
+void StateMachine::setStateData(const QString& stateId, const QJsonObject& data)
+{
+    m_stateData[stateId] = data;
+}
+
+QJsonObject StateMachine::getStateData(const QString& stateId) const
+{
+    return m_stateData.value(stateId);
+}
+
 // ─── StateMachineEditor ──────────────────────────────────────────────────────
 
 static StateMachineEditor* s_editorInstance = nullptr;

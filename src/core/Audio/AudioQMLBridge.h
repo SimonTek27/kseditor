@@ -17,6 +17,7 @@ class PeakMeter;
 #include <QAudioFormat>
 namespace ks { class AudioRecorder; }
 namespace ks { namespace audio { class Studio; } }
+namespace ks { namespace audio { class TextToSpeech; } }
 
 class AudioQMLBridge : public QObject
 {
@@ -34,6 +35,13 @@ class AudioQMLBridge : public QObject
     Q_PROPERTY(bool isRecording READ isRecording NOTIFY recordingStateChanged)
     Q_PROPERTY(float inputLevel READ getInputLevel NOTIFY inputLevelChanged)
     Q_PROPERTY(QString recordingOutputPath READ recordingOutputPath NOTIFY recordingPathChanged)
+
+    // Text-to-Speech properties
+    Q_PROPERTY(bool ttsSpeaking READ ttsSpeaking NOTIFY ttsStateChanged)
+    Q_PROPERTY(int ttsVolume READ ttsVolume WRITE setTtsVolume NOTIFY ttsVolumeChanged)
+    Q_PROPERTY(int ttsRate READ ttsRate WRITE setTtsRate NOTIFY ttsRateChanged)
+    Q_PROPERTY(QStringList ttsVoices READ ttsVoices NOTIFY ttsVoicesChanged)
+    Q_PROPERTY(QString ttsCurrentVoice READ ttsCurrentVoice WRITE setTtsCurrentVoice NOTIFY ttsCurrentVoiceChanged)
 
 public:
     static AudioQMLBridge* instance();
@@ -139,6 +147,21 @@ public:
     Q_INVOKABLE QString getFileName() const;
     Q_INVOKABLE bool isModified() const;
 
+    // Text-to-Speech
+    Q_INVOKABLE void ttsSpeak(const QString& text);
+    Q_INVOKABLE void ttsStop();
+    Q_INVOKABLE void ttsPause();
+    Q_INVOKABLE void ttsResume();
+    Q_INVOKABLE bool ttsSpeaking() const;
+    Q_INVOKABLE QStringList ttsVoices() const;
+    Q_INVOKABLE QString ttsCurrentVoice() const;
+    Q_INVOKABLE void setTtsCurrentVoice(const QString& name);
+    Q_INVOKABLE int ttsVolume() const;
+    Q_INVOKABLE void setTtsVolume(int percent);
+    Q_INVOKABLE int ttsRate() const;
+    Q_INVOKABLE void setTtsRate(int rate);
+    Q_INVOKABLE bool ttsSaveToWav(const QString& text, const QString& filePath);
+
 signals:
     void playbackChanged();
     void positionChanged(qint64 ms);
@@ -155,6 +178,13 @@ signals:
     void recordingDurationChanged(qint64 duration);
     void audioChanged();
     void statusMessage(const QString& msg);
+
+    // Text-to-Speech signals
+    void ttsStateChanged();
+    void ttsVolumeChanged();
+    void ttsRateChanged();
+    void ttsVoicesChanged();
+    void ttsCurrentVoiceChanged();
 
 private:
     static AudioQMLBridge* s_instance;
@@ -180,6 +210,9 @@ private:
     QString m_inputDeviceName;
     QTimer* m_recordingTimer;
     qint64 m_recordingStartTime;
+
+    // Text-to-Speech
+    ks::audio::TextToSpeech* m_tts;
 };
 
 #endif // AUDIO_QML_BRIDGE_H

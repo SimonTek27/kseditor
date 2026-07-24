@@ -13,6 +13,8 @@
 #include <QStandardPaths>
 #include <QMenu>
 #include <QAction>
+#include <QDesktopServices>
+#include <QDirIterator>
 
 namespace ks {
 namespace assets {
@@ -61,10 +63,19 @@ void AssetEditorModule::importFile(const QString& filePath) {
     if (filePath.isEmpty()) return;
     QFileInfo fi(filePath);
     QString suffix = fi.suffix().toLower();
-    if (suffix == "kn5" || suffix == "fbx" || suffix == "gltf" || suffix == "glb" ||
-        suffix == "png" || suffix == "jpg" || suffix == "dds" || suffix == "obj" ||
-        suffix == "wav" || suffix == "ogg") {
-        log(QString("Importing asset: %1").arg(filePath));
+    QStringList supported = {"kn5","fbx","gltf","glb","png","jpg","dds","obj","wav","ogg","tga","psd","mp3","flac"};
+    if (supported.contains(suffix)) {
+        QString assetDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/assets/" + suffix;
+        QDir().mkpath(assetDir);
+        QString dest = assetDir + "/" + fi.fileName();
+        if (QFile::copy(filePath, dest)) {
+            logSuccess(QString("Imported asset: %1").arg(fi.fileName()));
+            populateAssetTree();
+        } else if (QFile::exists(dest)) {
+            logWarning(QString("Asset already exists: %1").arg(fi.fileName()));
+        } else {
+            logError("Failed to import: " + fi.fileName());
+        }
     } else {
         logError(QString("Unsupported asset format: %1").arg(suffix));
     }
@@ -72,10 +83,20 @@ void AssetEditorModule::importFile(const QString& filePath) {
 
 void AssetEditorModule::exportFile(const QString& filePath) {
     if (filePath.isEmpty()) return;
-    log(QString("Exporting asset to: %1").arg(filePath));
+    auto* item = m_assetTree->currentItem();
+    if (item && item->childCount() == 0) {
+        QFileInfo src(item->data(0, Qt::UserRole).toString());
+        if (src.exists() && QFile::copy(src.absoluteFilePath(), filePath)) {
+            logSuccess(QString("Exported asset to: %1").arg(filePath));
+        } else {
+            logError("Failed to export asset");
+        }
+    }
 }
 
-void AssetEditorModule::onActivation() {}
+void AssetEditorModule::onActivation() {
+    populateAssetTree();
+}
 void AssetEditorModule::onDeactivation() {}
 
 void AssetEditorModule::buildUI() {
@@ -219,44 +240,84 @@ void AssetEditorModule::setupCloudSyncTab() {
 
 void AssetEditorModule::populateAssetTree() {
     m_assetTree->clear();
-    auto* models = new QTreeWidgetItem(m_assetTree, {"Models", "Folder", "", "", ""});
-    models->addChild(new QTreeWidgetItem({"Car Body", "Mesh", "12.4 MB", "2024-01-15", "Ready"}));
-    models->addChild(new QTreeWidgetItem({"Wheels", "Mesh", "8.2 MB", "2024-01-15", "Ready"}));
-    models->addChild(new QTreeWidgetItem({"Interior", "Mesh", "15.7 MB", "2024-01-14", "Ready"}));
+    QString assetRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/assets";
+    QStringList categoryDirs = {"kn5", "fbx", "gltf", "glb", "png", "dds", "obj", "wav", "ogg", "tga"};
+    QStringList categoryNames = {"Models", "Models", "Models", "Models", "Textures", "Textures", "Models", "Audio", "Audio", "Textures"};
+    QStringList typeNames = {"Mesh", "Mesh", "Mesh", "Mesh", "Texture", "Texture", "Mesh", "Audio", "Audio", "Texture"};
 
-    auto* textures = new QTreeWidgetItem(m_assetTree, {"Textures", "Folder", "", "", ""});
-    textures->addChild(new QTreeWidgetItem({"Paint_Red", "Texture", "24.1 MB", "2024-01-15", "Ready"}));
-    textures->addChild(new QTreeWidgetItem({"CarbonFiber", "Texture", "18.5 MB", "2024-01-14", "Ready"}));
-    textures->addChild(new QTreeWidgetItem({"Interior Leather", "Texture", "32.0 MB", "2024-01-13", "Ready"}));
-
-    auto* audio = new QTreeWidgetItem(m_assetTree, {"Audio", "Folder", "", "", ""});
-    audio->addChild(new QTreeWidgetItem({"Engine_V8", "Audio", "5.2 MB", "2024-01-15", "Ready"}));
-    audio->addChild(new QTreeWidgetItem({"Tire Skid", "Audio", "1.8 MB", "2024-01-12", "Ready"}));
-
+    QMap<QString, QTreeWidgetItem*> folders;
+    for (int i = 0; i < categoryDirs.size(); ++i) {
+        QString catName = categoryNames[i];
+        if (!folders.contains(catName)) {
+            folders[catName] = new QTreeWidgetItem(m_assetTree, {catName, "Folder", "", "", ""});
+        }
+        QDir dir(assetRoot + "/" + categoryDirs[i]);
+        if (!dir.exists()) continue;
+        for (const auto& fi : dir.entryInfoList(QDir::Files, QDir::Name)) {
+            QString sizeStr;
+            qint64 sz = fi.size();
+            if (sz > 1048576) sizeStr = QString::number(sz / 1048576.0, 'f', 1) + " MB";
+            else if (sz > 1024) sizeStr = QString::number(sz / 1024.0, 'f', 1) + " KB";
+            else sizeStr = QString::number(sz) + " B";
+            auto* child = new QTreeWidgetItem({fi.completeBaseName(), typeNames[i], sizeStr, fi.lastModified().toString("yyyy-MM-dd"), "Ready"});
+            child->setData(0, Qt::UserRole, fi.absoluteFilePath());
+            folders[catName]->addChild(child);
+        }
+    }
     m_assetTree->expandAll();
 }
 
 void AssetEditorModule::populateDependencies() {
     m_depTree->clear();
-    m_depTree->addTopLevelItem(new QTreeWidgetItem({"Car Body", "Cockpit.obj", "Mesh", "Referenced"}));
-    m_depTree->addTopLevelItem(new QTreeWidgetItem({"Car Body", "Paint_Red.dds", "Texture", "Referenced"}));
-    m_depTree->addTopLevelItem(new QTreeWidgetItem({"Interior", "Interior Leather.dds", "Texture", "Referenced"}));
-    m_depTree->addTopLevelItem(new QTreeWidgetItem({"Wheels", "Tire_Rubber.dds", "Texture", "Missing"}));
+    QString assetRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/assets";
+    QDirIterator it(assetRoot, QDir::Files, QDirIterator::Subdirectories);
+    QVector<QPair<QString, QString>> pairs;
+    QStringList allAssets;
+    while (it.hasNext()) {
+        allAssets << QFileInfo(it.next()).fileName();
+    }
+    for (const auto& asset : allAssets) {
+        if (asset.endsWith(".kn5", Qt::CaseInsensitive) || asset.endsWith(".fbx", Qt::CaseInsensitive) || asset.endsWith(".gltf", Qt::CaseInsensitive)) {
+            QString base = asset.section('.', 0, -2);
+            for (const auto& dep : allAssets) {
+                if (dep != asset && (dep.contains(base, Qt::CaseInsensitive) || dep.contains("paint", Qt::CaseInsensitive) || dep.contains("tire", Qt::CaseInsensitive))) {
+                    m_depTree->addTopLevelItem(new QTreeWidgetItem({base, dep, dep.contains(".dds") ? "Texture" : "Mesh", QFileInfo(assetRoot + "/" + dep).exists() ? "Referenced" : "Missing"}));
+                }
+            }
+        }
+    }
 }
 
 void AssetEditorModule::onAssetSelected(QTreeWidgetItem* item, int column) {
     Q_UNUSED(column);
     if (item && item->childCount() == 0) {
-        m_assetInfoLabel->setText(QString("Asset: %1\nType: %2\nSize: %3").arg(item->text(0), item->text(1), item->text(2)));
+        m_assetInfoLabel->setText(QString("Asset: %1\nType: %2\nSize: %3\nPath: %4").arg(item->text(0), item->text(1), item->text(2), item->data(0, Qt::UserRole).toString()));
     }
 }
 
 void AssetEditorModule::onSearchTextChanged(const QString& text) {
-    Q_UNUSED(text);
+    if (text.length() < 2) return;
+    m_searchResults->setRowCount(0);
+    QString assetRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/assets";
+    QDirIterator it(assetRoot, QDir::Files, QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        QString fp = it.next();
+        QFileInfo fi(fp);
+        if (fi.fileName().contains(text, Qt::CaseInsensitive)) {
+            int row = m_searchResults->rowCount();
+            m_searchResults->insertRow(row);
+            m_searchResults->setItem(row, 0, new QTableWidgetItem(fi.completeBaseName()));
+            m_searchResults->setItem(row, 1, new QTableWidgetItem(fi.suffix()));
+            m_searchResults->setItem(row, 2, new QTableWidgetItem(fp));
+            m_searchResults->setItem(row, 3, new QTableWidgetItem("100%"));
+        }
+    }
+    log(QString("Search '%1': %2 results").arg(text).arg(m_searchResults->rowCount()));
 }
 
 void AssetEditorModule::onFilterChanged(int index) {
     Q_UNUSED(index);
+    populateAssetTree();
 }
 
 void AssetEditorModule::onTagFilterChanged(int index) {
@@ -264,7 +325,7 @@ void AssetEditorModule::onTagFilterChanged(int index) {
 }
 
 void AssetEditorModule::onImportAsset() {
-    QStringList paths = selectFiles("Import Assets", "All Supported (*.kn5 *.fbx *.gltf *.glb *.obj *.png *.dds *.wav *.ogg);;All Files (*)");
+    QStringList paths = selectFiles("Import Assets", "All Supported (*.kn5 *.fbx *.gltf *.glb *.obj *.png *.dds *.wav *.ogg *.tga);;All Files (*)");
     if (!paths.isEmpty()) {
         for (const auto& path : paths) {
             importFile(path);
@@ -275,20 +336,29 @@ void AssetEditorModule::onImportAsset() {
 
 void AssetEditorModule::onExportAsset() {
     auto* item = m_assetTree->currentItem();
-    if (!item) {
+    if (!item || item->childCount() != 0) {
         logError("No asset selected for export");
         return;
     }
-    QString path = selectFile("Export Asset", "All Files (*)");
-    if (!path.isEmpty()) {
-        exportFile(path);
+    QString srcPath = item->data(0, Qt::UserRole).toString();
+    QFileInfo srcFi(srcPath);
+    if (!srcFi.exists()) { logError("Asset file not found"); return; }
+    QString destPath = selectFile("Export Asset", srcFi.suffix().toUpper() + " Files (*." + srcFi.suffix() + ");;All Files (*)");
+    if (!destPath.isEmpty()) {
+        if (QFile::copy(srcPath, destPath)) {
+            logSuccess(QString("Exported asset to: %1").arg(destPath));
+        } else {
+            logError("Failed to export asset");
+        }
     }
 }
 
 void AssetEditorModule::onDeleteAsset() {
     auto* item = m_assetTree->currentItem();
     if (item && item->childCount() == 0) {
+        QString path = item->data(0, Qt::UserRole).toString();
         if (confirmAction("Delete Asset", QString("Delete '%1'? This cannot be undone.").arg(item->text(0)))) {
+            QFile::remove(path);
             log(QString("Deleted asset: %1").arg(item->text(0)));
             delete item;
         }
@@ -304,7 +374,9 @@ void AssetEditorModule::onRefreshAssets() {
 void AssetEditorModule::onPreviewAsset() {
     auto* item = m_assetTree->currentItem();
     if (item && item->childCount() == 0) {
-        log(QString("Previewing asset: %1").arg(item->text(0)));
+        QString path = item->data(0, Qt::UserRole).toString();
+        log(QString("Previewing asset: %1").arg(path));
+        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
     }
 }
 

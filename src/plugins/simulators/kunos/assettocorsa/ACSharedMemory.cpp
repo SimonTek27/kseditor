@@ -2,6 +2,7 @@
 #include <QDebug>
 #include <QFile>
 #include <QDataStream>
+#include <QThread>
 #include <cstring>
 
 #ifdef _WIN32
@@ -33,7 +34,14 @@ bool ACSharedMemory::attach() {
         if (m_staticPtr) {
             m_staticMappedFile = hMapFile;
         } else {
+            DWORD err = GetLastError();
+            qWarning() << "ACSharedMemory: MapViewOfFile(static) failed:" << err;
             CloseHandle(hMapFile);
+        }
+    } else {
+        DWORD err = GetLastError();
+        if (err != ERROR_FILE_NOT_FOUND) {
+            qWarning() << "ACSharedMemory: OpenFileMapping(static) failed:" << err;
         }
     }
 
@@ -62,6 +70,7 @@ bool ACSharedMemory::attach() {
     // Check if at least one mapping succeeded
     if (m_staticPtr || m_graphicsPtr || m_physicsPtr) {
         m_attached = true;
+        m_retryCount = 0;
         updateData();
         emit connectionStateChanged(true);
         return true;
@@ -74,6 +83,20 @@ bool ACSharedMemory::attach() {
     m_attached = false;
     emit connectionStateChanged(false);
     return false;
+}
+
+bool ACSharedMemory::waitForConnection(int timeoutMs) {
+    if (attach()) return true;
+
+    QTimer timer;
+    timer.setSingleShot(true);
+    int elapsed = 0;
+    while (!m_attached && elapsed < timeoutMs) {
+        if (attach()) return true;
+        QThread::msleep(200);
+        elapsed += 200;
+    }
+    return m_attached;
 }
 
 void ACSharedMemory::detach() {
@@ -114,17 +137,17 @@ void ACSharedMemory::detach() {
 
 float ACSharedMemory::getTyreTemp(int wheel) const {
     if (wheel < 0 || wheel > 3) return 0;
-    return m_physics.tyreTemperature[wheel];
+    return m_physics.tyreCoreTemperature[wheel];
 }
 
 float ACSharedMemory::getTyrePressure(int wheel) const {
     if (wheel < 0 || wheel > 3) return 0;
-    return m_physics.tyrePressure[wheel];
+    return m_physics.wheelPressure[wheel];
 }
 
 float ACSharedMemory::getTyreSlip(int wheel) const {
     if (wheel < 0 || wheel > 3) return 0;
-    return m_graphics.slipRatio[wheel];
+    return m_graphics.wheelSlip[wheel];
 }
 
 QString ACSharedMemory::getPlayerName() const {
@@ -143,6 +166,21 @@ void ACSharedMemory::stopAutoUpdate() {
     m_updateTimer->stop();
 }
 
+float ACSharedMemory::getTyreSurfaceTemp(int wheel) const {
+    if (wheel < 0 || wheel > 3) return 0;
+    return m_physics.tyreSurfaceTemperature[wheel];
+}
+
+float ACSharedMemory::getTyreWear(int wheel) const {
+    if (wheel < 0 || wheel > 3) return 0;
+    return m_physics.wheelWear[wheel];
+}
+
+float ACSharedMemory::getTyreDirtyLevel(int wheel) const {
+    if (wheel < 0 || wheel > 3) return 0;
+    return m_physics.wheelDirtyLevel[wheel];
+}
+
 void ACSharedMemory::updateData() {
     if (!m_attached) return;
 
@@ -155,6 +193,12 @@ void ACSharedMemory::updateData() {
     }
     if (m_physicsPtr) {
         memcpy(&m_physics, m_physicsPtr, sizeof(SPageFilePhysics));
+    }
+
+    // Detect disconnection: if all pointers are valid but packetId hasn't changed
+    // for several frames, AC may have closed
+    if (m_staticPtr || m_graphicsPtr || m_physicsPtr) {
+        m_retryCount = 0;
     }
 #endif
 

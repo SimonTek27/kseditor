@@ -1123,11 +1123,16 @@ void AIEditorModule::onStartRace() {
     m_raceTotalLaps = m_raceLapsSpin->value();
     m_trackLength = m_trackLengthSpin->value();
     
-    // Setup leaderboard
-    m_raceLeaderboard->setRowCount(m_currentNumDrivers);
-    for (int i = 0; i < m_currentNumDrivers; ++i) {
-        m_raceLeaderboard->setItem(i, 0, new QTableWidgetItem(QString::number(i + 1)));
-        m_raceLeaderboard->setItem(i, 1, new QTableWidgetItem(QObject::tr("Driver %1").arg(i + 1)));
+    // Initialize MultiCarAI with real simulation
+    m_multiCarAI.setupRace(m_currentNumDrivers, m_raceTotalLaps, m_trackLength);
+    
+    // Setup leaderboard from AI grid
+    const auto& grid = m_multiCarAI.grid();
+    m_raceLeaderboard->setRowCount(grid.drivers.size());
+    for (int i = 0; i < grid.drivers.size(); ++i) {
+        const auto& driver = grid.drivers[i];
+        m_raceLeaderboard->setItem(i, 0, new QTableWidgetItem(QString::number(driver.position)));
+        m_raceLeaderboard->setItem(i, 1, new QTableWidgetItem(driver.name));
         m_raceLeaderboard->setItem(i, 2, new QTableWidgetItem("0"));
         m_raceLeaderboard->setItem(i, 3, new QTableWidgetItem("--:--.---"));
         m_raceLeaderboard->setItem(i, 4, new QTableWidgetItem("--:--.---"));
@@ -1173,33 +1178,84 @@ void AIEditorModule::onResetRace() {
 }
 
 void AIEditorModule::onRaceTick() {
-    // Simulate race tick
-    static int elapsed = 0;
-    elapsed++;
+    // Advance real AI simulation
+    m_multiCarAI.tick(1.0f);
     
-    int minutes = elapsed / 60;
-    int seconds = elapsed % 60;
-    int millis = (elapsed * 1000) % 1000;
+    const auto& grid = m_multiCarAI.grid();
+    float raceTime = m_multiCarAI.grid().drivers.isEmpty() ? 0.0f : grid.drivers.first().raceTime;
+    int minutes = static_cast<int>(raceTime) / 60;
+    int seconds = static_cast<int>(raceTime) % 60;
+    int millis = static_cast<int>((raceTime - static_cast<int>(raceTime)) * 1000);
     m_raceTimeLabel->setText(QObject::tr("Time: %1:%2.%3").arg(minutes, 2, 10, QChar('0'))
         .arg(seconds, 2, 10, QChar('0')).arg(millis, 3, 10, QChar('0')));
     
-// Simulate overtakes
-    static int overtakes = 0;
-    if (QRandomGenerator::global()->bounded(20) == 0) {
-        overtakes++;
-        m_overtakesLabel->setText(QObject::tr("Overtakes: %1").arg(overtakes));
-        m_raceEventLog->append(QObject::tr("Overtake! Driver %1 passes Driver %2").arg(QRandomGenerator::global()->bounded(10) + 1).arg(QRandomGenerator::global()->bounded(10) + 1));
+    // Process events from MultiCarAI
+    auto events = m_multiCarAI.consumeEvents();
+    for (const auto& event : events) {
+        if (event.type == RaceEvent::OVERTAKE) {
+            m_raceEventLog->append(event.description);
+        } else if (event.type == RaceEvent::LAP_COMPLETED) {
+            auto* driver = m_multiCarAI.getDriver(event.driverId);
+            if (driver) {
+                m_raceEventLog->append(QObject::tr("Lap %1: %2 - %3s").arg(driver->lap).arg(driver->name).arg(driver->lastLapTime, 0, 'f', 3));
+            }
+        } else if (event.type == RaceEvent::FINISH) {
+            auto* driver = m_multiCarAI.getDriver(event.driverId);
+            if (driver) {
+                m_raceEventLog->append(QObject::tr("Finish: %1").arg(driver->name));
+            }
+        } else if (event.type == RaceEvent::DNF) {
+            auto* driver = m_multiCarAI.getDriver(event.driverId);
+            if (driver) {
+                m_raceEventLog->append(QObject::tr("DNF: %1").arg(driver->name));
+            }
+        }
     }
     
-// Update leaderboard (simplified)
-    for (int i = 0; i < m_raceLeaderboard->rowCount(); ++i) {
-        // Simulate lap progress
-        QTableWidgetItem* lapItem = m_raceLeaderboard->item(i, 2);
-        int lap = lapItem ? lapItem->text().toInt() : 0;
-        if (QRandomGenerator::global()->bounded(100) < 5) {
-            lap++;
-            if (lapItem) lapItem->setText(QString::number(lap));
+    // Update leaderboard from real AI data
+    auto leaderboard = m_multiCarAI.getLeaderboard();
+    m_raceLeaderboard->setRowCount(leaderboard.size());
+    for (int i = 0; i < leaderboard.size(); ++i) {
+        const auto& driver = leaderboard[i];
+        if (m_raceLeaderboard->item(i, 0))
+            m_raceLeaderboard->item(i, 0)->setText(QString::number(driver.position));
+        if (m_raceLeaderboard->item(i, 1))
+            m_raceLeaderboard->item(i, 1)->setText(driver.name);
+        if (m_raceLeaderboard->item(i, 2))
+            m_raceLeaderboard->item(i, 2)->setText(QString::number(driver.lap));
+        if (m_raceLeaderboard->item(i, 3)) {
+            if (driver.lastLapTime > 0 && driver.lastLapTime < 1e8f)
+                m_raceLeaderboard->item(i, 3)->setText(QObject::tr("%1s").arg(driver.lastLapTime, 0, 'f', 3));
+            else
+                m_raceLeaderboard->item(i, 3)->setText("--:--.---");
         }
+        if (m_raceLeaderboard->item(i, 4)) {
+            if (driver.bestLapTime > 0 && driver.bestLapTime < 1e8f)
+                m_raceLeaderboard->item(i, 4)->setText(QObject::tr("%1s").arg(driver.bestLapTime, 0, 'f', 3));
+            else
+                m_raceLeaderboard->item(i, 4)->setText("--:--.---");
+        }
+        if (m_raceLeaderboard->item(i, 5))
+            m_raceLeaderboard->item(i, 5)->setText(driver.dnf ? "DNF" : (driver.finished ? "FIN" : "--"));
+    }
+    
+    // Update overtakes count
+    m_overtakesLabel->setText(QObject::tr("Overtakes: %1").arg(m_multiCarAI.getTotalOvertakes()));
+    
+    // Update fastest lap
+    float fastestLap = m_multiCarAI.getFastestLap();
+    if (fastestLap < 1e8f) {
+        m_fastestLapLabel->setText(QObject::tr("Fastest: %1s (Driver %2)").arg(fastestLap, 0, 'f', 3).arg(m_multiCarAI.getFastestLapDriver() + 1));
+    }
+    
+    // Check race finished
+    if (m_multiCarAI.isRaceComplete()) {
+        m_raceTimer->stop();
+        m_raceStatusLabel->setText(QObject::tr("Race Complete"));
+        m_raceStatusLabel->setStyleSheet("font-weight: bold; color: #2e7d32;");
+        m_startRaceBtn->setEnabled(true);
+        m_stopRaceBtn->setEnabled(false);
+        m_raceEventLog->append(QObject::tr("Race complete!"));
     }
 }
 

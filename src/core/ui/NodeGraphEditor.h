@@ -198,7 +198,13 @@ public:
     void setMinimized(bool minimized);
     
     QUuid nodeId() const { return m_nodeId; }
-    
+
+    void setNodeData(const GraphNode& data) { m_nodeData = data; updateGeometry(); }
+    const GraphNode& nodeData() const { return m_nodeData; }
+    GraphNode& nodeData() { return m_nodeData; }
+
+    QPointF portPos(const QUuid& portId) const;
+
     // Port hit testing
     struct PortHit {
         QUuid portId;
@@ -253,6 +259,8 @@ public:
     void setHovered(bool hovered);
     
     QUuid connectionId() const { return m_connectionId; }
+    void setConnectionData(const GraphConnection& data) { m_connectionData = data; updatePath(); }
+    const GraphConnection& connectionData() const { return m_connectionData; }
 
 protected:
     void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
@@ -665,8 +673,12 @@ public:
 
     // Graph operations
     QUuid addNode(const QString& typeName, const QPointF& position = QPointF());
+    QUuid addNode(const GraphNode& nodeData);
+    QUuid addConnection(const QUuid& fromNodeId, const QUuid& fromPortId,
+                        const QUuid& toNodeId, const QUuid& toPortId);
     void removeSelectedNodes();
     void duplicateSelectedNodes();
+    void clearAll();
     
     // Serialization
     QJsonObject toJson() const;

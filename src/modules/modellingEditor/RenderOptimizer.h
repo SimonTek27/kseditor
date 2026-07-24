@@ -31,7 +31,7 @@ struct RenderOptimizationConfig {
 	float lodDistance3 = 100.0f; // Wireframe/Hidden
 
 	// Frustum culling
-	bool enableAggressiveCulling = false; // Culling più aggressivo per performance
+	bool enableAggressiveCulling = false; // More aggressive culling for performance
 };
 
 /**

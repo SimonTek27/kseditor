@@ -407,6 +407,24 @@ GraphNodeItem::PortHit GraphNodeItem::hitTestPort(const QPointF& scenePos) const
     return {};
 }
 
+QPointF GraphNodeItem::portPos(const QUuid& portId) const
+{
+    float headerH = HEADER_HEIGHT;
+    for (int i = 0; i < m_nodeData.inputPortIds.size(); ++i) {
+        if (m_nodeData.inputPortIds[i] == portId) {
+            float y = headerH + (i + 1) * PORT_SPACING;
+            return mapToScene(QPointF(0, y));
+        }
+    }
+    for (int i = 0; i < m_nodeData.outputPortIds.size(); ++i) {
+        if (m_nodeData.outputPortIds[i] == portId) {
+            float y = headerH + (i + 1) * PORT_SPACING;
+            return mapToScene(QPointF(MIN_WIDTH, y));
+        }
+    }
+    return {};
+}
+
 void GraphNodeItem::mousePressEvent(QGraphicsSceneMouseEvent* event)
 {
     if (event->button() == Qt::LeftButton) {
@@ -558,9 +576,12 @@ void GraphConnectionItem::rebuildPath()
 
 QPointF GraphConnectionItem::portScenePos(const QUuid& nodeId, const QUuid& portId, bool isInput) const
 {
-    Q_UNUSED(nodeId);
-    Q_UNUSED(portId);
     Q_UNUSED(isInput);
+    for (QGraphicsItem* item : m_scene->items()) {
+        auto* nodeItem = qgraphicsitem_cast<GraphNodeItem*>(item);
+        if (!nodeItem || nodeItem->nodeId() != nodeId) continue;
+        return nodeItem->portPos(portId);
+    }
     return {};
 }
 
@@ -1591,6 +1612,45 @@ QUuid NodeGraphWidget::addNode(const QString& typeName, const QPointF& position)
     return nodeId;
 }
 
+QUuid NodeGraphWidget::addNode(const GraphNode& nodeData)
+{
+    auto* item = new GraphNodeItem(nodeData.id, m_scene);
+    item->setPos(nodeData.position);
+    item->setNodeData(nodeData);
+    m_scene->addItem(item);
+    emit graphChanged();
+    return nodeData.id;
+}
+
+QUuid NodeGraphWidget::addConnection(const QUuid& fromNodeId, const QUuid& fromPortId,
+                                      const QUuid& toNodeId, const QUuid& toPortId)
+{
+    QUuid connId = QUuid::createUuid();
+    auto* item = new GraphConnectionItem(connId, m_scene);
+
+    GraphConnection conn;
+    conn.id = connId;
+    conn.fromNodeId = fromNodeId;
+    conn.fromPortId = fromPortId;
+    conn.toNodeId = toNodeId;
+    conn.toPortId = toPortId;
+
+    item->setConnectionData(conn);
+    m_scene->addItem(item);
+    emit graphChanged();
+    return connId;
+}
+
+void NodeGraphWidget::clearAll()
+{
+    QList<QGraphicsItem*> items = m_scene->items();
+    for (QGraphicsItem* item : items) {
+        m_scene->removeItem(item);
+        delete item;
+    }
+    emit graphChanged();
+}
+
 void NodeGraphWidget::removeSelectedNodes()
 {
     for (QGraphicsItem* item : m_scene->selectedItems()) {
@@ -1621,9 +1681,28 @@ QJsonObject NodeGraphWidget::toJson() const
     QJsonArray nodesArray;
     for (QGraphicsItem* item : m_scene->items()) {
         if (auto* nodeItem = qgraphicsitem_cast<GraphNodeItem*>(item)) {
+            const GraphNode& nd = nodeItem->nodeData();
             QJsonObject nodeJson;
-            nodeJson["id"] = nodeItem->nodeId().toString();
-            nodeJson["position"] = QJsonObject{{"x", nodeItem->pos().x()}, {"y", nodeItem->pos().y()}};
+            nodeJson["id"] = nd.id.toString();
+            nodeJson["typeName"] = nd.typeName;
+            nodeJson["title"] = nd.title;
+            nodeJson["position"] = QJsonObject{{"x", nd.position.x()}, {"y", nd.position.y()}};
+            nodeJson["headerColor"] = nd.headerColor.name();
+
+            QJsonObject propsJson;
+            for (auto it = nd.properties.begin(); it != nd.properties.end(); ++it)
+                propsJson[it.key()] = QJsonValue::fromVariant(it.value());
+            nodeJson["properties"] = propsJson;
+
+            QJsonArray inPortIds;
+            for (const QUuid& pid : nd.inputPortIds) inPortIds.append(pid.toString());
+            nodeJson["inputPortIds"] = inPortIds;
+
+            QJsonArray outPortIds;
+            for (const QUuid& pid : nd.outputPortIds) outPortIds.append(pid.toString());
+            nodeJson["outputPortIds"] = outPortIds;
+
+            nodeJson["minimized"] = nd.minimized;
             nodesArray.append(nodeJson);
         }
     }
@@ -1646,13 +1725,42 @@ bool NodeGraphWidget::fromJson(const QJsonObject& json)
 {
     if (json.isEmpty()) return false;
 
+    clearAll();
+
     QJsonArray nodesArray = json["nodes"].toArray();
     for (const auto& nodeVal : nodesArray) {
         QJsonObject nodeJson = nodeVal.toObject();
-        QUuid id = QUuid::fromString(nodeJson["id"].toString());
+
+        GraphNode nd;
+        nd.id = QUuid::fromString(nodeJson["id"].toString());
+        nd.typeName = nodeJson["typeName"].toString("Default");
+        nd.title = nodeJson["title"].toString(nd.typeName);
+
         QJsonObject pos = nodeJson["position"].toObject();
-        addNode(id.toString(), QPointF(pos["x"].toDouble(), pos["y"].toDouble()));
+        nd.position = QPointF(pos["x"].toDouble(), pos["y"].toDouble());
+
+        if (nodeJson.contains("headerColor"))
+            nd.headerColor = QColor(nodeJson["headerColor"].toString());
+
+        if (nodeJson.contains("properties")) {
+            QJsonObject propsJson = nodeJson["properties"].toObject();
+            for (auto it = propsJson.begin(); it != propsJson.end(); ++it)
+                nd.properties[it.key()] = it.value().toVariant();
+        }
+
+        QJsonArray inPortIds = nodeJson["inputPortIds"].toArray();
+        for (const auto& pid : inPortIds)
+            nd.inputPortIds.append(QUuid::fromString(pid.toString()));
+
+        QJsonArray outPortIds = nodeJson["outputPortIds"].toArray();
+        for (const auto& pid : outPortIds)
+            nd.outputPortIds.append(QUuid::fromString(pid.toString()));
+
+        nd.minimized = nodeJson["minimized"].toBool(false);
+
+        addNode(nd);
     }
+
     return true;
 }
 

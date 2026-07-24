@@ -1,4 +1,9 @@
 #include "AudioEditorModule.h"
+#include "WaveformEngine.h"
+#include "WaveProcessor.h"
+#include "AudioRecording.h"
+#include "TextToSpeech.h"
+#include <QTcpSocket>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -74,9 +79,30 @@ AudioEditorModule::AudioEditorModule(QWidget* parent)
     , m_connectToSimBtn(nullptr)
     , m_disconnectFromSimBtn(nullptr)
     , m_connectionStatusLabel(nullptr)
+    , m_waveProcessor(nullptr)
+    , m_audioRecorder(nullptr)
+    , m_tcpSocket(nullptr)
+    , m_ttsTab(nullptr)
+    , m_ttsInputEdit(nullptr)
+    , m_ttsSpeakBtn(nullptr)
+    , m_ttsStopBtn(nullptr)
+    , m_ttsClearBtn(nullptr)
+    , m_ttsSaveBtn(nullptr)
+    , m_ttsVoiceCombo(nullptr)
+    , m_ttsRateSlider(nullptr)
+    , m_ttsRateLabel(nullptr)
+    , m_ttsVolumeSlider(nullptr)
+    , m_ttsVolumeLabel(nullptr)
+    , m_tts(nullptr)
 {
     setObjectName("AudioEditorModule");
+    m_waveProcessor = new WaveProcessor(this);
+    m_audioRecorder = new ks::AudioRecorder(this);
+    m_tcpSocket = new QTcpSocket(this);
+    m_tts = new TextToSpeech(this);
 }
+
+AudioEditorModule::~AudioEditorModule() {}
 
 bool AudioEditorModule::initialize() {
     if (m_uiBuilt) return true;
@@ -125,6 +151,7 @@ void AudioEditorModule::buildUI() {
     setupEffectsTab();
     setupSoundBanksTab();
     setupSettingsTab();
+    setupTtsTab();
 
     m_mainLayout->addWidget(m_tabWidget);
     m_mainLayout->addWidget(m_logOutput);
@@ -406,34 +433,60 @@ void AudioEditorModule::refreshSamples() {
 
 void AudioEditorModule::onLoadAudioFile() {
     QString path = selectFile("Load Audio", "Audio Files (*.wav *.mp3 *.ogg *.flac *.aiff *.m4a);;All Files (*)");
-    if (!path.isEmpty()) {
-        m_audioInfoLabel->setText(QString("Loaded: %1").arg(path));
-        log(QString("Loaded audio file: %1").arg(path));
+    if (path.isEmpty()) return;
+    m_loadedAudioPath = path;
+    if (m_waveProcessor->load(path)) {
+        m_audioInfoLabel->setText(QString("Loaded: %1 (%2 ch, %3 Hz, %4 ms)")
+            .arg(QFileInfo(path).fileName())
+            .arg(m_waveProcessor->getChannelCount())
+            .arg(m_waveProcessor->getSampleRate())
+            .arg(m_waveProcessor->getDurationMs()));
+        logSuccess(QString("Loaded audio: %1").arg(path));
+    } else {
+        logError(QString("Failed to load audio: %1").arg(path));
     }
 }
 
 void AudioEditorModule::onPlayAudio() {
+    if (m_waveProcessor->getSampleCount() == 0) {
+        logWarning("No audio loaded. Load a file first.");
+        return;
+    }
+    auto* engine = WaveformEngine::instance();
+    engine->setSamples(m_waveProcessor->getSamples(),
+                       m_waveProcessor->getChannelCount(),
+                       m_waveProcessor->getSampleRate());
+    engine->play();
     log("Playback started");
 }
 
 void AudioEditorModule::onStopAudio() {
+    WaveformEngine::instance()->stop();
     log("Playback stopped");
 }
 
 void AudioEditorModule::onRecordAudio() {
-    if (m_recordBtn->text() == "Start Recording") {
-        m_recordBtn->setText("Stop Recording");
-        m_recordingStatusLabel->setText("Recording...");
-        log("Recording started");
-    } else {
+    if (m_audioRecorder->state() == ks::AudioRecorder::Recording) {
+        m_audioRecorder->stop();
         m_recordBtn->setText("Start Recording");
         m_recordingStatusLabel->setText("Recording saved");
         logSuccess("Recording completed");
+    } else {
+        QAudioFormat fmt;
+        fmt.setSampleRate(44100);
+        fmt.setChannelCount(2);
+        fmt.setSampleFormat(QAudioFormat::Float);
+        m_audioRecorder->setFormat(fmt);
+        m_audioRecorder->start();
+        m_recordBtn->setText("Stop Recording");
+        m_recordingStatusLabel->setText("Recording...");
+        log("Recording started");
     }
 }
 
 void AudioEditorModule::onVolumeChanged(int value) {
     m_inputLevelLabel->setText(QString("%1%").arg(value));
+    m_waveProcessor->amplify(value / 100.0f);
 }
 
 void AudioEditorModule::onAddEffect() {
@@ -474,12 +527,20 @@ void AudioEditorModule::onEffectParamChanged() {
 }
 
 void AudioEditorModule::onConnectToSim() {
-    m_connectionStatusLabel->setText("Connected to simulator");
-    m_connectionStatusLabel->setStyleSheet("QLabel { color: #4caf50; }");
-    logSuccess("Connected to simulator");
+    m_tcpSocket->connectToHost(QHostAddress::LocalHost, 42420);
+    if (m_tcpSocket->waitForConnected(3000)) {
+        m_connectionStatusLabel->setText("Connected to simulator");
+        m_connectionStatusLabel->setStyleSheet("QLabel { color: #4caf50; }");
+        logSuccess("Connected to simulator on port 42420");
+    } else {
+        m_connectionStatusLabel->setText("Connection failed");
+        m_connectionStatusLabel->setStyleSheet("QLabel { color: #f44336; }");
+        logError(QString("Connection failed: %1").arg(m_tcpSocket->errorString()));
+    }
 }
 
 void AudioEditorModule::onDisconnectFromSim() {
+    m_tcpSocket->disconnectFromHost();
     m_connectionStatusLabel->setText("Disconnected");
     m_connectionStatusLabel->setStyleSheet("QLabel { color: #f44336; }");
     log("Disconnected from simulator");
@@ -530,7 +591,10 @@ void AudioEditorModule::onAddSample() {
     if (!path.isEmpty()) {
         QFileInfo fi(path);
         m_sampleList->addItem(fi.fileName());
-        log(QString("Added sample: %1").arg(fi.fileName()));
+        m_waveProcessor->load(path);
+        log(QString("Added sample: %1 (%2 samples)")
+            .arg(fi.fileName())
+            .arg(m_waveProcessor->getSampleCount()));
     }
 }
 
@@ -566,6 +630,11 @@ void AudioEditorModule::onMixerLevelChanged(int channel, int value) {
 
 void AudioEditorModule::onMasterVolumeChanged(int value) {
     m_masterVolumeLabel->setText(QString("%1%").arg(value));
+    WaveformEngine* engine = WaveformEngine::instance();
+    if (engine->isPlaying()) {
+        QAudioSink* sink = engine->findChild<QAudioSink*>();
+        if (sink) sink->setVolume(value / 100.0f);
+    }
 }
 
 void AudioEditorModule::onOutputDeviceChanged(int index) {
@@ -578,6 +647,135 @@ void AudioEditorModule::onSampleRateChanged(int index) {
 
 void AudioEditorModule::onBufferSizeChanged(int index) {
     log(QString("Buffer size: %1").arg(m_bufferSizeCombo->currentText()));
+}
+
+// ── Text-to-Speech Tab ──────────────────────────────────────────────────────
+
+void AudioEditorModule::setupTtsTab() {
+    m_ttsTab = new QWidget();
+    auto* layout = new QVBoxLayout(m_ttsTab);
+    layout->setContentsMargins(8, 8, 8, 8);
+    layout->setSpacing(8);
+
+    // Voice selection
+    auto* voiceGroup = new QGroupBox("Voice");
+    auto* voiceLayout = new QHBoxLayout(voiceGroup);
+    voiceLayout->addWidget(createLabel("Voice:"));
+    m_ttsVoiceCombo = createComboBox(m_tts->availableVoices());
+    voiceLayout->addWidget(m_ttsVoiceCombo);
+    voiceLayout->addStretch();
+    layout->addWidget(voiceGroup);
+
+    // Text input
+    auto* inputGroup = new QGroupBox("Text");
+    auto* inputLayout = new QVBoxLayout(inputGroup);
+    m_ttsInputEdit = new QTextEdit();
+    m_ttsInputEdit->setPlaceholderText("Enter text to speak...");
+    m_ttsInputEdit->setMaximumHeight(120);
+    inputLayout->addWidget(m_ttsInputEdit);
+    layout->addWidget(inputGroup);
+
+    // Controls
+    auto* controlLayout = new QHBoxLayout();
+    m_ttsSpeakBtn = createButton("Speak", "success");
+    m_ttsStopBtn = createButton("Stop", "danger");
+    m_ttsClearBtn = createButton("Clear");
+    m_ttsSaveBtn = createButton("Save to WAV");
+    controlLayout->addWidget(m_ttsSpeakBtn);
+    controlLayout->addWidget(m_ttsStopBtn);
+    controlLayout->addWidget(m_ttsClearBtn);
+    controlLayout->addWidget(m_ttsSaveBtn);
+    controlLayout->addStretch();
+    layout->addLayout(controlLayout);
+
+    // Rate slider
+    auto* rateGroup = new QGroupBox("Rate");
+    auto* rateLayout = new QHBoxLayout(rateGroup);
+    m_ttsRateSlider = new QSlider(Qt::Horizontal);
+    m_ttsRateSlider->setRange(-10, 10);
+    m_ttsRateSlider->setValue(0);
+    m_ttsRateLabel = createLabel("0");
+    m_ttsRateLabel->setMinimumWidth(30);
+    rateLayout->addWidget(createLabel("Slow"));
+    rateLayout->addWidget(m_ttsRateSlider);
+    rateLayout->addWidget(createLabel("Fast"));
+    rateLayout->addWidget(m_ttsRateLabel);
+    layout->addWidget(rateGroup);
+
+    // Volume slider
+    auto* volumeGroup = new QGroupBox("Volume");
+    auto* volumeLayout = new QHBoxLayout(volumeGroup);
+    m_ttsVolumeSlider = new QSlider(Qt::Horizontal);
+    m_ttsVolumeSlider->setRange(0, 100);
+    m_ttsVolumeSlider->setValue(100);
+    m_ttsVolumeLabel = createLabel("100%");
+    m_ttsVolumeLabel->setMinimumWidth(40);
+    volumeLayout->addWidget(createLabel("Min"));
+    volumeLayout->addWidget(m_ttsVolumeSlider);
+    volumeLayout->addWidget(createLabel("Max"));
+    volumeLayout->addWidget(m_ttsVolumeLabel);
+    layout->addWidget(volumeGroup);
+
+    layout->addStretch();
+
+    // Connections
+    connect(m_ttsSpeakBtn, &QPushButton::clicked, this, &AudioEditorModule::onTtsSpeak);
+    connect(m_ttsStopBtn, &QPushButton::clicked, this, &AudioEditorModule::onTtsStop);
+    connect(m_ttsClearBtn, &QPushButton::clicked, this, &AudioEditorModule::onTtsClear);
+    connect(m_ttsSaveBtn, &QPushButton::clicked, this, &AudioEditorModule::onTtsSaveToWav);
+    connect(m_ttsVoiceCombo, &QComboBox::currentTextChanged, this, [this](const QString& name) {
+        m_tts->setVoice(name);
+    });
+    connect(m_ttsRateSlider, &QSlider::valueChanged, this, [this](int value) {
+        m_tts->setRate(value);
+        m_ttsRateLabel->setText(QString::number(value));
+    });
+    connect(m_ttsVolumeSlider, &QSlider::valueChanged, this, [this](int value) {
+        m_tts->setVolume(value);
+        m_ttsVolumeLabel->setText(QString("%1%").arg(value));
+    });
+    connect(m_tts, &TextToSpeech::started, this, [this]() {
+        log("Speech started");
+    });
+    connect(m_tts, &TextToSpeech::finished, this, [this]() {
+        log("Speech finished");
+    });
+
+    m_tabWidget->addTab(m_ttsTab, "Text to Speech");
+}
+
+void AudioEditorModule::onTtsSpeak() {
+    QString text = m_ttsInputEdit->toPlainText().trimmed();
+    if (text.isEmpty()) {
+        logWarning("No text to speak");
+        return;
+    }
+    m_tts->speak(text);
+    log(QString("Speaking: %1").arg(text.left(50)));
+}
+
+void AudioEditorModule::onTtsStop() {
+    m_tts->stop();
+    log("Speech stopped");
+}
+
+void AudioEditorModule::onTtsClear() {
+    m_ttsInputEdit->clear();
+}
+
+void AudioEditorModule::onTtsSaveToWav() {
+    QString text = m_ttsInputEdit->toPlainText().trimmed();
+    if (text.isEmpty()) {
+        logWarning("No text to save");
+        return;
+    }
+    QString filePath = selectFile("Save TTS as WAV", "WAV Audio (*.wav)", QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation));
+    if (filePath.isEmpty()) return;
+    if (m_tts->saveToWav(text, filePath)) {
+        logSuccess(QString("Saved TTS audio to: %1").arg(filePath));
+    } else {
+        logError("Failed to save TTS audio");
+    }
 }
 
 } // namespace audio

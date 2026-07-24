@@ -186,4 +186,17 @@ bool CommandHistoryBrowser::canGoForward() const { return m_stack && m_stack->ca
 void CommandHistoryBrowser::markGroupStart() { m_inGroup = true; }
 void CommandHistoryBrowser::markGroupEnd()   { m_inGroup = false; }
 
+CommandBuilder& CommandBuilder::addProperty(const QString& objId,
+                                            const QString& prop,
+                                            const QVariant& oldVal,
+                                            const QVariant& newVal)
+{
+    auto* cmd = new PropertyCommand<QVariant, QVariant>(
+        [objId, prop]() -> QVariant* { return nullptr; },
+        oldVal, newVal);
+    cmd->setDescription(QString("Change %1.%2").arg(objId, prop));
+    addChild(cmd);
+    return *this;
+}
+
 } // namespace ks

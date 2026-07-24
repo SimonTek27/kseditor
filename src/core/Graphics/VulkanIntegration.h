@@ -3,8 +3,8 @@
 #include "VulkanRenderer.h"
 #include "VulkanShaderLoader.h"
 #include "ShaderParamRegistry.h"
-#include "../Config/KsConfigIntegration.h"
-#include "../Config/KsConfigLoader.h"
+#include "../Config/ConfigIntegration.h"
+#include "../Config/ConfigLoader.h"
 #include "../Config/PPFilterPreset.h"
 #include <QMap>
 #include <QString>

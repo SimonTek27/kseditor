@@ -81,7 +81,6 @@ QToolButton {
     border-radius: 4px;
     padding: 4px 8px;
     font-size: 12px;
-    transition: background-color 0.1s ease;
 }
 QToolButton:hover {
     background-color: #27272a;

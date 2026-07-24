@@ -225,7 +225,7 @@ void MeshGeometryCache::limitCacheSize(int maxMemoryMB) {
 	int maxBytes = maxMemoryMB * 1024 * 1024;
 
 	while (m_totalMemoryUsage > maxBytes && !m_cache.isEmpty()) {
-		// Rimuovi entry più vecchia (FIFO semplice)
+		// Remove oldest entry (simple FIFO)
 		auto it = m_cache.begin();
 		m_totalMemoryUsage -= it->vertexData.size() * sizeof(float);
 		m_totalMemoryUsage -= it->indexData.size() * sizeof(uint32_t);

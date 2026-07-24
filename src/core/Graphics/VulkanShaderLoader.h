@@ -2,7 +2,7 @@
 
 #include "VulkanRenderer.h"
 #include "core/Graphics/ShaderParamRegistry.h"
-#include "core/Config/KsConfigLoader.h"
+#include "core/Config/ConfigLoader.h"
 #include "core/Config/PPFilterPreset.h"
 #include <QString>
 #include <QMap>
@@ -164,6 +164,8 @@ public:
     // Accessors
     VkDescriptorSetLayout descriptorSetLayout(const QString& name) const;
     VkPipeline pipeline(const QString& name) const;
+    QStringList loadedShaderNames() const { return m_shaderModules.keys(); }
+    QStringList loadedPipelineNames() const { return m_pipelines.keys(); }
 
 protected:
     void cleanup();

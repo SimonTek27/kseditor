@@ -9,7 +9,7 @@
 #include <QDir>
 #include <QAudioFormat>
 #include <QUuid>
-#include "core/Audio/KSAudioUtilities.h"
+#include "core/Audio/AudioUtilities.h"
 
 namespace ks {
 

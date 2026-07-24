@@ -5,9 +5,9 @@
 #include "AudioFormatConverter.h"
 #include "AudioTimeStretch.h"
 #include "AudioRecording.h"
-#include "KSAudioCore.h"
+#include "AudioCore.h"
+#include "TextToSpeech.h"
 #include <QDebug>
-#include <QFileInfo>
 #include <QFileInfo>
 #include <QAudioDevice>
 #include <QMediaDevices>
@@ -42,6 +42,11 @@ AudioQMLBridge::AudioQMLBridge(QObject *parent)
     m_recordingFormat.setSampleFormat(QAudioFormat::Int16);
 
     m_recorder->setFormat(m_recordingFormat);
+
+    // Text-to-Speech
+    m_tts = new ks::audio::TextToSpeech(this);
+    connect(m_tts, &ks::audio::TextToSpeech::started, this, &AudioQMLBridge::ttsStateChanged);
+    connect(m_tts, &ks::audio::TextToSpeech::finished, this, &AudioQMLBridge::ttsStateChanged);
 
     m_recordingTimer = new QTimer(this);
     m_recordingTimer->setInterval(100);
@@ -700,4 +705,80 @@ void AudioQMLBridge::setInputDevice(const QString& deviceName)
 QString AudioQMLBridge::getCurrentInputDevice() const
 {
     return m_inputDeviceName.isEmpty() ? "Default" : m_inputDeviceName;
+}
+
+// ── Text-to-Speech ──────────────────────────────────────────────────────────
+
+void AudioQMLBridge::ttsSpeak(const QString& text)
+{
+    if (m_tts) m_tts->speak(text);
+}
+
+void AudioQMLBridge::ttsStop()
+{
+    if (m_tts) m_tts->stop();
+}
+
+void AudioQMLBridge::ttsPause()
+{
+    if (m_tts) m_tts->pause();
+}
+
+void AudioQMLBridge::ttsResume()
+{
+    if (m_tts) m_tts->resume();
+}
+
+bool AudioQMLBridge::ttsSpeaking() const
+{
+    return m_tts ? m_tts->isSpeaking() : false;
+}
+
+QStringList AudioQMLBridge::ttsVoices() const
+{
+    return m_tts ? m_tts->availableVoices() : QStringList();
+}
+
+QString AudioQMLBridge::ttsCurrentVoice() const
+{
+    return m_tts ? m_tts->currentVoice() : QString();
+}
+
+void AudioQMLBridge::setTtsCurrentVoice(const QString& name)
+{
+    if (m_tts) {
+        m_tts->setVoice(name);
+        emit ttsCurrentVoiceChanged();
+    }
+}
+
+int AudioQMLBridge::ttsVolume() const
+{
+    return m_tts ? m_tts->volume() : 0;
+}
+
+void AudioQMLBridge::setTtsVolume(int percent)
+{
+    if (m_tts) {
+        m_tts->setVolume(percent);
+        emit ttsVolumeChanged();
+    }
+}
+
+int AudioQMLBridge::ttsRate() const
+{
+    return m_tts ? m_tts->rate() : 0;
+}
+
+void AudioQMLBridge::setTtsRate(int rate)
+{
+    if (m_tts) {
+        m_tts->setRate(rate);
+        emit ttsRateChanged();
+    }
+}
+
+bool AudioQMLBridge::ttsSaveToWav(const QString& text, const QString& filePath)
+{
+    return m_tts ? m_tts->saveToWav(text, filePath) : false;
 }

@@ -856,7 +856,7 @@ void VcsEditorModule::onBranchChanged(const QString& branch) {
     if (!branch.isEmpty()) {
         runGitCommand({"checkout", branch}, m_currentRepoPath);
         updateStatusLabel(QString("Switched to branch: %1").arg(branch), true);
-        populateLog();
+        populateHistory();
         if (m_gitWidget) m_gitWidget->refresh();
         log("Switched to branch: " + branch);
     }
@@ -990,9 +990,8 @@ void VcsEditorModule::onLogItemClicked(QTreeWidgetItem* item, int column) {
 }
 
 void VcsEditorModule::onRemoteChanged(int index) {
-    if (index >= 0 && index < m_remotesList->count()) {
-        QListWidgetItem* item = m_remotesList->item(index);
-        QString text = item ? item->text() : QString();
+    if (index >= 0 && index < m_remoteCombo->count()) {
+        QString text = m_remoteCombo->itemText(index);
         log("Selected remote: " + text);
     }
 }
@@ -1046,9 +1045,9 @@ void VcsEditorModule::onStashPopClicked() {
 }
 
 void VcsEditorModule::onTagClicked() {
-    auto* item = m_tagsList ? m_tagsList->currentItem() : nullptr;
+    auto* item = m_tagsTree ? m_tagsTree->currentItem() : nullptr;
     if (item) {
-        QString tagName = item->text();
+        QString tagName = item->text(0);
         log(QString("Tag: %1").arg(tagName));
         QString info = runGitCommand({"tag", "-l", "-n", tagName}, m_currentRepoPath);
         if (!info.isEmpty())

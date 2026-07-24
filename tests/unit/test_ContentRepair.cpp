@@ -4,7 +4,7 @@
 #include <QDir>
 #include <QTextStream>
 #include <QStandardPaths>
-#include "core/modmanager/KsContentRepair.h"
+#include "core/modmanager/ContentRepair.h"
 #include "core/modmanager/ContentRepairTool.h"
 
 using namespace ks;

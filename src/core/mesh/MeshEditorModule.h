@@ -1,7 +1,10 @@
 #pragma once
 
 #include "core/editor/ModuleGuiBase.h"
+#include "MeshOperations.h"
 #include <QTabWidget>
+
+namespace ks { class Skeleton; }
 #include <QTreeWidget>
 #include <QTableWidget>
 #include <QComboBox>
@@ -24,7 +27,7 @@ class MeshEditorModule : public ModuleGuiBase {
     Q_OBJECT
 public:
     explicit MeshEditorModule(QWidget* parent = nullptr);
-    ~MeshEditorModule() override = default;
+    ~MeshEditorModule() override;
 
     bool initialize() override;
     void shutdown() override;
@@ -128,6 +131,10 @@ private:
     QCheckBox* m_exportAnimCheck = nullptr;
     QProgressBar* m_exportProgress = nullptr;
     QLabel* m_exportInfoLabel = nullptr;
+
+    MeshData m_currentMesh;
+    ks::Skeleton* m_skeleton = nullptr;
+    QString m_currentMeshPath;
 };
 
 } // namespace mesh

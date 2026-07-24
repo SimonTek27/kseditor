@@ -8,6 +8,10 @@
 #include <QSet>
 #include <QQueue>
 #include <QDebug>
+#include <QImage>
+#include <QFile>
+#include <cmath>
+#include <cstring>
 
 namespace ks {
 namespace graphics {
@@ -414,6 +418,10 @@ PBRMaterial::PBRMaterial(QObject* parent) : QObject(parent)
 
 PBRMaterial::~PBRMaterial()
 {
+    if (m_device && g_vk.destroyShaderModule) {
+        if (m_vertModule) { g_vk.destroyShaderModule(m_device, m_vertModule, nullptr); m_vertModule = VK_NULL_HANDLE; }
+        if (m_fragModule) { g_vk.destroyShaderModule(m_device, m_fragModule, nullptr); m_fragModule = VK_NULL_HANDLE; }
+    }
     if (m_pipeline && m_device && g_vk.destroyPipeline) {
         g_vk.destroyPipeline(m_device, m_pipeline, nullptr);
     }
@@ -443,10 +451,103 @@ VkPipeline PBRMaterial::createPipeline(VkDevice device, VkPipelineLayout layout,
 {
     m_device = device;
     m_pipelineLayout = layout;
-    
-    // This would compile shaders and create pipeline
-    // Implementation depends on shader system
-    return VK_NULL_HANDLE;
+    if (!device || !layout || !renderPass) return VK_NULL_HANDLE;
+
+    // Shader stages — callers must set m_vertModule/m_fragModule before calling
+    VkPipelineShaderStageCreateInfo stages[2] = {};
+    uint32_t stageCount = 0;
+
+    if (m_vertModule) {
+        stages[stageCount].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        stages[stageCount].stage = VK_SHADER_STAGE_VERTEX_BIT;
+        stages[stageCount].module = m_vertModule;
+        stages[stageCount].pName = "main";
+        ++stageCount;
+    }
+    if (m_fragModule) {
+        stages[stageCount].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        stages[stageCount].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        stages[stageCount].module = m_fragModule;
+        stages[stageCount].pName = "main";
+        ++stageCount;
+    }
+
+    VkPipelineVertexInputStateCreateInfo vi{};
+    vi.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vi.vertexBindingDescriptionCount = static_cast<uint32_t>(bindings.size());
+    vi.pVertexBindingDescriptions = bindings.constData();
+    vi.vertexAttributeDescriptionCount = static_cast<uint32_t>(attrs.size());
+    vi.pVertexAttributeDescriptions = attrs.constData();
+
+    VkPipelineInputAssemblyStateCreateInfo ia{};
+    ia.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+    VkPipelineViewportStateCreateInfo vp{};
+    vp.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    vp.viewportCount = 1;
+    vp.scissorCount = 1;
+
+    VkPipelineRasterizationStateCreateInfo rs{};
+    rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rs.polygonMode = VK_POLYGON_MODE_FILL;
+    rs.cullMode = VK_CULL_MODE_BACK_BIT;
+    rs.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rs.lineWidth = 1.0f;
+    rs.depthClampEnable = VK_FALSE;
+    rs.rasterizerDiscardEnable = VK_FALSE;
+    rs.depthBiasEnable = VK_FALSE;
+
+    VkPipelineMultisampleStateCreateInfo ms{};
+    ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    VkPipelineColorBlendAttachmentState cbAtt{};
+    cbAtt.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    cbAtt.blendEnable = VK_FALSE;
+
+    VkPipelineColorBlendStateCreateInfo cb{};
+    cb.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    cb.attachmentCount = 1;
+    cb.pAttachments = &cbAtt;
+
+    VkPipelineDepthStencilStateCreateInfo ds{};
+    ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    ds.depthTestEnable = VK_TRUE;
+    ds.depthWriteEnable = VK_TRUE;
+    ds.depthCompareOp = VK_COMPARE_OP_LESS;
+    ds.depthBoundsTestEnable = VK_FALSE;
+    ds.stencilTestEnable = VK_FALSE;
+
+    VkDynamicState dynStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    VkPipelineDynamicStateCreateInfo dyn{};
+    dyn.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dyn.dynamicStateCount = 2;
+    dyn.pDynamicStates = dynStates;
+
+    VkGraphicsPipelineCreateInfo gpCi{};
+    gpCi.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    gpCi.stageCount = stageCount;
+    gpCi.pStages = stages;
+    gpCi.pVertexInputState = &vi;
+    gpCi.pInputAssemblyState = &ia;
+    gpCi.pViewportState = &vp;
+    gpCi.pRasterizationState = &rs;
+    gpCi.pMultisampleState = &ms;
+    gpCi.pColorBlendState = &cb;
+    gpCi.pDepthStencilState = &ds;
+    gpCi.pDynamicState = &dyn;
+    gpCi.layout = layout;
+    gpCi.renderPass = renderPass;
+    gpCi.subpass = 0;
+
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    if (g_vk.createGraphicsPipelines) {
+        g_vk.createGraphicsPipelines(device, VK_NULL_HANDLE, 1, &gpCi, nullptr, &pipeline);
+    }
+    m_pipeline = pipeline;
+    if (pipeline) emit pipelineCreated(pipeline);
+    return pipeline;
 }
 
 VkDescriptorSetLayout PBRMaterial::createDescriptorSetLayout(VkDevice device)
@@ -496,9 +597,209 @@ void PBRMaterial::updateDescriptorSet(VkDevice device, VkDescriptorSet set, VkDe
 bool PBRMaterial::loadTexture(VkDevice device, VkPhysicalDevice physDev, VkQueue queue, VkCommandPool pool,
                               const QString& name, const QString& filePath)
 {
-    // Texture loading implementation would go here
-    // Using stb_image or Qt's image loading
-    return false;
+    if (name.isEmpty() || filePath.isEmpty()) return false;
+    m_device = device;
+
+    QImage image(filePath);
+    if (image.isNull()) return false;
+
+    QImage rgba = image.convertToFormat(QImage::Format_RGBA8888);
+    int w = rgba.width(), h = rgba.height();
+    VkDeviceSize imageSize = static_cast<VkDeviceSize>(w * h * 4);
+    QByteArray pixels(reinterpret_cast<const char*>(rgba.constBits()),
+                      static_cast<int>(imageSize));
+
+    VkImage texImage = VK_NULL_HANDLE;
+    VkDeviceMemory texMemory = VK_NULL_HANDLE;
+    VkImageView texView = VK_NULL_HANDLE;
+    VkSampler texSampler = VK_NULL_HANDLE;
+
+    if (g_vk.createBuffer && g_vk.createImage && g_vk.allocateMemory) {
+        // Create staging buffer
+        VkBuffer stagingBuf = VK_NULL_HANDLE;
+        VkDeviceMemory stagingMem = VK_NULL_HANDLE;
+
+        VkBufferCreateInfo sbCi{};
+        sbCi.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        sbCi.size = imageSize;
+        sbCi.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+        sbCi.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        if (g_vk.createBuffer(device, &sbCi, nullptr, &stagingBuf) == VK_SUCCESS) {
+            VkMemoryRequirements smr;
+            g_vk.getBufferMemoryRequirements(device, stagingBuf, &smr);
+            VkMemoryAllocateInfo sai{};
+            sai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+            sai.allocationSize = smr.size;
+            sai.memoryTypeIndex = VulkanRenderer::findMemoryType(physDev, smr.memoryTypeBits,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+            if (g_vk.allocateMemory(device, &sai, nullptr, &stagingMem) == VK_SUCCESS) {
+                g_vk.bindBufferMemory(device, stagingBuf, stagingMem, 0);
+                void* mapped = nullptr;
+                if (g_vk.mapMemory(device, stagingMem, 0, imageSize, 0, &mapped) == VK_SUCCESS) {
+                    memcpy(mapped, pixels.constData(), static_cast<size_t>(imageSize));
+                    g_vk.unmapMemory(device, stagingMem);
+                }
+            }
+        }
+
+        // Create VkImage
+        VkImageCreateInfo imgCi{};
+        imgCi.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        imgCi.imageType = VK_IMAGE_TYPE_2D;
+        imgCi.extent = {static_cast<uint32_t>(w), static_cast<uint32_t>(h), 1};
+        imgCi.mipLevels = 1;
+        imgCi.arrayLayers = 1;
+        imgCi.format = VK_FORMAT_R8G8B8A8_SRGB;
+        imgCi.tiling = VK_IMAGE_TILING_OPTIMAL;
+        imgCi.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        imgCi.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        imgCi.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        imgCi.samples = VK_SAMPLE_COUNT_1_BIT;
+
+        if (g_vk.createImage(device, &imgCi, nullptr, &texImage) == VK_SUCCESS) {
+            VkMemoryRequirements imr;
+            g_vk.getImageMemoryRequirements(device, texImage, &imr);
+            VkMemoryAllocateInfo iai{};
+            iai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+            iai.allocationSize = imr.size;
+            iai.memoryTypeIndex = VulkanRenderer::findMemoryType(physDev, imr.memoryTypeBits,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+            if (g_vk.allocateMemory(device, &iai, nullptr, &texMemory) == VK_SUCCESS) {
+                g_vk.bindImageMemory(device, texImage, texMemory, 0);
+            } else {
+                g_vk.destroyImage(device, texImage, nullptr);
+                texImage = VK_NULL_HANDLE;
+            }
+        }
+
+        // Copy staging to image via one-shot command buffer
+        if (stagingBuf && stagingMem && texImage && texMemory) {
+            VkCommandBufferAllocateInfo cmdAi{};
+            cmdAi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+            cmdAi.commandPool = pool;
+            cmdAi.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+            cmdAi.commandBufferCount = 1;
+
+            VkCommandBuffer cmdBuf = VK_NULL_HANDLE;
+            if (g_vk.allocateCommandBuffers(device, &cmdAi, &cmdBuf) == VK_SUCCESS) {
+                VkCommandBufferBeginInfo bi{};
+                bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+                bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+                if (g_vk.beginCommandBuffer(cmdBuf, &bi) == VK_SUCCESS) {
+                    VkImageMemoryBarrier barrier{};
+                    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+                    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                    barrier.image = texImage;
+                    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                    barrier.subresourceRange.baseMipLevel = 0;
+                    barrier.subresourceRange.levelCount = 1;
+                    barrier.subresourceRange.baseArrayLayer = 0;
+                    barrier.subresourceRange.layerCount = 1;
+                    barrier.srcAccessMask = 0;
+                    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                    g_vk.cmdPipelineBarrier(cmdBuf,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                        VK_PIPELINE_STAGE_TRANSFER_BIT,
+                        0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+                    VkBufferImageCopy region{};
+                    region.bufferOffset = 0;
+                    region.bufferRowLength = 0;
+                    region.bufferImageHeight = 0;
+                    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                    region.imageSubresource.mipLevel = 0;
+                    region.imageSubresource.baseArrayLayer = 0;
+                    region.imageSubresource.layerCount = 1;
+                    region.imageOffset = {0, 0, 0};
+                    region.imageExtent = {static_cast<uint32_t>(w), static_cast<uint32_t>(h), 1};
+                    g_vk.cmdCopyBufferToImage(cmdBuf, stagingBuf, texImage,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+                    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+                    g_vk.cmdPipelineBarrier(cmdBuf,
+                        VK_PIPELINE_STAGE_TRANSFER_BIT,
+                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                        0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+                    g_vk.endCommandBuffer(cmdBuf);
+
+                    VkSubmitInfo si{};
+                    si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+                    si.commandBufferCount = 1;
+                    si.pCommandBuffers = &cmdBuf;
+                    g_vk.queueSubmit(queue, 1, &si, VK_NULL_HANDLE);
+                    g_vk.queueWaitIdle(queue);
+                    g_vk.freeCommandBuffers(device, pool, 1, &cmdBuf);
+                }
+            }
+        }
+
+        // Clean up staging
+        if (stagingBuf) g_vk.destroyBuffer(device, stagingBuf, nullptr);
+        if (stagingMem) g_vk.freeMemory(device, stagingMem, nullptr);
+
+        // Create image view
+        if (texImage) {
+            VkImageViewCreateInfo ivCi{};
+            ivCi.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+            ivCi.image = texImage;
+            ivCi.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            ivCi.format = VK_FORMAT_R8G8B8A8_SRGB;
+            ivCi.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            ivCi.subresourceRange.baseMipLevel = 0;
+            ivCi.subresourceRange.levelCount = 1;
+            ivCi.subresourceRange.baseArrayLayer = 0;
+            ivCi.subresourceRange.layerCount = 1;
+            g_vk.createImageView(device, &ivCi, nullptr, &texView);
+        }
+
+        // Create sampler
+        VkSamplerCreateInfo sCi{};
+        sCi.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        sCi.magFilter = VK_FILTER_LINEAR;
+        sCi.minFilter = VK_FILTER_LINEAR;
+        sCi.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        sCi.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        sCi.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        sCi.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        sCi.anisotropyEnable = VK_TRUE;
+        sCi.maxAnisotropy = 16.0f;
+        sCi.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+        sCi.unnormalizedCoordinates = VK_FALSE;
+        sCi.compareEnable = VK_FALSE;
+        sCi.minLod = 0.0f;
+        sCi.maxLod = 1.0f;
+        sCi.mipLodBias = 0.0f;
+        g_vk.createSampler(device, &sCi, nullptr, &texSampler);
+    }
+
+    if (!texImage || !texView || !texSampler) {
+        if (texImage && texMemory) { g_vk.destroyImage(device, texImage, nullptr); g_vk.freeMemory(device, texMemory, nullptr); }
+        if (texView) { g_vk.destroyImageView(device, texView, nullptr); }
+        if (texSampler) { g_vk.destroySampler(device, texSampler, nullptr); }
+        return false;
+    }
+
+    TextureInfo info;
+    info.name = name;
+    info.view = texView;
+    info.sampler = texSampler;
+    info.descriptorInfo = {};
+    info.descriptorInfo.imageView = texView;
+    info.descriptorInfo.sampler = texSampler;
+    info.descriptorInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    info.enabled = true;
+    m_textures[name] = info;
+
+    return true;
 }
 
 QVector<VkDescriptorSetLayoutBinding> PBRMaterial::getStandardBindings()

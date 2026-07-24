@@ -687,7 +687,6 @@ void NetworkEditorModule::addLogEntry(const QString& msg, const QString& level) 
 void NetworkEditorModule::onCloudSyncClicked() {
     QList<QTreeWidgetItem*> selected = m_syncTree->selectedItems();
     if (selected.isEmpty()) {
-        // Sync all checked
         for (int i = 0; i < m_syncTree->topLevelItemCount(); ++i) {
             QTreeWidgetItem* item = m_syncTree->topLevelItem(i);
             if (item->checkState(0) == Qt::Checked) selected.append(item);
@@ -699,30 +698,54 @@ void NetworkEditorModule::onCloudSyncClicked() {
         return;
     }
     
+    QString bucket = m_cloudBucketEdit->text();
+    QString apiKey = m_cloudApiKeyEdit->text();
+    if (bucket.isEmpty()) {
+        logError("Configure a bucket in Settings first.");
+        return;
+    }
+    
     m_syncProgress->setVisible(true);
     m_syncProgress->setMaximum(selected.size());
     m_syncProgress->setValue(0);
     updateConnectionStatus("Syncing...", false);
     
+    auto state = std::make_shared<int>(0);
+    auto onFileSynced = [this, state, selected](const QString& name) {
+        (*state)++;
+        m_syncProgress->setValue(*state);
+        for (int i = 0; i < selected.size(); ++i) {
+            if (selected[i]->text(0) == name) {
+                selected[i]->setText(4, "Synced");
+                selected[i]->setText(6, QDateTime::currentDateTime().toString("HH:mm:ss"));
+                break;
+            }
+        }
+        if (*state >= selected.size()) {
+            updateConnectionStatus("Synced", true);
+            m_syncProgress->setVisible(false);
+            logSuccess(QString("Synced %1 items").arg(selected.size()));
+        }
+    };
+    
     for (int i = 0; i < selected.size(); ++i) {
         QTreeWidgetItem* item = selected[i];
         QString name = item->text(0);
-        
-        // Simulate sync
         item->setText(4, "Syncing...");
-        m_syncProgress->setValue(i + 1);
-        QApplication::processEvents();
         
-        // In real implementation, this would do actual cloud sync
-        QThread::msleep(100);
+        QByteArray payload = QJsonDocument({{"name", name}, {"timestamp", QDateTime::currentDateTime().toString(Qt::ISODate)}}).toJson();
+        QUrl reqUrl(QString("%1/%2").arg(bucket, name));
+        QNetworkRequest req(reqUrl);
+        req.setRawHeader("Content-Type", "application/json");
+        if (!apiKey.isEmpty())
+            req.setRawHeader("Authorization", ("Bearer " + apiKey).toUtf8());
         
-        item->setText(4, "Synced");
-        item->setText(6, QDateTime::currentDateTime().toString("HH:mm:ss"));
+        QNetworkReply* reply = m_networkManager->put(req, payload);
+        connect(reply, &QNetworkReply::finished, this, [reply, onFileSynced, name]() {
+            reply->deleteLater();
+            onFileSynced(name);
+        });
     }
-    
-    updateConnectionStatus("Synced", true);
-    m_syncProgress->setVisible(false);
-    logSuccess(QString("Synced %1 items").arg(selected.size()));
 }
 
 void NetworkEditorModule::onCollabStartClicked() {
@@ -822,35 +845,70 @@ void NetworkEditorModule::onDiscoverClicked() {
     m_discoveredDevicesTree->clear();
     addLogEntry("Discovering devices...", "info");
     
-    // Get local interfaces
     QList<QNetworkInterface> interfaces = QNetworkInterface::allInterfaces();
+    QString localIP;
+    QMap<QString, QString> interfaceMap;
     for (const QNetworkInterface& iface : interfaces) {
         if (!(iface.flags() & QNetworkInterface::IsUp) || !(iface.flags() & QNetworkInterface::IsRunning))
             continue;
         if (iface.flags() & QNetworkInterface::IsLoopBack) continue;
-        
         for (const QNetworkAddressEntry& entry : iface.addressEntries()) {
             if (entry.ip().protocol() == QAbstractSocket::IPv4Protocol) {
-                QString ip = entry.ip().toString();
-                QString broadcast = entry.broadcast().toString();
-                
-                // Add self
-                QTreeWidgetItem* item = new QTreeWidgetItem(m_discoveredDevicesTree, 
-                    {QHostInfo::localHostName(), ip, iface.humanReadableName(), "ksEditor, SSH", "Local", "Now"});
+                interfaceMap[entry.ip().toString()] = iface.humanReadableName();
+                if (localIP.isEmpty()) localIP = entry.ip().toString();
+                QTreeWidgetItem* item = new QTreeWidgetItem(m_discoveredDevicesTree,
+                    {QHostInfo::localHostName(), entry.ip().toString(), iface.humanReadableName(),
+                     "ksEditor", "Local", "Now"});
                 item->setData(0, Qt::UserRole, true);
             }
         }
     }
     
-    // Simulate discovering other devices
-    QStringList knownDevices = {"ksEditor-Workstation", "ksEditor-Laptop", "Build-Server", "NAS-Storage"};
-    for (const QString& dev : knownDevices) {
-        if (dev != QHostInfo::localHostName()) {
-            QString ip = QString("192.168.1.%1").arg(QRandomGenerator::global()->bounded(2, 254));
-            QTreeWidgetItem* item = new QTreeWidgetItem(m_discoveredDevicesTree,
-                {dev, ip, dev, "ksEditor, HTTP, SSH", "Online", "Just now"});
+    QUdpSocket* discoverySocket = new QUdpSocket(this);
+    QByteArray probe = QJsonDocument({
+        {"type", "kseditor_discovery"},
+        {"host", QHostInfo::localHostName()},
+        {"port", 42042}
+    }).toJson();
+    
+    for (auto it = interfaceMap.begin(); it != interfaceMap.end(); ++it) {
+        QString ip = it.key();
+        QStringList parts = ip.split('.');
+        if (parts.size() == 4) {
+            QString broadcast = parts[0] + "." + parts[1] + "." + parts[2] + ".255";
+            discoverySocket->writeDatagram(probe, QHostAddress(broadcast), 42042);
         }
     }
+    
+    int timeoutMs = m_discoveryTimeoutSpin->value();
+    discoverySocket->waitForReadyRead(timeoutMs);
+    while (discoverySocket->hasPendingDatagrams()) {
+        QByteArray datagram;
+        datagram.resize(discoverySocket->pendingDatagramSize());
+        QHostAddress sender;
+        quint16 port;
+        discoverySocket->readDatagram(datagram.data(), datagram.size(), &sender, &port);
+        QJsonDocument doc = QJsonDocument::fromJson(datagram);
+        if (doc.isObject()) {
+            QJsonObject obj = doc.object();
+            QString devName = obj["host"].toString();
+            QString devIP = sender.toString();
+            if (devIP != localIP && devName != QHostInfo::localHostName()) {
+                bool exists = false;
+                for (int i = 0; i < m_discoveredDevicesTree->topLevelItemCount(); ++i) {
+                    if (m_discoveredDevicesTree->topLevelItem(i)->text(1) == devIP) {
+                        exists = true; break;
+                    }
+                }
+                if (!exists) {
+                    new QTreeWidgetItem(m_discoveredDevicesTree,
+                        {devName, devIP, interfaceMap.value(devIP, "Unknown"),
+                         "ksEditor", "Online", "Just now"});
+                }
+            }
+        }
+    }
+    discoverySocket->deleteLater();
     
     logSuccess(QString("Discovered %1 devices").arg(m_discoveredDevicesTree->topLevelItemCount()));
 }
@@ -867,9 +925,22 @@ void NetworkEditorModule::onSettingsLoad() {
 
 void NetworkEditorModule::onSyncStatusChanged() {
     updateConnectionStatus("Checking...", false);
-    // In real implementation, check cloud connectivity
-    QTimer::singleShot(1000, this, [this]() {
-        updateConnectionStatus("Online", true);
+    QString bucket = m_cloudBucketEdit->text();
+    if (bucket.isEmpty()) {
+        updateConnectionStatus("Offline", false);
+        return;
+    }
+    QUrl url(bucket);
+    QNetworkRequest req(url);
+    req.setRawHeader("User-Agent", "ksEditor/1.0");
+    QNetworkReply* reply = m_networkManager->head(req);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        if (reply->error() == QNetworkReply::NoError) {
+            updateConnectionStatus("Online", true);
+        } else {
+            updateConnectionStatus("Offline", false);
+        }
     });
 }
 
@@ -1044,6 +1115,7 @@ void NetworkEditorModule::sendCollabMessage(const QString& text) {
 void NetworkEditorModule::testCloudConnection() {
     QString provider = m_cloudProviderEdit->currentText();
     QString bucket = m_cloudBucketEdit->text();
+    QString apiKey = m_cloudApiKeyEdit->text();
     
     if (bucket.isEmpty()) {
         logError("Please enter a bucket name");
@@ -1052,10 +1124,32 @@ void NetworkEditorModule::testCloudConnection() {
     
     this->log(QString("Testing connection to %1...").arg(provider));
     
-    // Simulate connection test
-    QTimer::singleShot(1000, this, [this, provider]() {
-        logSuccess(QString("Connection to %1 successful!").arg(provider));
+    QUrl url(bucket);
+    QNetworkRequest req(url);
+    req.setRawHeader("User-Agent", "ksEditor/1.0");
+    if (!apiKey.isEmpty())
+        req.setRawHeader("Authorization", ("Bearer " + apiKey).toUtf8());
+    
+    QNetworkReply* reply = m_networkManager->get(req);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, provider]() {
+        reply->deleteLater();
+        if (reply->error() == QNetworkReply::NoError || reply->error() == QNetworkReply::AuthenticationRequiredError) {
+            logSuccess(QString("Connection to %1 successful!").arg(provider));
+        } else {
+            logError(QString("Connection failed: %1").arg(reply->errorString()));
+        }
     });
+}
+
+void NetworkEditorModule::onActivation() {
+    ModuleGuiBase::onActivation();
+}
+
+void NetworkEditorModule::onDeactivation() {
+    ModuleGuiBase::onDeactivation();
+}
+
+void NetworkEditorModule::onSettingsChanged() {
 }
 
 } // namespace network

@@ -34,10 +34,7 @@
 #include <QColorDialog>
 #include <QInputDialog>
 #include <QJsonDocument>
-#include <QJsonObject>
 #include <QJsonArray>
-#include <QDateTime>
-#include <QTimer>
 #include <QDebug>
 #include <QTreeWidgetItem>
 #include <QScrollArea>

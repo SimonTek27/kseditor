@@ -1,4 +1,5 @@
 #include "FileFormatEditorModule.h"
+#include "FormatConverter.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -12,6 +13,8 @@
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QMenu>
+#include <QApplication>
+#include <QThread>
 
 namespace ks {
 namespace fileformat {
@@ -63,11 +66,15 @@ void FileFormatEditorModule::importFile(const QString& filePath) {
     QFileInfo fi(filePath);
     QString suffix = fi.suffix().toLower();
     log(QString("Importing format file: %1 (.%2)").arg(filePath, suffix));
+    m_sourcePathEdit->setText(filePath);
+    onDetectFormat();
 }
 
 void FileFormatEditorModule::exportFile(const QString& filePath) {
     if (filePath.isEmpty()) return;
+    QFileInfo fi(filePath);
     log(QString("Exporting to format: %1").arg(filePath));
+    m_targetPathEdit->setText(filePath);
 }
 
 void FileFormatEditorModule::onActivation() {}
@@ -290,10 +297,42 @@ void FileFormatEditorModule::onConvertFormat() {
         logError("No source file selected");
         return;
     }
+    QString targetPath = m_targetPathEdit->text();
+    if (targetPath.isEmpty()) {
+        QFileInfo fi(sourcePath);
+        QString targetExt = m_targetFormatCombo->currentText().section("(", 1, 1).chopped(1);
+        if (targetExt.isEmpty()) targetExt = ".glb";
+        targetPath = fi.absolutePath() + "/" + fi.completeBaseName() + targetExt;
+        m_targetPathEdit->setText(targetPath);
+    }
     log(QString("Converting %1 to %2").arg(sourcePath, m_targetFormatCombo->currentText()));
     m_conversionProgress->setVisible(true);
-    m_conversionProgress->setRange(0, 0);
+    m_conversionProgress->setRange(0, 100);
+    m_conversionProgress->setValue(0);
     m_conversionStatusLabel->setText("Converting...");
+    QApplication::processEvents();
+
+    if (QFile::exists(sourcePath)) {
+        FormatConverter converter;
+        QObject::connect(&converter, &FormatConverter::progressChanged, this, [this](float p) {
+            m_conversionProgress->setValue(static_cast<int>(p * 100.0f));
+            QApplication::processEvents();
+        });
+        ConversionOptions opts;
+        opts.preserveMaterials = m_preserveStructureCheck->isChecked();
+        opts.preserveUVs = true;
+        if (converter.convert(sourcePath, targetPath, opts)) {
+            m_conversionProgress->setValue(100);
+            m_conversionStatusLabel->setText("Conversion complete");
+            logSuccess(QString("Converted to: %1").arg(targetPath));
+        } else {
+            m_conversionStatusLabel->setText("Conversion failed");
+            logError("Failed to convert: " + sourcePath + " to " + targetPath);
+        }
+    } else {
+        logError("Source file not found: " + sourcePath);
+    }
+    m_conversionProgress->setVisible(false);
 }
 
 void FileFormatEditorModule::onValidateFile() {
@@ -301,8 +340,56 @@ void FileFormatEditorModule::onValidateFile() {
     if (!path.isEmpty()) {
         log(QString("Validating file: %1").arg(path));
         m_validationProgress->setVisible(true);
-        m_validationProgress->setRange(0, 0);
+        m_validationProgress->setRange(0, 100);
+        m_validationProgress->setValue(0);
         m_validationResultLabel->setText("Validating...");
+        QApplication::processEvents();
+
+        QFileInfo fi(path);
+        QString suffix = fi.suffix().toLower();
+        QString result;
+
+        if (fi.exists()) {
+            result = QString("File: %1\nSize: %2 bytes\nFormat: .%3\n").arg(fi.fileName()).arg(fi.size()).arg(suffix);
+            m_validationProgress->setValue(30);
+
+            if (suffix == "kn5") {
+                QFile f(path);
+                if (f.open(QIODevice::ReadOnly)) {
+                    QByteArray magic = f.read(4);
+                    f.close();
+                    if (magic.size() == 4) {
+                        quint32 magicVal;
+                        memcpy(&magicVal, magic.constData(), 4);
+                        result += QString("KN5 Magic: 0x%1\n").arg(magicVal, 8, 16, QChar('0'));
+                        result += magicVal == 0x354E4B ? "Status: Valid KN5 header\n" : "Status: Invalid KN5 header\n";
+                    }
+                }
+            } else if (suffix == "glb") {
+                QFile f(path);
+                if (f.open(QIODevice::ReadOnly)) {
+                    QByteArray magic = f.read(4);
+                    f.close();
+                    result += magic == QByteArray("glTF") ? "Status: Valid glTF Binary header\n" : "Status: Invalid glTF header\n";
+                }
+            } else if (suffix == "obj" || suffix == "stl" || suffix == "ply") {
+                result += QString("Status: %1 format detected, file size %2 bytes\n").arg(suffix.toUpper()).arg(fi.size());
+            } else if (suffix == "json" || suffix == "ini") {
+                result += QString("Status: %1 configuration file\n").arg(suffix.toUpper());
+            } else {
+                result += "Status: Unknown format - basic file check passed\n";
+            }
+
+            m_validationProgress->setValue(100);
+            m_validationResultLabel->setText("Validation passed");
+            logSuccess("File validation passed");
+        } else {
+            result = "Error: File not found\n";
+            m_validationResultLabel->setText("Validation failed");
+            logError("File validation failed: file not found");
+        }
+        m_validationOutput->setPlainText(result);
+        m_validationProgress->setVisible(false);
     }
 }
 
@@ -311,7 +398,7 @@ void FileFormatEditorModule::onDetectFormat() {
     if (!path.isEmpty()) {
         QFileInfo fi(path);
         QString suffix = fi.suffix().toLower();
-        for (int i = 0; i < m_sourceFormatCombo->count(); i++) {
+        for (int i = 1; i < m_sourceFormatCombo->count(); i++) {
             if (m_sourceFormatCombo->itemText(i).contains(suffix, Qt::CaseInsensitive)) {
                 m_sourceFormatCombo->setCurrentIndex(i);
                 log(QString("Detected format: %1").arg(m_sourceFormatCombo->currentText()));
@@ -331,6 +418,36 @@ void FileFormatEditorModule::onBatchConvert() {
     m_batchProgress->setVisible(true);
     m_batchProgress->setRange(0, m_batchTable->rowCount());
     m_batchStatusLabel->setText("Processing...");
+    QApplication::processEvents();
+
+    FormatConverter converter;
+    ConversionOptions opts;
+    opts.preserveMaterials = m_preserveStructureCheck->isChecked();
+
+    for (int i = 0; i < m_batchTable->rowCount(); ++i) {
+        QString fileName = m_batchTable->item(i, 0) ? m_batchTable->item(i, 0)->text() : QString();
+        if (fileName.isEmpty()) continue;
+        QString sourceDir = QFileInfo(m_sourcePathEdit->text()).absolutePath();
+        QString sourcePath = sourceDir + "/" + fileName;
+        QString targetDir = QFileInfo(m_targetPathEdit->text()).absolutePath();
+        QString targetExt = m_targetFormatCombo->currentText().section("(", 1, 1).chopped(1);
+        QString targetPath = targetDir + "/" + QFileInfo(fileName).completeBaseName() + targetExt;
+
+        m_batchTable->setItem(i, 3, new QTableWidgetItem("Converting..."));
+        QApplication::processEvents();
+
+        if (converter.convert(sourcePath, targetPath, opts)) {
+            m_batchTable->setItem(i, 3, new QTableWidgetItem("Done"));
+        } else {
+            m_batchTable->setItem(i, 3, new QTableWidgetItem("Failed"));
+            logError(QString("Failed to convert: %1").arg(fileName));
+        }
+        m_batchProgress->setValue(i + 1);
+        QApplication::processEvents();
+    }
+    m_batchStatusLabel->setText("Batch conversion complete");
+    m_batchProgress->setVisible(false);
+    logSuccess("Batch conversion completed");
 }
 
 void FileFormatEditorModule::onConversionOptionsChanged() {

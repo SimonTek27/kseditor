@@ -48,7 +48,7 @@ Rectangle {
             spacing: 4
             Layout.fillWidth: true
 
-            KsButton {
+            AppButton {
                 text: "X"
                 checkable: true
                 autoExclusive: true
@@ -61,7 +61,7 @@ Rectangle {
                 checked: Symmetry.axis === 0
                 onClicked: { Symmetry.axis = 0; activeAxis = "X" }
             }
-            KsButton {
+            AppButton {
                 text: "Y"
                 checkable: true
                 autoExclusive: true
@@ -74,7 +74,7 @@ Rectangle {
                 checked: Symmetry.axis === 1
                 onClicked: { Symmetry.axis = 1; activeAxis = "Y" }
             }
-            KsButton {
+            AppButton {
                 text: "Z"
                 checkable: true
                 autoExclusive: true
@@ -166,7 +166,7 @@ Rectangle {
             spacing: 4
             Layout.fillWidth: true
 
-            KsButton {
+            AppButton {
                 text: "None"
                 checkable: true
                 autoExclusive: true
@@ -178,7 +178,7 @@ Rectangle {
                 checked: Symmetry.clipMode === 0
                 onClicked: Symmetry.clipMode = 0
             }
-            KsButton {
+            AppButton {
                 text: "+ Side"
                 checkable: true
                 autoExclusive: true
@@ -190,7 +190,7 @@ Rectangle {
                 checked: Symmetry.clipMode === 1
                 onClicked: Symmetry.clipMode = 1
             }
-            KsButton {
+            AppButton {
                 text: "- Side"
                 checkable: true
                 autoExclusive: true
@@ -217,7 +217,7 @@ Rectangle {
             spacing: 4
             Layout.fillWidth: true
 
-            KsButton {
+            AppButton {
                 text: "Append"
                 checkable: true
                 autoExclusive: true
@@ -229,7 +229,7 @@ Rectangle {
                 checked: Symmetry.mergeMode === 0
                 onClicked: Symmetry.mergeMode = 0
             }
-            KsButton {
+            AppButton {
                 text: "Replace"
                 checkable: true
                 autoExclusive: true
@@ -241,7 +241,7 @@ Rectangle {
                 checked: Symmetry.mergeMode === 1
                 onClicked: Symmetry.mergeMode = 1
             }
-            KsButton {
+            AppButton {
                 text: "New Obj"
                 checkable: true
                 autoExclusive: true
@@ -261,7 +261,7 @@ Rectangle {
             spacing: 8
             Layout.fillWidth: true
 
-            KsButton {
+            AppButton {
                 height: 32
                 text: "Preview"
                 bgcolor: Symmetry.previewVisible ? "#ff6600" : "#3e3e42"
@@ -277,7 +277,7 @@ Rectangle {
                 }
             }
 
-            KsButton {
+            AppButton {
                 height: 32
                 text: "Apply"
                 bgcolor: "#E10600"

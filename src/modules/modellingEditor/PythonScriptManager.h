@@ -83,7 +83,7 @@ public:
 	void cancelExecution();
 
 	/**
-	 * @brief Controlla se script è in esecuzione
+	 * @brief Checks if script is running
 	 */
 	bool isExecuting() const { return m_isExecuting; }
 

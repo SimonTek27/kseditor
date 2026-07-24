@@ -171,6 +171,7 @@ void VulkanRenderer::destroyDevice() {
         // Wait for all GPU work to finish
         if (g_vk.deviceWaitIdle) g_vk.deviceWaitIdle(m_device);
 
+        destroyOffscreenRenderTarget();
         destroySwapChain();
 
         if (m_commandBuffer && m_commandPool && g_vk.freeCommandBuffers) {
@@ -1033,6 +1034,443 @@ void VulkanWindow::renderFrame() {
         m_renderer->beginFrame();
         m_renderer->endFrame();
     }
+}
+
+// ── Offscreen Rendering ─────────────────────────────────────────────────
+
+bool VulkanRenderer::createOffscreenRenderTarget(int width, int height, VkFormat colorFormat)
+{
+    destroyOffscreenRenderTarget();
+
+    if (!m_device || !g_vk.createImage) return false;
+
+    m_offscreenExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+    m_offscreenColorFormat = colorFormat;
+
+    // Create render pass
+    VkAttachmentDescription colorAtt{};
+    colorAtt.format = colorFormat;
+    colorAtt.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAtt.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAtt.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAtt.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAtt.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAtt.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorAtt.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentDescription depthAtt{};
+    depthAtt.format = VK_FORMAT_D32_SFLOAT;
+    depthAtt.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthAtt.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAtt.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAtt.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depthAtt.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAtt.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthAtt.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference colorRef{};
+    colorRef.attachment = 0;
+    colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference depthRef{};
+    depthRef.attachment = 1;
+    depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass{};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorRef;
+    subpass.pDepthStencilAttachment = &depthRef;
+
+    VkSubpassDependency dep{};
+    dep.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dep.dstSubpass = 0;
+    dep.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dep.srcAccessMask = 0;
+    dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    VkAttachmentDescription attachments[2] = {colorAtt, depthAtt};
+
+    VkRenderPassCreateInfo rpCi{};
+    rpCi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    rpCi.attachmentCount = 2;
+    rpCi.pAttachments = attachments;
+    rpCi.subpassCount = 1;
+    rpCi.pSubpasses = &subpass;
+    rpCi.dependencyCount = 1;
+    rpCi.pDependencies = &dep;
+
+    if (g_vk.createRenderPass(m_device, &rpCi, nullptr, &m_offscreenRenderPass) != VK_SUCCESS) {
+        emit error("Failed to create offscreen render pass");
+        return false;
+    }
+
+    // Create color image
+    VkImageCreateInfo imgCi{};
+    imgCi.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imgCi.imageType = VK_IMAGE_TYPE_2D;
+    imgCi.extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
+    imgCi.mipLevels = 1;
+    imgCi.arrayLayers = 1;
+    imgCi.format = colorFormat;
+    imgCi.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imgCi.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imgCi.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    imgCi.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imgCi.samples = VK_SAMPLE_COUNT_1_BIT;
+
+    if (g_vk.createImage(m_device, &imgCi, nullptr, &m_offscreenColorImage) != VK_SUCCESS) {
+        g_vk.destroyRenderPass(m_device, m_offscreenRenderPass, nullptr);
+        m_offscreenRenderPass = VK_NULL_HANDLE;
+        return false;
+    }
+
+    VkMemoryRequirements cmr;
+    g_vk.getImageMemoryRequirements(m_device, m_offscreenColorImage, &cmr);
+    VkMemoryAllocateInfo cai{};
+    cai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    cai.allocationSize = cmr.size;
+    cai.memoryTypeIndex = findMemoryType(m_physicalDevice, cmr.memoryTypeBits,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    if (g_vk.allocateMemory(m_device, &cai, nullptr, &m_offscreenColorMemory) != VK_SUCCESS) {
+        g_vk.destroyImage(m_device, m_offscreenColorImage, nullptr); m_offscreenColorImage = VK_NULL_HANDLE;
+        g_vk.destroyRenderPass(m_device, m_offscreenRenderPass, nullptr); m_offscreenRenderPass = VK_NULL_HANDLE;
+        return false;
+    }
+    g_vk.bindImageMemory(m_device, m_offscreenColorImage, m_offscreenColorMemory, 0);
+
+    VkImageViewCreateInfo civi{};
+    civi.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    civi.image = m_offscreenColorImage;
+    civi.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    civi.format = colorFormat;
+    civi.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    civi.subresourceRange.baseMipLevel = 0;
+    civi.subresourceRange.levelCount = 1;
+    civi.subresourceRange.baseArrayLayer = 0;
+    civi.subresourceRange.layerCount = 1;
+    g_vk.createImageView(m_device, &civi, nullptr, &m_offscreenColorView);
+
+    // Create depth image
+    imgCi.format = VK_FORMAT_D32_SFLOAT;
+    imgCi.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    if (g_vk.createImage(m_device, &imgCi, nullptr, &m_offscreenDepthImage) != VK_SUCCESS) {
+        destroyOffscreenRenderTarget();
+        return false;
+    }
+
+    VkMemoryRequirements dmr;
+    g_vk.getImageMemoryRequirements(m_device, m_offscreenDepthImage, &dmr);
+    VkMemoryAllocateInfo dai{};
+    dai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    dai.allocationSize = dmr.size;
+    dai.memoryTypeIndex = findMemoryType(m_physicalDevice, dmr.memoryTypeBits,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    if (g_vk.allocateMemory(m_device, &dai, nullptr, &m_offscreenDepthMemory) != VK_SUCCESS) {
+        destroyOffscreenRenderTarget();
+        return false;
+    }
+    g_vk.bindImageMemory(m_device, m_offscreenDepthImage, m_offscreenDepthMemory, 0);
+
+    VkImageViewCreateInfo divi{};
+    divi.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    divi.image = m_offscreenDepthImage;
+    divi.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    divi.format = VK_FORMAT_D32_SFLOAT;
+    divi.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    divi.subresourceRange.baseMipLevel = 0;
+    divi.subresourceRange.levelCount = 1;
+    divi.subresourceRange.baseArrayLayer = 0;
+    divi.subresourceRange.layerCount = 1;
+    g_vk.createImageView(m_device, &divi, nullptr, &m_offscreenDepthView);
+
+    // Create framebuffer
+    VkImageView fbAttachments[2] = {m_offscreenColorView, m_offscreenDepthView};
+    VkFramebufferCreateInfo fbCi{};
+    fbCi.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    fbCi.renderPass = m_offscreenRenderPass;
+    fbCi.attachmentCount = 2;
+    fbCi.pAttachments = fbAttachments;
+    fbCi.width = static_cast<uint32_t>(width);
+    fbCi.height = static_cast<uint32_t>(height);
+    fbCi.layers = 1;
+    if (g_vk.createFramebuffer(m_device, &fbCi, nullptr, &m_offscreenFramebuffer) != VK_SUCCESS) {
+        destroyOffscreenRenderTarget();
+        return false;
+    }
+
+    // Allocate command buffer
+    VkCommandBufferAllocateInfo ai{};
+    ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    ai.commandPool = m_commandPool;
+    ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    ai.commandBufferCount = 1;
+    if (g_vk.allocateCommandBuffers(m_device, &ai, &m_offscreenCommandBuffer) != VK_SUCCESS) {
+        m_offscreenCommandBuffer = VK_NULL_HANDLE;
+        destroyOffscreenRenderTarget();
+        return false;
+    }
+
+    // Create fence
+    VkFenceCreateInfo fenceCi{};
+    fenceCi.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceCi.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    g_vk.createFence(m_device, &fenceCi, nullptr, &m_offscreenFence);
+
+    return true;
+}
+
+void VulkanRenderer::destroyOffscreenRenderTarget()
+{
+    if (!m_device) return;
+    if (g_vk.deviceWaitIdle) g_vk.deviceWaitIdle(m_device);
+
+    if (m_offscreenFence && g_vk.destroyFence) {
+        g_vk.destroyFence(m_device, m_offscreenFence, nullptr);
+        m_offscreenFence = VK_NULL_HANDLE;
+    }
+    if (m_offscreenCommandBuffer && m_commandPool && g_vk.freeCommandBuffers) {
+        g_vk.freeCommandBuffers(m_device, m_commandPool, 1, &m_offscreenCommandBuffer);
+        m_offscreenCommandBuffer = VK_NULL_HANDLE;
+    }
+    if (m_offscreenFramebuffer && g_vk.destroyFramebuffer) {
+        g_vk.destroyFramebuffer(m_device, m_offscreenFramebuffer, nullptr);
+        m_offscreenFramebuffer = VK_NULL_HANDLE;
+    }
+    if (m_offscreenDepthView && g_vk.destroyImageView) {
+        g_vk.destroyImageView(m_device, m_offscreenDepthView, nullptr);
+        m_offscreenDepthView = VK_NULL_HANDLE;
+    }
+    if (m_offscreenDepthImage && g_vk.destroyImage) {
+        g_vk.destroyImage(m_device, m_offscreenDepthImage, nullptr);
+        m_offscreenDepthImage = VK_NULL_HANDLE;
+    }
+    if (m_offscreenDepthMemory && g_vk.freeMemory) {
+        g_vk.freeMemory(m_device, m_offscreenDepthMemory, nullptr);
+        m_offscreenDepthMemory = VK_NULL_HANDLE;
+    }
+    if (m_offscreenColorView && g_vk.destroyImageView) {
+        g_vk.destroyImageView(m_device, m_offscreenColorView, nullptr);
+        m_offscreenColorView = VK_NULL_HANDLE;
+    }
+    if (m_offscreenColorImage && g_vk.destroyImage) {
+        g_vk.destroyImage(m_device, m_offscreenColorImage, nullptr);
+        m_offscreenColorImage = VK_NULL_HANDLE;
+    }
+    if (m_offscreenColorMemory && g_vk.freeMemory) {
+        g_vk.freeMemory(m_device, m_offscreenColorMemory, nullptr);
+        m_offscreenColorMemory = VK_NULL_HANDLE;
+    }
+    if (m_offscreenRenderPass && g_vk.destroyRenderPass) {
+        g_vk.destroyRenderPass(m_device, m_offscreenRenderPass, nullptr);
+        m_offscreenRenderPass = VK_NULL_HANDLE;
+    }
+    m_offscreenExtent = {0, 0};
+}
+
+bool VulkanRenderer::renderOffscreen(int width, int height, const std::function<void()>& drawCommands, QImage& outImage)
+{
+    if (!m_device || !m_offscreenRenderPass || !m_offscreenFramebuffer) return false;
+
+    if (width != static_cast<int>(m_offscreenExtent.width) ||
+        height != static_cast<int>(m_offscreenExtent.height)) {
+        if (!createOffscreenRenderTarget(width, height, m_offscreenColorFormat))
+            return false;
+    }
+
+    // Wait for previous offscreen render
+    if (m_offscreenFence) {
+        g_vk.waitForFences(m_device, 1, &m_offscreenFence, VK_TRUE, UINT64_MAX);
+        g_vk.resetFences(m_device, 1, &m_offscreenFence);
+    }
+
+    VkCommandBuffer cmd = m_offscreenCommandBuffer;
+    g_vk.resetCommandBuffer(cmd, 0);
+
+    VkCommandBufferBeginInfo bi{};
+    bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    g_vk.beginCommandBuffer(cmd, &bi);
+
+    VkClearValue clearColor;
+    clearColor.color.float32[0] = 0.0f;
+    clearColor.color.float32[1] = 0.0f;
+    clearColor.color.float32[2] = 0.0f;
+    clearColor.color.float32[3] = 1.0f;
+    VkClearValue clearDepth;
+    clearDepth.depthStencil = {1.0f, 0};
+    VkClearValue clearValues[2] = {clearColor, clearDepth};
+
+    VkRenderPassBeginInfo rpBi{};
+    rpBi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rpBi.renderPass = m_offscreenRenderPass;
+    rpBi.framebuffer = m_offscreenFramebuffer;
+    rpBi.renderArea.offset = {0, 0};
+    rpBi.renderArea.extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+    rpBi.clearValueCount = 2;
+    rpBi.pClearValues = clearValues;
+    g_vk.cmdBeginRenderPass(cmd, &rpBi, VK_SUBPASS_CONTENTS_INLINE);
+
+    VkViewport vp{};
+    vp.x = 0.0f; vp.y = 0.0f;
+    vp.width = static_cast<float>(width);
+    vp.height = static_cast<float>(height);
+    vp.minDepth = 0.0f; vp.maxDepth = 1.0f;
+    g_vk.cmdSetViewport(cmd, 0, 1, &vp);
+
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+    g_vk.cmdSetScissor(cmd, 0, 1, &scissor);
+
+    // Save/restore renderer state for the callback
+    VkCommandBuffer savedCmd = m_commandBuffer;
+    bool savedPassActive = m_renderPassActive;
+    m_commandBuffer = cmd;
+    m_renderPassActive = true;
+    m_viewportWidth = width;
+    m_viewportHeight = height;
+
+    if (drawCommands) drawCommands();
+
+    m_renderPassActive = false;
+    m_commandBuffer = savedCmd;
+    m_renderPassActive = savedPassActive;
+
+    g_vk.cmdEndRenderPass(cmd);
+    g_vk.endCommandBuffer(cmd);
+
+    // Submit
+    VkSubmitInfo si{};
+    si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    si.commandBufferCount = 1;
+    si.pCommandBuffers = &cmd;
+    g_vk.queueSubmit(m_graphicsQueue, 1, &si, m_offscreenFence);
+
+    if (m_offscreenFence) {
+        g_vk.waitForFences(m_device, 1, &m_offscreenFence, VK_TRUE, UINT64_MAX);
+    } else {
+        g_vk.queueWaitIdle(m_graphicsQueue);
+    }
+
+    // Read back pixels
+    VkBuffer readbackBuf = VK_NULL_HANDLE;
+    VkDeviceMemory readbackMem = VK_NULL_HANDLE;
+    VkDeviceSize imageSize = static_cast<VkDeviceSize>(width * height * 4);
+
+    VkBufferCreateInfo rbCi{};
+    rbCi.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    rbCi.size = imageSize;
+    rbCi.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    rbCi.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    bool readbackOk = false;
+    if (g_vk.createBuffer(m_device, &rbCi, nullptr, &readbackBuf) == VK_SUCCESS) {
+        VkMemoryRequirements rmr;
+        g_vk.getBufferMemoryRequirements(m_device, readbackBuf, &rmr);
+        VkMemoryAllocateInfo rai{};
+        rai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        rai.allocationSize = rmr.size;
+        rai.memoryTypeIndex = findMemoryType(m_physicalDevice, rmr.memoryTypeBits,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        if (g_vk.allocateMemory(m_device, &rai, nullptr, &readbackMem) == VK_SUCCESS) {
+            g_vk.bindBufferMemory(m_device, readbackBuf, readbackMem, 0);
+
+            // One more command buffer to copy image → buffer
+            VkCommandBuffer copyCmd = VK_NULL_HANDLE;
+            VkCommandBufferAllocateInfo cai{};
+            cai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+            cai.commandPool = m_commandPool;
+            cai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+            cai.commandBufferCount = 1;
+            if (g_vk.allocateCommandBuffers(m_device, &cai, &copyCmd) == VK_SUCCESS) {
+                g_vk.resetCommandBuffer(copyCmd, 0);
+                VkCommandBufferBeginInfo cbi{};
+                cbi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+                cbi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+                g_vk.beginCommandBuffer(copyCmd, &cbi);
+
+                VkImageMemoryBarrier barrier{};
+                barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+                barrier.image = m_offscreenColorImage;
+                barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                barrier.subresourceRange.baseMipLevel = 0;
+                barrier.subresourceRange.levelCount = 1;
+                barrier.subresourceRange.baseArrayLayer = 0;
+                barrier.subresourceRange.layerCount = 1;
+                barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+                barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                g_vk.cmdPipelineBarrier(copyCmd,
+                    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT,
+                    0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+                VkBufferImageCopy region{};
+                region.bufferOffset = 0;
+                region.bufferRowLength = 0;
+                region.bufferImageHeight = 0;
+                region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                region.imageSubresource.mipLevel = 0;
+                region.imageSubresource.baseArrayLayer = 0;
+                region.imageSubresource.layerCount = 1;
+                region.imageOffset = {0, 0, 0};
+                region.imageExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
+                g_vk.cmdCopyImageToBuffer(copyCmd, m_offscreenColorImage,
+                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, readbackBuf, 1, &region);
+                g_vk.endCommandBuffer(copyCmd);
+
+                VkSubmitInfo csi{};
+                csi.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+                csi.commandBufferCount = 1;
+                csi.pCommandBuffers = &copyCmd;
+                g_vk.queueSubmit(m_graphicsQueue, 1, &csi, VK_NULL_HANDLE);
+                g_vk.queueWaitIdle(m_graphicsQueue);
+                g_vk.freeCommandBuffers(m_device, m_commandPool, 1, &copyCmd);
+
+                // Map and read back
+                void* mapped = nullptr;
+                if (g_vk.mapMemory(m_device, readbackMem, 0, imageSize, 0, &mapped) == VK_SUCCESS) {
+                    QImage result(reinterpret_cast<const uchar*>(mapped), width, height, QImage::Format_RGBA8888);
+                    outImage = result.copy(); // Deep copy
+                    g_vk.unmapMemory(m_device, readbackMem);
+                    readbackOk = true;
+                }
+
+                // Restore layout for next render
+                VkCommandBuffer restoreCmd = VK_NULL_HANDLE;
+                if (g_vk.allocateCommandBuffers(m_device, &cai, &restoreCmd) == VK_SUCCESS) {
+                    g_vk.resetCommandBuffer(restoreCmd, 0);
+                    g_vk.beginCommandBuffer(restoreCmd, &cbi);
+                    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                    barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                    barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                    barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+                    g_vk.cmdPipelineBarrier(restoreCmd,
+                        VK_PIPELINE_STAGE_TRANSFER_BIT,
+                        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                        0, 0, nullptr, 0, nullptr, 1, &barrier);
+                    g_vk.endCommandBuffer(restoreCmd);
+                    VkSubmitInfo rsi{};
+                    rsi.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+                    rsi.commandBufferCount = 1;
+                    rsi.pCommandBuffers = &restoreCmd;
+                    g_vk.queueSubmit(m_graphicsQueue, 1, &rsi, VK_NULL_HANDLE);
+                    g_vk.queueWaitIdle(m_graphicsQueue);
+                    g_vk.freeCommandBuffers(m_device, m_commandPool, 1, &restoreCmd);
+                }
+            }
+        }
+    }
+
+    if (readbackBuf) g_vk.destroyBuffer(m_device, readbackBuf, nullptr);
+    if (readbackMem) g_vk.freeMemory(m_device, readbackMem, nullptr);
+
+    return readbackOk;
 }
 
 // ── Helper: compile GLSL to SPIR-V ──────────────────────────────────────

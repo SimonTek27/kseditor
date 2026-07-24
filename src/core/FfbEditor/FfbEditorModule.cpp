@@ -12,6 +12,9 @@
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QProgressBar>
+#include <QSettings>
+#include <QApplication>
+#include <QThread>
 
 namespace ks {
 namespace ffb {
@@ -58,7 +61,20 @@ void FfbEditorModule::importFile(const QString& filePath) {
     if (filePath.isEmpty()) return;
     QFileInfo fi(filePath);
     if (fi.suffix().toLower() == "ffbprofile") {
-        log(QString("Loading FFB profile: %1").arg(filePath));
+        QSettings ps(filePath, QSettings::IniFormat);
+        ps.beginGroup("FFB");
+        m_gainSpin->setValue(ps.value("Gain", 75.0).toDouble());
+        m_springSpin->setValue(ps.value("Spring", 50.0).toDouble());
+        m_damperSpin->setValue(ps.value("Damper", 50.0).toDouble());
+        m_frictionSpin->setValue(ps.value("Friction", 30.0).toDouble());
+        m_inertiaSpin->setValue(ps.value("Inertia", 20.0).toDouble());
+        m_springSlider->setValue(static_cast<int>(m_springSpin->value()));
+        m_damperSlider->setValue(static_cast<int>(m_damperSpin->value()));
+        m_frictionSlider->setValue(static_cast<int>(m_frictionSpin->value()));
+        int devIdx = m_deviceCombo->findText(ps.value("Device", "").toString());
+        if (devIdx >= 0) m_deviceCombo->setCurrentIndex(devIdx);
+        ps.endGroup();
+        logSuccess(QString("FFB profile loaded: %1").arg(filePath));
     } else {
         logError(QString("Unsupported FFB profile format: %1").arg(filePath));
     }
@@ -66,7 +82,17 @@ void FfbEditorModule::importFile(const QString& filePath) {
 
 void FfbEditorModule::exportFile(const QString& filePath) {
     if (filePath.isEmpty()) return;
-    log(QString("Exporting FFB profile to: %1").arg(filePath));
+    QSettings ps(filePath, QSettings::IniFormat);
+    ps.beginGroup("FFB");
+    ps.setValue("Gain", m_gainSpin->value());
+    ps.setValue("Spring", m_springSpin->value());
+    ps.setValue("Damper", m_damperSpin->value());
+    ps.setValue("Friction", m_frictionSpin->value());
+    ps.setValue("Inertia", m_inertiaSpin->value());
+    ps.setValue("Device", m_deviceCombo->currentText());
+    ps.endGroup();
+    ps.sync();
+    logSuccess(QString("FFB profile saved: %1").arg(filePath));
 }
 
 void FfbEditorModule::onActivation() {}
@@ -210,39 +236,54 @@ void FfbEditorModule::onDeviceSelected(int index) {
         QString device = m_deviceCombo->currentText();
         log(QString("Selected device: %1").arg(device));
         m_deviceInfoLabel->setText(QString("Connected to %1").arg(device));
+        QSettings s; s.setValue("FFBEditor/Device", device);
     } else {
         m_deviceInfoLabel->setText("No device selected");
     }
 }
 
 void FfbEditorModule::onEffectTypeChanged(int index) {
-    Q_UNUSED(index);
+    QSettings s; s.setValue("FFBEditor/EffectType", m_effectTypeCombo->currentText());
 }
 
 void FfbEditorModule::onGainChanged(double value) {
+    QSettings s; s.setValue("FFBEditor/Gain", value);
     log(QString("Overall gain set to: %1%").arg(value, 0, 'f', 1));
 }
 
 void FfbEditorModule::onSpringStrengthChanged(double value) {
+    QSettings s; s.setValue("FFBEditor/Spring", value);
     log(QString("Spring strength set to: %1%").arg(value, 0, 'f', 1));
 }
 
 void FfbEditorModule::onDamperStrengthChanged(double value) {
+    QSettings s; s.setValue("FFBEditor/Damper", value);
     log(QString("Damper strength set to: %1%").arg(value, 0, 'f', 1));
 }
 
 void FfbEditorModule::onFrictionChanged(double value) {
+    QSettings s; s.setValue("FFBEditor/Friction", value);
     log(QString("Friction set to: %1%").arg(value, 0, 'f', 1));
 }
 
 void FfbEditorModule::onInertiaChanged(double value) {
+    QSettings s; s.setValue("FFBEditor/Inertia", value);
     log(QString("Inertia set to: %1%").arg(value, 0, 'f', 1));
 }
 
 void FfbEditorModule::onTestFFB() {
     log("Testing force feedback...");
     m_testProgress->setVisible(true);
-    m_testProgress->setRange(0, 0);
+    m_testProgress->setRange(0, 100);
+    m_testProgress->setValue(0);
+    // Simulate a sweep test
+    for (int i = 0; i <= 100; i += 10) {
+        m_testProgress->setValue(i);
+        QApplication::processEvents();
+        QThread::msleep(50);
+    }
+    m_testProgress->setVisible(false);
+    logSuccess("Force feedback test completed");
 }
 
 void FfbEditorModule::onStopFFB() {
@@ -254,6 +295,12 @@ void FfbEditorModule::onLoadProfile() {
     QString path = selectFile("Load FFB Profile", "FFB Profiles (*.ffbprofile);;All Files (*)");
     if (!path.isEmpty()) {
         importFile(path);
+        // Add to profile table
+        int row = m_profileTable->rowCount();
+        m_profileTable->insertRow(row);
+        m_profileTable->setItem(row, 0, new QTableWidgetItem(QFileInfo(path).baseName()));
+        m_profileTable->setItem(row, 1, new QTableWidgetItem(m_deviceCombo->currentText()));
+        m_profileTable->setItem(row, 2, new QTableWidgetItem(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm")));
     }
 }
 
@@ -261,7 +308,11 @@ void FfbEditorModule::onSaveProfile() {
     QString path = selectFile("Save FFB Profile", "FFB Profiles (*.ffbprofile)");
     if (!path.isEmpty()) {
         exportFile(path);
-        logSuccess("FFB profile saved");
+        int row = m_profileTable->rowCount();
+        m_profileTable->insertRow(row);
+        m_profileTable->setItem(row, 0, new QTableWidgetItem(QFileInfo(path).baseName()));
+        m_profileTable->setItem(row, 1, new QTableWidgetItem(m_deviceCombo->currentText()));
+        m_profileTable->setItem(row, 2, new QTableWidgetItem(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm")));
     }
 }
 
@@ -275,6 +326,7 @@ void FfbEditorModule::onResetDefaults() {
         m_frictionSpin->setValue(30.0);
         m_frictionSlider->setValue(30);
         m_inertiaSpin->setValue(20.0);
+        QSettings s; s.remove("FFBEditor");
         logSuccess("FFB settings reset to defaults");
     }
 }

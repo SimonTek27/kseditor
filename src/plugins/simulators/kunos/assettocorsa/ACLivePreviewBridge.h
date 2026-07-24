@@ -9,7 +9,7 @@
 #include <QTimer>
 #include <QMap>
 #include <QString>
-#include "Audio/KSAudio.h"
+#include "Audio/AudioTypes.h"
 
 namespace ks { namespace audio {
 

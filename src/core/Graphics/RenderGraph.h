@@ -216,6 +216,7 @@ public:
     VkPipeline createPipeline(VkDevice device, VkPipelineLayout layout, VkRenderPass renderPass,
                               const QVector<VkVertexInputBindingDescription>& bindings,
                               const QVector<VkVertexInputAttributeDescription>& attrs);
+    void setShaderModules(VkShaderModule vert, VkShaderModule frag) { m_vertModule = vert; m_fragModule = frag; }
     
     // Descriptor set management
     VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device);
@@ -238,6 +239,8 @@ private:
     VkPipeline m_pipeline = VK_NULL_HANDLE;
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
     VkDescriptorSetLayout m_descriptorLayout = VK_NULL_HANDLE;
+    VkShaderModule m_vertModule = VK_NULL_HANDLE;
+    VkShaderModule m_fragModule = VK_NULL_HANDLE;
     QMap<QString, TextureInfo> m_textures;
     
     VkSampler createSampler(VkDevice device, VkFilter filter = VK_FILTER_LINEAR,

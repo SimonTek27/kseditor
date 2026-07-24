@@ -5,6 +5,7 @@
 #include "core/Graphics/SceneMesh.h"
 #include "core/Graphics/SceneObject.h"
 
+#include <cstring>
 #include <QDebug>
 #include <QMessageBox>
 #include <QVBoxLayout>
@@ -300,8 +301,8 @@ void VREditorModule::updateFrame()
         m_viewportRenderer->setDrawCallback(
             [this](VkCommandBuffer cmd, int eyeIndex,
                    const QMatrix4x4& view, const QMatrix4x4& proj) {
-                QMatrix4x4 eyeView = m_viewportRenderer->xrManager()->viewMatrix(eyeIndex);
-                QMatrix4x4 eyeProj = m_viewportRenderer->xrManager()->projectionMatrix(eyeIndex);
+                QMatrix4x4 eyeView = xrManager()->viewMatrix(eyeIndex);
+                QMatrix4x4 eyeProj = xrManager()->projectionMatrix(eyeIndex);
                 eyeView = buildViewMatrixForEye(eyeIndex);
                 this->drawScene(cmd, eyeIndex, eyeView, eyeProj);
             });
@@ -319,7 +320,7 @@ void VREditorModule::updateFrame()
 
 QMatrix4x4 VREditorModule::buildViewMatrixForEye(int eyeIndex) const
 {
-    auto* xr = m_viewportRenderer ? m_viewportRenderer->xrManager() : nullptr;
+    auto* xr = m_viewportRenderer ? xrManager() : nullptr;
     if (!xr || eyeIndex >= xr->eyeCount()) {
         QMatrix4x4 m;
         m.lookAt(m_cameraPosition, m_cameraTarget, QVector3D(0, 1, 0));

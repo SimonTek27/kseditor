@@ -51,7 +51,7 @@ Rectangle {
                         { key: "general", label: "General", icon: "G" }
                     ]
 
-                    KsButton {
+                    AppButton {
                         height: 26
                         text: modelData.label
                         bgcolor: activePanel === modelData.key ? "#E10600" : "#252526"
@@ -138,8 +138,8 @@ Rectangle {
                         RowLayout {
                             Layout.leftMargin: 8
                             Layout.rightMargin: 8
-                            KsButton { height: 22; text: "Add"; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 9 }
-                            KsButton { height: 22; text: "Remove"; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 9 }
+                            AppButton { height: 22; text: "Add"; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 9 }
+                            AppButton { height: 22; text: "Remove"; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 9 }
                         }
 
                         Rectangle { height: 6; color: "transparent" }
@@ -156,7 +156,7 @@ Rectangle {
                             CheckBox { height: 16 }
                             Text { text: "Auto-generate LODs"; color: "#888"; font.pixelSize: 9 }
                         }
-                        KsButton { height: 26; text: "Generate LODs"; Layout.fillWidth: true; Layout.leftMargin: 8; Layout.rightMargin: 8; bgcolor: "#E10600"; color: "#121212"; font.pixelSize: 10 }
+                        AppButton { height: 26; text: "Generate LODs"; Layout.fillWidth: true; Layout.leftMargin: 8; Layout.rightMargin: 8; bgcolor: "#E10600"; color: "#121212"; font.pixelSize: 10 }
 
                         Rectangle { height: 6; color: "transparent" }
 
@@ -176,23 +176,23 @@ Rectangle {
                             CheckBox { height: 16 }
                             Text { text: "Include Animations"; color: "#888"; font.pixelSize: 9 }
                         }
-                        KsButton { height: 30; text: "Export KN5"; Layout.fillWidth: true; Layout.leftMargin: 8; Layout.rightMargin: 8; bgcolor: "#E10600"; color: "#121212"; font.pixelSize: 10; font.bold: true }
+                        AppButton { height: 30; text: "Export KN5"; Layout.fillWidth: true; Layout.leftMargin: 8; Layout.rightMargin: 8; bgcolor: "#E10600"; color: "#121212"; font.pixelSize: 10; font.bold: true }
 
                         Rectangle { height: 6; color: "transparent" }
 
                         Text { text: "FILE"; color: "#666"; font.pixelSize: 9; font.bold: true; leftPadding: 8 }
                         RowLayout {
                             Layout.leftMargin: 8; Layout.rightMargin: 8
-                            KsButton { height: 24; text: "Import"; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 9 }
-                            KsButton { height: 24; text: "Export"; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 9 }
-                            KsButton { height: 24; text: "Save"; Layout.fillWidth: true; bgcolor: "#E10600"; color: "#121212"; font.pixelSize: 9 }
+                            AppButton { height: 24; text: "Import"; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 9 }
+                            AppButton { height: 24; text: "Export"; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 9 }
+                            AppButton { height: 24; text: "Save"; Layout.fillWidth: true; bgcolor: "#E10600"; color: "#121212"; font.pixelSize: 9 }
                         }
 
                         Rectangle { height: 6; color: "transparent" }
 
                         Text { text: "ASSETTO CORSA"; color: "#E10600"; font.pixelSize: 9; font.bold: true; leftPadding: 8 }
-                        KsButton { height: 28; text: "Launch in AC"; Layout.fillWidth: true; Layout.leftMargin: 8; Layout.rightMargin: 8; bgcolor: "#E10600"; color: "#121212"; font.pixelSize: 10 }
-                        KsButton { height: 24; text: "Open Content Folder"; Layout.fillWidth: true; Layout.leftMargin: 8; Layout.rightMargin: 8; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 9 }
+                        AppButton { height: 28; text: "Launch in AC"; Layout.fillWidth: true; Layout.leftMargin: 8; Layout.rightMargin: 8; bgcolor: "#E10600"; color: "#121212"; font.pixelSize: 10 }
+                        AppButton { height: 24; text: "Open Content Folder"; Layout.fillWidth: true; Layout.leftMargin: 8; Layout.rightMargin: 8; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 9 }
                         RowLayout {
                             Layout.leftMargin: 8; Layout.rightMargin: 8
                             Text { text: "AC Path:"; color: "#888"; font.pixelSize: 9 }
@@ -204,8 +204,8 @@ Rectangle {
                         Text { text: "BATCH PROCESSOR"; color: "#ff6600"; font.pixelSize: 9; font.bold: true; leftPadding: 8 }
                         RowLayout {
                             Layout.leftMargin: 8; Layout.rightMargin: 8
-                            KsButton { height: 24; text: "Add Files"; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 9 }
-                            KsButton { height: 24; text: "Run Batch"; Layout.fillWidth: true; bgcolor: "#E10600"; color: "#121212"; font.pixelSize: 9 }
+                            AppButton { height: 24; text: "Add Files"; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 9 }
+                            AppButton { height: 24; text: "Run Batch"; Layout.fillWidth: true; bgcolor: "#E10600"; color: "#121212"; font.pixelSize: 9 }
                         }
                         RowLayout {
                             Layout.leftMargin: 8; Layout.rightMargin: 8

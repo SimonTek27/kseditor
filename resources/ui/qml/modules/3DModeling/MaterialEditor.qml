@@ -148,7 +148,7 @@ Rectangle {
                             }
                         }
 
-                        KsButton {
+                        AppButton {
                             text: "+"
                             width: 22
                             height: 20
@@ -182,15 +182,15 @@ Rectangle {
                     Layout.rightMargin: 10
                     spacing: 4
 
-                    KsButton { height: 24; text: "ksPBR"; bgcolor: "#E10600"; color: "#121212"; font.pixelSize: 10
+                    AppButton { height: 24; text: "ksPBR"; bgcolor: "#E10600"; color: "#121212"; font.pixelSize: 10
                         onClicked: applyMaterialPreset("ksPBR") }
-                    KsButton { height: 24; text: "ksDrude"; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 10
+                    AppButton { height: 24; text: "ksDrude"; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 10
                         onClicked: applyMaterialPreset("ksDrude") }
-                    KsButton { height: 24; text: "ksGlass"; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 10
+                    AppButton { height: 24; text: "ksGlass"; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 10
                         onClicked: applyMaterialPreset("ksGlass") }
-                    KsButton { height: 24; text: "ksEmissive"; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 10
+                    AppButton { height: 24; text: "ksEmissive"; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 10
                         onClicked: applyMaterialPreset("ksEmissive") }
-                    KsButton { height: 24; text: "ksSkin"; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 10
+                    AppButton { height: 24; text: "ksSkin"; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 10
                         onClicked: applyMaterialPreset("ksSkin") }
                 }
 
@@ -253,7 +253,7 @@ Rectangle {
 
                         Item { Layout.fillWidth: true }
 
-                        KsButton {
+                        AppButton {
                             text: "Pick"
                             height: 20
                             width: 40
@@ -451,7 +451,7 @@ Rectangle {
 
                         Item { Layout.fillWidth: true }
 
-                        KsButton {
+                        AppButton {
                             text: "None"
                             height: 20
                             width: 40
@@ -627,7 +627,7 @@ Rectangle {
                                 }
                             }
 
-                            KsButton {
+                            AppButton {
                                 text: "..."
                                 width: 20; height: 18
                                 font.pixelSize: 8

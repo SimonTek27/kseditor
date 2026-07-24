@@ -249,7 +249,7 @@ Rectangle {
             // ── 4: Audio Editor ───────────────────────────────────────────────
             Loader {
                 active: currentMode === "audio"
-                source: "modules/AudioEditor/audio_Editor.qml"
+                source: "modules/Audio/AudioEditor/audio_Editor.qml"
                 onStatusChanged: if (status === Loader.Error) console.error("audio_Editor.qml failed to load")
             }
 

@@ -1,6 +1,6 @@
 #include "AudioEngineQML.h"
-#include "KSAudio.h"
-#include "KsCarAudioEngine.h"
+#include "AudioTypes.h"
+#include "CarAudioEngine.h"
 #include "ACEventDefs.h"
 #include "ACGuidsParser.h"
 #include <QFileInfo>

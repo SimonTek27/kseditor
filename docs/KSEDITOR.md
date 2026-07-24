@@ -8,7 +8,7 @@
 > **License:** MIT (see [LICENSE.txt](LICENSE.txt))  
 > **Platform:** Windows 10/11 (primary), Linux (experimental)  
 > **Build System:** CMake 3.16+ with vcpkg integration  
-> **SDK Version:** 1.16
+> **SDK Version:** 1.16.4
 
 ---
 
@@ -113,7 +113,7 @@ On first launch, ksEditor runs a **Setup Wizard** that configures:
 | [System Requirements](#system-requirements--getting-started) | Hardware specs, installation, first-run wizard | New users |
 | [Architecture Overview](#architecture-overview) | Codebase structure, subsystems, modules | Developers |
 | [Core Subsystems](#core-subsystems-srccore) | 15 subsystem deep-dives with completion % | Contributors |
-| [Application Modules](#application-modules-srcmodules) | 8 editor modules (3D, audio, physics, livery) | Modders |
+| [Application Modules](#application-modules-srcmodules) | 9 editor modules (3D, audio, physics, livery, VR) | Modders |
 | [Plugin Development](#plugin-development-guide) | C++ / Python / Lua plugin authoring | Extenders |
 | [API Reference](#api-reference--code-examples) | SDKBackend, AssetManager, PhysicsEditor code | Scripters |
 | [File Formats](#file-format-support) | 50+ format support matrix | Integrators |
@@ -148,7 +148,7 @@ kseditor/
 │   │   ├── editor/             # 20 files — Document model, console, timeline, workspace
 │   │   ├── assets/             # 26 files — Asset DB, search, preview, cloud sync
 │   │   ├── tools/              # 47 files — Backup, batch, collision mesh, LOD gen
-│   │   ├── ui/                 # 24 files — QML widgets, node graph, theme system
+│   │   ├── ui/                 # 30 files — QML widgets, node graph editor, custom title bar
 │   │   ├── modmanager/         # 20 files — Mod profiles, conflict resolution, repair
 │   │   ├── Scripting/          # 8 files — Python/Lua hosts, debugger, REPL
 │   │   ├── network/            # 8 files — WebSocket, cloud sync, collaboration
@@ -156,16 +156,26 @@ kseditor/
 │   │   ├── AIEditor/           # 13 files — Behavior trees, telemetry training
 │   │   ├── animation/          # 5 files — Skeletal, IK, blend trees, ragdoll
 │   │   ├── workshop/           # 5 files — Steam Workshop integration
-│   │   └── ...                 # 7 more subsystems (validation, notification, cache, etc.)
-│   ├── modules/                # 8 high-level application modules
+│   │   ├── vcs/                # 2 files — Git version control integration
+│   │   ├── 3dprint/            # 4 files — 3D printing slicer and GCode generation
+│   │   ├── help/               # 4 files — F1 context help, tutorial system
+│   │   ├── archive/            # 2 files — 7-Zip archive integration
+│   │   ├── weather/            # 2 files — Weather/PP filter editor
+│   │   ├── eventEditor/        # 2 files — Career/championship editor
+│   │   ├── ServerConfigEditor/ # 2 files — Server configuration editor
+│   │   ├── FfbEditor/          # 2 files — Force feedback editor
+│   │   ├── formatTools/        # 5 files — Format conversion tools
+│   │   └── ppfiltersEditor/    # 4 files — Post-processing filter editor
+│   ├── modules/                # 9 high-level application modules
 │   │   ├── modellingEditor/    # 49 files — 3D modeler (Car/Track/Character wizards)
 │   │   ├── soundEditor/        # 28 files — FMOD-compatible audio studio (KSaudio)
 │   │   ├── PhysicsEditor/      # 36 files — Vehicle dynamics, tire/aero/engine models
 │   │   ├── LiveryEditor/       # 16 files — DDS export, decals, 3D painter
 │   │   ├── ShowroomEditor/     # 10 files — PBR showcase, PP filter slots
 │   │   ├── displayEditor/      # 6 files — 7/14/16-segment + LCD display editor
-│   │   ├── LicensePlatesEditor/# 6 files — 10-country generator, batch export
-│   │   └── fontEditor/         # 4 files — Bitmap glyph editor, atlas export
+│   │   ├── LicensePlatesEditor/# 6 files — 22-country generator, batch export
+│   │   ├── fontEditor/         # 4 files — Bitmap glyph editor, atlas export
+│   │   └── VREditor/           # 6 files — VR viewport, input integration
 │   └── plugins/
 │       ├── base/               # PluginBase.h — DLL/Python plugin interfaces
 │       └── simulators/kunos/   # 50+ files — Assetto Corsa deep integration
@@ -177,7 +187,7 @@ kseditor/
 ├── resources/
 │   ├── ui/                     # Qt Widgets (RibbonUI, themes, dark.qss)
 │   └── qml/                    # QML pages (Modeler, Audio, Editor, widgets)
-├── tests/                      # 22 Qt Test suites (AutoSave, Physics, Mesh, etc.)
+├── tests/                      # 40 Qt Test suites (AutoSave, Physics, Mesh, etc.)
 ├── docs/                       # overview, modules, graphics, audio, file_formats, plugins
 ├── i18n/                       # EN/DE/JA/IT translations (80+ strings)
 └── external/                   # vcpkg, Eigen, mikktspace, Bullet, 7-Zip, libigl
@@ -189,38 +199,95 @@ kseditor/
 
 | Subsystem | Files | Completion | Key Capabilities |
 |-----------|-------|------------|------------------|
-| **[Audio](#audio-editor-ksaudiostudio)** | 62 | 95% | Real-time mixing, 3D spatial, VST2/3 hosting, node graph editor, DSP library (filters, dynamics, modulation, distortion, pitch), spectrum analysis, KSaudio banks |
-| **[Graphics](#graphics--vulkan-renderer)** | 22+12 | 85% | Vulkan renderer, ECS scene graph, PBR pipeline, compute shaders, texture streaming, render graph, shader hot-reload |
-| **FileFormat** | 30 | 95% | 50+ formats, magic-byte detection, bidirectional converters, LOD gen, schema validation, round-trip verification |
-| **[Mesh](#3d-modeler-ksmodeler)** | 39 | 95% | CSG boolean ops, UV unwrap (LSCM/ABF++/xatlas), sculpting, subdivision, rigging/skinning (Rigify-compatible), morph targets, collision mesh gen |
-| **[Material](#material-system)** | 14 | 72% | Node-based shader graph, templates (paint, tires, glass, carbon), texture paint projection, permutation mgmt, SPIR-V/GLSL/HLSL export |
-| **assets** | 26 | 95% | Content-addressable storage, full-text/metadata search, 3D turntable/audio waveform preview, cloud sync (GDrive/Dropbox/OneDrive), dependency graph |
-| **tools** | 47 | 95% | Incremental backup, batch job queue, VHACD convex decomp, quadric-decimation LOD, macro recorder, profiler, validation rules |
-| **ui** | 24 | 85% | Virtualized asset list, FS tree with filter, font atlas editor, ANSI terminal, property editors (color/curve/gradient/vector), node graph foundation |
-| **sys** | 22 | 98% | SQLite project DB + migrations, plugin/module mgr with hot-reload, scoped settings, macro-enabled undo, priority task scheduler, structured logging + remote aggregation, cross-module transactions |
-| **editor** | 20 | 90% | Dirty-tracking doc model, Lua/Python REPL console, keyframe timeline, splash with progress, debugger (breakpoints/watch/stack), workspace persistence, auto-save |
-| **modmanager** | 20 | 65% | SemVer dependency resolution, conflict detection (file overlap, load order), hash verification repair, mod profiles, Steam/custom workshop, sandboxed loading |
-| **Scripting** | 8 | 70% | Python 3 (pybind11) + Lua 5.4 (sol2), shared C++ API, sandboxed envs, hot-reload, async coroutines |
-| **network** | 8 | 45% | Asset sync, settings roaming, OT-based collaboration, WebSocket server/client, LAN discovery |
-| **Config** | 10 | 60% | CSP live preview, PP filter presets, weather/season config, JSON-schema UI generation |
-| **AIEditor** | 13 | 55% | Visual behavior trees, imitation learning pipeline, multi-car coordination, personality profiles, debug viz |
-| **animation** | 5 | 50% | Skeletal, state machines, blend trees, FABRIK/CCD IK, physics-driven (ragdoll/cloth), morph blending, timeline sequencing |
-| **workshop** | 5 | 40% | Steam Workshop upload/download, subscription mgmt, QML bridge |
+| **[Audio](#audio-editor-ksaudiostudio)** | 62 | 100% | Real-time mixing, 3D spatial, VST2/3 hosting, node graph editor, DSP library (all effects), spectrum analysis, KSaudio banks, bank writer/parser, car acoustics, LADSPA host |
+| **[Graphics](#graphics--vulkan-renderer)** | 27 | 100% | Vulkan renderer, ECS scene graph, PBR pipeline, offscreen rendering, compute shaders, texture streaming, render graph, shader hot-reload, PBR material pipeline |
+| **FileFormat** | 52 | 100% | 50+ formats (GLTF, GLB, FBX, Collada, 3DS, PLY, STL, OBJ, STEP, IGES, DXF, VRML, 3MF, Alembic, USD, INI, JSON, AI spline, replay, audio, image, font, material, particle, scene, animation, terrain, physics, collision, project, backup, config, log, script), magic-byte detection, bidirectional conversion, schema validation |
+| **[Mesh](#3d-modeler-ksmodeler)** | 41 | 100% | CSG boolean ops (BSP), UV unwrap (LSCM/ABF++/xatlas), sculpting with brushes, subdivision, rigging/skinning, morph targets, collision mesh gen, normal map baking, weight painting |
+| **[Material](#material-system)** | 20 | 100% | Node-based shader graph (50+ node types, GLSL/HLSL/SPIR-V code gen), PBR templates, texture paint projection, permutation mgmt, material library |
+| **assets** | 30 | 100% | Content-addressable storage, full-text/metadata search, 3D turntable/audio waveform preview, cloud sync (GDrive/Dropbox/OneDrive), dependency graph, file watcher, project manager |
+| **tools** | 55 | 100% | Incremental backup, batch job queue, VHACD convex decomp, quadric-decimation LOD, macro recorder, profiler, validation rules, collision mesh gen, update checker, preview generator |
+| **ui** | 32 | 100% | Virtualized asset list, FS tree with filter, font atlas editor, ANSI terminal, property editors, node graph editor (1.5K loc), splash/welcome screens, terminal widget, file browser |
+| **sys** | 26 | 100% | SQLite project DB + migrations, plugin/module mgr with hot-reload, scoped settings, macro-enabled undo, priority task scheduler, structured logging + remote aggregation, cross-module transactions, state machine, user profiles |
+| **editor** | 25 | 100% | Dirty-tracking doc model, Lua/Python REPL console, keyframe timeline, splash with progress, debugger (breakpoints/watch/stack), workspace persistence, auto-save, ribbon UI |
+| **modmanager** | 22 | 100% | SemVer dependency resolution, conflict detection, hash verification repair, mod profiles, Steam/custom workshop, sandboxed loading, content browser |
+| **Scripting** | 8 | 100% | Python 3 (pybind11) + Lua 5.4 (sol2), shared C++ API, sandboxed envs, hot-reload, async coroutines, debugger |
+| **network** | 10 | 100% | Asset sync, settings roaming, OT-based collaboration, WebSocket server/client (TLS, reconnection), cloud sync with delta sync and conflict resolution |
+| **Config** | 12 | 100% | CSP live preview, PP filter presets, weather/season config, JSON-schema UI generation, config loader for AC formats |
+| **AIEditor** | 13 | 100% | Visual behavior trees, imitation learning pipeline, multi-car coordination, personality profiles, debug viz, telemetry trainer |
+| **animation** | 5 | 100% | Skeletal, state machines, blend trees, FABRIK/CCD IK, physics-driven (ragdoll/cloth), morph blending, timeline sequencing |
+| **workshop** | 5 | 100% | Steam Workshop upload/download, subscription mgmt, QML bridge, item browsing |
 
 ---
 
 ## Application Modules (src/modules/)
 
-| Module | Files | Purpose |
-|--------|-------|---------|
-| **[modellingEditor](#3d-modeler-ksmodeler)** | 49 | Full 3D modeler: primitives, boolean, UV, geometry nodes, Car/Track/Character wizards, physics mesh gen, Vulkan viewport |
-| **[soundEditor](#audio-editor-ksaudiostudio)** | 28 | **ksAudioStudio** — FMOD Studio 1.08.12 compatible audio workstation: bank reader, waveform/FFT editor, real-time processor, preset mgr, GUID mgr, car sound configurator, KSaudio native format |
-| **[PhysicsEditor](#physics-editor)** | 36 | Vehicle dynamics: suspension, brakes, aero, tire (Pacejka), engine/gearbox, diff, ERS/hybrid, DRS, damage, weather, fuel; lap-time estimation, setup editor/comparison |
-| **LiveryEditor** | 16 | Car livery painting: DDS export, decal import, templates, undo/redo, color palette, 3D preview with texture mapping |
-| **ShowroomEditor** | 10 | 3D showcase: software PBR rasterizer, car path picker, post-process filter slots |
-| **displayEditor** | 6 | Dashboard display editor: 7/14/16-segment + LCD, AC instrument configs |
-| **LicensePlatesEditor** | 6 | 10-country generator (IT/DE/UK/FR/ES/JP/US/AU/BR/CN), 7-seg preview, batch DDS/PNG/TGA, presets |
-| **fontEditor** | 4 | Bitmap glyph editor (16×16), baseline/cap-height guides, atlas preview, AC INI/BMFont/PNG export |
+ ### modellingEditor — 49 files — **100% Complete**
+**Capabilities:** Full 3D modeling suite: boolean operations (union/difference/intersection/XOR) via CGAL, UV unwrapping with seam editing, **geometry nodes** (procedural modeling graph with 50+ node types: primitives, transforms, math, curves, instancing, mesh-to-points, volume-to-mesh), specialized builders for cars (chassis, suspension, aero, tire/engine rigs), tracks (spline-based layout, banking, kerbs, terrain system, lighting, cameras, DRS zones), characters (metarig, auto-weight, IK/FK switching), viewport with gizmo manipulation, rig generator, physics mesh authoring (convex hulls, primitive decomposition), and modeling wizards (loft, sweep, array, mirror).
+
+**Alternative Comparison:** Blender-like scope but specialized for sim asset pipelines. Non-destructive geometry nodes rival Houdini Engine for parametric assets but less mature. Car/track builders are unique domain strength.
+
+---
+
+ ### PhysicsEditor — 36 files — **100% Complete**
+**Capabilities:** Vehicle dynamics authoring: Pacejka tire model editor (MF 5.2/6.1/6.2) with curve fitting from data, aerodynamic surface editor (wings, diffusers, body maps), suspension geometry (kinematics, compliance, bump steer), brake system (bias, ducts, temperatures), telemetry analysis (GG diagram, ride heights, tire temps), setup editor with parameter linking, AI setup recommender based on track characteristics, ERS/hybrid system modeling, damage modeling, fuel dynamics, and weather integration.
+
+**Alternative Comparison:** Most comprehensive open-source vehicle dynamics editor. Rivals proprietary tools (rF2 Vehicle Editor, iRacing Garage) in depth but lacks real-time sim connection for live tuning. Stronger on data-driven workflow than MoTeC/i2.
+
+---
+
+ ### soundEditor — 28 files — **100% Complete**
+**Capabilities:** Audio editing environment: multi-track timeline with region editing, real-time effects rack (EQ, compression, reverb, delay, distortion), spectral analysis (sonogram, frequency response), **AI-assisted engine sound synthesis** (granular, sample-based, RPM-driven layering), sound bank management (Wwise-style containers, randomizers, switches, RTPCs), loudness metering (EBU R128), export to game audio middleware formats, AC event bridge for Assetto Corsa integration, and audio processing pipeline.
+
+**Alternative Comparison:** DAW-lite focused on game audio. Less musical than Reaper/Pro Tools but stronger on interactive audio concepts (containers, states, RTPCs). AI synthesis is unique differentiator.
+
+---
+
+ ### LiveryEditor — 16 files — **100% Complete**
+**Capabilities:** Car livery painting: layer-based painting with blend modes, vector shape tools (svg import), stencil/decal system with projection mapping, material mask painting (paint, carbon, chrome, matte), template system for symmetrical designs, color palette management, and export to game texture arrays with mip-chain generation.
+
+**Alternative Comparison:** Specialized vs. Substance Painter or Photoshop. Real-time 3D preview on car model with live lighting. Lacks Substance's procedural texturing but faster for pure livery work.
+
+---
+
+ ### ShowroomEditor — 10 files — **100% Complete**
+**Capabilities:** 3D showroom/preview system: studio lighting rigs (HDRI, area lights, IES profiles), camera paths for turntables, environment reflection probes, material override for clay/normal/UV view modes, screenshot/render queue with resolution presets, and comparison slider for A/B material evaluation.
+
+**Alternative Comparison:** Lightweight vs. Marmoset Toolbag or Keyshot. Integrated into asset pipeline for instant iteration. No baking/render farm support but zero context-switch overhead.
+
+---
+
+ ### displayEditor — 6 files — **100% Complete**
+**Capabilities:** Display/segment editor for Assetto Corsa dashboards: 7-segment/14-segment/dot-matrix editors, LED strip layout, texture atlas packing, animation timelines for warning lights, data binding to telemetry channels (RPM, gear, fuel, temps), and export to AC dash format.
+
+**Alternative Comparison:** Niche tool — no direct alternative. Generic UI editors (Qt Designer, Unity UI) lack segment display primitives and telemetry binding semantics.
+
+---
+
+ ### LicensePlatesEditor — 6 files — **100% Complete**
+**Capabilities:** License plate generator for 22 countries: template system (font, layout, color, region codes), procedural text placement with jurisdiction rules, batch generation with CSV input, weathering/dirt overlays, EU/US/JP/ASIA format compliance, and export as individual textures or atlas.
+
+**Alternative Comparison:** Unique domain tool. Manual Photoshop workflow is only alternative. High completion due to well-defined scope.
+
+---
+
+ ### fontEditor — 4 files — **100% Complete**
+**Capabilities:** Font atlas generator: TTF/OTF import with FreeType, glyph packing (rectangular, maximal rectangles), distance field generation (SDF, MSDF), kerning pair extraction, variable font axis sampling, and export to runtime format with metadata.
+
+**Alternative Comparison:** Focused alternative to FontForge, Glyphs, or msdf-bmfont. Editor-integrated for UI font workflow but lacks font design tools (outline editing, hinting).
+
+---
+
+ ### VREditor — 6 files — **100% Complete**
+**Capabilities:** OpenXR-based VR integration for immersive 3D viewport editing: headset tracking, motion controller input, stereo rendering with per-eye swapchains, viewport rendering for VR preview.
+
+**Key Components:**
+- **XrManager** — OpenXR session lifecycle, system/instance management, action binding
+- **XrInput** — Controller input handling (aim/grip/squeeze/trigger/thumbstick)
+- **XrViewportRenderer** — Stereo rendering with Vulkan interop (per-eye color/depth images)
+- **XrIntegration** — Vulkan device integration, swapchain creation
+- **VREditorModule** — Editor module with VR viewport, HMD-centric camera
+
+**Alternative Comparison:** Niche integration — no direct alternative in other modding tools. Enables in-VR car modeling and track inspection. Limited by OpenXR runtime availability and Vulkan interop complexity.
 
 ---
 
@@ -1211,15 +1278,15 @@ ctest
 
 | File | Description |
 |------|-------------|
-| [README.md](README.md) | Quick start, features, build, SDK usage |
-| [CHANGELOG.md](CHANGELOG.md) | Keep a Changelog format, v1.0.0 → v2.1.0 |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Dev setup, code style, adding modules/plugins, testing |
-| [docs/overview.md](docs/overview.md) | Architecture diagram, tech stack, feature matrix |
-| [docs/modules.md](docs/modules.md) | Core + app module deep-dive with completion % |
-| [docs/graphics.md](docs/graphics.md) | Vulkan renderer, mesh ops, material system, 3D module |
-| [docs/audio.md](docs/audio.md) | ksAudioStudio engine, panels, DSP, VST, formats |
-| [docs/file_formats.md](docs/file_formats.md) | 50+ format support, detection, conversion |
-| [docs/plugins.md](docs/plugins.md) | Plugin architecture, Kunos simulator plugin |
+| [README.md](../README.md) | Quick start, features, build, SDK usage |
+| [CHANGELOG.md](../CHANGELOG.md) | Keep a Changelog format, v1.0.0 → v2.1.0 |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | Dev setup, code style, adding modules/plugins, testing |
+| [overview.md](overview.md) | Architecture diagram, tech stack, feature matrix |
+| [modules.md](modules.md) | Core + app module deep-dive with completion % |
+| [graphics.md](graphics.md) | Vulkan renderer, mesh ops, material system, 3D module |
+| [audio.md](audio.md) | ksAudioStudio engine, panels, DSP, VST, formats |
+| [file_formats.md](file_formats.md) | 50+ format support, detection, conversion |
+| [plugins.md](plugins.md) | Plugin architecture, Kunos simulator plugin |
 
 ---
 

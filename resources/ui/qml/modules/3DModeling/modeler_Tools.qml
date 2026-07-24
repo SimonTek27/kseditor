@@ -166,12 +166,12 @@ Rectangle {
                 Rectangle { height: 10 }
 
                 Text { text: "EDITING"; color: "#666"; font.pixelSize: 10; font.bold: true }
-                KsButton { height: 28; text: "Extrude"; bgcolor: "#E10600"; color: "#121212" }
-                KsButton { height: 28; text: "Inset"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Bevel"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Loop Cut"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Knife"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Weld"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Extrude"; bgcolor: "#E10600"; color: "#121212" }
+                AppButton { height: 28; text: "Inset"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Bevel"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Loop Cut"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Knife"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Weld"; bgcolor: "transparent"; color: "#ffffff" }
 
                 Rectangle { height: 10 }
 
@@ -289,13 +289,13 @@ Rectangle {
                 }
 
                 RowLayout {
-                    KsButton { height: 24; text: "Mirror X"; bgcolor: "transparent"; color: "#ffffff"; Layout.fillWidth: true }
-                    KsButton { height: 24; text: "Y"; bgcolor: "transparent"; color: "#ffffff"; width: 30 }
-                    KsButton { height: 24; text: "Z"; bgcolor: "transparent"; color: "#ffffff"; width: 30 }
+                    AppButton { height: 24; text: "Mirror X"; bgcolor: "transparent"; color: "#ffffff"; Layout.fillWidth: true }
+                    AppButton { height: 24; text: "Y"; bgcolor: "transparent"; color: "#ffffff"; width: 30 }
+                    AppButton { height: 24; text: "Z"; bgcolor: "transparent"; color: "#ffffff"; width: 30 }
                 }
 
-                KsButton { height: 28; text: "Align"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton {
+                AppButton { height: 28; text: "Align"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton {
                     id: propBtn
                     height: 28; text: "Proportional Edit (" + Modeler.getShortcutKey("toggle_proportional") + ")";
                     bgcolor: Modeler.isProportionalEditing() ? "#ff6600" : "transparent";
@@ -345,13 +345,13 @@ Rectangle {
 
                         RowLayout {
                             Layout.fillWidth: true
-                            KsButton {
+                            AppButton {
                                 height: 22; text: "Pick"; Layout.fillWidth: true
                                 bgcolor: Modeler.hasProportionalCenter() ? "#E10600" : "#3e3e42"
                                 color: "#ffffff"
                                 onClicked: { /* QML viewport will call pick on click */ }
                             }
-                            KsButton {
+                            AppButton {
                                 height: 22; text: "Clear"
                                 bgcolor: "#3e3e42"; color: "#ffffff"
                                 onClicked: Modeler.clearProportionalCenter()
@@ -366,41 +366,41 @@ Rectangle {
                 Rectangle { height: 10 }
 
                 Text { text: "MESH OPS"; color: "#666"; font.pixelSize: 10; font.bold: true }
-                KsButton { height: 28; text: "Subsurf"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Decimate"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Remesh"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Spin"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Boolean"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Symmetry"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Subsurf"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Decimate"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Remesh"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Spin"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Boolean"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Symmetry"; bgcolor: "transparent"; color: "#ffffff" }
 
                 Rectangle { height: 10 }
 
                 Text { text: "DEFORM"; color: "#ff8800"; font.pixelSize: 10; font.bold: true }
-                KsButton {
+                AppButton {
                     height: 28; text: "Twist";
                     bgcolor: activeTool === "twist" ? "#E10600" : "#3e3e42";
                     color: activeTool === "twist" ? "#121212" : "#ffffff";
                     onClicked: { activeTool = "twist"; modelerTools.toolSelected("twist"); }
                 }
-                KsButton {
+                AppButton {
                     height: 28; text: "Bend";
                     bgcolor: activeTool === "bend" ? "#E10600" : "#3e3e42";
                     color: activeTool === "bend" ? "#121212" : "#ffffff";
                     onClicked: { activeTool = "bend"; modelerTools.toolSelected("bend"); }
                 }
-                KsButton {
+                AppButton {
                     height: 28; text: "Stretch";
                     bgcolor: activeTool === "stretch" ? "#E10600" : "#3e3e42";
                     color: activeTool === "stretch" ? "#121212" : "#ffffff";
                     onClicked: { activeTool = "stretch"; modelerTools.toolSelected("stretch"); }
                 }
-                KsButton {
+                AppButton {
                     height: 28; text: "Lattice";
                     bgcolor: activeTool === "lattice" ? "#E10600" : "#3e3e42";
                     color: activeTool === "lattice" ? "#121212" : "#ffffff";
                     onClicked: { activeTool = "lattice"; modelerTools.toolSelected("lattice"); }
                 }
-                KsButton {
+                AppButton {
                     height: 28; text: "Cage Deform";
                     bgcolor: activeTool === "cage" ? "#E10600" : "#3e3e42";
                     color: activeTool === "cage" ? "#121212" : "#ffffff";
@@ -410,36 +410,36 @@ Rectangle {
                 Rectangle { height: 10 }
 
                 Text { text: "UV"; color: "#666"; font.pixelSize: 10; font.bold: true }
-                KsButton { height: 28; text: "Unwrap"; bgcolor: "#E10600"; color: "#121212" }
-                KsButton { height: 28; text: "Project"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Mark Seam"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Unwrap"; bgcolor: "#E10600"; color: "#121212" }
+                AppButton { height: 28; text: "Project"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Mark Seam"; bgcolor: "transparent"; color: "#ffffff" }
 
                 Rectangle { height: 10 }
 
                 Text { text: "SCULPT"; color: "#666"; font.pixelSize: 10; font.bold: true }
-                KsButton { height: 28; text: "Draw"; bgcolor: "#E10600"; color: "#121212" }
-                KsButton { height: 28; text: "Smooth"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Grab"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Flatten"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Crease"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Draw"; bgcolor: "#E10600"; color: "#121212" }
+                AppButton { height: 28; text: "Smooth"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Grab"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Flatten"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Crease"; bgcolor: "transparent"; color: "#ffffff" }
 
                 Rectangle { height: 10 }
 
                 Text { text: "AC TRACK TOOLS"; color: "#ff6600"; font.pixelSize: 10; font.bold: true }
-                KsButton { height: 28; text: "Spline Editor"; bgcolor: "#ff6600"; color: "#ffffff" }
-                KsButton { height: 28; text: "AI Line Tool"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Start Positions"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Checkpoints"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Kerb Placer"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Barrier Tool"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Spline Editor"; bgcolor: "#ff6600"; color: "#ffffff" }
+                AppButton { height: 28; text: "AI Line Tool"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Start Positions"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Checkpoints"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Kerb Placer"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Barrier Tool"; bgcolor: "transparent"; color: "#ffffff" }
 
                 Rectangle { height: 10 }
 
                 Text { text: "AC TERRAIN"; color: "#ff6600"; font.pixelSize: 10; font.bold: true }
-                KsButton { height: 28; text: "Heightmap Paint"; bgcolor: "#ff6600"; color: "#ffffff" }
-                KsButton { height: 28; text: "Grass Zones"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Surface Types"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton {
+                AppButton { height: 28; text: "Heightmap Paint"; bgcolor: "#ff6600"; color: "#ffffff" }
+                AppButton { height: 28; text: "Grass Zones"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Surface Types"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton {
                     height: 28; text: "Texture Paint";
                     bgcolor: activeTool === "paint" ? "#E10600" : "transparent";
                     color: "#ffffff";
@@ -452,7 +452,7 @@ Rectangle {
                 Rectangle { height: 10 }
 
                 Text { text: "AC CAR TOOLS"; color: "#ff6600"; font.pixelSize: 10; font.bold: true }
-                KsButton {
+                AppButton {
                     height: 28; text: "Livery Painter";
                     bgcolor: activeTool === "livery" ? "#E10600" : "#ff6600";
                     color: "#ffffff";
@@ -461,22 +461,22 @@ Rectangle {
                         modelerTools.toolSelected(activeTool)
                     }
                 }
-                KsButton { height: 28; text: "Helmet Editor"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Suit Graphics"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Helmet Editor"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Suit Graphics"; bgcolor: "transparent"; color: "#ffffff" }
 
                 Rectangle { height: 10 }
 
                 Text { text: "EXPORT"; color: "#666"; font.pixelSize: 10; font.bold: true }
-                KsButton { height: 28; text: "Export KN5"; bgcolor: "#E10600"; color: "#121212" }
-                KsButton { height: 28; text: "Export FBX"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Export OBJ"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Export KN5"; bgcolor: "#E10600"; color: "#121212" }
+                AppButton { height: 28; text: "Export FBX"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Export OBJ"; bgcolor: "transparent"; color: "#ffffff" }
 
                 Rectangle { height: 10 }
 
                 Text { text: "VIEW"; color: "#666"; font.pixelSize: 10; font.bold: true }
-                KsButton { height: 28; text: "Wireframe"; bgcolor: "transparent"; color: "#ffffff" }
-                KsButton { height: 28; text: "Solid"; bgcolor: "#E10600"; color: "#121212" }
-                KsButton { height: 28; text: "Textured"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Wireframe"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Solid"; bgcolor: "#E10600"; color: "#121212" }
+                AppButton { height: 28; text: "Textured"; bgcolor: "transparent"; color: "#ffffff" }
 
                 Item { height: 10 }
             }

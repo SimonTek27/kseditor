@@ -66,7 +66,7 @@ Rectangle {
                 }
                 Item { Layout.fillWidth: true }
 
-                KsButton {
+                AppButton {
                     text: "Run All"
                     height: 24
                     font.pixelSize: 10
@@ -94,18 +94,18 @@ Rectangle {
 
                     Text { text: "TOOLS"; color: "#666666"; font.pixelSize: 10; font.bold: true }
 
-                    KsButton { height: 26; text: "Colliders"; font.pixelSize: 10; bgcolor: activeTool === "colliders" ? "#E10600" : "#3e3e42"; color: activeTool === "colliders" ? "#121212" : "#ffffff"; onClicked: { activeTool = "colliders" } }
-                    KsButton { height: 26; text: "LODs"; font.pixelSize: 10; bgcolor: activeTool === "lods" ? "#E10600" : "#3e3e42"; color: activeTool === "lods" ? "#121212" : "#ffffff"; onClicked: { activeTool = "lods" } }
-                    KsButton { height: 26; text: "Mirrors"; font.pixelSize: 10; bgcolor: activeTool === "mirrors" ? "#E10600" : "#3e3e42"; color: activeTool === "mirrors" ? "#121212" : "#ffffff"; onClicked: { activeTool = "mirrors" } }
-                    KsButton { height: 26; text: "Exhaust"; font.pixelSize: 10; bgcolor: activeTool === "exhaust" ? "#E10600" : "#3e3e42"; color: activeTool === "exhaust" ? "#121212" : "#ffffff"; onClicked: { activeTool = "exhaust" } }
-                    KsButton { height: 26; text: "Lights"; font.pixelSize: 10; bgcolor: activeTool === "lights" ? "#E10600" : "#3e3e42"; color: activeTool === "lights" ? "#121212" : "#ffffff"; onClicked: { activeTool = "lights" } }
-                    KsButton { height: 26; text: "Interior"; font.pixelSize: 10; bgcolor: activeTool === "interior" ? "#E10600" : "#3e3e42"; color: activeTool === "interior" ? "#121212" : "#ffffff"; onClicked: { activeTool = "interior" } }
-                    KsButton { height: 26; text: "Data Export"; font.pixelSize: 10; bgcolor: activeTool === "export" ? "#E10600" : "#3e3e42"; color: activeTool === "export" ? "#121212" : "#ffffff"; onClicked: { activeTool = "export" } }
-                    KsButton { height: 26; text: "Paint Config"; font.pixelSize: 10; bgcolor: activeTool === "paint" ? "#E10600" : "#3e3e42"; color: activeTool === "paint" ? "#121212" : "#ffffff"; onClicked: { activeTool = "paint" } }
+                    AppButton { height: 26; text: "Colliders"; font.pixelSize: 10; bgcolor: activeTool === "colliders" ? "#E10600" : "#3e3e42"; color: activeTool === "colliders" ? "#121212" : "#ffffff"; onClicked: { activeTool = "colliders" } }
+                    AppButton { height: 26; text: "LODs"; font.pixelSize: 10; bgcolor: activeTool === "lods" ? "#E10600" : "#3e3e42"; color: activeTool === "lods" ? "#121212" : "#ffffff"; onClicked: { activeTool = "lods" } }
+                    AppButton { height: 26; text: "Mirrors"; font.pixelSize: 10; bgcolor: activeTool === "mirrors" ? "#E10600" : "#3e3e42"; color: activeTool === "mirrors" ? "#121212" : "#ffffff"; onClicked: { activeTool = "mirrors" } }
+                    AppButton { height: 26; text: "Exhaust"; font.pixelSize: 10; bgcolor: activeTool === "exhaust" ? "#E10600" : "#3e3e42"; color: activeTool === "exhaust" ? "#121212" : "#ffffff"; onClicked: { activeTool = "exhaust" } }
+                    AppButton { height: 26; text: "Lights"; font.pixelSize: 10; bgcolor: activeTool === "lights" ? "#E10600" : "#3e3e42"; color: activeTool === "lights" ? "#121212" : "#ffffff"; onClicked: { activeTool = "lights" } }
+                    AppButton { height: 26; text: "Interior"; font.pixelSize: 10; bgcolor: activeTool === "interior" ? "#E10600" : "#3e3e42"; color: activeTool === "interior" ? "#121212" : "#ffffff"; onClicked: { activeTool = "interior" } }
+                    AppButton { height: 26; text: "Data Export"; font.pixelSize: 10; bgcolor: activeTool === "export" ? "#E10600" : "#3e3e42"; color: activeTool === "export" ? "#121212" : "#ffffff"; onClicked: { activeTool = "export" } }
+                    AppButton { height: 26; text: "Paint Config"; font.pixelSize: 10; bgcolor: activeTool === "paint" ? "#E10600" : "#3e3e42"; color: activeTool === "paint" ? "#121212" : "#ffffff"; onClicked: { activeTool = "paint" } }
 
                     Item { Layout.fillHeight: true }
 
-                    KsButton {
+                    AppButton {
                         text: "Batch Process"
                         height: 28
                         bgcolor: "#ff6600"
@@ -136,7 +136,7 @@ Rectangle {
                     Text { text: "COLLIDER GENERATOR"; color: "#E10600"; font.pixelSize: 12; font.bold: true }
 
                     RowLayout {
-                        KsButton {
+                        AppButton {
                             text: "Generate Colliders"
                             height: 28
                             bgcolor: "#E10600"
@@ -145,7 +145,7 @@ Rectangle {
                                 if (Physics) Physics.generateColliders(qualityCombo.currentText, modeCombo.currentText, simplifyChk.checked, optimizeChk.checked)
                             }
                         }
-                        KsButton {
+                        AppButton {
                             text: "Auto-Generate"
                             height: 28
                             bgcolor: "transparent"
@@ -181,14 +181,14 @@ Rectangle {
                     Text { text: "LOD MANAGER"; color: "#E10600"; font.pixelSize: 12; font.bold: true }
 
                     RowLayout {
-                        KsButton {
+                        AppButton {
                             text: "Import LOD"
                             height: 28
                             bgcolor: "#E10600"
                             color: "#121212"
                             onClicked: lodFileDialog.open()
                         }
-                        KsButton {
+                        AppButton {
                             text: "Auto-Generate LODs"
                             height: 28
                             bgcolor: "transparent"
@@ -217,7 +217,7 @@ Rectangle {
                     Text { text: "MIRROR SETUP"; color: "#E10600"; font.pixelSize: 12; font.bold: true }
 
                     RowLayout {
-                        KsButton {
+                        AppButton {
                             text: "Apply Mirror Setup"
                             height: 28
                             bgcolor: "#E10600"
@@ -240,7 +240,7 @@ Rectangle {
                     Text { text: "EXHAUST CONFIGURATION"; color: "#E10600"; font.pixelSize: 12; font.bold: true }
 
                     RowLayout {
-                        KsButton {
+                        AppButton {
                             text: "Apply Exhaust Config"
                             height: 28
                             bgcolor: "#E10600"
@@ -263,7 +263,7 @@ Rectangle {
                     Text { text: "LIGHT SETUP"; color: "#E10600"; font.pixelSize: 12; font.bold: true }
 
                     RowLayout {
-                        KsButton {
+                        AppButton {
                             text: "Apply Lights"
                             height: 28
                             bgcolor: "#E10600"
@@ -286,7 +286,7 @@ Rectangle {
                     Text { text: "INTERIOR SETUP"; color: "#E10600"; font.pixelSize: 12; font.bold: true }
 
                     RowLayout {
-                        KsButton {
+                        AppButton {
                             text: "Apply Interior"
                             height: 28
                             bgcolor: "#E10600"
@@ -308,14 +308,14 @@ Rectangle {
                     Text { text: "DATA EXPORT"; color: "#E10600"; font.pixelSize: 12; font.bold: true }
 
                     RowLayout {
-                        KsButton {
+                        AppButton {
                             text: "Export CSV"
                             height: 28
                             bgcolor: "#E10600"
                             color: "#121212"
                             onClicked: exportDataDialog.open()
                         }
-                        KsButton {
+                        AppButton {
                             text: "Export JSON"
                             height: 28
                             bgcolor: "transparent"
@@ -342,7 +342,7 @@ Rectangle {
                     Text { text: "PAINT CONFIGURATION"; color: "#E10600"; font.pixelSize: 12; font.bold: true }
 
                     RowLayout {
-                        KsButton {
+                        AppButton {
                             text: "Apply Paint"
                             height: 28
                             bgcolor: "#E10600"
@@ -377,7 +377,7 @@ Rectangle {
 
                     Item { Layout.fillHeight: true }
 
-                    KsButton {
+                    AppButton {
                         text: "Close"
                         height: 28
                         bgcolor: "#ef4444"

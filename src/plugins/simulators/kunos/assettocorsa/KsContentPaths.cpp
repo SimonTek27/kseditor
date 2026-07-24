@@ -338,12 +338,25 @@ QString KsContentFinder::searchInPaths(const QString &folder) const
 
 QString KsContentFinder::findContentFolder() const
 {
-    return searchInPaths("content");
+    QString path = searchInPaths("content");
+    // Validate: content folder must have cars/ or tracks/ subdirectories
+    if (!path.isEmpty()) {
+        QDir d(path);
+        if (!d.exists("cars") && !d.exists("tracks")) {
+            return QString(); // Not a valid content folder
+        }
+    }
+    return path;
 }
 
 QString KsContentFinder::findAppsFolder() const
 {
-    return searchInPaths("apps");
+    QString path = searchInPaths("apps");
+    if (!path.isEmpty()) {
+        QDir d(path);
+        if (!d.exists()) return QString();
+    }
+    return path;
 }
 
 QString KsContentFinder::findSkiesFolder() const

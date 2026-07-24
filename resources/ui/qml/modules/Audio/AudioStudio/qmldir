@@ -1,0 +1,11 @@
+module KSAudioStudio
+
+AudioStudio 1.0 AudioStudio.qml
+main 1.0 main.qml
+AudioMixer 1.0 AudioMixer.qml
+AudioEventBrowser 1.0 AudioEventBrowser.qml
+AudioEffectsRack 1.0 AudioEffectsRack.qml
+AudioRecordingStudio 1.0 AudioRecordingStudio.qml
+AudioSoundBanks 1.0 AudioSoundBanks.qml
+AudioBatchProcessor 1.0 AudioBatchProcessor.qml
+AudioExportPanel 1.0 AudioExportPanel.qml

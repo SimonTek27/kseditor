@@ -75,12 +75,12 @@ Rectangle {
 
                 Rectangle { width: 1; height: 20; color: "#444" }
 
-                KsButton {
+                AppButton {
                     text: "Open"; height: 28
                     bgcolor: "transparent"; color: "#ffffff"
                     onClicked: openDialog.open()
                 }
-                KsButton {
+                AppButton {
                     text: "Save"; height: 28
                     bgcolor: currentFilePath ? "#E10600" : "transparent"
                     color: "#ffffff"
@@ -90,7 +90,7 @@ Rectangle {
                             CspConfig.saveFile(currentFilePath, configData)
                     }
                 }
-                KsButton {
+                AppButton {
                     text: "Save As"; height: 28
                     bgcolor: "transparent"; color: "#ffffff"
                     enabled: Object.keys(configData).length > 0
@@ -208,7 +208,7 @@ Rectangle {
                         }
                     }
 
-                    // Add section KsButton
+                    // Add section AppButton
                     Rectangle {
                         height: 36
                         color: "#252526"
@@ -219,7 +219,7 @@ Rectangle {
                             anchors.margins: 6
                             spacing: 4
 
-                            KsButton {
+                            AppButton {
                                 text: "+ Add Section"; height: 28
                                 bgcolor: "#E10600"; color: "#121212"
                                 Layout.fillWidth: true
@@ -241,7 +241,7 @@ Rectangle {
                                 }
                             }
 
-                            KsButton {
+                            AppButton {
                                 text: "Remove"; height: 28
                                 bgcolor: "transparent"; color: "#ff4444"
                                 enabled: currentSection !== ""
@@ -373,7 +373,7 @@ Rectangle {
 
                     Text { text: "ACTIONS"; color: "#E10600"; font.pixelSize: 11; font.bold: true }
 
-                    KsButton {
+                    AppButton {
                         text: "New Car Config"; height: 28
                         bgcolor: "transparent"; color: "#ffffff"
                         Layout.fillWidth: true
@@ -385,7 +385,7 @@ Rectangle {
                         }
                     }
 
-                    KsButton {
+                    AppButton {
                         text: "New Track Config"; height: 28
                         bgcolor: "transparent"; color: "#ffffff"
                         Layout.fillWidth: true

@@ -111,8 +111,12 @@ void TransactionManager::applyRollback(const QString& transactionId)
 
 void TransactionManager::registerModule(const QString& moduleId, QObject* module)
 {
-    Q_UNUSED(module)
-    // Module registration for future direct integration
+    if (!module) return;
+    m_modules[moduleId] = module;
+    connect(module, &QObject::destroyed, this, [this, moduleId]() {
+        m_modules.remove(moduleId);
+        unregisterModule(moduleId);
+    });
 }
 
 void TransactionManager::unregisterModule(const QString& moduleId)

@@ -81,7 +81,7 @@ Rectangle {
                 anchors.fill: parent
                 anchors.leftMargin: 10
 
-                KsButton {
+                AppButton {
                     text: "New"
                     flat: true
                     height: 32
@@ -91,7 +91,7 @@ Rectangle {
                         if (DisplayEditor) DisplayEditor.clearElements()
                     }
                 }
-                KsButton {
+                AppButton {
                     text: "Open"
                     flat: true
                     height: 32
@@ -99,7 +99,7 @@ Rectangle {
                     color: "#ffffff"
                     onClicked: displayOpenDialog.open()
                 }
-                KsButton {
+                AppButton {
                     text: "Save"
                     flat: true
                     height: 32
@@ -107,7 +107,7 @@ Rectangle {
                     color: "#ffffff"
                     onClicked: displaySaveDialog.open()
                 }
-                KsButton {
+                AppButton {
                     text: "Export Image"
                     flat: true
                     height: 32
@@ -162,28 +162,28 @@ Rectangle {
                             font.pixelSize: 12
                         }
 
-                        KsButton {
+                        AppButton {
                             height: 28
                             text: "7-Segment"
                             bgcolor: displayType === "7seg" ? "#E10600" : "#3e3e42"
                             color: displayType === "7seg" ? "#121212" : "#ffffff"
                             onClicked: { root.displayType = "7seg"; if (DisplayEditor) DisplayEditor.setDisplayName("7-Segment Display") }
                         }
-                        KsButton {
+                        AppButton {
                             height: 28
                             text: "14-Segment"
                             bgcolor: displayType === "14seg" ? "#E10600" : "#3e3e42"
                             color: displayType === "14seg" ? "#121212" : "#ffffff"
                             onClicked: { root.displayType = "14seg"; if (DisplayEditor) DisplayEditor.setDisplayName("14-Segment Display") }
                         }
-                        KsButton {
+                        AppButton {
                             height: 28
                             text: "16-Segment"
                             bgcolor: displayType === "16seg" ? "#E10600" : "#3e3e42"
                             color: displayType === "16seg" ? "#121212" : "#ffffff"
                             onClicked: { root.displayType = "16seg"; if (DisplayEditor) DisplayEditor.setDisplayName("16-Segment Display") }
                         }
-                        KsButton {
+                        AppButton {
                             height: 28
                             text: "LCD Matrix"
                             bgcolor: displayType === "lcd" ? "#E10600" : "#3e3e42"
@@ -289,7 +289,7 @@ Rectangle {
                     Item { Layout.fillHeight: true }
 
                     // Export
-                    KsButton {
+                    AppButton {
                         height: 36
                         text: "Export DDS + INI"
                         bgcolor: "#E10600"
@@ -325,28 +325,28 @@ Rectangle {
 
                         Item { Layout.fillWidth: true }
 
-                        KsButton {
+                        AppButton {
                             height: 28
                             text: "Grid"
                             bgcolor: showGrid ? "#E10600" : "transparent"
                             color: showGrid ? "#121212" : "#ffffff"
                             onClicked: showGrid = !showGrid
                         }
-                        KsButton {
+                        AppButton {
                             height: 28
                             text: "Guides"
                             bgcolor: showGuides ? "#E10600" : "transparent"
                             color: showGuides ? "#121212" : "#ffffff"
                             onClicked: showGuides = !showGuides
                         }
-                        KsButton {
+                        AppButton {
                             height: 28
                             text: "Zoom +"
                             bgcolor: "transparent"
                             color: "#ffffff"
                             onClicked: canvasZoom = Math.min(canvasZoom + 0.25, 4.0)
                         }
-                        KsButton {
+                        AppButton {
                             height: 28
                             text: "Zoom -"
                             bgcolor: "transparent"

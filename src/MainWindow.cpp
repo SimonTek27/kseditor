@@ -3,7 +3,7 @@
 #include "sys/ProjectSerializer.h"
 #include "assets/ProjectBuilder.h"
 #include "Graphics/VulkanIntegration.h"
-#include "Config/KsConfigIntegration.h"
+#include "Config/ConfigIntegration.h"
 #include "core/editor/EditorConfig.h"
 #include "core/textEditor/TextEditorModule.h"
 #include "core/tools/AutoSave.h"
@@ -15,7 +15,7 @@
 #include "../modules/LiveryEditor/LiveryEditorModule.h"
 #include "../modules/modellingEditor/TrackBuilder/TrackBuilderModule.h"
 #include "../modules/soundEditor/AudioCore.h"
-#include "../modules/soundEditor/KSAudioBankParser.h"
+#include "../modules/soundEditor/AudioBankParser.h"
 #include "../modules/fontEditor/FontCreatorQmlBridge.h"
 #include "../modules/displayEditor/DisplayEditor.h"
 #include "../modules/displayEditor/DisplayEditorQmlBridge.h"
@@ -979,7 +979,7 @@ void MainWindow::setupFontTab() {
         if (!fontBridge) return;
         QString path = QFileDialog::getSaveFileName(this, tr("Export Font"),
             QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
-            tr("Font Atlas (*.png);;AC Font (*.acf);;All Files (* )"));
+            tr("Font Atlas (*.png);;AC Font (*.acf);;All Files (*)"));
         if (!path.isEmpty()) {
             if (path.endsWith(".acf"))
                 fontBridge->savePreset(path);
@@ -2750,7 +2750,7 @@ void MainWindow::showAbout()
 {
     QString aboutText = tr(
         "<h3>ksEditor Qt</h3>"
-        "<p>Version 1.16</p>"
+        "<p>Version 0.9</p>"
         "<p>%1</p>"
         "<p>Built with Qt %2</p>"
         "<p>&copy; 2024 ksEditor Team</p>"

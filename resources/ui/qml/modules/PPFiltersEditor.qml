@@ -53,11 +53,11 @@ Rectangle {
 
                 Item { Layout.fillWidth: true }
 
-                KsButton { height: 28; text: "Load"; bgcolor: "transparent"; color: "#ffffff"; onClicked: ppLoadDialog.open() }
-                KsButton { height: 28; text: "Save"; bgcolor: "transparent"; color: "#ffffff"; onClicked: ppSaveDialog.open() }
-                KsButton { height: 28; text: "Scene"; bgcolor: "transparent"; color: "#ffffff"; onClicked: { if (PPFilters) PPFilters.reloadFilter() } }
-                KsButton { height: 28; text: "Side by Side"; bgcolor: "transparent"; color: "#ffffff"; onClicked: { if (PPFilters) PPFilters.startPreview() } }
-                KsButton { height: 28; text: "Wipe"; bgcolor: "transparent"; color: "#ffffff"; onClicked: { if (PPFilters) PPFilters.statusMessage("Wipe comparison activated") } }
+                AppButton { height: 28; text: "Load"; bgcolor: "transparent"; color: "#ffffff"; onClicked: ppLoadDialog.open() }
+                AppButton { height: 28; text: "Save"; bgcolor: "transparent"; color: "#ffffff"; onClicked: ppSaveDialog.open() }
+                AppButton { height: 28; text: "Scene"; bgcolor: "transparent"; color: "#ffffff"; onClicked: { if (PPFilters) PPFilters.reloadFilter() } }
+                AppButton { height: 28; text: "Side by Side"; bgcolor: "transparent"; color: "#ffffff"; onClicked: { if (PPFilters) PPFilters.startPreview() } }
+                AppButton { height: 28; text: "Wipe"; bgcolor: "transparent"; color: "#ffffff"; onClicked: { if (PPFilters) PPFilters.statusMessage("Wipe comparison activated") } }
 
                 Text { text: "Strength:"; color: "#888888" }
                 Slider {
@@ -66,7 +66,7 @@ Rectangle {
                 }
                 Text { text: Math.round(previewStrength * 100) + "%"; color: "#E10600" }
 
-                KsButton {
+                AppButton {
                     id: liveToggle
                     height: 28
                     text: PPFilters && PPFilters.isPreviewActive ? "LIVE" : "OFF"
@@ -251,9 +251,9 @@ Rectangle {
 
                         Item { Layout.fillWidth: true }
 
-                        KsButton { height: 36; text: "Auto Tone"; bgcolor: "#E10600"; color: "#121212"; onClicked: { if (PPFilters) PPFilters.statusMessage("Auto tone applied") } }
-                        KsButton { height: 36; text: "Reset"; bgcolor: "transparent"; color: "#ffffff"; onClicked: { if (PPFilters) PPFilters.resetParameters() } }
-                        KsButton { height: 36; text: "Save Filter"; bgcolor: "#E10600"; color: "#121212"; onClicked: ppSaveDialog.open() }
+                        AppButton { height: 36; text: "Auto Tone"; bgcolor: "#E10600"; color: "#121212"; onClicked: { if (PPFilters) PPFilters.statusMessage("Auto tone applied") } }
+                        AppButton { height: 36; text: "Reset"; bgcolor: "transparent"; color: "#ffffff"; onClicked: { if (PPFilters) PPFilters.resetParameters() } }
+                        AppButton { height: 36; text: "Save Filter"; bgcolor: "#E10600"; color: "#121212"; onClicked: ppSaveDialog.open() }
                     }
                 }
             }
@@ -515,9 +515,9 @@ Rectangle {
                     ColumnLayout {
                         anchors.margins: 10
                         spacing: 8
-                        KsButton { height: 34; text: "Apply to AC"; bgcolor: "#E10600"; color: "#121212"; onClicked: { if (PPFilters) PPFilters.exportToACDialog() } }
-                        KsButton { height: 34; text: "Export pp_filter"; bgcolor: "#ff6600"; color: "#ffffff"; onClicked: ppExportDialog.open() }
-                        KsButton { height: 34; text: "Export as Preset"; bgcolor: "transparent"; color: "#ffffff"; onClicked: { if (PPFilters) PPFilters.statusMessage("Exported as preset") } }
+                        AppButton { height: 34; text: "Apply to AC"; bgcolor: "#E10600"; color: "#121212"; onClicked: { if (PPFilters) PPFilters.exportToACDialog() } }
+                        AppButton { height: 34; text: "Export pp_filter"; bgcolor: "#ff6600"; color: "#ffffff"; onClicked: ppExportDialog.open() }
+                        AppButton { height: 34; text: "Export as Preset"; bgcolor: "transparent"; color: "#ffffff"; onClicked: { if (PPFilters) PPFilters.statusMessage("Exported as preset") } }
                     }
                 }
             }

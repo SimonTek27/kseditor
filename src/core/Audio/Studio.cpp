@@ -1,4 +1,4 @@
-#include "KSAudioCore.h"
+#include "AudioCore.h"
 #include <QMutexLocker>
 #include <QMediaDevices>
 

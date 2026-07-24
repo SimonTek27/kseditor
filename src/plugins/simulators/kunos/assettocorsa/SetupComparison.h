@@ -46,6 +46,9 @@ struct CarSetup {
     int tractionControl;
     int absLevel;
     int engineMap;
+
+    // Extra fields not captured by named properties
+    QStringList extra;
 };
 
 struct SetupComparisonData {

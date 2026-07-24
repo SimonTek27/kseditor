@@ -4,7 +4,7 @@
 #include <QString>
 #include <QStringList>
 
-#include "KsPaths.h"
+#include "SimInstallDetector.h"
 using KsPaths = ks::SimInstallDetector;
 
 namespace ks {

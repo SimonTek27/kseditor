@@ -287,7 +287,7 @@ Rectangle {
                         font.pixelSize: 9
                     }
                     Item { Layout.fillWidth: true }
-                    KsButton {
+                    AppButton {
                         text: "Focus (F)"
                         height: 22
                         font.pixelSize: 9
@@ -312,19 +312,19 @@ Rectangle {
                         anchors.margins: 4
                         spacing: 4
 
-                        KsButton {
+                        AppButton {
                             text: "Reset Position"; height: 20; font.pixelSize: 8
                             bgcolor: "#3e3e42"; color: "#ffffff"
                             Layout.fillWidth: true
                             onClicked: { if (obj) obj.position = Qt.vector3d(0,0,0); updateFromSelection() }
                         }
-                        KsButton {
+                        AppButton {
                             text: "Reset Rotation"; height: 20; font.pixelSize: 8
                             bgcolor: "#3e3e42"; color: "#ffffff"
                             Layout.fillWidth: true
                             onClicked: { if (obj) obj.rotation = Qt.vector3d(0,0,0); updateFromSelection() }
                         }
-                        KsButton {
+                        AppButton {
                             text: "Reset Scale"; height: 20; font.pixelSize: 8
                             bgcolor: "#3e3e42"; color: "#ffffff"
                             Layout.fillWidth: true

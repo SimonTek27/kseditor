@@ -12,7 +12,9 @@
 #include <windows.h>
 #include <psapi.h>
 #include <tlhelp32.h>
+#include <dbghelp.h>
 #pragma comment(lib, "psapi.lib")
+#pragma comment(lib, "dbghelp.lib")
 #endif
 
 namespace ks {
@@ -413,6 +415,12 @@ void Debugger::getCallStack(QVector<QString>& callStack) const
         return;
     }
 
+    // Initialize symbol handler for the target process
+    SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES);
+    if (!SymInitialize(hProcess, nullptr, TRUE)) {
+        qWarning() << "[Debugger] SymInitialize failed:" << GetLastError();
+    }
+
     // Enumerate threads in the target process to get a stack trace
     HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
     if (hSnapshot != INVALID_HANDLE_VALUE) {
@@ -421,6 +429,9 @@ void Debugger::getCallStack(QVector<QString>& callStack) const
 
         if (Thread32First(hSnapshot, &te)) {
             do {
+                if (te.th32OwnerProcessID != static_cast<DWORD>(m_targetPid))
+                    continue;
+
                 HANDLE hThread = OpenThread(
                     THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION,
                     FALSE,
@@ -431,36 +442,117 @@ void Debugger::getCallStack(QVector<QString>& callStack) const
                     CONTEXT ctx;
                     ctx.ContextFlags = CONTEXT_FULL;
                     if (GetThreadContext(hThread, &ctx)) {
+                        callStack.append(QString("=== Thread %1 ===").arg(te.th32ThreadID));
+
 #ifdef _M_X64
-                        DWORD64 stackAddrs[128];
-                        USHORT frames = 0;
-                        // Use StackWalk64 if available, otherwise provide basic info
-                        callStack.append(QString("Thread %1 - RIP: 0x%2")
-                            .arg(te.th32ThreadID)
-                            .arg(ctx.Rip, 0, 16));
+                        STACKFRAME64 sf = {};
+                        sf.AddrPC.Offset       = ctx.Rip;
+                        sf.AddrPC.Mode         = AddrModeFlat;
+                        sf.AddrStack.Offset    = ctx.Rsp;
+                        sf.AddrStack.Mode      = AddrModeFlat;
+                        sf.AddrFrame.Offset    = ctx.Rbp;
+                        sf.AddrFrame.Mode      = AddrModeFlat;
+
+                        for (int frame = 0; frame < 64; ++frame) {
+                            if (!StackWalk64(IMAGE_FILE_MACHINE_AMD64, hProcess, hThread,
+                                             &sf, &ctx, nullptr,
+                                             SymFunctionTableAccess64,
+                                             SymGetModuleBase64, nullptr))
+                                break;
+
+                            if (sf.AddrPC.Offset == 0) break;
+
+                            // Try to resolve symbol name
+                            char symbolBuf[sizeof(SYMBOL_INFO) + 256] = {};
+                            SYMBOL_INFO* sym = reinterpret_cast<SYMBOL_INFO*>(symbolBuf);
+                            sym->SizeOfStruct = sizeof(SYMBOL_INFO);
+                            sym->MaxNameLen = 255;
+
+                            DWORD64 offsetFromSymbol = 0;
+                            QString funcName;
+                            if (SymFromAddr(hProcess, sf.AddrPC.Offset,
+                                            &offsetFromSymbol, sym)) {
+                                funcName = QString::fromUtf8(sym->Name);
+                            } else {
+                                funcName = "(unknown)";
+                            }
+
+                            // Try to get source line info
+                            IMAGEHLP_LINE64 line = {};
+                            line.SizeOfStruct = sizeof(IMAGEHLP_LINE64);
+                            DWORD lineOffset = 0;
+                            QString sourceInfo;
+                            if (SymGetLineFromAddr64(hProcess, sf.AddrPC.Offset,
+                                                     &lineOffset, &line)) {
+                                sourceInfo = QString(" [%1:%2]")
+                                    .arg(QString::fromUtf8(line.FileName))
+                                    .arg(line.LineNumber);
+                            }
+
+                            callStack.append(QString("  #%1 0x%2 %3%4")
+                                .arg(frame)
+                                .arg(sf.AddrPC.Offset, 16, 16, QChar('0'))
+                                .arg(funcName)
+                                .arg(sourceInfo));
+                        }
 #else
-                        DWORD stackAddrs[128];
-                        USHORT frames = 0;
-                        callStack.append(QString("Thread %1 - EIP: 0x%2")
-                            .arg(te.th32ThreadID)
-                            .arg(ctx.Eip, 0, 16));
+                        STACKFRAME64 sf = {};
+                        sf.AddrPC.Offset       = ctx.Eip;
+                        sf.AddrPC.Mode         = AddrModeFlat;
+                        sf.AddrStack.Offset    = ctx.Esp;
+                        sf.AddrStack.Mode      = AddrModeFlat;
+                        sf.AddrFrame.Offset    = ctx.Ebp;
+                        sf.AddrFrame.Mode      = AddrModeFlat;
+
+                        for (int frame = 0; frame < 64; ++frame) {
+                            if (!StackWalk64(IMAGE_FILE_MACHINE_I386, hProcess, hThread,
+                                             &sf, &ctx, nullptr,
+                                             SymFunctionTableAccess64,
+                                             SymGetModuleBase64, nullptr))
+                                break;
+
+                            if (sf.AddrPC.Offset == 0) break;
+
+                            char symbolBuf[sizeof(SYMBOL_INFO) + 256] = {};
+                            SYMBOL_INFO* sym = reinterpret_cast<SYMBOL_INFO*>(symbolBuf);
+                            sym->SizeOfStruct = sizeof(SYMBOL_INFO);
+                            sym->MaxNameLen = 255;
+
+                            DWORD64 offsetFromSymbol = 0;
+                            QString funcName;
+                            if (SymFromAddr(hProcess, sf.AddrPC.Offset,
+                                            &offsetFromSymbol, sym)) {
+                                funcName = QString::fromUtf8(sym->Name);
+                            } else {
+                                funcName = "(unknown)";
+                            }
+
+                            callStack.append(QString("  #%1 0x%2 %3")
+                                .arg(frame)
+                                .arg(sf.AddrPC.Offset, 8, 16, QChar('0'))
+                                .arg(funcName));
+                        }
 #endif
                     }
                     CloseHandle(hThread);
-                    break;  // Just get the first thread's info for now
+                    break;
                 }
             } while (Thread32Next(hSnapshot, &te));
         }
         CloseHandle(hSnapshot);
     }
 
+    SymCleanup(hProcess);
     CloseHandle(hProcess);
 
     if (callStack.isEmpty()) {
         callStack.append("(Call stack unavailable - attach to a running process)");
     }
 #else
-    callStack.append("(Call stack not implemented on this platform)");
+    // On non-Windows platforms, try to get a backtrace using execinfo
+    callStack.append(QString("=== Process %1 ===").arg(m_targetPid));
+    callStack.append("  (Call stack requires platform-specific debug API)");
+    callStack.append("  Try attaching with GDB: gdb -p " + QString::number(m_targetPid));
 #endif
 }
 
