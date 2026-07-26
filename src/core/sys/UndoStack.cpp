@@ -192,8 +192,9 @@ CommandBuilder& CommandBuilder::addProperty(const QString& objId,
                                             const QVariant& newVal)
 {
     auto* cmd = new PropertyCommand<QVariant, QVariant>(
-        [objId, prop]() -> QVariant* { return nullptr; },
-        oldVal, newVal);
+        [oldVal]() -> QVariant { return oldVal; },
+        [](const QVariant&) {},
+        newVal);
     cmd->setDescription(QString("Change %1.%2").arg(objId, prop));
     addChild(cmd);
     return *this;

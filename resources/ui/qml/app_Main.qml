@@ -200,11 +200,12 @@ Rectangle {
                         spacing: 10
                         Repeater {
                             model: [
-                                { label: "Track\nEditor",     mode: "track"   },
-                                { label: "Car\nEditor",       mode: "car"     },
-                                { label: "Physics\nEditor",  mode: "physics" },
-                                { label: "Audio\nStation",   mode: "audio"   },
-                                { label: "Font\nCreator",    mode: "fonts"   },
+                                { label: "Car\nEditor",       mode: "car"       },
+                                { label: "Character\nEditor", mode: "character" },
+                                { label: "Track\nEditor",     mode: "track"     },
+                                { label: "Physics\nEditor",   mode: "physics" },
+                                { label: "Audio\nStation",    mode: "audio"   },
+                                { label: "Font\nCreator",     mode: "fonts"   },
                                 { label: "License\nPlates",   mode: "license" }
                             ]
                             Button {
@@ -218,6 +219,65 @@ Rectangle {
                                     horizontalAlignment: Text.AlignHCenter
                                     verticalAlignment: Text.AlignVCenter
                                     wrapMode: Text.WordWrap
+                                }
+                            }
+                        }
+                    }
+
+                    Item { height: 20 }
+
+                    Text {
+                        text: "SUITE"
+                        color: "#666"
+                        font.pixelSize: 12
+                        font.bold: true
+                        Layout.alignment: Qt.AlignHCenter
+                    }
+
+                    GridLayout {
+                        Layout.alignment: Qt.AlignHCenter
+                        columns: 5
+                        columnSpacing: 12
+                        rowSpacing: 12
+
+                        Repeater {
+                            model: [
+                                { icon: "qrc:/icons/modeler.svg",     label: "3D\nModeler",        mode: "modeler" },
+                                { icon: "qrc:/icons/livery.svg",      label: "Livery\nLivery",     mode: "livery" },
+                                { icon: "qrc:/icons/font.svg",        label: "Font\nCreator",      mode: "fonts" },
+                                { icon: "qrc:/icons/sound.svg",       label: "Audio\nStudio",      mode: "audio" },
+                                { icon: "qrc:/icons/waveform.svg",    label: "Audio\nEditor",      mode: "audio" },
+                                { icon: "qrc:/icons/physics.svg",     label: "Physics\nEditor",    mode: "physics" }
+                            ]
+                            Button {
+                                required property var modelData
+                                width: 90
+                                height: 90
+                                onClicked: switchTo(modelData.mode)
+                                background: Rectangle {
+                                    color: "#252526"
+                                    radius: 6
+                                    border.color: "#444"
+                                    border.width: 1
+                                }
+                                contentItem: ColumnLayout {
+                                    anchors.centerIn: parent
+                                    spacing: 6
+                                    Image {
+                                        source: modelData.icon
+                                        sourceSize: Qt.size(32, 32)
+                                        fillMode: Image.PreserveAspectFit
+                                        Layout.alignment: Qt.AlignHCenter
+                                    }
+                                    Text {
+                                        text: modelData.label
+                                        color: "#ffffff"
+                                        font.pixelSize: 10
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                        wrapMode: Text.WordWrap
+                                        Layout.alignment: Qt.AlignHCenter
+                                    }
                                 }
                             }
                         }

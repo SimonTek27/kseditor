@@ -4,7 +4,7 @@ import QtQuick.Layouts
 import QtQuick.Shapes 1.15
 import Qt.labs.platform 1.1
 import ksEditor.Audio 1.0
-import "../../widgets"
+import "../../../widgets"
 
 Rectangle {
     id: engineGen

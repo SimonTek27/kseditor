@@ -90,7 +90,7 @@ bool CAD3MFParser::parseZip(const QByteArray& data)
     while (!xml.atEnd() && !xml.hasError()) {
         xml.readNext();
         if (xml.isStartElement()) {
-            QStringRef name = xml.name();
+            QStringView name = xml.name();
 
             if (name == "model") {
                 QString unit = xml.attributes().value("unit").toString();

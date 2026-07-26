@@ -844,7 +844,7 @@ ApplicationWindow {
                 }
                 Text {
                     text: Math.floor(Modeler.animationTime) + " / " + Math.floor(Modeler.animationDuration)
-                    color: "#999"; font.pixelSize: 11; font.family: "monospace"; implicitWidth: 70
+                    color: "#999"; font.pixelSize: 11; font.family: "monospace"; width: 70
                 }
                 Slider {
                     id: timelineSlider
@@ -885,7 +885,7 @@ ApplicationWindow {
                 }
                 Text {
                     text: Modeler.animationFps + " fps"
-                    color: "#666"; font.pixelSize: 10; implicitWidth: 40
+                    color: "#666"; font.pixelSize: 10; width: 40
                 }
             }
         }

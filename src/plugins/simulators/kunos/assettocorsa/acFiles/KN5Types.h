@@ -104,8 +104,13 @@ struct Mesh {
     QVector<QVector4D>   boneWeights;
     QVector<quint32>     boneIndices;  // packed 4×uint8
 
-    quint32 getVertexCount() const;
-    quint32 getTriangleCount() const;
+    quint32 getVertexCount() const {
+        const quint32 stride = vertexLayout.vertexSize > 0 ? vertexLayout.vertexSize : 44;
+        return stride ? (quint32)vertexData.size() / stride : 0;
+    }
+    quint32 getTriangleCount() const {
+        return (quint32)indexData.size() / 6; // quint16 indices, 3 per tri
+    }
 
     // Decode raw vertexData into typed arrays
     void decodeVertices();
@@ -362,6 +367,8 @@ inline void Mesh::encodeVertices() {
         vertexLayout.attributes.append({type, vertexLayout.vertexSize});
         vertexLayout.vertexSize += size;
     };
+
+    auto off = [&](AT a) { return vertexLayout.offsetOf(a); };
 
     addAttr(AT::Position, 12);
     addAttr(AT::Normal, 12);

@@ -1,10 +1,9 @@
----
+# ksAssettoCorsa.md
 title: "ksAssettoCorsa.dll — Product Overview + Assetto Corsa MOD Creation Guide"
 description: "Plugin architecture overview for ksAssettoCorsa.dll, followed by a comprehensive guide to creating cars and tracks for Assetto Corsa with Custom Shaders Patch (CSP)"
 version: "1.16.4"
-date: "2018-09-22"
-author: "Kunos Simulazioni"
----
+date: "2026-07-24"
+author: "ksEditor Contributors"
 
 # ksAssettoCorsa.dll — Product Overview
 
@@ -16,7 +15,7 @@ author: "Kunos Simulazioni"
 
 ## 1. Plugin Architecture
 
-```
+```text
 kseditor.exe
   └── PluginManager (loads .dll from bin/plugins/)
         └── ksAssettoCorsa.dll  (SHARED library)
@@ -24,7 +23,7 @@ kseditor.exe
               ├── Backed by KsPlugin (singleton in kseditor_lib)
               └── Sub-modules:
                     ├── Content Browser     ─ ContentBrowser.h/.cpp
-                    ├── Content Paths       ─ KsContentPaths.h/.cpp
+                    ├── Content Paths       ─ KsAssettoCorsaContentPath.h/.cpp
                     ├── Game Launcher       ─ KsAssettoCorsaRunner.h/.cpp
                     ├── QML Bridges (5)     ─ QmlBridges.h/.cpp
                     ├── Setup Comparison    ─ SetupComparison.h/.cpp
@@ -42,15 +41,19 @@ kseditor.exe
                     ├── LOD Exporter        ─ LODExporter (acFiles/)
                     ├── Ks Shaders          ─ shaders/ (60+ compiled .fxo files)
                     ├── KSAnim Format       ─ KSAnimFormat (acFiles/)
-                    └── KNH Format          ─ KNHFormat (acFiles/)
+                    ├── KNH Format          ─ KNHFormat (acFiles/)
+                    ├── LUT Parser          ─ LUTParser (acFiles/)
+                    ├── Lua Generator       ─ LuaGenerator (acFiles/)
+                    ├── RTO Parser          ─ RTOParser (acFiles/)
+                    └── ACD Parser          ─ ACDParser (acFiles/)
 ```
 
 ### Plugin C API
 
 Defined in `ksAssettoCorsa.cpp:15-80`:
 
-| Function | Return | Value |
-|----------|--------|-------|
+| Function | Return Type | Description / Value |
+|----------|-------------|---------------------|
 | `getPluginId()` | `const char*` | `"ksAssettoCorsa"` |
 | `getPluginName()` | `const char*` | `"Assetto Corsa Plugin"` |
 | `getPluginVersion()` | `const char*` | `"0.9.0"` |
@@ -102,17 +105,18 @@ add_dependencies(kseditor ksAssettoCorsa)
 
 ### Source File Map
 
-```
+```text
 src/plugins/simulators/kunos/assettocorsa/
 ├── ksAssettoCorsa.cpp/.h         # Plugin C API entry point
 ├── ksAssettoCorsa_export.h       # DLL export macros
-├── assettocorsa.h                # Core plugin header
-├── ksconfig.h / kssetup.h        # Config/setup helpers
-├── KsIni.h                       # INI file reader
-│
+├── assettocorsa.h                # Core plugin header (app/editor modules)
+├── assettocorsa_core.h           # Core plugin header (formats/physics types)
+├── ksAssettoCorsaConfig.h        # Game settings (video, audio, controls)
+├── ksAssettoCorsaSetup.h         # Car setup load/save/optimizer
+├── ksAssettoCorsaIni.h           # INI file reader (all physics INI files)
+├── ksAssettoCorsaContentPath.h/.cpp  # AC content path detection
 ├── ContentBrowser.h/.cpp         # Content discovery UI
-├── KsContentPaths.h/.cpp         # AC content path detection
-├── KsAssettoCorsaRunner.h/.cpp               # Game launcher
+├── KsAssettoCorsaRunner.h/.cpp   # Game launcher
 ├── WorkshopModule.h/.cpp         # Steam Workshop integration
 ├── AssetsLibraryModule.h/.cpp    # SQLite asset DB
 ├── SetupComparison.h/.cpp        # Setup load/save/compare
@@ -120,22 +124,25 @@ src/plugins/simulators/kunos/assettocorsa/
 ├── ACSharedMemory.h/.cpp         # Live telemetry (memory-mapped)
 ├── ACLivePreviewBridge.h/.cpp    # Audio from telemetry
 │
-├── KN5Parser.h/.cpp              # .kn5 model reader/writer
-├── KN5Types.h                    # KN5 data structures
-├── KN5Decrypt.h/.cpp             # CSP-encrypted KN5 decryption
-├── ACDParser.h/.cpp              # data.acd archive extract/repack
-│
 ├── acCSP/                        # Custom Shaders Patch tooling
 │   ├── CspConfigParser.h/.cpp
 │   ├── CspConfigHandler.h/.cpp
 │   └── ...
 │
 ├── acFiles/                      # File format tools
+│   ├── ACDParser.h/.cpp          # data.acd archive extract/repack
 │   ├── FBXExporter.h/.cpp
 │   ├── Kn5Previewer.h/.cpp
 │   ├── LODExporter.h/.cpp
-│   ├── KSAnimFormat.h/.cpp
-│   └── KNHFormat.h/.cpp
+│   ├── LUTParser.h/.cpp          # .lut color lookup tables
+│   ├── LuaGenerator.h/.cpp       # Lua script templates
+│   ├── RTOParser.h/.cpp          # .rto gear ratio files
+│   ├── KSAnimFormat.h/.cpp       # .ksanim animation format
+│   ├── KN5Parser.h/.cpp          # .kn5 model reader/writer
+│   ├── KN5Types.h                # KN5 data structures
+│   ├── KN5Decrypt.h/.cpp         # CSP-encrypted KN5 decryption
+│   ├── KNHFormat.h/.cpp          # .knh AI racing lines
+│   └── ACDParser.h/.cpp          # ACD archive
 │
 └── shaders/win/                  # 60+ compiled KN5 shader .fxo files
     ├── ksPerPixel_*.fxo
@@ -185,11 +192,14 @@ src/plugins/simulators/kunos/assettocorsa/
 | `.acd` | Data archive containing physics/config `.ini` files |
 | `.ini` | Plain-text configuration (physics, setup, surfaces, lights, etc.) |
 | `.lut` | Lookup tables (torque curves, damper curves, Pacejka tyre coefficients) |
+| `.lua` | CSP scripting for physics, UI, behaviors, and dynamic displays |
 | `.rto` | Gear ratio files |
 | `.ksanim` | Animation files (steering wheel, pedals, suspension) |
+| `.knh` | AI racing lines / driving lines (fast_lane.ai, ideal_line.ai) |
 | `.bank` / `.gui` | FMOD audio banks + GUID mapping |
 | `.dds` | DirectDraw Surface textures (BC1-DXT1, BC3-DXT5, BC5, BC7) |
 | `.psd` | Layered skin templates for community painters |
+| `.png` | Texture/UI image format |
 
 ### Content Scope
 
@@ -300,6 +310,10 @@ AC1's modding is the gold standard for sim racing. The game exposes almost all i
 | LOD Export | ✅ | ❌ | ❌ | ❌ |
 | 60+ KN5 Shaders | ✅ | ❌ | ❌ | ❌ |
 | QML Bridges (5) | ✅ | ❌ | ❌ | ❌ |
+| LUT Parser (.lut) | ✅ | ❌ | ❌ | ❌ |
+| Lua Generator (.lua) | ✅ | ❌ | ❌ | ❌ |
+| RTO Parser (.rto) | ✅ | ❌ | ❌ | ❌ |
+| KNH Parser (.knh) | ✅ | ❌ | ❌ | ❌ |
 
 ---
 
@@ -313,18 +327,18 @@ AC1's modding is the gold standard for sim racing. The game exposes almost all i
 
 ## 📑 Quick Navigation
 
-| Section | Description | Page |
-|---------|-------------|------|
-| [Introduction](#introduction) | Philosophy, tools, and prerequisites | Top |
-| [Category 1: Cars](#category-1--cars) | Complete car modding pipeline | Below |
-| [1.7 Driver Release](#17-driver-release-standards) | Driver model, cockpit & animation release criteria | Below |
-| [Category 2: Tracks](#category-2--tracks) | Complete track modding pipeline | Further below |
-| [Essential Tools](#essential-tools-summary) | Software and utility matrix | Bottom |
-| [Recommended Workflows](#recommended-workflow) | Step-by-step car/track pipelines | Bottom |
-| [Appendix A: File Reference](#appendix-a-file-extension-quick-reference) | Every extension explained | Bottom |
-| [Appendix B: Glossary](#appendix-b-glossary-of-ac-modding-terms) | Terminology decoded | Bottom |
-| [Appendix C: Troubleshooting](#appendix-c-troubleshooting-matrix) | Common issues and fixes | Bottom |
-| [Appendix D: Checklists](#appendix-d-release-checklists) | Pre-release validation | Bottom |
+| Section | Description |
+|---------|-------------|
+| [Introduction](#introduction) | Philosophy, tools, and prerequisites |
+| [Category 1: Cars](#category-1--cars) | Complete car modding pipeline |
+| [1.7 Driver Release](#17-driver-release-standards) | Driver model, cockpit & animation release criteria |
+| [Category 2: Tracks](#category-2--tracks) | Complete track modding pipeline |
+| [Essential Tools](#essential-tools-summary) | Software and utility matrix |
+| [Recommended Workflows](#recommended-workflow) | Step-by-step car/track pipelines |
+| [Appendix A: File Reference](#appendix-a-file-extension-quick-reference) | Every extension explained |
+| [Appendix B: Glossary](#appendix-b-glossary-of-ac-modding-terms) | Terminology decoded |
+| [Appendix C: Troubleshooting](#appendix-c-troubleshooting-matrix) | Common issues and fixes |
+| [Appendix D: Checklists](#appendix-d-release-checklists) | Pre-release validation |
 
 ---
 
@@ -353,51 +367,50 @@ A car mod in Assetto Corsa is a self-contained directory describing the vehicle'
 
 A complete modern CSP-scripted car folder (based on a real high-end mod such as the VRC Ferrenzo LMH) follows this hierarchy:
 
-```
+```text
 content/cars/my_car/
-├── data/                          # Physics & configuration core
-│   ├── car.ini                    # Master config (mass, CoG, inertia, dimensions, camera)
-│   ├── engine.ini                 # Engine power/torque curves, fuel, limiter, turbo
-│   ├── drivetrain.ini             # Clutch, differentials
-│   ├── gearbox.ini                # Gear ratios, final drive, shift behavior
-│   ├── suspension.ini             # Geometry, springs, dampers, ARB, wheels
-│   ├── tyres.ini                  # Tyre model, grip curves, wear, temperatures
-│   ├── aero.ini                   # Drag, downforce, wings, DRS
-│   ├── brakes.ini                 # Brake bias, torque, cooling, pad properties
-│   ├── steering.ini               # Steering ratio, lock, feedback
-│   ├── dashboard.ini              # Digital dashboard layout
-│   ├── electronics.ini            # ABS, TC, ESC, launch control (also named electronic_drivers.ini)
-│   ├── damage.ini                 # Deformation and failure thresholds
-│   ├── lights.ini                 # Headlights, taillights, indicators, brake lights
-│   ├── ff_effects.ini             # Force feedback tuning
-│   ├── setup.ini                  # Setup menu definitions (adjustable parameters)
-│   ├── example_setup.ini          # A named, loadable default setup preset
-│   ├── hybrid.ini                 # Hybrid / ERS / KERS systems (MGU-K/H)
-│   ├── thermal.ini                # Thermal model: tyre/brake/engine heat (CSP)
-│   ├── drs.ini                    # DRS actuator zones and behavior
-│   ├── fuel.ini                   # Fuel tank geometry and sloshing properties
-│   ├── driver3d.ini               # Driver model placement (seat, head, hands)
-│   ├── cameras.ini                # Onboard camera definitions (alt to car.ini)
-│   ├── power.lut                  # Optional external power curve lookup table
-│   └── torque.lut                 # Optional external torque curve lookup table
-│
-│   ├── ── Additional real-world data files (see section 1.4) ──
+├── data/                              # Physics & configuration core
+│   ├── car.ini                        # Master config (mass, CoG, inertia, dimensions, camera)
+│   ├── engine.ini                     # Engine power/torque curves, fuel, limiter, turbo
+│   ├── drivetrain.ini                 # Clutch, differentials
+│   ├── gearbox.ini                    # Gear ratios, final drive, shift behavior
+│   ├── suspension.ini                 # Geometry, springs, dampers, ARB, wheels
+│   ├── tyres.ini                      # Tyre model, grip curves, wear, temperatures
+│   ├── aero.ini                       # Drag, downforce, wings, DRS
+│   ├── brakes.ini                     # Brake bias, torque, cooling, pad properties
+│   ├── steering.ini                   # Steering ratio, lock, feedback
+│   ├── dashboard.ini                  # Digital dashboard layout
+│   ├── electronics.ini                # ABS, TC, ESC, launch control
+│   ├── damage.ini                     # Deformation and failure thresholds
+│   ├── lights.ini                     # Headlights, taillights, indicators, brake lights
+│   ├── ff_effects.ini                 # Force feedback tuning
+│   ├── setup.ini                      # Setup menu definitions (adjustable parameters)
+│   ├── example_setup.ini              # A named, loadable default setup preset
+│   ├── hybrid.ini                     # Hybrid / ERS / KERS systems (MGU-K/H)
+│   ├── thermal.ini                    # Thermal model: tyre/brake/engine heat (CSP)
+│   ├── drs.ini                        # DRS actuator zones and behavior
+│   ├── fuel.ini                       # Fuel tank geometry and sloshing properties
+│   ├── driver3d.ini                   # Driver model placement (seat, head, hands)
+│   ├── cameras.ini                    # Onboard camera definitions (alt to car.ini)
+│   ├── power.lut                      # Optional external power curve lookup table
+│   ├── torque.lut                     # Optional external torque curve lookup table
 │   ├── ai.ini, ai_tyres.ini           # AI behavior & AI tyre mapping
 │   ├── ambient_shadows.ini            # Baked ambient occlusion shadows
 │   ├── bumpstops.ini / dampers.ini    # Damper curves split from suspension.ini
 │   ├── colliders.ini                  # Detailed collision mesh descriptors
 │   ├── lods.ini / blurred_objects.ini # LOD distances, rotating-blur props
 │   ├── mirrors.ini                    # Mirror placement/type
-│   ├── digital_instruments.ini        # Custom digital dash (CSP)
+│   ├── analog_instruments.ini         # Custom analog dash
+│   ├── digital_instruments.ini        # Custom digital dash
 │   ├── dash_cam.ini                   # Dashcam definition
-│   ├── flames.ini / flame_presets.ini # Exhaust flame FX (CSP)
+│   ├── flames.ini / flame_presets.ini # Exhaust flame FX
 │   ├── fuel_cons.ini                  # Fuel consumption mapping
 │   ├── er*.ini / ers.ini / *ers*.lut  # Hybrid/ERS control & torque maps
 │   ├── ctrl_*.ini                     # Control maps (brake, turbo, ERS, ARB)
 │   ├── extra_animations.ini / wing_animations.ini / proview_nodes.ini
-│   ├── *.lut          # Lookup tables (see 1.4.1) — hundreds in big mods
-│   ├── *.rto          # Gear ratio files (see 1.4.2)
-│   └── script*.lua    # CSP Lua scripting (see 1.4.3)
+│   ├── *.lut                          # Lookup tables (see 1.4.1) — hundreds in big mods
+│   ├── *.rto                          # Gear ratio files (see 1.4.2)
+│   └── script*.lua                    # CSP Lua scripting (see 1.4.3)
 │
 ├── 3d/
 │   ├── car.kn5            # Exterior + visible interior mesh
@@ -594,7 +607,7 @@ Common categories:
 |----------|----------------|-------------|
 | **Damper curves** | `fast_frebound1.lut`, `slow_rbump3.lut` | Front/rear, fast/slow shaft velocity, bump/rebound, per wheel |
 | **Tyre curves** | `F_DX_S.lut`, `R_DY_H.lut` | Front/rear, longitudinal/lateral force, Soft/Medium/Hard/Wet compound |
-| **Aero maps** | `BodyCL.lut`, `BodyCD.lut`, `map0_cl.2Dlut` | 2D lookups of downforce/drag vs speed, steer, roll, yaw, ride height |
+| **Aero Maps** | `BodyCL.lut`, `BodyCD.lut`, `map0_cl.2Dlut` | 2D lookups of downforce/drag vs speed, steer, roll, yaw, ride height |
 | **Wing/device maps** | `FrontAdjuDeviceCL.lut`, `RearAdjuDeviceCD.lut` | Movable aero coefficients |
 | **Engine/ERS** | `turbo0.lut`, `ers_torque.lut`, `engine_map0.lut` | Boost, hybrid torque, throttle maps |
 | **ARB / brake / steering** | `arb_f.lut`, `awd_share.lut`, `setup_steering_ratio.lut` | Setup-linked controllers |
@@ -740,7 +753,7 @@ Assetto Corsa audio is built on **FMOD Studio** (Firelight Technologies middlewa
 #### FMOD Project Structure
 
 **Event Hierarchy** (recommended):
-```
+```text
 Car/
 ├── Engine/
 │   ├── Intake_Int          # Internal induction
@@ -792,7 +805,7 @@ Car/
 
 | Parameter | Range | Description |
 |-----------|-------|-------------|
-| `RPM` | 0–12000 | Engine speed (primary modulator for engine events) |
+| `RPM` | 0–20000 | Engine speed (primary modulator for engine events) |
 | `Load` | 0–1 | Engine load (throttle × volumetric efficiency) |
 | `Throttle` | 0–1 | Pedal position |
 | `Speed` | 0–400+ | Vehicle speed km/h |
@@ -1053,7 +1066,7 @@ The cockpit is the player's primary visual anchor during driving. Release-qualit
 | 14 | Cockpit camera position realistic | ☐ | Eye height ~1.05–1.15 m |
 | 15 | Driver skin override works | ☐ | Skin folder replaces helmet/suit |
 
-
+---
 
 ### 1.8 Detailed INI File Reference — Line-by-Line Parameter Guide
 
@@ -1066,7 +1079,7 @@ The master vehicle descriptor: `[HEADER] VERSION=extended-2` enables CSP-extende
 Powertrain definition: `[HEADER] VERSION=1`, `POWER_CURVE=torque.lut` points to the main torque lookup, `COAST_CURVE=FROM_COAST_REF` uses the `[COAST_REF]` block, `POWER_CURVE_STANDARD=2` selects the LUT format, `HUMIDITY_REF=0`. `[ENGINE_DATA] AMBIENT_EFFECT=0` disables ambient-power correction, `ALTITUDE_SENSITIVITY=0.2`, `INERTIA=0.078` kg·m² crank inertia, `LIMITER=8000` RPM hard cut, `LIMITER_HZ=100` cut frequency, `MINIMUM=-1800` RPM idle floor, `DEFAULT_TURBO_ADJUSTMENT=1`. `[COAST_REF] RPM=8000 TORQUE=75 NON_LINEARITY=0` defines engine-brake torque at redline. `[COAST_DATA] COAST0/1/COAST` shape the coast curve. `[COAST_SETTINGS] LUT` array maps 7 gear-dependent coast multipliers, `DEFAULT=3` selects 4th gear map, `ACTIVATION_RPM=4000`. `[OVERLAP]` all zeros (no anti-lag). `[DAMAGE] TURBO_BOOST_THRESHOLD=1.1` bar over-boost damage trigger, `TURBO_DAMAGE_K=100`, `RPM_THRESHOLD=13000`, `RPM_DAMAGE_K=0.1`. `[TURBO_0]` & `[TURBO_1]` identical twin turbos: `LAG_DN/UP` spool rates, `MAX_BOOST=0.5` bar, `WASTEGATE=0.5`, `DISPLAY_MAX_BOOST=0.5`, `REFERENCE_RPM=3000`, `GAMMA=0.2` boost curve shape, `COCKPIT_ADJUSTABLE=0`. `[BOV] PRESSURE_THRESHOLD=0.75` bar blow-off valve. `[THROTTLE_RESPONSE] RPM_REFERENCE=8500`, `LUT=throttleref.lut` maps pedal-to-throttle by RPM. `[MAP] DEFAULT=2` selects `MAP_2=engine_map2.lut` (three power maps via `engine_map0/1/2.lut`).
 
 #### suspension.ini
-(not present in this car; superseded by `dampers.ini`, `bumpstops.ini`, `ctrl_*.ini`, and `setup.ini` script-driven suspension)
+*(not present in this car; superseded by `dampers.ini`, `bumpstops.ini`, `ctrl_*.ini`, and `setup.ini` script-driven suspension)*
 
 #### tyres.ini
 Pacejka-MF6.1 tyre model with CSP thermal extension: `[HEADER] VERSION=10`, `[_EXTENSION] EXTENDED_RAYTRACING=0`, `LATERAL/LONGITUDINAL_RAYS=6`, `MAX_RAY_ANGLE=50`, `MAX_RAY_WIDTH_RATIO=1`, `DISABLE_RAY_DOUBLING=0`, `PRACTICAL_TEMP_RATIO=0.4`, `USE_NEW_RR_SLIP=1`. `[COMPOUND_DEFAULT] INDEX=1` selects Soft Cold as default. `[VIRTUALKM] USE_LOAD=1` enables virtual kilometre wear. `[EXPLOSION] TEMPERATURE=1000°C`. `[ADDITIONAL1] CAMBER_TEMP_SPREAD_K=1.3`, `PRESSURE_TEMPERATURE_GAIN=0.1125`, `BLANKETS_TEMP=45°C`. Each compound block (`[FRONT]`, `[REAR]`, `[FRONT_1]`, `[REAR_1]`, `[FRONT_2]`, `[REAR_2]`, `[FRONT_3]`, `[REAR_3]` for Soft Cold / Soft Hot / Medium / Wet) declares: `NAME/SHORT_NAME`, `WIDTH=0.29/0.34 m`, `RADIUS=0.355 m`, `RIM_RADIUS=0.2413 m`, `ANGULAR_INERTIA`, `DAMP`, `RATE` (spring rate N/m), `DY_CURVE/DX_CURVE` = `.lut` files for lateral/longitudinal Pacejka DY/DX coefficients, `DY0/1 DX0/1` offsets, `WEAR_CURVE`, `SPEED_SENSITIVITY`, `RELAXATION_LENGTH=0.1`, rolling resistance coefficients `ROLLING_RESISTANCE_0/1/SLIP`, `FLEX=0`, `CAMBER_GAIN`, `DCAMBER_0/1` linear camber stiffness, `DCAMBER_LUT` camber-sensitivity LUT, `DCAMBER_LUT_SMOOTH=1`, `FRICTION_LIMIT_ANGLE` peak-slip angle (deg), `XMU=0.2` friction fallback, pressure model: `PRESSURE_STATIC=22 psi`, `PRESSURE_SPRING_GAIN`, `PRESSURE_FLEX_GAIN`, `PRESSURE_RR_GAIN`, `PRESSURE_D_GAIN`, `PRESSURE_IDEAL=29 psi`, `FZ0=3000 N` nominal load, `LS_EXPY/EXPX` load sensitivity exponents, `DY_REF/DX_REF` reference friction, `FLEX_GAIN`, `FALLOFF_LEVEL/SPEED` grip drop-off, `CX_MULT` drag multiplier, `COMBINED_FACTOR=2.22` combined-slip weighting, `RADIUS_ANGULAR_K/K_2` centrifugal growth, `BRAKE_DX_MOD=0`, `DX_CAMBER_REF=-4°`, `DX_CAMBER_MULT=0.98`, `ROLLING_RADIUS_MULT=0.05`, `CAMBER_SPRING_MULT` = per-compound LUT, `FALLOFF_LEVEL_CURVE/SPEED_CURVE` = `*_flc.lut` / `*_fsc.lut`, `SIDEWALL_K_MULT/X`, `COMBINED_FACTOR_1/BRAKE_MULT/LOAD_K`, `DROPOFF_FACTOR_0/1`, `TYPE_HINT=SLICK`. Thermal blocks (`[THERMAL_FRONT/REAR]`, `[THERMAL2_FRONT/REAR]` and `_1/_2/_3` variants) define: `SURFACE/PATCH/CORE/INTERNAL_CORE_TRANSFER` heat-flow coefficients, `FRICTION_K` grip-temperature sensitivity, `SURFACE_ROLLING_K`, `ROLLING_K`, `PERFORMANCE_CURVE` = `*_T_*.lut` grip vs temp, `GRAIN_GAMMA/GAIN`, `BLISTER_GAMMA/GAIN`, `COOL_FACTOR`. `THERMAL2` adds carcass model: `CARCASS_ROLLING_K`, `BRAKE_TO_CORE`, `SURFACE_TO_AMBIENT/CARCASS`, `CARCASS_TO_SURFACE/CORE`, `CORE_TO_CARCASS/AMBIENT`, `FLEX_SPEED_COEFF`, `FRICTION_TEMP_K`. Wet compounds add `TREAD_COVER=0.7`, `TREAD_DEPTH=0.008 m`.
@@ -1105,13 +1118,13 @@ Massive 1214-line setup menu definition for CM/CSP. `[DISPLAY_METHOD] SHOW_CLICK
 `[FUEL_EVAL] KM_PER_LITER=2.308508` — single scalar used by the ECU script to estimate stint range and fuel-per-lap; the script multiplies this by current fuel mass to project remaining laps.
 
 #### hybrid.ini
-(not present; hybrid logic in `ers.ini` + CSP scripts)
+*(not present; hybrid logic in `ers.ini` + CSP scripts)*
 
 #### thermal.ini
-(not present; tyre thermal in `tyres.ini` `[THERMAL*]` blocks)
+*(not present; tyre thermal in `tyres.ini` `[THERMAL*]` blocks)*
 
 #### drs.ini
-(not present; DRS via aero `WING_1` dynamic controller + script)
+*(not present; DRS via aero `WING_1` dynamic controller + script)*
 
 #### mirrors.ini
 Three mirrors: `[MIRROR_0] NAME=MIRROR_L` (left), `[MIRROR_1] NAME=MIRROR_C` (centre), `[MIRROR_2] NAME=MIRROR_R` (right) — node names must exist in the 3D model; CSP uses these for real-time planar reflections.
@@ -1141,7 +1154,7 @@ Wheel-blur LOD objects per corner (indices 0=LF, 1=RF, 2=LR, 3=RR): eight `[OBJE
 `[HEADER] SIZE_MULT=1`. Particle presets: `[PRESET_START_0/1/2]`, `[PRESET_END_0/1/2]`, `[PRESET_LOOP_0/1/2]`, `[PRESET_FLASH_0/1/2]` — each with `TRIGGER=0/1/2` (start/end/loop/flash), `OFFSET=(x,y,z)`, `SIZE`, `TYPE=0/1/2` (particle type), `RGB=R,G,B,Alpha`.
 
 #### sounds.ini
-(not read; legacy sound config, superseded by FMOD `sfx.bank`)
+*(not read; legacy sound config, superseded by FMOD `sfx.bank`)*
 
 #### ai.ini
 `[HEADER] VERSION=4`. `[GEARS] UP=7600 DOWN=76.3 SLIP_THRESHOLD=1.02 GAS_CUTOFF_TIME=0.03` — AI shift points. `[PEDALS] GASGAIN=4 BRAKE_HINT=0.88 TRAIL_HINT=0.5`. `[STEER] STEER_GAIN=1.8`. `[LOOKAHEAD] BASE=10 GAS_BRAKE_LOOKAHEAD=5 SPEED_GAIN=0.1`. `[ULTRA_GRIP] VALUE=1.2` AI grip multiplier. `[PHYSICS_HINTS] AERO_HINT=1`. `[TYRES] HINT=1`. `[WING_VARIATION] VALUE=0`.
@@ -1170,7 +1183,7 @@ A track mod creates a new circuit, environment, and racing surface. Tracks are m
 
 ### 2.1 Folder Structure
 
-```
+```text
 content/tracks/my_track/
 ├── data/
 │   ├── track.ini           # Master config (length, pits, direction, GPS)
@@ -1378,7 +1391,6 @@ WET_FRICTION_MULT=0.85
 PARTICLE=ASPHALT
 SOUND=ASPHALT
 ```
-
 `ID` must match the material name in the `.mtl`/3D mesh. `PARTICLE` and `SOUND` reference particle-effect and tyre-scrub sound presets in `sys/particles.ini` and `sys/sounds.ini`. Common surfaces: ASPHALT, KERB, GRASS, GRAVEL, SAND, CONCRETE, WALL, RUMBLE_STRIP, PITLANE. CSP adds `WET_PUDDLE_DEPTH`, `AQUAPLANING_SPEED`, `TEMPERATURE_TRANSFER`.
 
 #### ai/fast_lane.ai
@@ -1391,7 +1403,7 @@ Track-edge boundaries. Same spline format but `SPEED` is ignored; defines the dr
 Pit lane centreline from pit-entry to pit-exit. Includes `SPEED_LIMIT` enforcement zone markers (CSP reads `PIT_SPEED_LIMIT` from `track.ini`). Must connect to `fast_lane` at entry/exit.
 
 #### ai/hint_*.ai
-Optional hint splines: `hint_corner.ai` (corner apexes), `hint_braking.ai` (brake zones), `hint_overtake.ai` (overtake zones). Format: `X Y Z TYPE VALUE`. `TYPE` enum: 0=apex, 1=brake, 2=overtake. `VALUE` = target speed or priority.
+Optional hint splines: `hint_corner.ai` (corner apexes), `hint_braking.ai` (brake zones), `hint_overtake.ai` (overtaking zones). Format: `X Y Z TYPE VALUE`. `TYPE` enum: 0=apex, 1=brake, 2=overtake. `VALUE` = target speed or priority.
 
 #### cameras.ini
 TV/replay camera definitions. Each `[CAMERA_N]`:
@@ -1404,7 +1416,6 @@ TIME=0.0
 TYPE=TRACKSIDE
 NAME=Turn1_Entry
 ```
-
 `POS` world position, `TARGET` look-at, `FOV` degrees, `TIME` activation time (seconds from race start, or spline metre for lap-relative), `TYPE` enum: `TRACKSIDE`, `HELICOPTER`, `DRONE`, `ONBOARD`, `BONNET`, `BUMPER`. `NAME` for director script. CSP adds `EXPOSURE`, `MOTION_BLUR`, `POST_PROCESS` profile.
 
 #### pit.ini
@@ -1418,7 +1429,6 @@ EXIT=480.0
 BOX_SPACING=12.0
 FIRST_BOX=125.0
 ```
-
 `LANE_BOUNDS` spline metre range where speed limiter active. `BOX_SPACING` and `FIRST_BOX` place garages along lane.
 
 #### timing.ini
@@ -1431,7 +1441,6 @@ SPLIT_2=2900.0
 FINISH=4200.0
 SPEED_TRAP=3800.0
 ```
-
 `SPLITS` count, `SPLIT_N` spline metre of sector line, `FINISH` start/finish line, `SPEED_TRAP` spline metre for top-speed trap.
 
 #### drs_zones.ini
@@ -1442,7 +1451,6 @@ DETECTION=1200.0
 ACTIVATION_START=1400.0
 ACTIVATION_END=2100.0
 ```
-
 `DETECTION` spline metre where gap measured, `ACTIVATION_START/END` range where DRS may open if within 1s.
 
 #### ext_config.ini
@@ -1462,7 +1470,6 @@ ACTIVE=1
 [SEASONS]
 ACTIVE=1
 ```
-
 Each feature block toggles CSP systems. `[SHADER_REPLACEMENT]` enables custom material overrides. `[RAIN_FX]` enables puddle maps, spray, wet reflections. `[GRASS_FX]` enables wind-blown grass with physical interaction. `[DYNAMIC_LIGHTS]` enables track-light schedules. `[SEASONS]` enables texture swaps.
 
 #### weather_*.ini
@@ -1484,7 +1491,6 @@ PUDDLE_MAP=puddles_dry.dds
 [PARTICLES]
 RAIN=0
 ```
-
 `WETNESS` 0–1 drives puddle opacity and tyre wet friction. `PUDDLE_MAP` greyscale texture (white=deep puddle). `RAIN` enables particle rain emitter with density.
 
 #### track_lights.ini
@@ -1498,7 +1504,6 @@ COLOR=1.0,0.95,0.85
 INTENSITY=5000
 SCHEDULE=18:00-06:00
 ```
-
 `OBJECT` = 3D node name, `TYPE` enum `FLOOD`/`SPOT`/`OMNI`/`EMITTER`, `SCHEDULE` 24h on/off times (or `ALWAYS`/`SUNSET_SUNRISE`). CSP interpolates intensity at dawn/dusk.
 
 #### seasons.ini
@@ -1524,7 +1529,6 @@ GRASS_TINT=0.5,0.5,0.5
 TREE_LEAVES=leaves_winter.dds
 SNOW_COVER=1
 ```
-
 `TEXTURE_OVERRIDE` subfolder under `textures/` with season-specific albedo/normal. `GRASS_TINT` multiplies `cs_grass` shader. `SNOW_COVER=1` enables snow shader on horizontal surfaces.
 
 #### ui_track.json
@@ -1544,7 +1548,6 @@ Menu metadata:
   "cspVersion": "0.1.78"
 }
 ```
-
 `layouts` array lets CM show layout selector with per-layout data/ui folders. `cspVersion` minimum required.
 
 #### layout data/ overrides
@@ -1579,7 +1582,7 @@ Built for Assetto Corsa with CSP 0.1.78+.
 ## Recommended Workflow
 
 ### Car Workflow
-```
+```text
 [1] Collect real specs (mass, power, dimensions, suspension type)
     ↓
 [2] Model high-poly → retopo → UV → bake
@@ -1600,7 +1603,7 @@ Built for Assetto Corsa with CSP 0.1.78+.
 ```
 
 ### Track Workflow
-```
+```text
 [1] Research layout (map, GPS, onboard video, LIDAR)
     ↓
 [2] Build centerline spline with elevation/banking
@@ -1664,7 +1667,6 @@ Modding Assetto Corsa rewards patience and iteration. Start small: repaint a ski
 | `.ai` | AI Spline | AI | Path spline for AI driving behavior |
 | `.psd` | Photoshop Document | Texture | Layered source file for skin templates |
 | `.zip` / `.7z` | Archive | Packaging | Distribution compression formats |
-| `.ksanim` | Kunos Animation | Driver | Steering wheel, pedal, and shifter keyframe animations |
 | `driver.ini` | Driver Config | Driver | Visibility, placement, and skin overrides |
 | `driver3d.ini` | Driver 3D Config | Driver | Seat position, head movement, animation linking, LODs |
 | `dashboard.ini` | Dashboard Config | Driver | Analog gauge and digital display layout |
@@ -1680,27 +1682,27 @@ Modding Assetto Corsa rewards patience and iteration. Start small: repaint a ski
 | **AO** | Ambient Occlusion — baked contact shadows |
 | **ARB** | Anti-Roll Bar — stabilizer bar connecting left/right suspension |
 | **BC / DXT** | Block compression formats for DDS textures |
-| **CSP** | Custom Shaders Patch — community graphics/physics extension |
 | **CM** | Content Manager — advanced launcher and mod manager |
 | **CoG** | Center of Gravity — mass center point |
-| **FMOD** | Firelight Technologies audio middleware |
-| **FFB** | Force Feedback — steering wheel resistance |
-| **KN5** | Kunos 3D format (proprietary) |
-| **LOD** | Level of Detail — simplified distant meshes |
-| **LUT** | Lookup Table — data curve file |
-| **Pacejka** | Magic Formula tyre model (B, C, D, E coefficients) |
-| **Retopo** | Retopology — rebuilding mesh for game-ready topology |
-| **UV** | Texture coordinate mapping (U, V axes) |
-| **VBO** | Vertex Buffer Object (mesh data) |
-| **HANS** | Head and Neck Support — safety device preventing basilar skull fracture |
-| **LOD** (Driver) | Driver-specific Level of Detail: close-up helmet/suit vs distant simplified mesh |
-| **Visor Tint** | Helmet visor opacity controlled by shader or CSP time-of-day |
-| **Skin Override** | Ability for skinners to replace driver textures via `skin.ini` without base-mod edits |
-| **Shift Light** | LED on steering wheel indicating optimal upshift RPM |
 | **Cockpit LOD** | Interior mesh detail level; high for player car, low for AI/opponents |
-| **Planar Mirror** | CSP real-time reflection using mirror plane geometry |
+| **CSP** | Custom Shaders Patch — community graphics/physics extension |
+| **FFB** | Force Feedback — steering wheel resistance |
+| **FMOD** | Firelight Technologies audio middleware |
+| **HANS** | Head and Neck Support — safety device preventing basilar skull fracture |
 | **Head Movement** | Physics-driven G-force head bob/roll/pitch in `driver3d.ini` |
 | **Helmet Cam** | First-person camera positioned at driver's eye level (`DRIVEREYES`) |
+| **KN5** | Kunos 3D format (proprietary) |
+| **LOD** | Level of Detail — simplified distant meshes |
+| **LOD (Driver)** | Driver-specific Level of Detail: close-up helmet/suit vs distant simplified mesh |
+| **LUT** | Lookup Table — data curve file |
+| **Pacejka** | Magic Formula tyre model (B, C, D, E coefficients) |
+| **Planar Mirror** | CSP real-time reflection using mirror plane geometry |
+| **Retopo** | Retopology — rebuilding mesh for game-ready topology |
+| **Shift Light** | LED on steering wheel indicating optimal upshift RPM |
+| **Skin Override** | Ability for skinners to replace driver textures via `skin.ini` without base-mod edits |
+| **UV** | Texture coordinate mapping (U, V axes) |
+| **VBO** | Vertex Buffer Object (mesh data) |
+| **Visor Tint** | Helmet visor opacity controlled by shader or CSP time-of-day |
 
 ---
 
@@ -1797,5 +1799,3 @@ Modding Assetto Corsa rewards patience and iteration. Start small: repaint a ski
 - [ ] `description.ini` and README with CSP version requirement
 
 ---
-
-*Document enhanced for readability, cross-referencing, and practical workflow support. All technical specifications preserved from original source material.*

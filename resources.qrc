@@ -191,10 +191,16 @@
     </qresource>
     <qresource prefix="/qml">
         <file alias="pages/page_ksModeler.qml">resources/ui/qml/pages/page_ksModeler.qml</file>
-        <file alias="pages/page_Editor.qml">resources/ui/qml/pages/page_Editor.qml</file>
-        <file alias="pages/page_AudioEditorPage.qml">resources/ui/qml/pages/page_AudioEditorPage.qml</file>
+        <file alias="pages/page_ksAudioEditor.qml">resources/ui/qml/pages/page_ksAudioEditor.qml</file>
         <file alias="pages/page_ksAudioStudio.qml">resources/ui/qml/pages/page_ksAudioStudio.qml</file>
         <file alias="pages/page_ksFontEditor.qml">resources/ui/qml/pages/page_ksFontEditor.qml</file>
+        <file alias="pages/page_ksDisplayEditor.qml">resources/ui/qml/pages/page_ksDisplayEditor.qml</file>
+        <file alias="pages/page_ksLicensePlatesEditor.qml">resources/ui/qml/pages/page_ksLicensePlatesEditor.qml</file>
+        <file alias="pages/page_ksPhysicsEditor.qml">resources/ui/qml/pages/page_ksPhysicsEditor.qml</file>
+        <file alias="pages/page_ksShowroomEditor.qml">resources/ui/qml/pages/page_ksShowroomEditor.qml</file>
+        <file alias="pages/page_ksLiveryEditor.qml">resources/ui/qml/pages/page_ksLiveryEditor.qml</file>
+        <file alias="pages/page_ksIDEEditor.qml">resources/ui/qml/pages/page_ksIDEEditor.qml</file>
+        <file alias="pages/page_ksPPFiltersEditor.qml">resources/ui/qml/pages/page_ksPPFiltersEditor.qml</file>
         <file alias="widgets/AppButton.qml">resources/ui/qml/widgets/AppButton.qml</file>
         <file alias="modules/Audio/AudioEditor/audio_Editor.qml">resources/ui/qml/modules/Audio/AudioEditor/audio_Editor.qml</file>
         <file alias="modules/Audio/AudioEditor/audio_batch.qml">resources/ui/qml/modules/Audio/AudioEditor/audio_batch.qml</file>
@@ -231,6 +237,8 @@
         <file alias="modules/Audio/AudioEditor/AudioTransientDesigner.qml">resources/ui/qml/modules/Audio/AudioEditor/AudioTransientDesigner.qml</file>
         <file alias="modules/Audio/AudioEditor/AudioWahWah.qml">resources/ui/qml/modules/Audio/AudioEditor/AudioWahWah.qml</file>
         <file alias="modules/Audio/AudioEditor/engineSampleGenerator.qml">resources/ui/qml/modules/Audio/AudioEditor/engineSampleGenerator.qml</file>
+        <file alias="modules/Audio/AudioEditor/main.qml">resources/ui/qml/modules/Audio/AudioEditor/main.qml</file>
+        <file alias="modules/Audio/AudioEditor/AudioEditorWindow.qml">resources/ui/qml/modules/Audio/AudioEditor/AudioEditorWindow.qml</file>
         <file alias="modules/Audio/AudioEditor/qmldir">resources/ui/qml/modules/Audio/AudioEditor/qmldir</file>
         <file alias="modules/Audio/AudioStudio/main.qml">resources/ui/qml/modules/Audio/AudioStudio/main.qml</file>
         <file alias="modules/Audio/AudioStudio/AudioStudio.qml">resources/ui/qml/modules/Audio/AudioStudio/AudioStudio.qml</file>
@@ -251,6 +259,8 @@
         <file alias="modules/format_Tools.qml">resources/ui/qml/modules/format_Tools.qml</file>
         <file alias="modules/PPFiltersEditor.qml">resources/ui/qml/modules/PPFiltersEditor.qml</file>
         <file alias="modules/font_KSFontCreator.qml">resources/ui/qml/modules/font_KSFontCreator.qml</file>
+        <file alias="modules/fontEditor/main.qml">resources/ui/qml/modules/fontEditor/main.qml</file>
+        <file alias="modules/fontEditor/FontEditorWindow.qml">resources/ui/qml/modules/fontEditor/FontEditorWindow.qml</file>
         <file alias="modules/csp_Editor.qml">resources/ui/qml/modules/csp_Editor.qml</file>
         <file alias="modules/AssetsLibrary.qml">resources/ui/qml/modules/AssetsLibrary.qml</file>
         <file alias="modules/workshop_Browser.qml">resources/ui/qml/modules/workshop_Browser.qml</file>
@@ -258,6 +268,7 @@
         <file alias="modules/Car_LicensePlates.qml">resources/ui/qml/modules/Car_LicensePlates.qml</file>
         <file alias="modules/car_DisplayEditor.qml">resources/ui/qml/modules/car_DisplayEditor.qml</file>
         <file alias="widgets/AllWidgets.qml">resources/ui/qml/widgets/AllWidgets.qml</file>
+        <file alias="widgets/qmldir">resources/ui/qml/widgets/qmldir</file>
         <file alias="modules/3DModeling/main.qml">resources/ui/qml/modules/3DModeling/main.qml</file>
         <file alias="modules/3DModeling/ModelerStudio.qml">resources/ui/qml/modules/3DModeling/ModelerStudio.qml</file>
         <file alias="modules/3DModeling/modeler_Tools.qml">resources/ui/qml/modules/3DModeling/modeler_Tools.qml</file>
@@ -284,8 +295,9 @@
         <file alias="modules/physicsEditor/KunosACPhysics.qml">resources/ui/qml/modules/physicsEditor/KunosACPhysics.qml</file>
         <file alias="modules/physicsEditor/cmACPhysics.qml">resources/ui/qml/modules/physicsEditor/cmACPhysics.qml</file>
         <file alias="modules/physicsEditor/phys_Tools.qml">resources/ui/qml/modules/physicsEditor/phys_Tools.qml</file>
+        <file alias="modules/physicsEditor/main.qml">resources/ui/qml/modules/physicsEditor/main.qml</file>
+        <file alias="modules/physicsEditor/PhysicsStudio.qml">resources/ui/qml/modules/physicsEditor/PhysicsStudio.qml</file>
         <file alias="VR/VRSettingsPage.qml">resources/ui/qml/VR/VRSettingsPage.qml</file>
-        <file alias="pages/AudioEditorPage.qml">resources/ui/qml/pages/AudioEditorPage.qml</file>
         <file alias="app_Main.qml">resources/ui/qml/app_Main.qml</file>
     </qresource>
     <qresource prefix="/translations">

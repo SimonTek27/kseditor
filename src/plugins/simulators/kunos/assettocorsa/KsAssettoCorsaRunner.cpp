@@ -1,5 +1,5 @@
 #include "KsAssettoCorsaRunner.h"
-#include "KsContentPaths.h"
+#include "KsAssettoCorsaContentPath.h"
 #include <QDebug>
 #include <QMessageBox>
 #include <QJsonDocument>

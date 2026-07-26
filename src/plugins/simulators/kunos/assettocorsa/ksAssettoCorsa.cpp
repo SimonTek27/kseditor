@@ -5,7 +5,7 @@
 #include "QmlBridges.h"
 #include "SetupComparison.h"
 #include "KsAssettoCorsaRunner.h"
-#include "KsContentPaths.h"
+#include "KsAssettoCorsaContentPath.h"
 #include <QDebug>
 
 namespace ks {

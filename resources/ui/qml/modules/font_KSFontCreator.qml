@@ -679,7 +679,7 @@ Rectangle {
                             Text { text: "STATS"; color: "#666"; font.pixelSize: 10 }
                             Text { text: "Glyphs: " + (FontCreator ? FontCreator.getGlyphs().length : 95); color: "#bbb"; font.pixelSize: 11 }
                             Text { text: "Kerning: " + (FontCreator ? FontCreator.getKerningPairs().length : 0) + " pairs"; color: "#bbb"; font.pixelSize: 11 }
-                            Text { text: "Atlas: " + (FontCreator ? FontCreator.atlasWidth : 512) + "\u00D7" + (FontCreator ? FontCreator.atlasHeight : 128); color: "#bbb"; font.pixelSize: 11 }
+                            Text { text: "Atlas: " + (FontCreator ? FontCreator.atlasWidth : 4096) + "\u00D7" + (FontCreator ? FontCreator.atlasHeight : 64); color: "#bbb"; font.pixelSize: 11 }
                         }
                     }
                 }

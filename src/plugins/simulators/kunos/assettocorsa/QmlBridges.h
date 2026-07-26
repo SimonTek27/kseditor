@@ -11,7 +11,7 @@
 #include "core/mesh/MeshOperations.h"
 #include "core/mesh/AdvancedMeshOps.h"
 #include "acCSP/CspConfigParser.h"
-#include "KsContentPaths.h"
+#include "KsAssettoCorsaContentPath.h"
 #include "../../../../modules/LiveryEditor/LiverySystem.h"
 
 namespace ks {

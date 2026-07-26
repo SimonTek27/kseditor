@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls
 import QtQuick.Layouts
 import ksEditor.AudioEffects 1.0
-import "../../widgets"
+import "../../../widgets"
 
 Item {
     id: effectsRack

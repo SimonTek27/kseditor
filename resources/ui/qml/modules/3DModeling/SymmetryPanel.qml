@@ -116,7 +116,7 @@ Rectangle {
                 color: "#E10600"
                 font.pixelSize: 11
                 font.bold: true
-                implicitWidth: 40
+                width: 40
                 horizontalAlignment: Text.AlignRight
             }
         }
@@ -148,7 +148,7 @@ Rectangle {
                 color: "#E10600"
                 font.pixelSize: 11
                 font.bold: true
-                implicitWidth: 50
+                width: 50
                 horizontalAlignment: Text.AlignRight
             }
         }

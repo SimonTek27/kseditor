@@ -20,12 +20,14 @@ public:
                     const QColor& buttonHover, const QColor& buttonPressed, const QColor& closeHover);
     
     QToolButton* menuButton() const { return m_menuButton; }
+    QToolButton* helpButton() const { return m_helpButton; }
     QToolButton* minimizeButton() const { return m_minimizeButton; }
     QToolButton* maximizeButton() const { return m_maximizeButton; }
     QToolButton* closeButton() const { return m_closeButton; }
 
 signals:
     void menuRequested();
+    void helpRequested();
     void minimizeRequested();
     void maximizeRequested();
     void closeRequested();
@@ -44,6 +46,7 @@ private:
     
     QToolButton* m_menuButton = nullptr;
     QLabel* m_titleLabel = nullptr;
+    QToolButton* m_helpButton = nullptr;
     QToolButton* m_minimizeButton = nullptr;
     QToolButton* m_maximizeButton = nullptr;
     QToolButton* m_closeButton = nullptr;

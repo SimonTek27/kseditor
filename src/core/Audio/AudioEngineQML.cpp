@@ -1,7 +1,7 @@
 #include "AudioEngineQML.h"
 #include "AudioTypes.h"
 #include "CarAudioEngine.h"
-#include "ACEventDefs.h"
+#include "plugins/simulators/kunos/assettocorsa/ksAssettocorsasndeventdefs.h"
 #include "ACGuidsParser.h"
 #include <QFileInfo>
 #include <QDir>

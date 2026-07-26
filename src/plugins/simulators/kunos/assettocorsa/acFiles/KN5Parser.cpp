@@ -101,6 +101,9 @@ KN5File KN5ParserImpl::parse(const QString& filePath, QString* error) {
             }
         }
 
+        // Extract LOD groups and validate
+        kn5.extractLODGroups();
+
     } catch (const std::exception& e) {
         m_lastError = QString("Parse error: %1").arg(e.what());
         if (error) *error = m_lastError;
@@ -108,14 +111,13 @@ KN5File KN5ParserImpl::parse(const QString& filePath, QString* error) {
     }
 
     file.close();
-    if (error) *error = QString();
     return kn5;
 }
 
 bool KN5ParserImpl::write(const QString& filePath, const KN5File& kn5) {
     QFile outFile(filePath);
     if (!outFile.open(QIODevice::WriteOnly)) {
-        m_lastError = QString("Cannot create file: %1").arg(filePath);
+        m_lastError = QString("Cannot open file for writing: %1").arg(filePath);
         return false;
     }
 
@@ -123,62 +125,13 @@ bool KN5ParserImpl::write(const QString& filePath, const KN5File& kn5) {
     stream.setByteOrder(QDataStream::LittleEndian);
 
     try {
-        // Encode modified vertex data from typed arrays
-        for (const auto& mesh : kn5.meshes) {
-            const_cast<Mesh&>(mesh).encodeVertices();
-        }
-
         // Write header
         FileHeader h = kn5.header;
-        h.magic = KN5_MAGIC;
-        h.version = KN5_VERSION;
         h.textureCount = kn5.textures.size();
         h.materialCount = kn5.materials.size();
         h.nodeCount = kn5.meshes.size();
-
-        // Compute contiguous layout: header + textures + materials + meshes + index data
-        quint32 headerBytes = sizeof(quint32) * 13; // 13 quint32 fields
-        quint32 texBytes = 0;
-        for (const auto& tex : kn5.textures) {
-            texBytes += 4 + (quint32)tex.name.toUtf8().size() + 4 + 4 + 4 + 4 + 4 + (quint32)tex.data.size();
-        }
-        quint32 matBytes = 0;
-        for (const auto& mat : kn5.materials) {
-            // id(4) + nameLen(4) + name + shaderLen(4) + shader + type(4) + propCount(4)
-            matBytes += 4 + 4 + (quint32)mat.name.toUtf8().size() + 4 + (quint32)mat.shaderName.toUtf8().size()
-                       + 4 + 4
-                       // per property: keyLen(4) + valLen(4) = 8 overhead (content added in loop below)
-                       + (quint32)mat.properties.size() * (4 + 4)
-                       // texCount(4) + per tex: slotLen(4) + texLen(4) = 8 overhead
-                       + 4 + (quint32)mat.textureMapping.size() * (4 + 4);
-            for (auto it = mat.properties.begin(); it != mat.properties.end(); ++it) {
-                matBytes += (quint32)it.key().toUtf8().size() + (quint32)it.value().toUtf8().size();
-            }
-            for (auto it = mat.textureMapping.begin(); it != mat.textureMapping.end(); ++it) {
-                matBytes += (quint32)it.key().toUtf8().size() + (quint32)it.value().toUtf8().size();
-            }
-        }
-        quint32 nodeBytes = 0;
-        quint32 totalVtxBytes = 0;
-        quint32 totalIdxBytes = 0;
-        for (const auto& mesh : kn5.meshes) {
-            nodeBytes += 4 + (quint32)mesh.name.toUtf8().size() + 4 + 4 + 1 + 1 + 1 + 4
-                        + 12 + 12 + 4
-                        + 4 + (quint32)mesh.vertexLayout.attributes.size() * 12
-                        + 4 + 4 + (quint32)mesh.vertexData.size()
-                        + 4 + 4 + (quint32)mesh.indexData.size()
-                        + 4 + (quint32)mesh.subMeshes.size() * 44;
-            totalVtxBytes += (quint32)mesh.vertexData.size();
-            totalIdxBytes += (quint32)mesh.indexData.size();
-        }
-
-        h.headerSize = headerBytes;
-        h.nodeOffset = h.headerSize + texBytes + matBytes;
-        h.textureOffset = h.headerSize;
-        h.vertexBufferOffset = h.nodeOffset + nodeBytes + 64; // 64 = world matrix
-        h.indexBufferOffset = h.vertexBufferOffset + totalVtxBytes;
-        h.vertexBufferSize = totalVtxBytes;
-        h.indexBufferSize = totalIdxBytes;
+        h.magic = KN5_MAGIC;
+        h.version = KN5_VERSION;
 
         stream << h.magic;
         stream << h.version;
@@ -199,6 +152,7 @@ bool KN5ParserImpl::write(const QString& filePath, const KN5File& kn5) {
             QByteArray nameBytes = tex.name.toUtf8();
             stream << (quint32)nameBytes.size();
             stream.writeRawData(nameBytes.constData(), nameBytes.size());
+
             stream << tex.width;
             stream << tex.height;
             stream << tex.format;
@@ -210,19 +164,19 @@ bool KN5ParserImpl::write(const QString& filePath, const KN5File& kn5) {
         // Write materials
         for (const auto& mat : kn5.materials) {
             stream << mat.id;
-            
+
             QByteArray nameBytes = mat.name.toUtf8();
             stream << (quint32)nameBytes.size();
             stream.writeRawData(nameBytes.constData(), nameBytes.size());
 
-            QByteArray shaderBytes = mat.shaderName.toUtf8();
-            stream << (quint32)shaderBytes.size();
-            stream.writeRawData(shaderBytes.constData(), shaderBytes.size());
+            nameBytes = mat.shaderName.toUtf8();
+            stream << (quint32)nameBytes.size();
+            stream.writeRawData(nameBytes.constData(), nameBytes.size());
 
             stream << (quint32)mat.type;
 
             stream << (quint32)mat.properties.size();
-            for (auto it = mat.properties.begin(); it != mat.properties.end(); ++it) {
+            for (auto it = mat.properties.constBegin(); it != mat.properties.constEnd(); ++it) {
                 QByteArray key = it.key().toUtf8();
                 QByteArray val = it.value().toUtf8();
                 stream << (quint32)key.size();
@@ -232,7 +186,7 @@ bool KN5ParserImpl::write(const QString& filePath, const KN5File& kn5) {
             }
 
             stream << (quint32)mat.textureMapping.size();
-            for (auto it = mat.textureMapping.begin(); it != mat.textureMapping.end(); ++it) {
+            for (auto it = mat.textureMapping.constBegin(); it != mat.textureMapping.constEnd(); ++it) {
                 QByteArray slot = it.key().toUtf8();
                 QByteArray tex = it.value().toUtf8();
                 stream << (quint32)slot.size();
@@ -247,7 +201,9 @@ bool KN5ParserImpl::write(const QString& filePath, const KN5File& kn5) {
             QByteArray nameBytes = mesh.name.toUtf8();
             stream << (quint32)nameBytes.size();
             stream.writeRawData(nameBytes.constData(), nameBytes.size());
-            stream << (quint32)0; // transform type
+
+            quint32 transformType = 0; // identity
+            stream << transformType;
             stream << mesh.nodeIndex;
             stream << mesh.castShadows;
             stream << mesh.isVisible;
@@ -263,35 +219,7 @@ bool KN5ParserImpl::write(const QString& filePath, const KN5File& kn5) {
             stream << mesh.boundingMax.z;
             stream << mesh.boundingRadius;
 
-            // Write vertex layout (including UV2, tangents, bone weights if present)
-            // Rebuild layout to ensure UV2/tangent/bone slots are included
-            {
-                using AT = AttributeType;
-                VertexLayout& vl = const_cast<Mesh&>(mesh).vertexLayout;
-                if (!vl.has(AT::TexCoord1) && !mesh.uv1.isEmpty()) {
-                    quint8 offs = (quint8)vl.vertexSize;
-                    vl.attributes.append(std::make_pair(AT::TexCoord1, offs));
-                    vl.vertexSize += 8;
-                }
-                if (!vl.has(AT::Tangent) && !mesh.tangents.isEmpty()) {
-                    quint8 offs = (quint8)vl.vertexSize;
-                    vl.attributes.append(std::make_pair(AT::Tangent, offs));
-                    vl.vertexSize += 12;
-                }
-                if (!vl.has(AT::Bitangent) && !mesh.bitangents.isEmpty()) {
-                    quint8 offs = (quint8)vl.vertexSize;
-                    vl.attributes.append(std::make_pair(AT::Bitangent, offs));
-                    vl.vertexSize += 12;
-                }
-                if (!vl.has(AT::BoneWeight) && !mesh.boneWeights.isEmpty()) {
-                    quint8 offs = (quint8)vl.vertexSize;
-                    vl.attributes.append(std::make_pair(AT::BoneWeight, offs));
-                    vl.vertexSize += 16;
-                    offs = (quint8)vl.vertexSize;
-                    vl.attributes.append(std::make_pair(AT::BoneIndex, offs));
-                    vl.vertexSize += 4;
-                }
-            }
+            // Write vertex layout
             stream << (quint32)mesh.vertexLayout.attributes.size();
             for (const auto& attr : mesh.vertexLayout.attributes) {
                 stream << (quint32)attr.first;
@@ -558,30 +486,20 @@ void MeshHelper::computeBoundingSphere(const KN5File& kn5, Vector3& center, floa
     radius = diff.length() * 0.5f;
 }
 
-// Mesh inline method implementations (moved from header to avoid duplicate definitions)
-quint32 KN5Parser::Mesh::getVertexCount() const {
-    const quint32 stride = vertexLayout.vertexSize > 0 ? vertexLayout.vertexSize : 44;
-    return stride ? (quint32)vertexData.size() / stride : 0;
-}
-
-quint32 KN5Parser::Mesh::getTriangleCount() const {
-    return (quint32)indexData.size() / 6; // quint16 indices, 3 per tri
-}
-
-quint32 MeshHelper::getTotalTriangles(const KN5File& kn5) {
-    quint32 total = 0;
-    for (const auto& mesh : kn5.meshes) {
-        total += mesh.getTriangleCount();
-    }
-    return total;
-}
-
-quint32 MeshHelper::getTotalVertices(const KN5File& kn5) {
-    quint32 total = 0;
-    for (const auto& mesh : kn5.meshes) {
-        total += mesh.getVertexCount();
-    }
-    return total;
-}
+// MeshHelper::getTotalTriangles(const KN5File& kn5) {
+//     quint32 total = 0;
+//     for (const auto& mesh : kn5.meshes) {
+//         total += mesh.getTriangleCount();
+//     }
+//     return total;
+// }
+//
+// quint32 MeshHelper::getTotalVertices(const KN5File& kn5) {
+//     quint32 total = 0;
+//     for (const auto& mesh : kn5.meshes) {
+//         total += mesh.getVertexCount();
+//     }
+//     return total;
+// }
 
 } // namespace KN5Parser

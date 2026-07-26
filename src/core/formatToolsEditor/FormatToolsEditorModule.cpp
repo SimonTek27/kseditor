@@ -5,7 +5,7 @@
 #include "../../core/FileFormat/INIParser.h"
 #include "../../core/FileFormat/JSONParser.h"
 #include "../../core/FileFormat/AiSpline.h"
-#include "../../plugins/simulators/kunos/assettocorsa/KN5Parser.h"
+#include "../../plugins/simulators/kunos/assettocorsa/acFiles/KN5Parser.h"
 #include "../../plugins/simulators/kunos/assettocorsa/acFiles/FBXExporter.h"
 
 #include <QVBoxLayout>

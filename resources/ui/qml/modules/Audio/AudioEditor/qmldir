@@ -1,5 +1,6 @@
 module AudioEditor
 
+AudioEditorWindow 1.0 AudioEditorWindow.qml
 audio_Editor 1.0 audio_Editor.qml
 audio_Mixer 1.0 audio_Mixer.qml
 audio_batch 1.0 audio_batch.qml

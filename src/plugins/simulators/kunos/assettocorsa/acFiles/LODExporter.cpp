@@ -1,6 +1,6 @@
 #include "LODExporter.h"
-#include "../KN5Types.h"
-#include "../KN5Parser.h"
+#include "KN5Types.h"
+#include "KN5Parser.h"
 #include <QFile>
 #include <QFileInfo>
 #include <QDebug>

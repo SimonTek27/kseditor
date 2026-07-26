@@ -12,7 +12,7 @@
 #include "core/Graphics/SceneGraph.h"
 #include "core/Graphics/SceneObject.h"
 #include "core/Graphics/SceneMesh.h"
-#include "assettocorsa/KN5Parser.h"
+#include "assettocorsa/acFiles/KN5Parser.h"
 #include "core/Math/MathCore.h"
 #include "core/FileFormat/FBXParser.h"
 #include "core/FileFormat/GLBParser.h"

@@ -1,5 +1,5 @@
 #include "CarAudioEngine.h"
-#include "ACEventDefs.h"
+#include "plugins/simulators/kunos/assettocorsa/ksAssettocorsasndeventdefs.h"
 #include <QDebug>
 #include <QFileInfo>
 #include <QDir>
@@ -20,7 +20,7 @@ KsCarAudioEngine* KsCarAudioEngine::instance() {
 }
 
 QString KsCarAudioEngine::eventPath(const QString& eventName) const {
-    return QString("/cars/%1/%2").arg(m_carId, eventName);
+    return ks::plugins::kunos::assettocorsa::ksAssettocorsasndeventdefs::carEventPath(m_carId, eventName);
 }
 
 bool KsCarAudioEngine::initialize(const QString& acRootPath) {
@@ -60,7 +60,7 @@ void KsCarAudioEngine::loadCarSoundBank(const QString& carDirectory, const QStri
     m_carDirectory = carDirectory;
     m_carId = carId;
 
-    QString bankPath = audio::ACEventDefs::soundbankPath(carDirectory, carId);
+    QString bankPath = ks::plugins::kunos::assettocorsa::ksAssettocorsasndeventdefs::soundbankPath(carDirectory, carId);
     QFileInfo info(bankPath);
 
     if (!info.exists()) {

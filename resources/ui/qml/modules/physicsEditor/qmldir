@@ -1,5 +1,6 @@
 module ksphysicseditor
 plugin ksphysicseditorplugin
 
+PhysicsStudio 1.0 PhysicsStudio.qml
 KSPhysicsEditor 1.0 KSPhysicsEditor.qml
 main 1.0 main.qml

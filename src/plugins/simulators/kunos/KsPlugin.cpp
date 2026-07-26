@@ -2,6 +2,7 @@
 #include <QDir>
 #include <QFile>
 #include <QSettings>
+#include <QMutex>
 
 namespace ks {
 namespace plugins {
@@ -20,6 +21,8 @@ KsPlugin::~KsPlugin() {
 }
 
 KsPlugin* KsPlugin::instance() {
+    static QMutex mutex;
+    QMutexLocker locker(&mutex);
     if (!s_instance) {
         s_instance = new KsPlugin();
     }

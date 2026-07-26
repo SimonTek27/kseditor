@@ -44,9 +44,9 @@
 #include <QUdpSocket>
 
 #include "../../core/editor/EditorModule.h"
-#include "../../plugins/simulators/kunos/assettocorsa/ksconfig.h"
-#include "../../plugins/simulators/kunos/assettocorsa/kssetup.h"
-#include "../../plugins/simulators/kunos/assettocorsa/KsIni.h"
+#include "../../plugins/simulators/kunos/assettocorsa/ksAssettoCorsaConfig.h"
+#include "../../plugins/simulators/kunos/assettocorsa/ksAssettoCorsaSetup.h"
+#include "../../plugins/simulators/kunos/assettocorsa/ksAssettoCorsaIni.h"
 #include "../../core/sys/UndoStack.h"
 #include "../../core/Graphics/SceneData.h"
 #include "../../core/Graphics/SceneObject.h"

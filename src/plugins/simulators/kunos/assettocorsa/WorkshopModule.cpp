@@ -1,4 +1,5 @@
 #include "WorkshopModule.h"
+#include "KsAssettoCorsaContentPath.h"
 #include "core/modmanager/ModManager.h"
 #include <QDebug>
 #include <QNetworkReply>
@@ -25,6 +26,7 @@
 #include <QJsonArray>
 #include <QDir>
 #include <QStandardPaths>
+#include <QtCore/private/qzipreader_p.h>
 
 namespace ks {
 
@@ -346,14 +348,24 @@ void WorkshopModule::downloadSelected() {
 }
 
 void WorkshopModule::handlePostDownload(const WorkshopItem& item, const QString& packagePath) {
-    // Extract manifest to get dependencies
+    // Extract ZIP to a temp directory
+    QString extractDir = QDir::tempPath() + "/ksEditor_workshop/" + QString::number(item.workshopId);
+    QDir().mkpath(extractDir);
+
+    // Extract ZIP using QZipReader
+    QZipReader zipReader(packagePath);
+    if (zipReader.exists()) {
+        zipReader.extractAll(extractDir);
+        zipReader.close();
+    }
+
+    // Look for manifest in extracted directory
     QString manifestPath;
-    QDir pkgDir(packagePath);
+    QDir pkgDir(extractDir);
     if (pkgDir.exists()) {
         manifestPath = pkgDir.filePath("manifest.json");
-    } else {
-        // Try workshop_manifest.json
-        manifestPath = pkgDir.filePath("workshop_manifest.json");
+        if (!QFile::exists(manifestPath))
+            manifestPath = pkgDir.filePath("workshop_manifest.json");
     }
 
     QStringList dependencies;
@@ -547,6 +559,7 @@ void WorkshopQmlBridge::refreshWorkshop() {
     m_isLoading = true;
     emit loadingChanged();
 
+    delete m_networkManager;
     m_networkManager = new QNetworkAccessManager(this);
     QString url = "https://www.assettocorsa.net/forum/index.php?forums/resources.106/";
 
@@ -983,7 +996,7 @@ bool WorkshopModule::canInstall(quint64 workshopId, QStringList& blockingConflic
     blockingConflicts.clear();
 
     for (const auto& conflict : conflicts) {
-        if (!conflict.satisfied) {
+        if (conflict.satisfied) {
             blockingConflicts << conflict.title;
             emit conflictDetected(conflict.title, "Item " + QString::number(workshopId));
         }

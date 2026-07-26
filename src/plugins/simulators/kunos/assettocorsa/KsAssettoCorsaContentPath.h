@@ -177,7 +177,8 @@ struct IniParser {
     static QString getValue(const QString& data, const QString& section,
                             const QString& key, const QString& defaultValue = {}) {
         QString currentSection;
-        QTextStream in(const_cast<QString*>(&data));
+        QString dataCopy = data;
+        QTextStream in(&dataCopy);
         while (!in.atEnd()) {
             QString line = in.readLine().trimmed();
             if (line.isEmpty() || line.startsWith(';') || line.startsWith('#'))

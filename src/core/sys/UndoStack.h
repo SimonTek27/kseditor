@@ -152,6 +152,8 @@ class PropertyCommand : public UndoCommand
 public:
     using Setter = void (T::*)(const V &);
     using Getter = V (T::*)() const;
+    using SetterFunc = std::function<void(const V&)>;
+    using GetterFunc = std::function<V()>;
 
     PropertyCommand(T *object,
                     Setter setter,
@@ -163,31 +165,53 @@ public:
         , m_setter(setter)
         , m_getter(getter)
         , m_newValue(newValue)
+        , m_useFunc(false)
     {
         m_oldValue = (m_object->*m_getter)();
     }
 
+    PropertyCommand(GetterFunc getter, SetterFunc setter, const V &newValue,
+                    const QString &description = QString())
+        : UndoCommand(description)
+        , m_setterFunc(setter)
+        , m_getterFunc(getter)
+        , m_newValue(newValue)
+        , m_useFunc(true)
+    {
+        m_oldValue = m_getterFunc();
+    }
+
     void undo() override {
-        (m_object->*m_setter)(m_oldValue);
+        if (m_useFunc) m_setterFunc(m_oldValue);
+        else (m_object->*m_setter)(m_oldValue);
     }
 
     void redo() override {
-        (m_object->*m_setter)(m_newValue);
+        if (m_useFunc) m_setterFunc(m_newValue);
+        else (m_object->*m_setter)(m_newValue);
     }
 
     bool merge(UndoCommand *other) override {
         auto *propCmd = dynamic_cast<PropertyCommand<T, V>*>(other);
-        if (propCmd && propCmd->m_object == m_object && propCmd->m_setter == m_setter) {
-            m_newValue = propCmd->m_newValue;
-            return true;
+        if (propCmd && propCmd->m_useFunc == m_useFunc) {
+            if (m_useFunc) {
+                m_newValue = propCmd->m_newValue;
+                return true;
+            } else if (propCmd->m_object == m_object && propCmd->m_setter == m_setter) {
+                m_newValue = propCmd->m_newValue;
+                return true;
+            }
         }
         return false;
     }
 
 private:
-    T *m_object;
-    Setter m_setter;
-    Getter m_getter;
+    T *m_object = nullptr;
+    Setter m_setter = nullptr;
+    Getter m_getter = nullptr;
+    SetterFunc m_setterFunc;
+    GetterFunc m_getterFunc;
+    bool m_useFunc = false;
     V m_oldValue;
     V m_newValue;
 };

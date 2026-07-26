@@ -8,6 +8,29 @@
 
 namespace ks { namespace plugins { namespace kunos { namespace ks {
 
+/**
+ * @file ksAssettoCorsaIni.h
+ * @brief INI file parser for Assetto Corsa physics configuration files.
+ * 
+ * This module handles all AC physics INI files used by the Kunos physics engine:
+ * - car.ini           — Core car parameters (name, engine, drivetrain, aero, etc.)
+ * - suspension.ini    — Suspension geometry, springs, dampers, ARBs, ride heights
+ * - tyres.ini         — Tyre models, compounds, pressures, temperatures, wear
+ * - brakes.ini        — Brake balance, pressure, ducts, temperatures
+ * - engine.ini        — Engine curves, RPM limits, turbo, fuel consumption
+ * - differential.ini  — Diff type, preload, power/coast ramps, locking
+ * - aero.ini          — Wings, diffusers, drag, downforce, DRS
+ * - damage.ini        — Mechanical/aero damage models, repair rates
+ * - drivetrain.ini    — Clutch, gearbox, final drive, shift times
+ * - transmission.ini  — Gear ratios, reverse, gearbox type
+ * - limits.ini        — Rev limiter, speed limiter, pit limiter
+ * - gear.ini          — Individual gear ratios, RPM drops
+ * 
+ * The KsIniDocument class provides load/save/section/key access.
+ * All files use standard INI format with [SECTION] headers and key=value pairs.
+ * Comments start with ; or #.
+ */
+
 class KsIniSection {
 public:
     KsIniSection(const QString& name = QString()) : m_name(name) {}
@@ -41,7 +64,7 @@ public:
         KsIniSection* current = nullptr;
         while (!in.atEnd()) {
             QString line = in.readLine().trimmed();
-            if (line.isEmpty() || line.startsWith(';') || line.startsWith('#') || line.startsWith('/'))
+            if (line.isEmpty() || line.startsWith(';') || line.startsWith('#') || line.startsWith("//"))
                 continue;
             if (line.startsWith('[') && line.endsWith(']')) {
                 QString name = line.mid(1, line.length() - 2).trimmed();

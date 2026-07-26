@@ -6,7 +6,7 @@
 #include <QDir>
 #include <QFileInfo>
 
-#include "KsContentPaths.h"
+#include "KsAssettoCorsaContentPath.h"
 
 /**
  * @brief Content Browser - Lists and manages AC content

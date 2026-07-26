@@ -269,12 +269,17 @@ file(GLOB_RECURSE PLUGIN_SOURCES_EXCLUDE
 )
 list(REMOVE_ITEM ALL_SOURCES ${PLUGIN_SOURCES_EXCLUDE})
 
+# Exclude standalone fontEditor main.cpp (has its own main(), conflicts with app main)
+list(REMOVE_ITEM ALL_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/modules/fontEditor/fonteditor_main.cpp
+)
+
 # VR module re-enabled: OpenXR headers now compatible with MSVC 2026
 
 # Re-add plugin sources that were excluded by PLUGIN_SOURCES_EXCLUDE but needed in the library
 list(APPEND ALL_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/KN5Parser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/acFiles/FBXExporter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/acFiles/KN5Parser.cpp
 )
 
 set(SOURCES ${ALL_SOURCES})
@@ -559,7 +564,7 @@ set(ASSETTOCORSA_PLUGIN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/k
 set(ASSETTOCORSA_PLUGIN_MOC_HEADERS
     ${ASSETTOCORSA_PLUGIN_DIR}/QmlBridges.h
     ${ASSETTOCORSA_PLUGIN_DIR}/WorkshopModule.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/KsContentPaths.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/KsAssettoCorsaContentPath.h
     ${ASSETTOCORSA_PLUGIN_DIR}/KsAssettoCorsaRunner.h
     ${ASSETTOCORSA_PLUGIN_DIR}/SetupComparison.h
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/Kn5Previewer.h
@@ -576,7 +581,8 @@ set(ASSETTOCORSA_SOURCES
     ${ASSETTOCORSA_PLUGIN_DIR}/ksAssettoCorsa.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/AssetsLibraryModule.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/ContentBrowser.cpp
-    ${ASSETTOCORSA_PLUGIN_DIR}/KsContentPaths.cpp
+    ${ASSETTOCORSA_PLUGIN_DIR}/KsAssettoCorsaContentPath.cpp
+    ${ASSETTOCORSA_PLUGIN_DIR}/KsConverters.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/KsAssettoCorsaRunner.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/QmlBridges.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/SetupComparison.cpp
@@ -586,43 +592,48 @@ set(ASSETTOCORSA_SOURCES
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/FBXExporter.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/Kn5Previewer.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/LODExporter.cpp
-    ${ASSETTOCORSA_PLUGIN_DIR}/KSAnimFormat.cpp
-    ${ASSETTOCORSA_PLUGIN_DIR}/KNHFormat.cpp
-    ${ASSETTOCORSA_PLUGIN_DIR}/shaders/KsShaders.cpp
+#    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/LUTParser.cpp
+    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/LuaGenerator.cpp
+    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/RTOParser.cpp
+#    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/KNHFormat.cpp
+    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/KSAnimFormat.cpp
+    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/ACDParser.cpp
+    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/KN5Decrypt.cpp
+    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/KN5Parser.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/ACSharedMemory.cpp
-    ${ASSETTOCORSA_PLUGIN_DIR}/ACDParser.cpp
-    ${ASSETTOCORSA_PLUGIN_DIR}/KN5Decrypt.cpp
-    ${ASSETTOCORSA_PLUGIN_DIR}/KN5Parser.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/ACLivePreviewBridge.cpp
     ${ASSETTOCORSA_MOC_SOURCES}
 )
 
 set(ASSETTOCORSA_HEADERS
     ${ASSETTOCORSA_PLUGIN_DIR}/assettocorsa.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/assettocorsa_core.h
     ${ASSETTOCORSA_PLUGIN_DIR}/AssetsLibraryModule.h
     ${ASSETTOCORSA_PLUGIN_DIR}/ksAssettoCorsa_export.h
     ${ASSETTOCORSA_PLUGIN_DIR}/ContentBrowser.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/KsContentPaths.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/KsAssettoCorsaContentPath.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/KsConverters.h
     ${ASSETTOCORSA_PLUGIN_DIR}/KsAssettoCorsaRunner.h
     ${ASSETTOCORSA_PLUGIN_DIR}/QmlBridges.h
     ${ASSETTOCORSA_PLUGIN_DIR}/SetupComparison.h
     ${ASSETTOCORSA_PLUGIN_DIR}/WorkshopModule.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/KsIni.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/ksconfig.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/kssetup.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/ksAssettoCorsaIni.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/ksAssettoCorsaConfig.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/ksAssettoCorsaSetup.h
     ${ASSETTOCORSA_PLUGIN_DIR}/acCSP/CspConfigParser.h
     ${ASSETTOCORSA_PLUGIN_DIR}/acCSP/CspConfigHandler.h
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/FBXExporter.h
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/Kn5Previewer.h
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/LODExporter.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/KSAnimFormat.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/KNHFormat.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/shaders/KsShaders.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/ACSharedMemory.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/ACDParser.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/KN5Decrypt.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/KN5Types.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/KN5Parser.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/LUTParser.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/LuaGenerator.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/RTOParser.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/KNHFormat.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/KSAnimFormat.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/ACDParser.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/KN5Decrypt.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/KN5Types.h
+    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/KN5Parser.h
     ${ASSETTOCORSA_PLUGIN_DIR}/ACLivePreviewBridge.h
 )
 

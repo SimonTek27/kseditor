@@ -26,7 +26,7 @@
 #include "LiveryEditor/GUISkinEditorModule.h"
 #include "../core/Scripting/luaScript/LuaScriptEditorModule.h"
 #include "../core/Scripting/python/PythonScriptEngine.h"
-#include "VREditor/VREditorModule.h"
+#include "../core/VREditor/VREditorModule.h"
 
 namespace ks {
 namespace geometry { class Scene3D; }

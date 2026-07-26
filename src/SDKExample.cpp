@@ -2,10 +2,10 @@
 // References only headers that actually exist in the plugin layer.
 
 #include "SDKBackend.h"
-#include "plugins/simulators/kunos/assettocorsa/KsIni.h"
-#include "plugins/simulators/kunos/assettocorsa/KsContentPaths.h"
-#include "plugins/simulators/kunos/assettocorsa/ksconfig.h"
-#include "plugins/simulators/kunos/assettocorsa/kssetup.h"
+#include "plugins/simulators/kunos/assettocorsa/ksAssettoCorsaIni.h"
+#include "plugins/simulators/kunos/assettocorsa/KsAssettoCorsaContentPath.h"
+#include "plugins/simulators/kunos/assettocorsa/ksAssettoCorsaConfig.h"
+#include "plugins/simulators/kunos/assettocorsa/ksAssettoCorsaSetup.h"
 #include <QDebug>
 
 using namespace ks;

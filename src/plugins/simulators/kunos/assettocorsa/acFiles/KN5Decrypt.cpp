@@ -148,10 +148,6 @@ KN5Decrypt::DecryptedKN5 KN5Decrypt::decrypt(const QString& kn5Path, QString* er
             result.vertexMasks = vertexMasks;
             result.fullRebuild = false;
         }
-    } else {
-        // For newer versions, just return the body
-        result.kn5Data = bodyData;
-        result.fullRebuild = false;
     }
 
     return result;
@@ -161,55 +157,34 @@ KN5Decrypt::DecryptedKN5 KN5Decrypt::decryptToFolder(const QString& kn5Path, con
     DecryptedKN5 result = decrypt(kn5Path, error);
     if (!result.isValid) return result;
 
-    QDir().mkpath(outputDir);
+    QDir dir(outputDir);
+    if (!dir.exists()) dir.mkpath(".");
 
-    // Write decrypted KN5
-    QString outKn5Path = outputDir + "/" + QFileInfo(kn5Path).baseName() + "_decrypted.kn5";
-    QFile kn5File(outKn5Path);
-    if (kn5File.open(QIODevice::WriteOnly)) {
-        kn5File.write(result.kn5Data);
-        kn5File.close();
+    // Save decrypted KN5
+    QString outPath = outputDir + "/" + QFileInfo(kn5Path).fileName() + ".decrypted.kn5";
+    QFile outFile(outPath);
+    if (outFile.open(QIODevice::WriteOnly)) {
+        outFile.write(result.kn5Data);
+        outFile.close();
     }
 
-    // Write textures
-    if (!result.textures.isEmpty()) {
-        QString texDir = outputDir + "/textures";
-        QDir().mkpath(texDir);
-
-        for (int i = 0; i < result.textures.size(); ++i) {
-            QString texPath = texDir + "/texture_" + QString::number(i) + ".dds";
-            QFile texFile(texPath);
-            if (texFile.open(QIODevice::WriteOnly)) {
-                texFile.write(result.textures[i]);
-                texFile.close();
-            }
+    // Save textures
+    for (int i = 0; i < result.textures.size(); ++i) {
+        QString texPath = outputDir + "/texture_" + QString::number(i) + ".dds";
+        QFile texFile(texPath);
+        if (texFile.open(QIODevice::WriteOnly)) {
+            texFile.write(result.textures[i]);
+            texFile.close();
         }
     }
 
-    // Write vertex masks
-    if (!result.vertexMasks.isEmpty()) {
-        QString maskDir = outputDir + "/vertex_masks";
-        QDir().mkpath(maskDir);
-
-        for (int i = 0; i < result.vertexMasks.size(); ++i) {
-            QString maskPath = maskDir + "/mask_" + QString::number(i) + ".bin";
-            QFile maskFile(maskPath);
-            if (maskFile.open(QIODevice::WriteOnly)) {
-                maskFile.write(result.vertexMasks[i]);
-                maskFile.close();
-            }
-        }
-
-        // Write manifest
-        QString manifestPath = maskDir + "/manifest.txt";
-        QFile manifestFile(manifestPath);
-        if (manifestFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            QTextStream stream(&manifestFile);
-            stream << "KN5 Decrypt - Vertex Mask Manifest\n";
-            stream << "==================================\n\n";
-            stream << "Source: " << kn5Path << "\n";
-            stream << "Masks: " << result.vertexMasks.size() << "\n";
-            manifestFile.close();
+    // Save vertex masks
+    for (int i = 0; i < result.vertexMasks.size(); ++i) {
+        QString maskPath = outputDir + "/vertexmask_" + QString::number(i) + ".bin";
+        QFile maskFile(maskPath);
+        if (maskFile.open(QIODevice::WriteOnly)) {
+            maskFile.write(result.vertexMasks[i]);
+            maskFile.close();
         }
     }
 

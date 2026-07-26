@@ -40,7 +40,7 @@ bool SoundEditorModule::initialize()
         auto* ctx = m_quickWidget->rootContext();
         ctx->setContextProperty("waveformBridge", m_waveformBridge);
         ctx->setContextProperty("eventDefs", m_eventBridge);
-        m_quickWidget->setSource(QUrl("qrc:///qml/pages/page_AudioEditorPage.qml"));
+        m_quickWidget->setSource(QUrl("qrc:///qml/pages/page_ksAudioEditor.qml"));
         m_initialized = true;
     }
 

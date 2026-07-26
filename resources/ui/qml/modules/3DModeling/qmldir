@@ -1,5 +1,8 @@
-module ksmodeler
-plugin ksmodelerplugin
-
 ModelerStudio 1.0 ModelerStudio.qml
 main 1.0 main.qml
+MaterialEditor 1.0 MaterialEditor.qml
+SceneOutliner 1.0 SceneOutliner.qml
+PropertiesPanel 1.0 PropertiesPanel.qml
+AnimationTimeline 1.0 AnimationTimeline.qml
+SymmetryPanel 1.0 SymmetryPanel.qml
+BoolOpPanel 1.0 BoolOpPanel.qml

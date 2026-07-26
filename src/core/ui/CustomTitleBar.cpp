@@ -22,11 +22,11 @@ void CustomTitleBar::setupUI() {
     layout->setContentsMargins(8, 0, 8, 0);
     layout->setSpacing(8);
 
-    // Menu button (hamburger / ? icon)
+    // App icon button
     m_menuButton = new QToolButton(this);
     m_menuButton->setFixedSize(28, 28);
-    m_menuButton->setIcon(style()->standardIcon(QStyle::SP_TitleBarMenuButton));
-    m_menuButton->setToolTip("Menu (?)");
+    m_menuButton->setIcon(QApplication::windowIcon());
+    m_menuButton->setToolTip("Menu");
     m_menuButton->setCursor(Qt::ArrowCursor);
     m_menuButton->setPopupMode(QToolButton::InstantPopup);
 
@@ -34,6 +34,12 @@ void CustomTitleBar::setupUI() {
     m_titleLabel = new QLabel(this);
     m_titleLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     m_titleLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+
+    // Help (?)
+    m_helpButton = new QToolButton(this);
+    m_helpButton->setFixedSize(28, 28);
+    m_helpButton->setText("?");
+    m_helpButton->setToolTip("Help");
 
     // Minimize
     m_minimizeButton = new QToolButton(this);
@@ -55,6 +61,8 @@ void CustomTitleBar::setupUI() {
 
     layout->addWidget(m_menuButton);
     layout->addWidget(m_titleLabel);
+    layout->addStretch();
+    layout->addWidget(m_helpButton);
     layout->addWidget(m_minimizeButton);
     layout->addWidget(m_maximizeButton);
     layout->addWidget(m_closeButton);
@@ -72,6 +80,7 @@ void CustomTitleBar::setupConnections() {
             emit menuRequested();
         }
     });
+    connect(m_helpButton, &QToolButton::clicked, this, &CustomTitleBar::helpRequested);
     connect(m_minimizeButton, &QToolButton::clicked, this, &CustomTitleBar::minimizeRequested);
     connect(m_maximizeButton, &QToolButton::clicked, this, &CustomTitleBar::maximizeRequested);
     connect(m_closeButton, &QToolButton::clicked, this, &CustomTitleBar::closeRequested);

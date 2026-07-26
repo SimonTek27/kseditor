@@ -1,6 +1,7 @@
 #include "MaterialFormatParser.h"
 #include <QFile>
 #include <QTextStream>
+#include <QRegularExpression>
 
 namespace ks {
 

@@ -1,6 +1,7 @@
 #include "ImageFormatParser.h"
 #include <QFile>
 #include <QFileInfo>
+#include <QRegularExpression>
 
 namespace ks {
 

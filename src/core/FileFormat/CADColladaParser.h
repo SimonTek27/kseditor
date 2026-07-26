@@ -3,6 +3,7 @@
 #include <QString>
 #include <QVector>
 #include <QMap>
+#include <QXmlStreamReader>
 #include "Math/MathCore.h"
 
 namespace ks {

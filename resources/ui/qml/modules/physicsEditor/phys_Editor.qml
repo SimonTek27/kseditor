@@ -327,7 +327,7 @@ Rectangle {
                     spacing: 15
 
                     // --- Properties Section ---
-                    if (activePanel === "suspension") {
+                    ColumnLayout { visible: activePanel === "suspension"; spacing: 0
                         Text {
                             text: "SUSPENSION PHYSICS"
                             color: "white"
@@ -428,7 +428,7 @@ Rectangle {
                         }
                     }
 
-                    if (activePanel === "wheels") {
+                    ColumnLayout { visible: activePanel === "wheels"; spacing: 0
                         Text {
                             text: "WHEEL PHYSICS"
                             color: "white"
@@ -488,7 +488,7 @@ Rectangle {
                         }
                     }
 
-                    if (activePanel === "tires") {
+                    ColumnLayout { visible: activePanel === "tires"; spacing: 0
                         Text {
                             text: "TIRE PHYSICS"
                             color: "white"
@@ -563,7 +563,7 @@ Rectangle {
                         }
                     }
 
-                    if (activePanel === "aero") {
+                    ColumnLayout { visible: activePanel === "aero"; spacing: 0
                         Text {
                             text: "AERODYNAMICS"
                             color: "white"
@@ -618,7 +618,7 @@ Rectangle {
                         }
                     }
 
-                    if (activePanel === "engine") {
+                    ColumnLayout { visible: activePanel === "engine"; spacing: 0
                         Text {
                             text: "ENGINE PHYSICS"
                             color: "white"
@@ -672,7 +672,7 @@ Rectangle {
                         }
                     }
 
-                    if (activePanel === "trans") {
+                    ColumnLayout { visible: activePanel === "trans"; spacing: 0
                         Text {
                             text: "TRANSMISSION"
                             color: "white"
@@ -723,7 +723,7 @@ Rectangle {
                         }
                     }
 
-                    if (activePanel === "brakes") {
+                    ColumnLayout { visible: activePanel === "brakes"; spacing: 0
                         Text {
                             text: "BRAKE PHYSICS"
                             color: "white"
@@ -775,7 +775,7 @@ Rectangle {
                         }
                     }
 
-                    if (activePanel === "steering") {
+                    ColumnLayout { visible: activePanel === "steering"; spacing: 0
                         Text {
                             text: "STEERING"
                             color: "white"
@@ -827,7 +827,7 @@ Rectangle {
                         }
                     }
 
-                    if (activePanel === "driver") {
+                    ColumnLayout { visible: activePanel === "driver"; spacing: 0
                         Text {
                             text: "DRIVER"
                             color: "white"
@@ -888,7 +888,7 @@ Rectangle {
                         }
                     }
 
-                    if (activePanel === "ai") {
+                    ColumnLayout { visible: activePanel === "ai"; spacing: 0
                         Text {
                             text: "AI CONFIG"
                             color: "white"

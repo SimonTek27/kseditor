@@ -11,8 +11,8 @@
 #include <QtGlobal>
 #include <algorithm>
 
-#include "assettocorsa/KN5Types.h"
-#include "assettocorsa/KN5Parser.h"
+#include "assettocorsa/acFiles/KN5Types.h"
+#include "assettocorsa/acFiles/KN5Parser.h"
 #include "FBXParser.h"
 #include "GLBParser.h"
 #include "CADOBJParser.h"

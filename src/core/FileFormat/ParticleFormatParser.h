@@ -4,6 +4,8 @@
 #include <QByteArray>
 #include <QVector>
 #include <QMap>
+#include <QJsonObject>
+#include <QJsonArray>
 
 namespace ks {
 

@@ -1,17 +1,19 @@
 #include <QApplication>
 #include <QDir>
 #include <QFile>
-#include <QFileDialog>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMessageBox>
-#include <QStandardPaths>
 #include <QQmlEngine>
 #include <QJSEngine>
 #include <QQuickStyle>
+#include <QQuickWidget>
+#include <QMainWindow>
+#include <QVBoxLayout>
 #include <QTranslator>
 #include <QLibraryInfo>
 #include <QLocale>
+#include <QProcessEnvironment>
 #include <QDebug>
 #include <exception>
 
@@ -20,12 +22,13 @@
 #endif
 
 #include "MainWindow.h"
+#include "core/ui/CustomTitleBar.h"
 #include "core/sys/ModuleManager.h"
 #include "core/sys/PluginManager.h"
 #include "core/ui/SplashScreen.h"
 #include "core/ui/WelcomeScreen.h"
-#include "core/ui/NewProjectDialog.h"
 #include "core/ui/FontEditorDialog.h"
+#include "ribbontheme.h"
 
 // QML Bridge registrations
 #include "modules/modellingEditor/3DModelingQmlBridge.h"
@@ -61,6 +64,9 @@
 #include "qml/modules/ContentQMLBridge.h"
 #include "modules/modellingEditor/CharacterBuilder/CharacterEditorQmlBridge.h"
 #include "core/network/CollabEditorQmlBridge.h"
+#include "modules/soundEditor/AudioWaveformBridge.h"
+#include "modules/soundEditor/ACEventBridge.h"
+#include "modules/soundEditor/AudioCore.h"
 
 
 static int runMainWindow(QApplication& app, const QString& projectPath)
@@ -76,12 +82,47 @@ static int runMainWindow(QApplication& app, const QString& projectPath)
     return app.exec();
 }
 
+static QMainWindow* createStandaloneWindow(const QString& title, const QString& themeKey,
+    int w, int h, const QString& bgColor)
+{
+    QMainWindow* win = new QMainWindow(nullptr, Qt::Window | Qt::FramelessWindowHint);
+    win->setWindowTitle(title);
+    win->resize(w, h);
+    win->setStyleSheet(QString("background-color: %1;").arg(bgColor));
+    auto* central = new QWidget(win);
+    auto* layout = new QVBoxLayout(central);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+    auto* tb = new CustomTitleBar(win);
+    QObject::connect(tb, &CustomTitleBar::minimizeRequested, win, &QWidget::showMinimized);
+    QObject::connect(tb, &CustomTitleBar::maximizeRequested, win, [win]() {
+        win->isMaximized() ? win->showNormal() : win->showMaximized();
+    });
+    QObject::connect(tb, &CustomTitleBar::closeRequested, win, &QWidget::close);
+    tb->setTitle(title);
+    layout->addWidget(tb);
+    win->setCentralWidget(central);
+    // Apply theme
+    ks::editor::RibbonThemeManager::instance().applyWindowFrame(win, themeKey);
+    ks::editor::RibbonTheme t = ks::editor::RibbonThemeManager::instance().theme(themeKey);
+    tb->applyTheme(t.titleBarBg, t.windowBorder, t.titleBarText,
+                   t.buttonHover, t.buttonPressed, t.windowBorder);
+    return win;
+}
+
 static int appMain(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     app.setApplicationName("ksEditor");
     app.setApplicationVersion("1.16.4");
     app.setOrganizationName("ksEditor");
+
+    // Ensure Qt bin directory is on PATH so QML plugin DLLs can load
+    QString qtBin = QStringLiteral("C:/Qt/6.11.1/msvc2022_64/bin");
+    QString path = QProcessEnvironment::systemEnvironment().value("PATH");
+    if (!path.contains(qtBin, Qt::CaseInsensitive)) {
+        qputenv("PATH", (qtBin + ";" + path).toLocal8Bit());
+    }
 
     // Load translations
     QTranslator qtTranslator;
@@ -198,30 +239,224 @@ static int appMain(int argc, char *argv[])
     QStringList args;
     for (int i = 0; i < argc; ++i) args << QString(argv[i]);
 
-    if (args.size() > 1) {
-        QString cmd = args[1].toLower();
-        if (cmd == "-font" || cmd == "--font") {
+    // Helper: run a standalone mode and return true if handled
+    auto runMode = [&](const QString& mode) -> bool {
+        if (mode == "font") {
             SplashScreen::showSplash(app);
-            FontEditorDialog fe(nullptr);
-            fe.exec();
-            return 0;
+            QMainWindow* w = createStandaloneWindow("KS Font Editor", "font", 1280, 800, "#1e1e1e");
+            auto* quickWidget = new QQuickWidget();
+            quickWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
+            quickWidget->setAttribute(Qt::WA_DeleteOnClose);
+            QString qmlDir = QCoreApplication::applicationDirPath() + "/../../resources/ui/qml";
+            qmlDir = QDir(qmlDir).absolutePath();
+            quickWidget->engine()->addImportPath(QStringLiteral("C:/Qt/6.11.1/msvc2022_64/qml"));
+            QString fontQmlPath = qmlDir + "/modules/font_KSFontCreator.qml";
+            QFile f(fontQmlPath);
+            QString qmlContent;
+            if (f.open(QIODevice::ReadOnly)) {
+                qmlContent = QString::fromUtf8(f.readAll());
+                f.close();
+                qmlContent.replace(QStringLiteral("import \"../widgets\""),
+                    QStringLiteral("import \"") + qmlDir + "/widgets\"");
+            }
+            QQmlComponent* comp = new QQmlComponent(quickWidget->engine());
+            comp->setData(qmlContent.toUtf8(), QUrl::fromLocalFile(fontQmlPath));
+            QObject* root = comp->beginCreate(quickWidget->engine()->rootContext());
+            if (comp->isError()) {
+                QString err = comp->errors().first().toString();
+                QFile ef(QCoreApplication::applicationDirPath() + "/qml_error.txt");
+                if (ef.open(QIODevice::WriteOnly)) { ef.write(err.toUtf8()); ef.close(); }
+                return true;
+            }
+            comp->completeCreate();
+            quickWidget->setContent(QUrl::fromLocalFile(fontQmlPath), comp, qobject_cast<QQuickItem*>(root));
+            auto* layout = qobject_cast<QVBoxLayout*>(w->centralWidget()->layout());
+            if (layout) layout->addWidget(quickWidget, 1);
+            w->show();
+            app.exec();
+            return true;
         }
-        if (cmd == "-paint" || cmd == "--paint") {
+        if (mode == "paint") {
             MainWindow window{QString()};
             window.setPaintMode(true);
             window.show();
-            return app.exec();
+            app.exec();
+            return true;
         }
-        if (cmd == "-h" || cmd == "--help") {
+        if (mode == "modeler") {
+            qDebug() << "Modeler mode starting...";
+            SplashScreen::showSplash(app);
+            QMainWindow* w = createStandaloneWindow("KS Modeler", "car", 1400, 900, "#111111");
+            auto* qw = new QQuickWidget();
+            qw->engine()->addImportPath(QStringLiteral("C:/Qt/6.11.1/msvc2022_64/qml"));
+            qw->setResizeMode(QQuickWidget::SizeRootObjectToView);
+            QString qmlDir = QCoreApplication::applicationDirPath() + "/../../resources/ui/qml";
+            qmlDir = QDir(qmlDir).absolutePath();
+            qDebug() << "Modeler qmlDir:" << qmlDir;
+            QString modelerPath = qmlDir + "/pages/page_ksModeler.qml";
+            qDebug() << "Modeler QML path:" << modelerPath;
+            if (!QFile::exists(modelerPath)) {
+                QMessageBox::critical(nullptr, "Modeler Error",
+                    "QML file not found:\n" + modelerPath);
+                return true;
+            }
+            qw->setSource(QUrl::fromLocalFile(modelerPath));
+            if (qw->status() == QQuickWidget::Error) {
+                QString err = qw->errors().first().toString();
+                qDebug() << "Modeler QML error:" << err;
+                QMessageBox::critical(nullptr, "Modeler Error",
+                    "Failed to load 3D Modeler:\n" + err);
+                QFile ef(QCoreApplication::applicationDirPath() + "/qml_error.txt");
+                if (ef.open(QIODevice::WriteOnly)) { ef.write(err.toUtf8()); ef.close(); }
+                return true;
+            }
+            auto* layout = qobject_cast<QVBoxLayout*>(w->centralWidget()->layout());
+            if (layout) layout->addWidget(qw, 1);
+            w->show();
+            w->raise();
+            w->activateWindow();
+            qDebug() << "Modeler window shown, entering event loop";
+            app.exec();
+            qDebug() << "Modeler event loop exited";
+            return true;
+        }
+        if (mode == "audiostudio") {
+            SplashScreen::showSplash(app);
+            QMainWindow* w = createStandaloneWindow("KS Audio Studio", "sound", 1400, 900, "#111111");
+            auto* qw = new QQuickWidget();
+            qw->engine()->addImportPath(QStringLiteral("C:/Qt/6.11.1/msvc2022_64/qml"));
+            qw->setResizeMode(QQuickWidget::SizeRootObjectToView);
+            qw->setSource(QUrl("qrc:///qml/pages/page_ksAudioStudio.qml"));
+            if (qw->status() == QQuickWidget::Error) {
+                QString err = qw->errors().first().toString();
+                QFile ef(QCoreApplication::applicationDirPath() + "/qml_error.txt");
+                if (ef.open(QIODevice::WriteOnly)) { ef.write(err.toUtf8()); ef.close(); }
+            }
+            auto* layout = qobject_cast<QVBoxLayout*>(w->centralWidget()->layout());
+            if (layout) layout->addWidget(qw, 1);
+            w->show();
+            app.exec();
+            return true;
+        }
+        if (mode == "audioeditor") {
+            SplashScreen::showSplash(app);
+            QMainWindow* w = createStandaloneWindow("KS Audio Editor", "sound", 1280, 800, "#121212");
+            auto* qw = new QQuickWidget();
+            qw->engine()->addImportPath(QStringLiteral("C:/Qt/6.11.1/msvc2022_64/qml"));
+            qw->setResizeMode(QQuickWidget::SizeRootObjectToView);
+            auto* waveformBridge = new ks::AudioWaveformBridge(qw);
+            auto* eventBridge = new ks::audio::ACEventBridge(qw);
+            if (!ks::AudioEditorModule::instance())
+                new ks::AudioEditorModule(qw);
+            qw->rootContext()->setContextProperty("waveformBridge", waveformBridge);
+            qw->rootContext()->setContextProperty("eventDefs", eventBridge);
+            qw->setSource(QUrl("qrc:///qml/pages/page_ksAudioEditor.qml"));
+            if (qw->status() == QQuickWidget::Error) {
+                QString err = qw->errors().first().toString();
+                QFile ef(QCoreApplication::applicationDirPath() + "/qml_error.txt");
+                if (ef.open(QIODevice::WriteOnly)) { ef.write(err.toUtf8()); ef.close(); }
+            }
+            auto* layout = qobject_cast<QVBoxLayout*>(w->centralWidget()->layout());
+            if (layout) layout->addWidget(qw, 1);
+            w->show();
+            app.exec();
+            return true;
+        }
+        if (mode == "physics") {
+            SplashScreen::showSplash(app);
+            QMainWindow* w = createStandaloneWindow("KS Physics Studio", "car", 1400, 900, "#111111");
+            auto* qw = new QQuickWidget();
+            qw->setResizeMode(QQuickWidget::SizeRootObjectToView);
+            QString qmlDir = QCoreApplication::applicationDirPath() + "/../../resources/ui/qml";
+            qmlDir = QDir(qmlDir).absolutePath();
+            qw->engine()->addImportPath(QStringLiteral("C:/Qt/6.11.1/msvc2022_64/qml"));
+            QString physPath = qmlDir + "/modules/physicsEditor/phys_Editor.qml";
+            QFile pf(physPath);
+            QString pContent;
+            if (pf.open(QIODevice::ReadOnly)) {
+                pContent = QString::fromUtf8(pf.readAll());
+                pf.close();
+                pContent.replace(QStringLiteral("import \"../../widgets\""),
+                    QStringLiteral("import \"") + qmlDir + "/widgets\"");
+            }
+            QQmlComponent* pc = new QQmlComponent(qw->engine());
+            pc->setData(pContent.toUtf8(), QUrl::fromLocalFile(physPath));
+            QObject* pr = pc->beginCreate(qw->engine()->rootContext());
+            pc->completeCreate();
+            qw->setContent(QUrl::fromLocalFile(physPath), pc, qobject_cast<QQuickItem*>(pr));
+            if (pc->isError()) {
+                QString err = pc->errors().first().toString();
+                QFile ef(QCoreApplication::applicationDirPath() + "/qml_error.txt");
+                if (ef.open(QIODevice::WriteOnly)) { ef.write(err.toUtf8()); ef.close(); }
+            }
+            auto* layout = qobject_cast<QVBoxLayout*>(w->centralWidget()->layout());
+            if (layout) layout->addWidget(qw, 1);
+            w->show();
+            app.exec();
+            return true;
+        }
+        if (mode == "code") {
+            SplashScreen::showSplash(app);
+            QMainWindow* w = createStandaloneWindow("ksIDEEditor", "code", 1400, 900, "#1e1e1e");
+            auto* qw = new QQuickWidget();
+            qw->engine()->addImportPath(QStringLiteral("C:/Qt/6.11.1/msvc2022_64/qml"));
+            qw->setResizeMode(QQuickWidget::SizeRootObjectToView);
+            qw->setSource(QUrl("qrc:///qml/pages/page_ksIDEEditor.qml"));
+            if (qw->status() == QQuickWidget::Error) {
+                QString err = qw->errors().first().toString();
+                QFile ef(QCoreApplication::applicationDirPath() + "/qml_error.txt");
+                if (ef.open(QIODevice::WriteOnly)) { ef.write(err.toUtf8()); ef.close(); }
+            }
+            auto* layout = qobject_cast<QVBoxLayout*>(w->centralWidget()->layout());
+            if (layout) layout->addWidget(qw, 1);
+            w->show();
+            app.exec();
+            return true;
+        }
+        if (mode == "ppfilters") {
+            SplashScreen::showSplash(app);
+            QMainWindow* w = createStandaloneWindow("KS PP Filters Editor", "ppfilters", 1400, 900, "#111111");
+            auto* qw = new QQuickWidget();
+            qw->engine()->addImportPath(QStringLiteral("C:/Qt/6.11.1/msvc2022_64/qml"));
+            qw->setResizeMode(QQuickWidget::SizeRootObjectToView);
+            qw->setSource(QUrl("qrc:///qml/pages/page_ksPPFiltersEditor.qml"));
+            if (qw->status() == QQuickWidget::Error) {
+                QString err = qw->errors().first().toString();
+                QFile ef(QCoreApplication::applicationDirPath() + "/qml_error.txt");
+                if (ef.open(QIODevice::WriteOnly)) { ef.write(err.toUtf8()); ef.close(); }
+            }
+            auto* layout = qobject_cast<QVBoxLayout*>(w->centralWidget()->layout());
+            if (layout) layout->addWidget(qw, 1);
+            w->show();
+            app.exec();
+            return true;
+        }
+        return false;
+    };
+
+    if (args.size() > 1) {
+        QString cmd = args[1].toLower();
+        if (cmd.startsWith("--")) cmd = cmd.mid(1);
+        else if (cmd.startsWith("-")) cmd = cmd.mid(1);
+        if (runMode(cmd))
+            return 0;
+        // Unknown mode — check for help or project file
+        if (cmd == "h" || cmd == "help") {
             QMessageBox::information(nullptr, "ksEditor Help",
                 "ksEditor 0.9.0 - Assetto Corsa Modding Suite\n\n"
                 "Usage: kseditor.exe [options]\n\n"
                 "Options:\n"
-                "  -font, --font    Open font editor directly\n"
-                "  -paint, --paint  Open LiveryEditor in PhotoGIMP paint mode\n"
-                "  -nohw, --nohw    Disable hardware acceleration\n"
-                "  -h, --help       Show this help message\n"
-                "  <file.ksproj>    Open a project file");
+                "  -font, --font        Open font editor directly\n"
+                "  -paint, --paint      Open LiveryEditor in PhotoGIMP paint mode\n"
+                "  -modeler, --modeler  Open 3D Modeler Studio directly\n"
+                "  -audiostudio         Open Audio Studio directly\n"
+                "  -audioeditor         Open Audio Editor directly\n"
+                "  -physics, --physics  Open Physics Studio directly\n"
+                "  -code, --code        Open Code Editor directly\n"
+                "  -ppfilters           Open PP Filters Editor directly\n"
+                "  -nohw, --nohw        Disable hardware acceleration\n"
+                "  -h, --help           Show this help message\n"
+                "  <file.ksproj>        Open a project file");
             return 0;
         }
         if (args[1].endsWith(".ksproj", Qt::CaseInsensitive)) {
@@ -266,59 +501,22 @@ static int appMain(int argc, char *argv[])
         return 0;
     }
 
-    qDebug() << "WelcomeScreen accepted, action:" << welcome.selectedAction;
-
-    QString projectPath;
-    try {
-        if (welcome.selectedAction == WelcomeScreen::New) {
-            NewProjectDialog newDlg;
-            if (newDlg.exec() != QDialog::Accepted || newDlg.projectPath.isEmpty()) {
-                qDebug() << "New Project dialog cancelled, exiting";
-                return 0;
-            }
-            projectPath = newDlg.projectPath;
-        } else if (welcome.selectedAction == WelcomeScreen::NewBlank) {
-            // Start with blank project - MainWindow will show with empty project
-        } else if (welcome.selectedAction == WelcomeScreen::Open) {
-            projectPath = QFileDialog::getExistingDirectory(nullptr,
-                "Open Project Folder",
-                QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation));
-            if (projectPath.isEmpty()) {
-                qDebug() << "Open dialog cancelled, exiting";
-                return 0;
-            }
-        } else if (welcome.selectedAction == WelcomeScreen::Recent) {
-            if (welcome.recentPath.isEmpty() || !QDir(welcome.recentPath).exists()) {
-                qDebug() << "Recent project path invalid, exiting";
-                return 0;
-            }
-            projectPath = welcome.recentPath;
-        } else if (welcome.selectedAction == WelcomeScreen::Help) {
-            // Start with empty project
-        }
-    } catch (const std::exception& e) {
-        QMessageBox::critical(nullptr, "Error",
-            QString("An error occurred while processing your selection:\n%1").arg(e.what()));
-        return 1;
-    } catch (...) {
-        QMessageBox::critical(nullptr, "Error",
-            "An unknown error occurred while processing your selection.");
-        return 1;
+    if (!welcome.launchMode.isEmpty()) {
+        qDebug() << "Launching suite mode:" << welcome.launchMode;
+        runMode(welcome.launchMode);
+        return 0;
     }
 
-    try {
-        return runMainWindow(app, projectPath);
-    } catch (const std::exception& e) {
-        QMessageBox::critical(nullptr, "Fatal Error",
-            QString("A fatal error occurred during startup:\n\n%1\n\n"
-                    "Please check the application log for details.").arg(e.what()));
-        return 1;
-    } catch (...) {
-        QMessageBox::critical(nullptr, "Fatal Error",
-            "An unknown fatal error occurred during startup.\n\n"
-            "Please check the application log for details.");
-        return 1;
+    if (!welcome.recentProjectPath.isEmpty()) {
+        qDebug() << "Opening recent project:" << welcome.recentProjectPath;
+        SplashScreen::showSplash(app);
+        MainWindow window(welcome.recentProjectPath);
+        window.show();
+        return app.exec();
     }
+
+    // No mode selected — exit cleanly
+    return 0;
 }
 
 static int sehSafeMain(int argc, char *argv[])

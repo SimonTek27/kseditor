@@ -6,6 +6,8 @@
 #include <QTimer>
 #include <QObject>
 
+#include "ksAssettoCorsa_export.h"
+
 /**
  * @brief Assetto Corsa Shared Memory Reader
  *
@@ -17,7 +19,7 @@
  * - Graphics data (camera, weather, time)
  * - Static data (car info, track info, driver info)
  */
-class ACSharedMemory : public QObject {
+class KS_ASSETTOCORSA_API ACSharedMemory : public QObject {
     Q_OBJECT
 public:
     // Shared memory structures — byte-exact layout matching AC's ac_sdk.h
@@ -288,7 +290,7 @@ private:
 /**
  * @brief AC Telemetry Recorder - Records telemetry data for analysis
  */
-class ACTelemetryRecorder : public QObject {
+class KS_ASSETTOCORSA_API ACTelemetryRecorder : public QObject {
     Q_OBJECT
 public:
     struct TelemetrySample {

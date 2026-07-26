@@ -18,7 +18,7 @@ struct KsSetupData {
     float frontCamber[2] = {0, 0};
     float rearCamber[2] = {0, 0};
     float toeOut[4] = {0, 0, 0, 0};
-    float rideHeight[2] = {0, 0};
+    float rideHeight[4] = {0, 0, 0, 0};
     float brakeBias = 0;
     float springRate[4] = {0, 0, 0, 0};
     float compression[4] = {0, 0, 0, 0};
@@ -95,7 +95,9 @@ public:
                 else if (key == "REBOUND_RL") setup.rebound[2] = value.toFloat();
                 else if (key == "REBOUND_RR") setup.rebound[3] = value.toFloat();
                 else if (key == "RIDE_HEIGHT_FL") setup.rideHeight[0] = value.toFloat();
-                else if (key == "RIDE_HEIGHT_RL") setup.rideHeight[1] = value.toFloat();
+                else if (key == "RIDE_HEIGHT_FR") setup.rideHeight[1] = value.toFloat();
+                else if (key == "RIDE_HEIGHT_RL") setup.rideHeight[2] = value.toFloat();
+                else if (key == "RIDE_HEIGHT_RR") setup.rideHeight[3] = value.toFloat();
                 else if (key == "ARB_FRONT") setup.frontARB = value.toFloat();
                 else if (key == "ARB_REAR") setup.rearARB = value.toFloat();
                 else if (key == "CASTER") setup.frontCaster = value.toFloat();
@@ -153,7 +155,9 @@ public:
         out << "REBOUND_RL=" << QString::number(setup.rebound[2], 'f', 0) << "\n";
         out << "REBOUND_RR=" << QString::number(setup.rebound[3], 'f', 0) << "\n";
         out << "RIDE_HEIGHT_FL=" << QString::number(setup.rideHeight[0], 'f', 2) << "\n";
-        out << "RIDE_HEIGHT_RL=" << QString::number(setup.rideHeight[1], 'f', 2) << "\n";
+        out << "RIDE_HEIGHT_FR=" << QString::number(setup.rideHeight[1], 'f', 2) << "\n";
+        out << "RIDE_HEIGHT_RL=" << QString::number(setup.rideHeight[2], 'f', 2) << "\n";
+        out << "RIDE_HEIGHT_RR=" << QString::number(setup.rideHeight[3], 'f', 2) << "\n";
         out << "ARB_FRONT=" << QString::number(setup.frontARB, 'f', 2) << "\n";
         out << "ARB_REAR=" << QString::number(setup.rearARB, 'f', 2) << "\n";
         out << "CASTER=" << QString::number(setup.frontCaster, 'f', 2) << "\n\n";

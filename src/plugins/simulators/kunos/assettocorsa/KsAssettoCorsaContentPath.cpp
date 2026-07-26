@@ -1,4 +1,4 @@
-#include "KsContentPaths.h"
+#include "KsAssettoCorsaContentPath.h"
 #include <QSettings>
 #include <QStandardPaths>
 #include <QDirIterator>

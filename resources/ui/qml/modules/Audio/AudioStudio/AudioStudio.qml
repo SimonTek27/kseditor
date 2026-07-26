@@ -7,7 +7,7 @@ import ksEditor.Audio 1.0
 import ksEditor.AudioEngine 1.0
 import ksEditor.AudioEffects 1.0
 import ksEditor.AudioModule 1.0
-import "../../widgets"
+import "../../../widgets"
 
 ApplicationWindow {
     id: audioStudio

@@ -1162,7 +1162,7 @@ MainWindow::MainWindow(const QString& projectPath, QWidget* parent)
     if (ks::HelpSystem::instance()) {
         ks::HelpSystem::instance()->initialize(this);
         ks::HelpSystem::instance()->enableHelp(true);
-        ks::HelpSystem::instance()->startQuickStartGuide();
+        // ks::HelpSystem::instance()->startQuickStartGuide();  // Disabled - may cause crash on startup
     }
 
     // Set window properties

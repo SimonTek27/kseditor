@@ -293,7 +293,7 @@ void HelpContentRegistry::loadDefaults()
         "  - Native Qt .dll plugins\n"
         "  - Python .py script plugins\n\n"
         "Assetto Corsa Plugin (ksAssettoCorsa):\n"
-        "  - Car/track content discovery via KsContentPaths\n"
+        "  - Car/track content discovery via KsAssettoCorsaContentPath\n"
         "  - KN5 model parsing and decryption\n"
         "  - INI configuration parsing (KsIni)\n"
         "  - Shared memory telemetry reading\n"

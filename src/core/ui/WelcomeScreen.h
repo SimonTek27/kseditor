@@ -1,37 +1,30 @@
 #pragma once
 #include <QDialog>
-
-class QListWidget;
-class QListWidgetItem;
-class QLabel;
+#include <QSettings>
+#include <QListWidget>
 
 class WelcomeScreen : public QDialog {
     Q_OBJECT
 public:
-    enum Action { None, New, NewBlank, Open, Help, Recent };
-
     explicit WelcomeScreen(QWidget* parent = nullptr);
 
-    Action selectedAction = None;
-    QString recentPath;
-    QLabel* m_statusLabel = nullptr;
+    QString launchMode;
+    QString recentProjectPath;
+
+    void launchApp(const QString& mode);
 
 private slots:
-    void onNewClicked();
-    void onNewBlankClicked();
-    void onOpenClicked();
     void onHelpClicked();
-    void onRecentDoubleClicked(QListWidgetItem* item);
-    void onRecentContextMenu(const QPoint& pos);
+    void onRecentItemDoubleClicked(QListWidgetItem* item);
 
 private:
     void setupUI();
-    void populateRecentProjects();
-    void updateProjectCount();
+    void loadRecentProjects();
+    static QIcon makeWhiteIcon(const QString& resourcePath, int size = 32);
 
-    QListWidget* m_recentList;
-    QLabel* m_countLabel;
     QPoint m_dragPos;
+    QListWidget* m_recentList = nullptr;
+    QSettings* m_settings = nullptr;
 
 protected:
     void mousePressEvent(QMouseEvent* event) override;

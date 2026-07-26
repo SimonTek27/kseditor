@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Qt.labs.platform 1.1
 import ksEditor.Audio 1.0
-import "../../widgets"
+import "../../../widgets"
 
 Item {
     id: recordingStudio
