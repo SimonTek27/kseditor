@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<objects serializationModel="ksAudiioStudio.01.16.00">
-    <object class="SnapshotList" id="{31961da8-6f57-463a-a221-d58c6aef1b57}">
-        <relationship name="mixer">
-            <destination>{23d11d28-899c-4b65-87ff-9e2377a8de15}</destination>
-        </relationship>
-    </object>
-</objects>
