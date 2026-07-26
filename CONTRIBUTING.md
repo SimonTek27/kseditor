@@ -74,4 +74,4 @@ ctest
 - Error messages
 
 ## License
-Proprietary - All rights reserved
+Public Domain
