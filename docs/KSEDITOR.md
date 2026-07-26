@@ -5,7 +5,7 @@
 **ksEditor** is a professional-grade, modular desktop application built with **C++17, Qt6, and Vulkan** for creating and editing content for Assetto Corsa and other Kunos/Steam racing games. It unifies audio engineering, 3D modeling, physics simulation, livery design, telemetry analysis, and content management into a single cohesive IDE-like environment.
 
 > **Version:** 1.16.4    
-> **License:** MIT (see [LICENSE.txt](LICENSE.txt))  
+> **License:** GNU GPL 3
 > **Platform:** Windows 10/11 (primary), Linux (experimental)  
 > **Build System:** CMake 3.16+ with vcpkg integration  
 > **SDK Version:** 1.16.4
@@ -42,10 +42,7 @@
 ### Installation
 
 **Windows (Installer):**
-1. Download `kseditor-1.16.4-win64.exe` from [Releases](https://github.com/kseditor/kseditor/releases)
-2. Run installer — includes Vulkan Runtime, VC++ Redistributables, Qt6 libraries
-3. Launch from Start Menu or Desktop shortcut
-4. First-run wizard: select Assetto Corsa installation path, theme (Dark/Light), and default workspace
+TBH
 
 **Windows (Portable / From Source):**
 ```powershell
