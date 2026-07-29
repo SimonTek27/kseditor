@@ -8,7 +8,7 @@
 #include <QDebug>
 #include <QCoreApplication>
 
-namespace ks {
+namespace ks { namespace audio {
 
 static AudioEngineQML* s_audioEngine = nullptr;
 
@@ -285,4 +285,4 @@ void AudioEngineQML::update() {
     carAudio->update();
 }
 
-}
+} } // namespace ks::audio

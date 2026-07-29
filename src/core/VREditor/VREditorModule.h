@@ -1,9 +1,9 @@
 #pragma once
 
 #include "core/editor/EditorModule.h"
-#include "core/VR/XrManager.h"
-#include "core/VR/XrViewportRenderer.h"
-#include "core/VR/XrInput.h"
+#include "core/VREditor/XrManager.h"
+#include "core/VREditor/XrViewportRenderer.h"
+#include "core/VREditor/XrInput.h"
 
 #include <QTimer>
 #include <QElapsedTimer>

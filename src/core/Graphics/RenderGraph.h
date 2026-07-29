@@ -14,7 +14,6 @@
 #include <vulkan/vulkan.h>
 
 namespace ks {
-namespace graphics {
 
 class VulkanRenderer;
 
@@ -533,5 +532,4 @@ private:
     EnvironmentComponent* m_environment = nullptr;
 };
 
-} // namespace graphics
 } // namespace ks

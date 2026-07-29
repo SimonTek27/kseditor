@@ -9,7 +9,7 @@
 #include <QTimer>
 #include <QSettings>
 
-#include "soundEditor/AudioCore.h"
+#include "../core/Audio/AudioStudioTypes.h"
 #include "../core/weather/WeatherEditorModule.h"
 #include "modellingEditor/TrackBuilder/TrackSurfaceEditorModule.h"
 #include "modellingEditor/CarBuilder/cameracarEditor/CameraEditorModule.h"
@@ -36,6 +36,7 @@ namespace ac { class TrackModeler; class CarModeler; }
 namespace physics { class PhysicsWorld; class CarPhysics; }
 namespace ui { class EditorWindow; class DockPanel; class Timeline; class Viewport; }
 namespace weather { class WeatherEditorModule; }
+namespace audio { class AudioStudio; class AudioProject; class AudioManager; }
 
 using weather::WeatherEditorModule;
 
@@ -57,7 +58,7 @@ public:
     Mode currentMode() const { return m_mode; }
 
     // Audio methods
-    AudioStudio* audioStudio() { return m_audioStudio; }
+    audio::AudioStudio* audioStudio() { return m_audioStudio; }
 
     // 3D methods
     geometry::Scene3D* scene() { return m_scene; }
@@ -174,7 +175,7 @@ private:
     bool m_modified = false;
 
     // Audio
-    AudioStudio* m_audioStudio = nullptr;
+    audio::AudioStudio* m_audioStudio = nullptr;
 
     // 3D
     geometry::Scene3D* m_scene = nullptr;
@@ -200,7 +201,7 @@ private:
     QStringList m_recentFiles;
 
     // Audio project
-    AudioProject* m_currentAudioProject = nullptr;
+    audio::AudioProject* m_currentAudioProject = nullptr;
 
     // Physics & Animation
     bool m_physicsEnabled = true;

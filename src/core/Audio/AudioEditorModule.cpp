@@ -97,7 +97,7 @@ AudioEditorModule::AudioEditorModule(QWidget* parent)
 {
     setObjectName("AudioEditorModule");
     m_waveProcessor = new WaveProcessor(this);
-    m_audioRecorder = new ks::AudioRecorder(this);
+    m_audioRecorder = new AudioRecorder(this);
     m_tcpSocket = new QTcpSocket(this);
     m_tts = new TextToSpeech(this);
 }
@@ -466,7 +466,7 @@ void AudioEditorModule::onStopAudio() {
 }
 
 void AudioEditorModule::onRecordAudio() {
-    if (m_audioRecorder->state() == ks::AudioRecorder::Recording) {
+    if (m_audioRecorder->state() == AudioRecorder::Recording) {
         m_audioRecorder->stop();
         m_recordBtn->setText("Start Recording");
         m_recordingStatusLabel->setText("Recording saved");

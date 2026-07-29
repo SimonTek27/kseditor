@@ -16,7 +16,7 @@ namespace {
 
 uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
     VkPhysicalDeviceMemoryProperties memProperties;
-    ks::graphics::g_vk.getPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+    ks::g_vk.getPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
 
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
         if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
@@ -29,7 +29,6 @@ uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, Vk
 }
 
 namespace ks {
-namespace graphics {
 
 void ShaderModule::createFromGLSL(const QString& glsl, VkShaderStageFlagBits stage) {
     m_glslSource = glsl;
@@ -847,5 +846,4 @@ void PPFilterRenderer::updateFromPreset(const PPFilterPreset& preset) {
     }
 }
 
-} // namespace graphics
 } // namespace ks

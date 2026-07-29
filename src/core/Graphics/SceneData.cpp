@@ -10,7 +10,6 @@
 #include <QJsonArray>
 
 namespace ks {
-namespace graphics {
 
 // ─── ProjectSerializer Implementation ─────────────────────────────────────
 
@@ -413,5 +412,4 @@ bool VersionInfo::isNewerThan(const VersionInfo& other) const {
     return patch > other.patch;
 }
 
-} // namespace graphics
 } // namespace ks

@@ -306,7 +306,7 @@ Rectangle {
                                     width: parent.width
                                     Rectangle { width: parent.width; height: 18; color: catMouse.containsMouse ? "#333" : "transparent"; radius: 2
                                         Text { anchors.left: parent.left; anchors.leftMargin: 4; anchors.verticalCenter: parent.verticalCenter; text: "\u25BC " + modelData.cat; color: "#aaa"; font.pixelSize: 9; font.bold: true }
-                                        MouseArea { id: catMouse; anchors.fill: parent; hoverEnabled: true; onClicked: {} }
+                                        MouseArea { id: catMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { if (AudioEngine) AudioEngine.playEvent(modelData.cat.toLowerCase()) } }
                                     }
                                     Repeater {
                                         model: modelData.events

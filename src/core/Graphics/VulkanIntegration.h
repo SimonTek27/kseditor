@@ -11,10 +11,12 @@
 
 class QVulkanWindow;
 
-namespace ks { namespace graphics {
+namespace ks {
     class PPFilterRenderer;
     class VulkanShaderLoader;
-} }
+    class VulkanRenderer;
+    class ShaderParamRegistry;
+}
 
 class KsVulkanIntegration : public QObject
 {
@@ -29,11 +31,11 @@ public:
 
     QString systemPath() const { return m_systemPath; }
 
-    ks::graphics::VulkanRenderer* renderer() { return m_renderer; }
-    ks::graphics::PPFilterRenderer* ppFilterRenderer() { return m_ppFilterRenderer; }
+    ks::VulkanRenderer* renderer() { return m_renderer; }
+    ks::PPFilterRenderer* ppFilterRenderer() { return m_ppFilterRenderer; }
 
     KsConfigLoader& configLoader() { return KsConfigLoader::instance(); }
-    ks::graphics::ShaderParamRegistry& shaderRegistry() { return ks::graphics::ShaderParamRegistry::instance(); }
+    ks::ShaderParamRegistry& shaderRegistry() { return ks::ShaderParamRegistry::instance(); }
 
     const KsConfigLoader::GraphicsSettings& graphicsSettings() const {
         return KsConfigLoader::instance().graphicsSettings();
@@ -58,7 +60,7 @@ public:
 
     const QMap<QString, PPFilterPreset*>& ppFilterPresets() const { return m_ppPresets; }
 
-    void bindMaterial(const ks::graphics::VulkanShaderLoader::MaterialParams& params);
+    void bindMaterial(const ks::VulkanShaderLoader::MaterialParams& params);
 
     void bindCamera(const QMatrix4x4& view, const QMatrix4x4& projection,
                    const QVector3D& cameraPos, float nearPlane = 0.1f, float farPlane = 1000.0f);
@@ -101,8 +103,8 @@ private:
     QString m_shadersDir;
     QString m_spirvShadersDir;
 
-    ks::graphics::VulkanRenderer* m_renderer = nullptr;
-    ks::graphics::PPFilterRenderer* m_ppFilterRenderer = nullptr;
+    ks::VulkanRenderer* m_renderer = nullptr;
+    ks::PPFilterRenderer* m_ppFilterRenderer = nullptr;
 
     PPFilterPreset* m_currentPPPreset = nullptr;
     QMap<QString, PPFilterPreset*> m_ppPresets;

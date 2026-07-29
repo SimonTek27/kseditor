@@ -21,7 +21,6 @@
 #include <QSettings>
 
 namespace ks {
-namespace graphics {
 
 GraphicsEditorModule::GraphicsEditorModule(QWidget* parent)
     : ModuleGuiBase(parent)
@@ -538,7 +537,6 @@ void GraphicsEditorModule::onResetDefaults() {
     }
 }
 
-} // namespace graphics
 } // namespace ks
 
 #include "GraphicsEditorModule.moc"

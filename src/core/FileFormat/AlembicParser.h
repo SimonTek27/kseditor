@@ -11,7 +11,7 @@
 #include "MeshData.h"
 
 namespace ks {
-namespace fileformat {
+
 
 // ─── Alembic Archive Structure ──────────────────────────────────────────────
 
@@ -111,5 +111,4 @@ private:
     static bool parseJsonRepresentation(const QJsonObject& obj, AlembicArchive& archive);
 };
 
-} // namespace fileformat
 } // namespace ks

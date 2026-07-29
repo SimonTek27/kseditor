@@ -8,7 +8,6 @@
 #include <cstring>
 
 namespace ks {
-namespace graphics {
 
 SceneMesh::SceneMesh(QObject* parent) : QObject(parent)
 {
@@ -370,5 +369,4 @@ void SceneMeshGeometry::optimizeVertexCache()
     indices = optimizedIndices;
 }
 
-} // namespace graphics
 } // namespace ks

@@ -6,7 +6,6 @@ AudioStudio {
     id: audioStudioMain
 
     Component.onCompleted: {
-        console.log("KS Audio Studio initialized")
         if (AudioEngine) {
             statusMessage = "Audio engine ready"
         }

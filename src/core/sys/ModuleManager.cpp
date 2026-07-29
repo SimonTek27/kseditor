@@ -25,7 +25,7 @@
 #include "../../modules/modellingEditor/TrackBuilder/DRSZoneEditorModule.h"
 #include "../../modules/LiveryEditor/SkinIniEditorModule.h"
 #include "../../modules/LiveryEditor/GUISkinEditorModule.h"
-#include "../../modules/soundEditor/SoundEditorModule.h"
+#include "../../modules/sound/editor/SoundEditorModule.h"
 #include "../../core/formatToolsEditor/FormatToolsEditorModule.h"
 #include "../../core/Scripting/luaScript/LuaScriptEditorModule.h"
 #include "../../core/eventEditor/specialEventsEditor/SpecialEventsEditorModule.h"
@@ -36,6 +36,7 @@
 #include "../../modules/modellingEditor/CarBuilder/cameracarEditor/CameraEditorModule.h"
 #include "../../modules/modellingEditor/CharacterBuilder/DriverEditorModule.h"
 #include "../../core/Config/CspConfigEditorModule.h"
+#include "../../modules/ideeditor/IdeEditorModule.h"
 #include "../../modules/fontEditor/FontCreatorQmlBridge.h"
 #include "../../modules/fontEditor/FontCreatorEditorModule.h"
 #include "../../modules/displayEditor/DisplayEditorModule.h"
@@ -126,6 +127,7 @@ void ModuleManager::loadModules()
     registerModule(new ks::RaceConfigEditorModule(this));
     registerModule(new ks::CspConfigEditorModule(this));
     registerModule(new ks::FontCreatorEditorModule(this));
+    registerModule(new ks::IdeEditorModule(this));
     registerModule(new ks::DisplayEditorModule(this));
     registerModule(new ks::PPFiltersEditorModule(this));
     registerModule(new ks::CareerEditorModule(this));
@@ -140,9 +142,9 @@ void ModuleManager::loadModules()
     registerModule(new ks::material::MaterialEditorModule(this));
     registerModule(new ks::network::NetworkEditorModule(this));
     registerModule(new ks::mesh::MeshEditorModule(this));
-    registerModule(new ks::graphics::GraphicsEditorModule(this));
+    registerModule(new ks::GraphicsEditorModule(this));
     registerModule(new ks::assets::AssetEditorModule(this));
-    registerModule(new ks::fileformat::FileFormatEditorModule(this));
+    registerModule(new ks::FileFormatEditorModule(this));
     registerModule(new ks::help::HelpEditorModule(this));
     registerModule(new ks::modmanager::ModManagerEditorModule(this));
     registerModule(new ks::sys::SystemEditorModule(this));

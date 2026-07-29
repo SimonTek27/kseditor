@@ -17,7 +17,6 @@
 #include "../Math/MathCore.h"
 
 namespace ks {
-namespace graphics {
 
 class SceneGraph;
 class SceneMesh;
@@ -157,5 +156,4 @@ private:
     void* m_physicsBody = nullptr;
 };
 
-} // namespace graphics
 } // namespace ks

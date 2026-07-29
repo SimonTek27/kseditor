@@ -7,7 +7,7 @@
 #include <QVector>
 #include "AudioTypes.h"
 
-namespace ks {
+namespace ks { namespace audio {
 
 class KsCarAudioEngine : public QObject {
     Q_OBJECT
@@ -70,6 +70,6 @@ private:
     QString eventPath(const QString& eventName) const;
 };
 
-}
+} } // namespace ks::audio
 
 #endif // KSCAR_AUDIOENGINE_H

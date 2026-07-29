@@ -15,7 +15,7 @@ class NoiseReducer;
 class PeakMeter;
 
 #include <QAudioFormat>
-namespace ks { class AudioRecorder; }
+namespace ks { namespace audio { class AudioRecorder; } }
 namespace ks { namespace audio { class Studio; } }
 namespace ks { namespace audio { class TextToSpeech; } }
 
@@ -201,7 +201,7 @@ private:
     bool m_modified;
 
     // Recording members
-    ks::AudioRecorder* m_recorder;
+    ks::audio::AudioRecorder* m_recorder;
     ks::audio::Studio* m_studio;
     QAudioFormat m_recordingFormat;
     QString m_recordingOutputPath;

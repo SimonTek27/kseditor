@@ -6,7 +6,7 @@
 #include <QMap>
 #include <QAudioFormat>
 
-namespace ks {
+namespace ks { namespace audio {
 
 class AudioRecorder : public QObject
 {
@@ -60,4 +60,4 @@ private:
     QVector<float> m_recordedData;
 };
 
-} // namespace ks
+} } // namespace ks::audio

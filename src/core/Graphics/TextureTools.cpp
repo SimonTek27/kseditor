@@ -38,8 +38,8 @@ QImage KsTextureTools::convertNormalMapForAC(const QImage& source, const KsNorma
             float bf = std::sqrt(std::max<float>(0.0f, 1.0f - static_cast<float>(std::pow((r - 0.5f) * 2, 2)) - static_cast<float>(std::pow((g - 0.5f) * 2, 2))));
             int bi = static_cast<int>(bf * 255.0f);
 
-            result.setPixel(x, y, qRgba(ri, gi, bi, 255));
-        }
+} // namespace ks
+
     }
 
     return result;

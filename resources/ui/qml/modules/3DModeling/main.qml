@@ -5,7 +5,6 @@ ModelerStudio {
     id: modelerMain
 
     Component.onCompleted: {
-        console.log("KS Modeler Studio initialized")
         if (Modeler) {
             Modeler.newScene()
         }

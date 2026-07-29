@@ -3,7 +3,7 @@
 #include <QDateTime>
 #include <cmath>
 
-namespace ks {
+namespace ks { namespace audio {
 
 void AudioRecorder::start()
 {
@@ -101,4 +101,4 @@ void AudioRecorder::appendData(const QVector<float>& samples)
     emit dataAppended();
 }
 
-} // namespace ks
+} } // namespace ks::audio

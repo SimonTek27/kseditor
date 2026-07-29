@@ -17,7 +17,6 @@
 #include <QThread>
 
 namespace ks {
-namespace fileformat {
 
 FileFormatEditorModule::FileFormatEditorModule(QWidget* parent)
     : ModuleGuiBase(parent)
@@ -457,7 +456,6 @@ void FileFormatEditorModule::onConversionOptionsChanged() {
         .arg(m_validateOutputCheck->isChecked() ? "yes" : "no"));
 }
 
-} // namespace fileformat
 } // namespace ks
 
 #include "FileFormatEditorModule.moc"

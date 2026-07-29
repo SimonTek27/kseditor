@@ -12,7 +12,6 @@
 #include <vulkan/vulkan.h>
 
 namespace ks {
-namespace graphics {
 
 struct SceneVertex {
     QVector3D position;
@@ -151,5 +150,4 @@ private:
     bool m_buffersValid = false;
 };
 
-} // namespace graphics
 } // namespace ks

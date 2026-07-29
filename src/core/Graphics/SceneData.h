@@ -11,7 +11,6 @@
 #include <QJsonArray>
 
 namespace ks {
-namespace graphics {
 
 class SceneGraph;
 class SceneMesh;
@@ -303,5 +302,4 @@ struct VersionInfo {
     bool isNewerThan(const VersionInfo& other) const;
 };
 
-} // namespace graphics
 } // namespace ks

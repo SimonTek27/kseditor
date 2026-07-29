@@ -9,7 +9,6 @@
 #include <vulkan/vulkan.h>
 
 namespace ks {
-namespace graphics {
 
 struct VulkanFunctionTable {
     PFN_vkGetInstanceProcAddr getInstanceProcAddr = nullptr;
@@ -259,5 +258,4 @@ inline bool loadDeviceFunctions(VkInstance inst, VkDevice dev) {
     return g_vk.createSwapchainKHR != nullptr;
 }
 
-} // namespace graphics
 } // namespace ks

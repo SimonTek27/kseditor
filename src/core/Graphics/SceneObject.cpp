@@ -3,7 +3,6 @@
 #include <QtMath>
 
 namespace ks {
-namespace graphics {
 
 SceneObject::SceneObject(int id, const QString& name, Type type)
     : m_id(id)
@@ -320,5 +319,4 @@ QVector<SceneObject*> SceneObject::findChildren(const QString& name, bool recurs
     return result;
 }
 
-} // namespace graphics
 } // namespace ks

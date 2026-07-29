@@ -19,7 +19,6 @@
 #include <QVulkanInstance>
 
 namespace ks {
-namespace graphics {
 
 class VulkanTexture;
 class VulkanFramebuffer;

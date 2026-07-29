@@ -16,7 +16,6 @@
 #include <QProgressBar>
 
 namespace ks {
-namespace fileformat {
 
 class FileFormatEditorModule : public ModuleGuiBase {
     Q_OBJECT
@@ -86,5 +85,4 @@ private:
     QLabel* m_formatInfoLabel = nullptr;
 };
 
-} // namespace fileformat
 } // namespace ks

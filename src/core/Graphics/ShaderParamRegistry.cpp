@@ -1,7 +1,6 @@
 #include "ShaderParamRegistry.h"
 
 namespace ks {
-namespace graphics {
 
 ShaderParamRegistry* ShaderParamRegistry::s_instance = nullptr;
 
@@ -310,5 +309,4 @@ QVariant ShaderParamRegistry::getGlobalParam(const QString& name) const
     return m_globalParams.value(name);
 }
 
-} // namespace graphics
 } // namespace ks

@@ -14,8 +14,8 @@
 #include "../modules/PhysicsEditor/PhysicsEditor.h"
 #include "../modules/LiveryEditor/LiveryEditorModule.h"
 #include "../modules/modellingEditor/TrackBuilder/TrackBuilderModule.h"
-#include "../modules/soundEditor/AudioCore.h"
-#include "../modules/soundEditor/AudioBankParser.h"
+#include "core/Audio/AudioStudioTypes.h"
+#include "plugins/simulators/kunos/assettocorsa/acFiles/AudioBankParser.h"
 #include "../modules/fontEditor/FontCreatorQmlBridge.h"
 #include "../modules/displayEditor/DisplayEditor.h"
 #include "../modules/displayEditor/DisplayEditorQmlBridge.h"
@@ -920,15 +920,15 @@ void MainWindow::setupSoundTab() {
     auto* recordStudioBtn = studioGroup->addButton(QIcon(":/icons/record.svg"), "Recording Studio");
     recordStudioBtn->setStyle(ks::editor::RibbonButton::Style::Primary);
     connect(bankBtn, &QToolButton::clicked, this, [this]() {
-        auto* audio = ks::AudioEditorModule::instance();
+        auto* audio = ks::audio::AudioEditorModule::instance();
         if (audio) audio->onBuildBanks();
     });
     connect(eventsBtn, &QToolButton::clicked, this, [this]() {
-        auto* audio = ks::AudioEditorModule::instance();
+        auto* audio = ks::audio::AudioEditorModule::instance();
         if (audio) audio->onImportAsset();
     });
     connect(recordStudioBtn, &QToolButton::clicked, this, [this]() {
-        auto* audio = ks::AudioEditorModule::instance();
+        auto* audio = ks::audio::AudioEditorModule::instance();
         if (audio) audio->onNewProject();
     });
     

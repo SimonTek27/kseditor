@@ -7,7 +7,6 @@
 #include <QMatrix4x4>
 
 namespace ks {
-namespace graphics {
 
 struct MaterialParams {
     QString name;

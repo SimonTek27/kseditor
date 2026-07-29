@@ -47,7 +47,7 @@
 #include "modules/displayEditor/DisplayEditorQmlBridge.h"
 #include "modules/LicensePlatesEditor/LicensePlatesQmlBridge.h"
 #include "modules/fontEditor/FontCreatorQmlBridge.h"
-#include "modules/soundEditor/AudioEffectsQmlBridge.h"
+#include "modules/sound/editor/AudioEffectsQmlBridge.h"
 #include "modules/ShowroomEditor/ShowroomEditorQmlBridge.h"
 #include "modules/PhysicsEditor/telemetry/TelemetryQmlBridge.h"
 #include "modules/PhysicsEditor/telemetry/TelemetryFeedbackBridge.h"
@@ -64,9 +64,9 @@
 #include "qml/modules/ContentQMLBridge.h"
 #include "modules/modellingEditor/CharacterBuilder/CharacterEditorQmlBridge.h"
 #include "core/network/CollabEditorQmlBridge.h"
-#include "modules/soundEditor/AudioWaveformBridge.h"
-#include "modules/soundEditor/ACEventBridge.h"
-#include "modules/soundEditor/AudioCore.h"
+#include "core/Audio/AudioWaveformBridge.h"
+#include "core/Audio/ACEventBridge.h"
+#include "core/Audio/AudioStudioTypes.h"
 
 
 static int runMainWindow(QApplication& app, const QString& projectPath)
@@ -158,8 +158,8 @@ static int appMain(int argc, char *argv[])
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::PhysicsQmlBridge::instance(); });
     qmlRegisterSingletonType<AudioQMLBridge>("ksEditor.Audio", 1, 0, "AudioBridge",
         [](QQmlEngine*, QJSEngine*) -> QObject* { return AudioQMLBridge::instance(); });
-    qmlRegisterSingletonType<ks::AudioEngineQML>("ksEditor.AudioEngine", 1, 0, "AudioEngine",
-        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::AudioEngineQML::instance(); });
+    qmlRegisterSingletonType<ks::audio::AudioEngineQML>("ksEditor.AudioEngine", 1, 0, "AudioEngine",
+        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::audio::AudioEngineQML::instance(); });
     qmlRegisterSingletonType<ks::MeshDataBridge>("ksEditor.MeshData", 1, 0, "MeshData",
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::MeshDataBridge::instance(); });
     qmlRegisterSingletonType<ks::AIEditorQmlBridge>("ksEditor.AIEditor", 1, 0, "AIEditor",
@@ -344,10 +344,10 @@ static int appMain(int argc, char *argv[])
             auto* qw = new QQuickWidget();
             qw->engine()->addImportPath(QStringLiteral("C:/Qt/6.11.1/msvc2022_64/qml"));
             qw->setResizeMode(QQuickWidget::SizeRootObjectToView);
-            auto* waveformBridge = new ks::AudioWaveformBridge(qw);
+            auto* waveformBridge = new ks::audio::AudioWaveformBridge(qw);
             auto* eventBridge = new ks::audio::ACEventBridge(qw);
-            if (!ks::AudioEditorModule::instance())
-                new ks::AudioEditorModule(qw);
+            if (!ks::audio::AudioEditorModule::instance())
+                new ks::audio::AudioEditorModule(qw);
             qw->rootContext()->setContextProperty("waveformBridge", waveformBridge);
             qw->rootContext()->setContextProperty("eventDefs", eventBridge);
             qw->setSource(QUrl("qrc:///qml/pages/page_ksAudioEditor.qml"));
@@ -452,7 +452,7 @@ static int appMain(int argc, char *argv[])
                 "  -audiostudio         Open Audio Studio directly\n"
                 "  -audioeditor         Open Audio Editor directly\n"
                 "  -physics, --physics  Open Physics Studio directly\n"
-                "  -code, --code        Open Code Editor directly\n"
+                "  -code, --code        Open IDE Code Editor directly\n"
                 "  -ppfilters           Open PP Filters Editor directly\n"
                 "  -nohw, --nohw        Disable hardware acceleration\n"
                 "  -h, --help           Show this help message\n"

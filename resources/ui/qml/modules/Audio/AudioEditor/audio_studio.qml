@@ -62,8 +62,10 @@ Rectangle {
                 anchors.fill: parent; anchors.margins: 8
                 Text { text: "CAR AUDIO SYSTEMS"; color: cAccent; font.pixelSize: 12; font.bold: true }
                 Item { Layout.fillWidth: true }
-                AppButton { text: "\u25B6 Preview"; height: 24; font.pixelSize: 10; bgcolor: cAccent; color: "#121212" }
-                AppButton { text: "Export Bank"; height: 24; font.pixelSize: 10; bgcolor: "transparent"; color: cText }
+                AppButton { text: "\u25B6 Preview"; height: 24; font.pixelSize: 10; bgcolor: cAccent; color: "#121212"
+                    onClicked: { if (AudioEngine) AudioEngine.playEvent(activeSystem.toLowerCase()) } }
+                AppButton { text: "Export Bank"; height: 24; font.pixelSize: 10; bgcolor: "transparent"; color: cText
+                    onClicked: { if (AudioEngine) AudioEngine.unloadAllBanks() } }
             }
         }
 
@@ -90,7 +92,8 @@ Rectangle {
                     }
 
                     Item { Layout.fillHeight: true }
-                    AppButton { text: "Mixer"; height: 28; bgcolor: "transparent"; color: cText }
+                    AppButton { text: "Mixer"; height: 28; bgcolor: "transparent"; color: cText
+                        onClicked: { if (AudioEngine) AudioEngine.setBusVolume("master", 0.8) } }
                 }
             }
 
@@ -117,13 +120,16 @@ Rectangle {
                                 Text { text: "80%"; color: cAccent; font.pixelSize: 9; width: 30 }
                                 Rectangle { width: 16; height: 16; radius: 2; color: "#3a3a3a"
                                     Text { anchors.centerIn: parent; text: "\u25B6"; color: cMuted; font.pixelSize: 8 }
-                                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor } }
+                                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                        onClicked: { if (AudioEngine) AudioEngine.playEvent(modelData) } } }
                                 Rectangle { width: 16; height: 16; radius: 2; color: "#3a3a3a"
                                     Text { anchors.centerIn: parent; text: "S"; color: cMuted; font.pixelSize: 8 }
-                                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor } }
+                                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                        onClicked: { if (AudioEngine) AudioEngine.stopEvent(modelData) } } }
                                 Rectangle { width: 16; height: 16; radius: 2; color: "#3a3a3a"
                                     Text { anchors.centerIn: parent; text: "M"; color: cMuted; font.pixelSize: 8 }
-                                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor } }
+                                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                        onClicked: { if (AudioEngine) AudioEngine.setBusMute(modelData, true) } } }
                             }
                         }
                         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
@@ -161,8 +167,10 @@ Rectangle {
 
                     Item { Layout.fillHeight: true }
 
-                    AppButton { text: "Reset System"; height: 28; bgcolor: "transparent"; color: cText }
-                    AppButton { text: "Export"; height: 28; bgcolor: cAccent; color: "#121212" }
+                    AppButton { text: "Reset System"; height: 28; bgcolor: "transparent"; color: cText
+                        onClicked: { if (AudioEngine) AudioEngine.unloadAllBanks() } }
+                    AppButton { text: "Export"; height: 28; bgcolor: cAccent; color: "#121212"
+                        onClicked: { if (AudioEngine) AudioEngine.unloadAllBanks() } }
                 }
             }
         }

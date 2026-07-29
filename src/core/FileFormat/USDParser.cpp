@@ -10,7 +10,7 @@
 #include <QRegularExpression>
 
 namespace ks {
-namespace fileformat {
+
 
 // Simple USD ASCII (.usda) parser - for USD binary (.usd) would need USD library
 bool USDParser::read(const QString& filePath, USDStage& stage, QString* error) {
@@ -328,5 +328,4 @@ QVector<std::string> USDParser::findPrimsByType(const USDStage& stage, const std
     return result;
 }
 
-} // namespace fileformat
 } // namespace ks

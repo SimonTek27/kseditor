@@ -259,7 +259,10 @@ Rectangle {
                         bgcolor: "#3e3e42"
                         color: "#ffffff"
                         onClicked: {
-                            if (Physics) Physics.statusMessage("Mirror setup not yet implemented")
+                            if (Physics) {
+                                Physics.setupMirrors(2, 15.0, 3.0)
+                                Physics.statusMessage("Mirrors configured: 2 mirrors, 15 deg angle")
+                            }
                         }
                     }
                     AppButton {
@@ -268,7 +271,10 @@ Rectangle {
                         bgcolor: "#3e3e42"
                         color: "#ffffff"
                         onClicked: {
-                            if (Physics) Physics.statusMessage("Exhaust config not yet implemented")
+                            if (Physics) {
+                                Physics.setupExhaust("dual", 0.8, 0.1)
+                                Physics.statusMessage("Exhaust configured: dual type")
+                            }
                         }
                     }
 
@@ -286,30 +292,119 @@ Rectangle {
                 }
             }
 
-            // --- Center: 3D Preview ---
+            // --- Center: 3D Preview (GIANT Editor-style) ---
             Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                color: "#2a2a2a"
+                color: "#3a3a3a"
                 clip: true
 
-                Rectangle {
+                // Grid overlay
+                Item {
                     anchors.fill: parent
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: "#4a708b" }
-                        GradientStop { position: 0.6; color: "#87ceeb" }
-                        GradientStop { position: 0.61; color: "#333333" }
-                        GradientStop { position: 1.0; color: "#1a1a1a" }
+                    Canvas {
+                        anchors.fill: parent
+                        onPaint: {
+                            var ctx = getContext("2d")
+                            ctx.clearRect(0, 0, width, height)
+
+                            var gridSize = 30
+                            var cols = Math.ceil(width / gridSize)
+                            var rows = Math.ceil(height / gridSize)
+                            var cx = width / 2
+                            var cy = height / 2
+
+                            ctx.strokeStyle = "#555555"
+                            ctx.lineWidth = 1
+                            for (var x = 0; x <= cols; ++x) {
+                                ctx.beginPath()
+                                ctx.moveTo(cx + (x - cols/2) * gridSize, 0)
+                                ctx.lineTo(cx + (x - cols/2) * gridSize, height)
+                                ctx.stroke()
+                            }
+                            for (var y = 0; y <= rows; ++y) {
+                                ctx.beginPath()
+                                ctx.moveTo(0, cy + (y - rows/2) * gridSize)
+                                ctx.lineTo(width, cy + (y - rows/2) * gridSize)
+                                ctx.stroke()
+                            }
+
+                            // Axis indicator (bottom-left)
+                            var ax = 40
+                            var ay = height - 50
+                            var alen = 25
+
+                            ctx.strokeStyle = "#ff4444"
+                            ctx.lineWidth = 3
+                            ctx.beginPath()
+                            ctx.moveTo(ax, ay)
+                            ctx.lineTo(ax + alen, ay)
+                            ctx.stroke()
+                            ctx.fillStyle = "#ff4444"
+                            ctx.font = "bold 11px monospace"
+                            ctx.fillText("X", ax + alen + 4, ay + 4)
+
+                            ctx.strokeStyle = "#44ff44"
+                            ctx.beginPath()
+                            ctx.moveTo(ax, ay)
+                            ctx.lineTo(ax, ay - alen)
+                            ctx.stroke()
+                            ctx.fillStyle = "#44ff44"
+                            ctx.fillText("Y", ax + 4, ay - alen - 4)
+
+                            ctx.strokeStyle = "#4444ff"
+                            ctx.beginPath()
+                            ctx.moveTo(ax, ay)
+                            ctx.lineTo(ax - alen, ay - alen)
+                            ctx.stroke()
+                            ctx.fillStyle = "#4444ff"
+                            ctx.fillText("Z", ax - alen - 16, ay - alen + 4)
+                        }
                     }
                 }
 
+                // Camera info overlay (top-left)
+                Rectangle {
+                    anchors.top: parent.top; anchors.left: parent.left; anchors.margins: 8
+                    width: 160; height: 48; radius: 4
+                    color: "#cc1e1e1e"; border.color: "#444"; border.width: 1
+
+                    ColumnLayout {
+                        anchors.fill: parent; anchors.margins: 6; spacing: 2
+                        Text { text: "Free Camera"; color: "#E10600"; font.pixelSize: 10; font.bold: true }
+                        Text { text: "Perspective | Gizmo: Local"; color: "#999"; font.pixelSize: 9 }
+                    }
+                }
+
+                // Scene info overlay (bottom-left)
+                Rectangle {
+                    anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.margins: 8
+                    width: 200; height: 40; radius: 4
+                    color: "#cc1e1e1e"; border.color: "#444"; border.width: 1
+
+                    RowLayout {
+                        anchors.fill: parent; anchors.margins: 6; spacing: 8
+                        ColumnLayout { spacing: 1
+                            Text { text: "Verts: 0"; color: "#999"; font.pixelSize: 9 }
+                            Text { text: "Tris: 0"; color: "#999"; font.pixelSize: 9 }
+                        }
+                        Rectangle { width: 1; height: 24; color: "#444" }
+                        ColumnLayout { spacing: 1
+                            Text { text: "Objects: 0"; color: "#999"; font.pixelSize: 9 }
+                            Text { text: "FPS: 60"; color: "#999"; font.pixelSize: 9 }
+                        }
+                    }
+                }
+
+                // Drop zone hint (center)
                 Text {
-                    anchors.bottom: parent.bottom
-                    anchors.left: parent.left
-                    anchors.margins: 10
-                    text: "Perspective | Gizmo: Local | Camera: Free"
-                    color: "#E10600"
-                    font.pixelSize: 11
+                    anchors.centerIn: parent
+                    text: "Drop FBX / KN5 here\nto preview 3D model"
+                    color: "#666"
+                    font.pixelSize: 14
+                    horizontalAlignment: Text.AlignHCenter
+                    lineHeight: 1.5
+                    opacity: 0.5
                 }
             }
 

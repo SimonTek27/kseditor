@@ -8,7 +8,7 @@
 #include <cmath>
 
 namespace ks {
-namespace fileformat {
+
 
 // Note: Real Alembic support requires the Alembic C++ library (AbcCore)
 // This is a simplified implementation for demonstration
@@ -433,5 +433,4 @@ double AlembicParser::getTimeForFrame(const AlembicArchive& archive, int frame) 
     return archive.startTime + frame / archive.timeSamplingRate;
 }
 
-} // namespace fileformat
 } // namespace ks

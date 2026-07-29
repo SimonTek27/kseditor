@@ -6,7 +6,7 @@
 #include <QDebug>
 
 namespace ks {
-namespace fileformat {
+
 
 // ─── FormatValidator Implementation ──────────────────────────────────────────
 
@@ -366,5 +366,4 @@ FormatValidationResult FormatValidator::validateRoundTrip(const QString& inputPa
     return validate(inputPath, format);
 }
 
-} // namespace fileformat
 } // namespace ks

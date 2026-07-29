@@ -171,7 +171,7 @@ Rectangle {
                 Text { text: "FILL"; color: "#888"; font.pixelSize: 9; font.bold: true; leftPadding: 8 }
                 RowLayout { Layout.fillWidth: true
                     AppButton { text: "Flood Fill"; height: 22; Layout.fillWidth: true; bgcolor: "#E10600"; color: "#121212"
-                        onClicked: { /* click on canvas to flood fill */ } }
+                        onClicked: { if (TexturePainter) TexturePainter.floodFill(256, 256, 0.1) } }
                     AppButton { text: "Clear Canvas"; height: 22; Layout.fillWidth: true; bgcolor: "#3e3e42"; color: "#fff"
                         onClicked: TexturePainter.clearCanvas() }
                 }

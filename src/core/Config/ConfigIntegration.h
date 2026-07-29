@@ -12,7 +12,7 @@ public:
     
     static KsConfigLoader* config() { return &KsConfigLoader::instance(); }
     
-    static ks::graphics::ShaderParamRegistry* shaderRegistry() { return &ks::graphics::ShaderParamRegistry::instance(); }
+    static ks::ShaderParamRegistry* shaderRegistry() { return &ks::ShaderParamRegistry::instance(); }
     
     static QStringList availablePPFilters() {
         return KsConfigLoader::instance().availablePPFilters();

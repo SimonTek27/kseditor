@@ -4,13 +4,13 @@
 #include <limits>
 
 #include "PhysicsSimulator.h"
-#include "tire_PacejkaTireModel.h"
-#include "eng_EngineModel.h"
-#include "mech_SuspensionModel.h"
-#include "aero_AeroModel.h"
-#include "dt_DifferentialModel.h"
-#include "mech_BrakeThermalModel.h"
-#include "ers_HybridSystem.h"
+#include "PacejkaTireModel.h"
+#include "EngineModel.h"
+#include "SuspensionModel.h"
+#include "AeroModel.h"
+#include "DifferentialModel.h"
+#include "BrakeThermalModel.h"
+#include "HybridSystem.h"
 
 using namespace ks;
 

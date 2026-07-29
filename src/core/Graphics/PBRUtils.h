@@ -6,7 +6,6 @@
 #include <QVector2D>
 
 namespace ks {
-namespace graphics {
 
 class PBRUtils : public QObject {
     Q_OBJECT
@@ -27,5 +26,4 @@ private:
     static float radicalInverse_VdC(uint32_t bits);
 };
 
-} // namespace graphics
 } // namespace ks

@@ -4,7 +4,7 @@
 #include <QFileInfo>
 #include <QDir>
 
-namespace ks {
+namespace ks { namespace audio {
 
 KsCarAudioEngine* KsCarAudioEngine::s_instance = nullptr;
 
@@ -225,4 +225,4 @@ void KsCarAudioEngine::update() {
     }
 }
 
-}
+} } // namespace ks::audio

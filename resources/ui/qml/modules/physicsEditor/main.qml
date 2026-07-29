@@ -5,7 +5,6 @@ PhysicsStudio {
     id: physicsStudioMain
 
     Component.onCompleted: {
-        console.log("KS Physics Studio initialized")
         if (Physics) {
             Physics.statusMessage = "Physics engine ready"
         }

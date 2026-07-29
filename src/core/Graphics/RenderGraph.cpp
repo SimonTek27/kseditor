@@ -14,7 +14,6 @@
 #include <cstring>
 
 namespace ks {
-namespace graphics {
 
 // ── RenderGraph Implementation ────────────────────────────────────────────
 
@@ -1470,5 +1469,4 @@ bool SceneGraph::deserialize(const QJsonObject& data)
     return true;
 }
 
-} // namespace graphics
 } // namespace ks

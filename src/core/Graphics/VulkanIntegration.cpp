@@ -3,7 +3,7 @@
 #include <QDir>
 #include <QFileInfo>
 
-using namespace ks::graphics;
+using namespace ks;
 
 KsVulkanIntegration* KsVulkanIntegration::s_instance = nullptr;
 
@@ -63,10 +63,10 @@ bool KsVulkanIntegration::initialize(const QString& systemPath)
         LOG_WARNING("KsVulkanIntegration", "Failed to load PP filter presets");
     }
 
-    m_renderer = new ks::graphics::VulkanRenderer();
+    m_renderer = new ks::VulkanRenderer();
 
     if (m_renderer->physicalDevice() != VK_NULL_HANDLE) {
-        m_ppFilterRenderer = new ks::graphics::PPFilterRenderer(
+        m_ppFilterRenderer = new ks::PPFilterRenderer(
             m_renderer->physicalDevice(),
             m_renderer->device(),
             m_renderer->graphicsQueue(),
@@ -197,7 +197,7 @@ void KsVulkanIntegration::applyGraphicsSettings()
     const KsConfigLoader::GraphicsSettings& settings = graphicsSettings();
 
     if (m_ppFilterRenderer) {
-        ks::graphics::VulkanShaderLoader::GraphicsSettings gfx;
+        ks::VulkanShaderLoader::GraphicsSettings gfx;
         gfx.mipLodBias = settings.mipLodBias;
         gfx.shadowMapBias = settings.shadowMapBias0;
         m_ppFilterRenderer->applyGraphicsFromConfig(gfx);
@@ -211,7 +211,7 @@ void KsVulkanIntegration::applyLightingSettings()
     const KsConfigLoader::LightingSettings& settings = lightingSettings();
 
     if (m_ppFilterRenderer) {
-        ks::graphics::VulkanShaderLoader::LightingSettings light;
+        ks::VulkanShaderLoader::LightingSettings light;
         light.ambientColor[0] = settings.ambientColor.redF();
         light.ambientColor[1] = settings.ambientColor.greenF();
         light.ambientColor[2] = settings.ambientColor.blueF();
@@ -236,7 +236,7 @@ void KsVulkanIntegration::applyPPFilterPreset(const PPFilterPreset* preset)
     }
 }
 
-void KsVulkanIntegration::bindMaterial(const ks::graphics::VulkanShaderLoader::MaterialParams& params)
+void KsVulkanIntegration::bindMaterial(const ks::VulkanShaderLoader::MaterialParams& params)
 {
     if (m_ppFilterRenderer) {
         m_ppFilterRenderer->updateMaterialUBO(params);

@@ -1,6 +1,6 @@
 #include "PhysicsQmlBridge.h"
 #include "PhysicsSimulator.h"
-#include "ers_HybridSystem.h"
+#include "plugins/simulators/kunos/assettocorsa/physics/HybridSystem.h"
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>

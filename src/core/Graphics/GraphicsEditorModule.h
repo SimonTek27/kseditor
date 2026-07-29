@@ -18,7 +18,6 @@
 #include <QListWidget>
 
 namespace ks {
-namespace graphics {
 
 class GraphicsEditorModule : public ModuleGuiBase {
     Q_OBJECT
@@ -119,5 +118,4 @@ private:
     QPushButton* m_resetDefaultsBtn = nullptr;
 };
 
-} // namespace graphics
 } // namespace ks

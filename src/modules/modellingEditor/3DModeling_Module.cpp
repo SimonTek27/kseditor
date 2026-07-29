@@ -1,5 +1,5 @@
 #include "3DModeling_Module.h"
-#include "../../core/mesh/Viewport3DWidget.h"
+#include "core/mesh/Viewport3DSystem.h"
 #include "CarBuilder/CarEditorWidget.h"
 #include "TrackBuilder/TrackEditorWidget.h"
 #include "CharacterBuilder/CharacterEditorWidget.h"

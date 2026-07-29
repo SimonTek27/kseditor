@@ -18,7 +18,7 @@
 #include "../../core/Graphics/SceneMesh.h"
 
 namespace ks {
-using namespace ks::graphics;
+using namespace ks;
 
 ShowroomViewport3D::ShowroomViewport3D(QWidget* parent)
     : QWidget(parent)

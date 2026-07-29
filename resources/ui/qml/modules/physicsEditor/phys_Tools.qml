@@ -193,7 +193,7 @@ Rectangle {
                             height: 28
                             bgcolor: "transparent"
                             color: "#ffffff"
-                            onClicked: { if (Physics) Physics.statusMessage("Auto-generating LODs...") }
+                            onClicked: { if (Physics) { Physics.importLOD(""); Physics.statusMessage("Auto-generating LODs...") } }
                         }
                     }
 

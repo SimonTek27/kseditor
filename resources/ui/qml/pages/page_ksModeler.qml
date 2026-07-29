@@ -36,8 +36,27 @@ Rectangle {
     property var viewportNames: ["Top", "Front", "Right", "User"]
     property var viewportViewModes: ["top", "front", "right", "persp"]
 
+    property var selectedObj: Modeler ? Modeler.selectedObject : null
+
     function notifySelection(name, id) {
         selectedObject = name
+        selectedObj = Modeler ? Modeler.selectedObject : null
+        updateTransformFields()
+    }
+
+    function updateTransformFields() {
+        var obj = selectedObj
+        if (obj) {
+            posXField.text = obj.position ? obj.position.x.toFixed(3) : "0.000"
+            posYField.text = obj.position ? obj.position.y.toFixed(3) : "0.000"
+            posZField.text = obj.position ? obj.position.z.toFixed(3) : "0.000"
+            rotXField.text = obj.rotation ? obj.rotation.x.toFixed(1) : "0.0"
+            rotYField.text = obj.rotation ? obj.rotation.y.toFixed(1) : "0.0"
+            rotZField.text = obj.rotation ? obj.rotation.z.toFixed(1) : "0.0"
+            sclXField.text = obj.scale ? obj.scale.x.toFixed(3) : "1.000"
+            sclYField.text = obj.scale ? obj.scale.y.toFixed(3) : "1.000"
+            sclZField.text = obj.scale ? obj.scale.z.toFixed(3) : "1.000"
+        }
     }
 
     function updateStats() {
@@ -60,6 +79,14 @@ Rectangle {
                 if (Modeler.undo) Modeler.undo()
             }
             event.accepted = true
+        }
+    }
+
+    Connections {
+        target: Modeler
+        function onSelectionChanged() {
+            selectedObj = Modeler ? Modeler.selectedObject : null
+            updateTransformFields()
         }
     }
 
@@ -361,7 +388,34 @@ Rectangle {
                                         }
 
                                         MouseArea { id: toolMouse; anchors.fill: parent; hoverEnabled: true
-                                            onClicked: console.log("Tool:", modelData.tool)
+                                            onClicked: {
+                                                var tool = modelData.tool
+                                                var cat = commandsModel.get(index).category
+                                                if (cat === "Create") {
+                                                    if (tool === "Box" && Modeler.addPrimitiveCube) Modeler.addPrimitiveCube()
+                                                    else if (tool === "Sphere" && Modeler.addPrimitiveSphere) Modeler.addPrimitiveSphere()
+                                                    else if (tool === "Cylinder" && Modeler.addPrimitiveCylinder) Modeler.addPrimitiveCylinder()
+                                                    else if (tool === "Cone" && Modeler.addPrimitiveCone) Modeler.addPrimitiveCone()
+                                                    else if (tool === "Torus" && Modeler.addPrimitiveTorus) Modeler.addPrimitiveTorus()
+                                                    else if (tool === "Plane" && Modeler.addPrimitivePlane) Modeler.addPrimitivePlane()
+                                                } else if (cat === "Display") {
+                                                    if (tool === "Wireframe" && Modeler.viewMode !== undefined) Modeler.viewMode = 1
+                                                    else if (tool === "Solid" && Modeler.viewMode !== undefined) Modeler.viewMode = 0
+                                                    else if (tool === "Textured" && Modeler.viewMode !== undefined) Modeler.viewMode = 2
+                                                } else if (cat === "Modify") {
+                                                    if (tool === "Move" && Modeler.setGizmoMode) Modeler.setGizmoMode(1)
+                                                    else if (tool === "Rotate" && Modeler.setGizmoMode) Modeler.setGizmoMode(2)
+                                                    else if (tool === "Scale" && Modeler.setGizmoMode) Modeler.setGizmoMode(3)
+                                                    else if (tool === "Extrude" && Modeler.extrudeFaces) Modeler.extrudeFaces([], 1.0)
+                                                    else if (tool === "Bevel" && Modeler.bevelEdges) Modeler.bevelEdges([], 0.1, 1)
+                                                    else if (tool === "Weld" && Modeler.weldVertices) Modeler.weldVertices(0.01)
+                                                } else if (cat === "Select") {
+                                                    if (tool === "All" && Modeler.selectAll) { /* selectAll not exposed, use loop */ }
+                                                    else if (tool === "None" && Modeler.deselectAll) Modeler.deselectAll()
+                                                } else if (cat === "Surface") {
+                                                    if (tool === "Assign Material") materialEditorOverlay.visible = !materialEditorOverlay.visible
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -376,11 +430,49 @@ Rectangle {
                     GridLayout {
                         columns: 2; Layout.fillWidth: true; rowSpacing: 2; columnSpacing: 4
                         Text { text: "X:"; color: "#ff4444"; font.pixelSize: 10 }
-                        TextField { text: "0.00"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 } }
+                        TextField { id: posXField; text: "0.000"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
+                            onEditingFinished: { if (selectedObj) selectedObj.position = Qt.vector3d(parseFloat(text)||0, selectedObj.position.y, selectedObj.position.z) }
+                        }
                         Text { text: "Y:"; color: "#44ff44"; font.pixelSize: 10 }
-                        TextField { text: "0.00"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 } }
+                        TextField { id: posYField; text: "0.000"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
+                            onEditingFinished: { if (selectedObj) selectedObj.position = Qt.vector3d(selectedObj.position.x, parseFloat(text)||0, selectedObj.position.z) }
+                        }
                         Text { text: "Z:"; color: "#4444ff"; font.pixelSize: 10 }
-                        TextField { text: "0.00"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 } }
+                        TextField { id: posZField; text: "0.000"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
+                            onEditingFinished: { if (selectedObj) selectedObj.position = Qt.vector3d(selectedObj.position.x, selectedObj.position.y, parseFloat(text)||0) }
+                        }
+                    }
+
+                    GridLayout {
+                        columns: 2; Layout.fillWidth: true; rowSpacing: 2; columnSpacing: 4
+                        Text { text: "RX:"; color: "#ff4444"; font.pixelSize: 10 }
+                        TextField { id: rotXField; text: "0.0"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
+                            onEditingFinished: { if (selectedObj) selectedObj.rotation = Qt.vector3d(parseFloat(text)||0, selectedObj.rotation.y, selectedObj.rotation.z) }
+                        }
+                        Text { text: "RY:"; color: "#44ff44"; font.pixelSize: 10 }
+                        TextField { id: rotYField; text: "0.0"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
+                            onEditingFinished: { if (selectedObj) selectedObj.rotation = Qt.vector3d(selectedObj.rotation.x, parseFloat(text)||0, selectedObj.rotation.z) }
+                        }
+                        Text { text: "RZ:"; color: "#4444ff"; font.pixelSize: 10 }
+                        TextField { id: rotZField; text: "0.0"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
+                            onEditingFinished: { if (selectedObj) selectedObj.rotation = Qt.vector3d(selectedObj.rotation.x, selectedObj.rotation.y, parseFloat(text)||0) }
+                        }
+                    }
+
+                    GridLayout {
+                        columns: 2; Layout.fillWidth: true; rowSpacing: 2; columnSpacing: 4
+                        Text { text: "SX:"; color: "#ff4444"; font.pixelSize: 10 }
+                        TextField { id: sclXField; text: "1.000"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
+                            onEditingFinished: { if (selectedObj) selectedObj.scale = Qt.vector3d(parseFloat(text)||1, selectedObj.scale.y, selectedObj.scale.z) }
+                        }
+                        Text { text: "SY:"; color: "#44ff44"; font.pixelSize: 10 }
+                        TextField { id: sclYField; text: "1.000"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
+                            onEditingFinished: { if (selectedObj) selectedObj.scale = Qt.vector3d(selectedObj.scale.x, parseFloat(text)||1, selectedObj.scale.z) }
+                        }
+                        Text { text: "SZ:"; color: "#4444ff"; font.pixelSize: 10 }
+                        TextField { id: sclZField; text: "1.000"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
+                            onEditingFinished: { if (selectedObj) selectedObj.scale = Qt.vector3d(selectedObj.scale.x, selectedObj.scale.y, parseFloat(text)||1) }
+                        }
                     }
 
                     Rectangle { height: 1; color: "#2d2d30"; Layout.fillWidth: true }
@@ -737,64 +829,7 @@ Rectangle {
                 }
             }
 
-            Rectangle {
-                width: propsOverlay.visible ? 220 : 0
-                Layout.fillHeight: true
-                color: "#1e1e1e"
-                border.color: "#2d2d30"
-                border.width: propsOverlay.visible ? 1 : 0
-                visible: propsOverlay.visible
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 6
-                    spacing: 4
-
-                    RowLayout {
-                        Text { text: "PROPERTIES"; color: "#ccc"; font.bold: true; font.pixelSize: 11 }
-                        Item { Layout.fillWidth: true }
-                        Rectangle {
-                            width: 16; height: 16; radius: 2; color: ppCloseMouse.containsMouse ? "#E10600" : "#3e3e42"
-                            Text { anchors.centerIn: parent; text: "X"; color: "#fff"; font.pixelSize: 9 }
-                            MouseArea { id: ppCloseMouse; anchors.fill: parent; hoverEnabled: true; onClicked: propsOverlay.visible = false }
-                        }
-                    }
-
-                    Rectangle { height: 1; color: "#2d2d30"; Layout.fillWidth: true }
-                    Text { text: "Name:"; color: "#888"; font.pixelSize: 10 }
-                    TextField { text: selectedObject; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 22; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 } }
-
-                    Text { text: "Position"; color: "#888"; font.pixelSize: 10; font.bold: true }
-                    GridLayout { columns: 2; Layout.fillWidth: true
-                        Text { text: "X:"; color: "#ff4444"; font.pixelSize: 10 }
-                        TextField { text: "0.00"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 18; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 } }
-                        Text { text: "Y:"; color: "#44ff44"; font.pixelSize: 10 }
-                        TextField { text: "0.00"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 18; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 } }
-                        Text { text: "Z:"; color: "#4444ff"; font.pixelSize: 10 }
-                        TextField { text: "0.00"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 18; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 } }
-                    }
-
-                    Text { text: "Rotation"; color: "#888"; font.pixelSize: 10; font.bold: true }
-                    GridLayout { columns: 2; Layout.fillWidth: true
-                        Text { text: "X:"; color: "#ff4444"; font.pixelSize: 10 }
-                        TextField { text: "0.00"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 18; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 } }
-                        Text { text: "Y:"; color: "#44ff44"; font.pixelSize: 10 }
-                        TextField { text: "0.00"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 18; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 } }
-                        Text { text: "Z:"; color: "#4444ff"; font.pixelSize: 10 }
-                        TextField { text: "0.00"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 18; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 } }
-                    }
-
-                    Text { text: "Scale"; color: "#888"; font.pixelSize: 10; font.bold: true }
-                    GridLayout { columns: 2; Layout.fillWidth: true
-                        Text { text: "X:"; color: "#ff4444"; font.pixelSize: 10 }
-                        TextField { text: "1.00"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 18; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 } }
-                        Text { text: "Y:"; color: "#44ff44"; font.pixelSize: 10 }
-                        TextField { text: "1.00"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 18; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 } }
-                        Text { text: "Z:"; color: "#4444ff"; font.pixelSize: 10 }
-                        TextField { text: "1.00"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 18; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 } }
-                    }
-                }
-            }
+            Item { width: 0; Layout.fillHeight: true }
         }
 
         Rectangle {
@@ -826,23 +861,67 @@ Rectangle {
             }
         }
     }
-
     Rectangle { id: materialEditorOverlay; visible: false; z: 10; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8; width: 320; height: Math.min(parent.height * 0.9, 620); color: "#1e1e1e"; border.color: "#333"; border.width: 1; radius: 4
-        Rectangle { anchors.fill: parent; color: "transparent"
-            Text { anchors.centerIn: parent; text: "Material Editor\n(Load MaterialEditor.qml)"; color: "#666"; horizontalAlignment: Text.AlignHCenter }
+        Loader {
+            anchors.fill: parent
+            source: "../modules/3DModeling/MaterialEditor.qml"
+            onItemChanged: if (item) item.closeRequested.connect(function() { materialEditorOverlay.visible = false })
         }
     }
 
     Rectangle { id: outlinerOverlay; visible: false; z: 10; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8; width: 320; height: Math.min(parent.height * 0.85, 500); color: "#1e1e1e"; border.color: "#333"; border.width: 1; radius: 4
-        Rectangle { anchors.fill: parent; color: "transparent"
-            Text { anchors.centerIn: parent; text: "Scene Outliner\n(Load SceneOutliner.qml)"; color: "#666"; horizontalAlignment: Text.AlignHCenter }
+        Loader {
+            anchors.fill: parent
+            source: "../modules/3DModeling/SceneOutliner.qml"
+            onItemChanged: if (item) item.closeRequested.connect(function() { outlinerOverlay.visible = false })
         }
     }
 
-    Rectangle { id: propsOverlay; visible: false; z: 10 }
+    Rectangle { id: propsOverlay; visible: false; z: 10; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8; width: 300; height: Math.min(parent.height * 0.85, 520); color: "#1e1e1e"; border.color: "#333"; border.width: 1; radius: 4
+        Loader {
+            anchors.fill: parent
+            source: "../modules/3DModeling/PropertiesPanel.qml"
+            onItemChanged: if (item) item.closeRequested.connect(function() { propsOverlay.visible = false })
+        }
+    }
+
     Rectangle { id: timelineOverlay; visible: false; z: 10; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8; width: 420; height: Math.min(parent.height * 0.7, 400); color: "#1e1e1e"; border.color: "#333"; border.width: 1; radius: 4
-        Rectangle { anchors.fill: parent; color: "transparent"
-            Text { anchors.centerIn: parent; text: "Animation Timeline\n(Load AnimationTimeline.qml)"; color: "#666"; horizontalAlignment: Text.AlignHCenter }
+        Loader {
+            anchors.fill: parent
+            source: "../modules/3DModeling/AnimationTimeline.qml"
+            onItemChanged: if (item) item.closeRequested.connect(function() { timelineOverlay.visible = false })
+        }
+    }
+
+    SymmetryPanel {
+        id: symmetryPanel
+        visible: false; z: 10
+        anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8
+        onClosePanel: symmetryPanel.visible = false
+    }
+
+    BoolOpPanel {
+        id: boolOpPanel
+        visible: false; z: 10
+        anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8
+        onClosePanel: boolOpPanel.visible = false
+    }
+
+    Rectangle {
+        id: paintPanelOverlay
+        visible: false; z: 10
+        anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8
+        width: 280; height: Math.min(parent.height * 0.85, 600)
+        color: "transparent"
+        Loader {
+            anchors.fill: parent
+            source: "../modules/3DModeling/paint_TexturePanel.qml"
+        }
+        Rectangle {
+            anchors.top: parent.top; anchors.right: parent.right
+            width: 18; height: 18; radius: 2; color: "#E10600"
+            Text { anchors.centerIn: parent; text: "X"; color: "#fff"; font.pixelSize: 10; font.bold: true }
+            MouseArea { anchors.fill: parent; onClicked: closePaintPanel() }
         }
     }
 
@@ -866,6 +945,7 @@ Rectangle {
     Component.onCompleted: {
         if (sceneModel) { if (sceneModel.countChanged) sceneModel.countChanged.connect(updateStats) }
         updateStats()
+        updateTransformFields()
         activateViewport(3)
     }
 }

@@ -18,21 +18,21 @@ Rectangle {
     readonly property color cGreen:    "#4CAF50"
     readonly property color cRed:      "#F44336"
 
-    // Local recorder proxy wrapping AudioBridge
+    // Local recorder proxy wrapping AudioModule + AudioBridge
     property QtObject recorder: QtObject {
-        readonly property bool connected: true
+        readonly property bool connected: AudioModule ? AudioModule.connected : false
         readonly property bool isRecording: AudioBridge ? AudioBridge.isRecording : false
-        readonly property real currentRPM: 0
-        readonly property int currentRPMIndex: 0
+        readonly property real currentRPM: AudioModule ? AudioModule.currentRPM : 0
+        readonly property int currentRPMIndex: AudioModule ? AudioModule.currentRPMIndex : 0
         readonly property int totalRPMPoints: rpmPointsModel.count
-        readonly property real recordingProgress: 0
-        readonly property int samplesRecorded: 0
-        property string outputDirectory: ""
-        property string samplePrefix: "engine"
+        readonly property real recordingProgress: AudioModule ? AudioModule.recordingProgress : 0
+        readonly property int samplesRecorded: recordingLogModel.count
+        property string outputDirectory: AudioModule ? AudioModule.outputDirectory : ""
+        property string samplePrefix: AudioModule ? AudioModule.samplePrefix : "engine"
         property bool recordStarted: false
 
-        function connect() { console.log("EngineSim connect (simulated)") }
-        function disconnect() { console.log("EngineSim disconnect") }
+        function connect() { if (AudioModule) AudioModule.connectToEngineSim() }
+        function disconnect() { if (AudioModule) AudioModule.disconnect() }
         function startRecording() {
             if (AudioBridge) AudioBridge.startRecording(outputDirectory + "/" + samplePrefix + "_sample.wav")
             recordStarted = true
@@ -41,10 +41,10 @@ Rectangle {
             if (AudioBridge) AudioBridge.stopRecording()
             recordStarted = false
         }
-        function emergencyStop() { stopRecording() }
-        function loadProfile(profile) { console.log("Load profile:", profile) }
-        function saveCurrentProfile() { console.log("Save profile") }
-        function createProfile(name, type) { console.log("Create profile:", name, type) }
+        function emergencyStop() { if (AudioModule) AudioModule.emergencyStop(); stopRecording() }
+        function loadProfile(profile) { if (AudioModule) AudioModule.loadProfile(profileCombo.currentIndex) }
+        function saveCurrentProfile() { if (AudioModule) AudioModule.saveCurrentProfile() }
+        function createProfile(name, type) { if (AudioModule) AudioModule.createProfile(name, type) }
     }
 
     property string statusText: "Ready"
@@ -266,11 +266,35 @@ Rectangle {
     ListModel { id: recordingLogModel }
 
     Connections {
-        target: recorder
-        function onConnectedChanged() { statusText = recorder.connected ? "Connected" : "Disconnected" }
-        function onRpmReached(rpm) { recordingLogModel.append({time: new Date().toLocaleTimeString(), message: "Reached " + rpm + " RPM", type: "info"}) }
-        function onSampleRecorded(filePath) { recordingLogModel.append({time: new Date().toLocaleTimeString(), message: "Recorded: " + filePath, type: "success"}) }
-        function onRecordingCompleted() { statusText = "Recording completed!"; recordingLogModel.append({time: new Date().toLocaleTimeString(), message: "Recording session completed!", type: "success"}) }
-        function onError(error) { recordingLogModel.append({time: new Date().toLocaleTimeString(), message: "Error: " + error, type: "error"}) }
+        target: AudioModule
+        function onConnectedChanged(connected) {
+            statusText = connected ? "Connected to Engine Simulator" : "Disconnected"
+            recordingLogModel.append({time: new Date().toLocaleTimeString(), message: statusText, type: connected ? "success" : "info"})
+        }
+        function onRpmChanged(rpm) { /* gauge updates via binding */ }
+        function onRecordingStateChanged(recording) {
+            statusText = recording ? "Recording..." : "Recording stopped"
+            if (recording) recordingLogModel.append({time: new Date().toLocaleTimeString(), message: "Recording started", type: "info"})
+        }
+        function onSampleRecorded(filePath, rpm, loadType) {
+            recordingLogModel.append({time: new Date().toLocaleTimeString(), message: "Recorded: " + filePath, type: "success"})
+        }
+        function onRecordingCompleted() {
+            statusText = "All samples recorded!"
+            recordingLogModel.append({time: new Date().toLocaleTimeString(), message: "Recording session completed!", type: "success"})
+        }
+        function onProgressChanged(progress) {
+            recordingProgress.value = progress
+        }
+        function onError(message) {
+            recordingLogModel.append({time: new Date().toLocaleTimeString(), message: "Error: " + message, type: "error"})
+        }
+    }
+
+    Connections {
+        target: AudioBridge
+        function onRecordingStateChanged(recording) {
+            statusText = recording ? "Recording audio..." : "Audio recording stopped"
+        }
     }
 }

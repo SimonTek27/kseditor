@@ -498,8 +498,47 @@ if(HAS_OPENSUBDIV)
 endif()
 
 if(HAS_VHACD)
-    target_link_libraries(kseditor PRIVATE VHACD)
+    target_link_libraries(kseditor_lib PRIVATE VHACD)
 endif()
+
+# Core AC Physics library
+set(PHYSICS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/core/physics)
+file(GLOB_RECURSE PHYSICS_SOURCES
+    ${PHYSICS_SOURCE_DIR}/general/*.cpp
+    ${PHYSICS_SOURCE_DIR}/interfaces/*.cpp
+    ${PHYSICS_SOURCE_DIR}/*.cpp
+)
+add_library(ksacPhysics STATIC ${PHYSICS_SOURCES})
+target_include_directories(ksacPhysics PUBLIC
+    ${PHYSICS_SOURCE_DIR}
+    ${PHYSICS_SOURCE_DIR}/general
+    ${PHYSICS_SOURCE_DIR}/interfaces
+)
+target_link_libraries(ksacPhysics PUBLIC Qt6::Core Qt6::Gui)
+set_target_properties(ksacPhysics PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
+
+# Core AC Graphics library
+set(GRAPHICS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/graphics)
+file(GLOB_RECURSE GRAPHICS_SOURCES
+    ${GRAPHICS_SOURCE_DIR}/*.cpp
+    ${GRAPHICS_SOURCE_DIR}/*.c
+)
+add_library(ksacGraphics STATIC ${GRAPHICS_SOURCES})
+target_include_directories(ksacGraphics PUBLIC
+    ${GRAPHICS_SOURCE_DIR}
+    ${GRAPHICS_SOURCE_DIR}/../acFiles
+)
+target_link_libraries(ksacGraphics PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets Qt6::OpenGL)
+target_link_libraries(ksacGraphics PUBLIC ksacPhysics)
+set_target_properties(ksacGraphics PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
 
 if(Qt63DCore_FOUND)
     target_link_libraries(kseditor PRIVATE Qt6::3DCore Qt6::3DRender Qt6::3DExtras Qt6::3DLogic Qt6::3DInput Qt6::3DAnimation)
@@ -556,6 +595,42 @@ if(MSVC)
 endif()
 
 # ============================================================================
+# ksACsoundlib - AC Audio Bank Parsing Static Library
+# ============================================================================
+
+set(ACSOUNDLIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/acFiles)
+
+set(ACSOUNDLIB_SOURCES
+    ${ACSOUNDLIB_DIR}/AudioBankParser.cpp
+)
+
+set(ACSOUNDLIB_HEADERS
+    ${ACSOUNDLIB_DIR}/AudioBankParser.h
+)
+
+add_library(ksACsoundlib STATIC
+    ${ACSOUNDLIB_SOURCES}
+    ${ACSOUNDLIB_HEADERS}
+)
+
+target_include_directories(ksACsoundlib PUBLIC
+    ${ACSOUNDLIB_DIR}
+    ${PROJECT_SOURCE_DIR}/src/core/Audio
+)
+
+target_link_libraries(ksACsoundlib PUBLIC
+    kseditor_lib
+)
+
+if(MSVC)
+    target_compile_options(ksACsoundlib PRIVATE /Zc:__cplusplus /FS)
+else()
+    target_compile_options(ksACsoundlib PRIVATE -fpermissive -Wa,-mbig-obj)
+endif()
+
+target_compile_definitions(ksACsoundlib PRIVATE NOMINMAX)
+
+# ============================================================================
 # ksAssettoCorsa Plugin DLL
 # ============================================================================
 
@@ -592,10 +667,8 @@ set(ASSETTOCORSA_SOURCES
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/FBXExporter.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/Kn5Previewer.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/LODExporter.cpp
-#    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/LUTParser.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/LuaGenerator.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/RTOParser.cpp
-#    ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/KNHFormat.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/KSAnimFormat.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/ACDParser.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/acFiles/KN5Decrypt.cpp
@@ -697,7 +770,7 @@ set_target_properties(ksAssettoCorsa PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_CURRENT_SOURCE_DIR}/bin/plugins"
 )
 
-target_link_libraries(ksAssettoCorsa PRIVATE kseditor_lib)
+target_link_libraries(ksAssettoCorsa PRIVATE kseditor_lib ksACsoundlib ksacPhysics ksacGraphics)
 
 if(HAS_7ZIP)
     target_link_libraries(ksAssettoCorsa PRIVATE 7zip)

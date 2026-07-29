@@ -28,7 +28,9 @@ Rectangle {
         "ppfilters": 14,
         "formattools":  15,
         "cspconfig": 16,
-        "character": 17
+        "character": 17,
+        "modeler": 18,
+        "livery": 19
     })
 
     property string currentMode: "home"
@@ -121,6 +123,7 @@ Rectangle {
                     flat: true
                     width: 36
                     height: 32
+                    onClicked: switchTo("cspconfig")
                     background: Rectangle { color: "transparent" }
                     contentItem: Image {
                         source: "qrc:/icons/settings.svg"
@@ -170,16 +173,19 @@ Rectangle {
                         spacing: 15
                         Button {
                             width: 140; height: 48; text: "New Project"
+                            onClicked: switchTo("modeler")
                             background: Rectangle { color: "#E10600"; radius: 3 }
                             contentItem: Text { text: parent.text; color: "#121212"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                         }
                         Button {
                             width: 140; height: 48; text: "Open Project"
+                            onClicked: switchTo("modeler")
                             background: Rectangle { color: "#252526"; radius: 3; border.color: "#444"; border.width: 1 }
                             contentItem: Text { text: parent.text; color: "#ffffff"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                         }
                         Button {
                             width: 140; height: 48; text: "Recent"
+                            onClicked: switchTo("modeler")
                             background: Rectangle { color: "#252526"; radius: 3; border.color: "#444"; border.width: 1 }
                             contentItem: Text { text: parent.text; color: "#ffffff"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                         }
@@ -402,6 +408,20 @@ Rectangle {
                 active: currentMode === "character"
                 source: "modules/3DModeling/CharacterBuilder/character_Editor.qml"
                 onStatusChanged: if (status === Loader.Error) console.error("character_Editor.qml failed to load")
+            }
+
+            // ── 18: 3D Modeler ───────────────────────────────────────────────
+            Loader {
+                active: currentMode === "modeler"
+                source: "pages/page_ksModeler.qml"
+                onStatusChanged: if (status === Loader.Error) console.error("page_ksModeler.qml failed to load")
+            }
+
+            // ── 19: Livery Editor ────────────────────────────────────────────
+            Loader {
+                active: currentMode === "livery"
+                source: "pages/page_ksLiveryEditor.qml"
+                onStatusChanged: if (status === Loader.Error) console.error("page_ksLiveryEditor.qml failed to load")
             }
         }
 

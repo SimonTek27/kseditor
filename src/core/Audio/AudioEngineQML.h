@@ -7,7 +7,7 @@
 #include <QVariantMap>
 #include <QMap>
 
-namespace ks {
+namespace ks { namespace audio {
 
 class AudioEngineQML : public QObject {
     Q_OBJECT
@@ -111,4 +111,4 @@ private:
     QString m_currentEvent;
 };
 
-}
+} } // namespace ks::audio

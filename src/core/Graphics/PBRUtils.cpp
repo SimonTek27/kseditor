@@ -7,7 +7,6 @@
 #include <QtMath>
 
 namespace ks {
-namespace graphics {
 
 float PBRUtils::radicalInverse_VdC(uint32_t bits) {
     bits = (bits << 16u) | (bits >> 16u);
@@ -241,5 +240,4 @@ void PBRUtils::saveLUTAsKtx(const QImage& image, const QString& path) {
     image.save(path);
 }
 
-} // namespace graphics
 } // namespace ks

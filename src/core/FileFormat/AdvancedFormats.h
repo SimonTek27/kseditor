@@ -14,7 +14,6 @@
 #include "MeshData.h"
 
 namespace ks {
-namespace fileformat {
 
 struct MaterialData {
     QString name;
@@ -515,5 +514,4 @@ public:
                                                      const QString& format);
 };
 
-} // namespace fileformat
 } // namespace ks

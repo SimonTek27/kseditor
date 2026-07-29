@@ -60,6 +60,7 @@ set(SRC "${CMAKE_CURRENT_SOURCE_DIR}/../src")
 set(COMMON "${SRC}/core")
 set(MODULES "${SRC}/modules")
 set(PHYSICS "${MODULES}/PhysicsEditor")
+set(PLUGIN_PHYSICS "${SRC}/plugins/simulators/kunos/assettocorsa/physics")
 
 set(KS_TEST_INCLUDES
     ${SRC} ${COMMON} ${MODULES}
@@ -69,7 +70,7 @@ set(KS_TEST_INCLUDES
     ${SRC}/core/assets ${SRC}/core/FfbEditor ${SRC}/core/Graphics
     ${SRC}/core/ppfiltersEditor ${SRC}/core/formatTools ${SRC}/core/Scripting
     ${SRC}/core/AIEditor ${SRC}/core/animation ${SRC}/core/workshop
-    ${PHYSICS} ${PHYSICS}/SetupEditor
+    ${PHYSICS} ${PHYSICS}/SetupEditor ${PLUGIN_PHYSICS}
     ${MODULES}/soundEditor ${MODULES}/modellingEditor
     ${MODULES}/displayEditor ${MODULES}/LicensePlatesEditor
     ${MODULES}/fontEditor ${MODULES}/ppfiltersEditor
@@ -122,14 +123,14 @@ endif()
 ks_add_test(test_all_physics unit/test_PhysicsSimulator.cpp
     ${PHYSICS}/PhysicsSimulator.cpp
     ${PHYSICS}/PhysicsProfiler.cpp
-    ${PHYSICS}/tire_PacejkaTireModel.cpp
-    ${PHYSICS}/eng_EngineModel.cpp
-    ${PHYSICS}/dt_DifferentialModel.cpp
-    ${PHYSICS}/mech_BrakeThermalModel.cpp
-    ${PHYSICS}/mech_SuspensionModel.cpp
-    ${PHYSICS}/aero_AeroModel.cpp
-    ${PHYSICS}/PhysicsEngine.cpp
-    ${PHYSICS}/ers_HybridSystem.cpp
+    ${PLUGIN_PHYSICS}/PacejkaTireModel.cpp
+    ${PLUGIN_PHYSICS}/EngineModel.cpp
+    ${PLUGIN_PHYSICS}/DifferentialModel.cpp
+    ${PLUGIN_PHYSICS}/BrakeThermalModel.cpp
+    ${PLUGIN_PHYSICS}/SuspensionModel.cpp
+    ${PLUGIN_PHYSICS}/AeroModel.cpp
+    ${COMMON}/physics/PhysicsEngine.cpp
+    ${PLUGIN_PHYSICS}/HybridSystem.cpp
 )
 ks_add_test(test_all_ai      unit/test_AllAI.cpp
     ${COMMON}/AIEditor/AITelemetryTrainer.cpp
@@ -144,20 +145,20 @@ ks_add_test(test_telemetry_feedback unit/test_TelemetryFeedback.cpp
     ${PHYSICS}/telemetry/TelemetryQmlBridge.cpp
     ${PHYSICS}/PhysicsSimulator.cpp
     ${PHYSICS}/PhysicsProfiler.cpp
-    ${PHYSICS}/tire_PacejkaTireModel.cpp
-    ${PHYSICS}/eng_EngineModel.cpp
-    ${PHYSICS}/dt_DifferentialModel.cpp
-    ${PHYSICS}/mech_BrakeThermalModel.cpp
-    ${PHYSICS}/mech_SuspensionModel.cpp
-    ${PHYSICS}/aero_AeroModel.cpp
-    ${PHYSICS}/PhysicsEngine.cpp
-    ${PHYSICS}/ers_HybridSystem.cpp
+    ${PLUGIN_PHYSICS}/PacejkaTireModel.cpp
+    ${PLUGIN_PHYSICS}/EngineModel.cpp
+    ${PLUGIN_PHYSICS}/DifferentialModel.cpp
+    ${PLUGIN_PHYSICS}/BrakeThermalModel.cpp
+    ${PLUGIN_PHYSICS}/SuspensionModel.cpp
+    ${PLUGIN_PHYSICS}/AeroModel.cpp
+    ${COMMON}/physics/PhysicsEngine.cpp
+    ${PLUGIN_PHYSICS}/HybridSystem.cpp
 )
 ks_add_test(test_physics_profiler unit/test_PhysicsProfiler.cpp
     ${PHYSICS}/PhysicsProfiler.cpp
 )
 ks_add_test(test_laptime_validation unit/test_LapTimeValidation.cpp
-    ${PHYSICS}/LapTimeValidation.cpp
+    ${PHYSICS}/telemetry/LapTimeValidation.cpp
 )
 ks_add_test(test_license_plates unit/test_LicensePlates.cpp
     ${COMMON}/editor/EditorModule.cpp

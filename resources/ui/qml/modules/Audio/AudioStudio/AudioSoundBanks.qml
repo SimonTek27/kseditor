@@ -58,8 +58,10 @@ Item {
 
                     RowLayout {
                         spacing: 4; Layout.fillWidth: true
-                        AppButton { text: "+ Add Bank"; height: 24; bgcolor: "#3e3e42"; color: cText; Layout.fillWidth: true; font.pixelSize: 9 }
-                        AppButton { text: "- Remove"; height: 24; bgcolor: "transparent"; color: cText; font.pixelSize: 9 }
+                        AppButton { text: "+ Add Bank"; height: 24; bgcolor: "#3e3e42"; color: cText; Layout.fillWidth: true; font.pixelSize: 9
+                            onClicked: { if (AudioEngine) AudioEngine.loadBank("") } }
+                        AppButton { text: "- Remove"; height: 24; bgcolor: "transparent"; color: cText; font.pixelSize: 9
+                            onClicked: { if (AudioEngine) AudioEngine.unloadAllBanks() } }
                     }
                 }
             }
@@ -81,15 +83,16 @@ Item {
 
                     ListView {
                         Layout.fillWidth: true; Layout.fillHeight: true; clip: true
-                        model: 0
+                        model: AudioEngine ? AudioEngine.getEvents("") : []
                         delegate: Rectangle {
                             width: ListView.view.width; height: 26; color: "#161616"; radius: 2
                             RowLayout {
                                 anchors.fill: parent; anchors.margins: 4
-                                Text { text: "sample.wav"; color: cText; font.pixelSize: 10 }
+                                Text { text: modelData || "sample.wav"; color: cText; font.pixelSize: 10; elide: Text.ElideRight; Layout.fillWidth: true }
                                 Item { Layout.fillWidth: true }
-                                Text { text: "44100 Hz"; color: cMuted; font.pixelSize: 8 }
-                                AppButton { text: "\u25B6"; width: 22; height: 20; bgcolor: "transparent"; color: cText; font.pixelSize: 8 }
+                                Text { text: "--- Hz"; color: cMuted; font.pixelSize: 8 }
+                                AppButton { text: "\u25B6"; width: 22; height: 20; bgcolor: "transparent"; color: cText; font.pixelSize: 8
+                                    onClicked: { if (AudioEngine) AudioEngine.playEvent(modelData) } }
                             }
                         }
                         Text {
@@ -102,16 +105,20 @@ Item {
 
                     RowLayout {
                         spacing: 8; Layout.fillWidth: true
-                        AppButton { text: "Add Sample"; height: 26; bgcolor: "#3e3e42"; color: cText; font.pixelSize: 9 }
-                        AppButton { text: "Remove"; height: 26; bgcolor: "transparent"; color: cText; font.pixelSize: 9 }
+                        AppButton { text: "Add Sample"; height: 26; bgcolor: "#3e3e42"; color: cText; font.pixelSize: 9
+                            onClicked: { if (AudioEngine) AudioEngine.loadBank("") } }
+                        AppButton { text: "Remove"; height: 26; bgcolor: "transparent"; color: cText; font.pixelSize: 9
+                            onClicked: { sampleListModel.clear() } }
                     }
 
                     Rectangle { height: 1; color: cBorder; Layout.fillWidth: true }
 
                     RowLayout {
                         spacing: 8; Layout.fillWidth: true
-                        AppButton { text: "Build Banks"; height: 30; bgcolor: cAccent; color: "#121212"; font.bold: true; Layout.fillWidth: true; font.pixelSize: 10 }
-                        AppButton { text: "Export Banks"; height: 30; bgcolor: "#3e3e42"; color: cText; Layout.fillWidth: true; font.pixelSize: 10 }
+                        AppButton { text: "Build Banks"; height: 30; bgcolor: cAccent; color: "#121212"; font.bold: true; Layout.fillWidth: true; font.pixelSize: 10
+                            onClicked: { if (AudioEngine) AudioEngine.loadBank("") } }
+                        AppButton { text: "Export Banks"; height: 30; bgcolor: "#3e3e42"; color: cText; Layout.fillWidth: true; font.pixelSize: 10
+                            onClicked: { if (AudioEngine) AudioEngine.unloadAllBanks() } }
                     }
                 }
             }

@@ -5,7 +5,4 @@ import ksEditor.AudioEffects 1.0
 AudioEditorWindow {
     id: editorWindow
 
-    Component.onCompleted: {
-        console.log("KS Audio Editor initialized")
-    }
 }

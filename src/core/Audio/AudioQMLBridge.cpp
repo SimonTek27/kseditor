@@ -26,7 +26,7 @@ AudioQMLBridge::AudioQMLBridge(QObject *parent)
     , m_selectionStartMs(0)
     , m_selectionEndMs(0)
     , m_modified(false)
-    , m_recorder(new ks::AudioRecorder(this))
+    , m_recorder(new ks::audio::AudioRecorder(this))
     , m_studio(new ks::audio::Studio(this))
     , m_currentInputLevel(0.0f)
     , m_recordingStartTime(0)
@@ -71,14 +71,14 @@ AudioQMLBridge::AudioQMLBridge(QObject *parent)
         emit recordingDurationChanged(QDateTime::currentMSecsSinceEpoch() - m_recordingStartTime);
     });
 
-    connect(m_recorder, &ks::AudioRecorder::stateChanged, this, [this](ks::AudioRecorder::State state) {
-        emit recordingStateChanged(state == ks::AudioRecorder::Recording);
+    connect(m_recorder, &ks::audio::AudioRecorder::stateChanged, this, [this](ks::audio::AudioRecorder::State state) {
+        emit recordingStateChanged(state == ks::audio::AudioRecorder::Recording);
     });
-    connect(m_recorder, &ks::AudioRecorder::levelChanged, this, [this](float level) {
+    connect(m_recorder, &ks::audio::AudioRecorder::levelChanged, this, [this](float level) {
         m_currentInputLevel = level;
         emit inputLevelChanged(level);
     });
-    connect(m_recorder, &ks::AudioRecorder::recordingComplete, this, [this](const QString& path) {
+    connect(m_recorder, &ks::audio::AudioRecorder::recordingComplete, this, [this](const QString& path) {
         if (m_waveProcessor) {
             m_waveProcessor->load(path);
             emit loadComplete();
@@ -657,14 +657,14 @@ void AudioQMLBridge::pauseRecording()
 
 void AudioQMLBridge::resumeRecording()
 {
-    if (m_recorder->state() != ks::AudioRecorder::Paused) return;
+    if (m_recorder->state() != ks::audio::AudioRecorder::Paused) return;
     m_recorder->resume();
     m_recordingTimer->start();
 }
 
 bool AudioQMLBridge::isRecording() const
 {
-    return m_recorder && m_recorder->state() == ks::AudioRecorder::Recording;
+    return m_recorder && m_recorder->state() == ks::audio::AudioRecorder::Recording;
 }
 
 float AudioQMLBridge::getInputLevel(int channel) const

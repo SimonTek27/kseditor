@@ -9,7 +9,7 @@
 #include <cmath>
 
 namespace ks {
-using namespace ks::graphics;
+using namespace ks;
 
 LiveryViewport::LiveryViewport(QWidget* parent)
     : QWidget(parent)

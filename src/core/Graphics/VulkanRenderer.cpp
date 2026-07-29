@@ -15,8 +15,8 @@
 
 namespace {
 
-static VkFormat toVkFormat(ks::graphics::VulkanTexture::Format fmt) {
-    using Format = ks::graphics::VulkanTexture::Format;
+static VkFormat toVkFormat(ks::VulkanTexture::Format fmt) {
+    using Format = ks::VulkanTexture::Format;
     switch (fmt) {
         case Format::RGBA8:    return VK_FORMAT_R8G8B8A8_SRGB;
         case Format::RGBA16F:  return VK_FORMAT_R16G16B16A16_SFLOAT;
@@ -30,7 +30,6 @@ static VkFormat toVkFormat(ks::graphics::VulkanTexture::Format fmt) {
 } // anonymous namespace
 
 namespace ks {
-namespace graphics {
 
 // Forward declarations for static helpers used early in the file
 static void createMeshBuffer(VkDevice device, VkPhysicalDevice physDev, const void* data,

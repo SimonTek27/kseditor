@@ -19,7 +19,4 @@ ApplicationWindow {
         source: "qrc:///qml/modules/font_KSFontCreator.qml"
     }
 
-    Component.onCompleted: {
-        console.log("KS Font Editor initialized")
-    }
 }

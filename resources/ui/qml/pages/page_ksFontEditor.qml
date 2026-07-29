@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls
 import QtQuick.Layouts
+import Qt.labs.platform 1.1
 import ksEditor.FontCreator 1.0
 
 // ksFontEditor - interfaccia stile Ribbon per editing bitmap/texture fonts
@@ -75,9 +76,12 @@ Rectangle {
                         Text { text: "File"; color: "#cccccc"; font.pixelSize: 10 }
                         RowLayout {
                             spacing: 4
-                            Button { text: "New"; width: 60; height: 24 }
-                            Button { text: "Open"; width: 60; height: 24 }
-                            Button { text: "Save"; width: 60; height: 24 }
+                            Button { text: "New"; width: 60; height: 24
+                                onClicked: { FontCreator.clearRanges(); statusText.text = "New font" } }
+                            Button { text: "Open"; width: 60; height: 24
+                                onClicked: openPresetDialog.open() }
+                            Button { text: "Save"; width: 60; height: 24
+                                onClicked: savePresetDialog.open() }
                         }
                     }
 
@@ -87,9 +91,12 @@ Rectangle {
                         Text { text: "Glyph"; color: "#cccccc"; font.pixelSize: 10 }
                         RowLayout {
                             spacing: 4
-                            Button { text: "Add"; width: 60; height: 24 }
-                            Button { text: "Remove"; width: 70; height: 24 }
-                            Button { text: "Auto"; width: 60; height: 24 }
+                            Button { text: "Add"; width: 60; height: 24
+                                onClicked: statusText.text = "Add glyph (select from grid)" }
+                            Button { text: "Remove"; width: 70; height: 24
+                                onClicked: statusText.text = "Remove glyph" }
+                            Button { text: "Auto"; width: 60; height: 24
+                                onClicked: FontCreator.applyCombinedCharset() }
                         }
                     }
 
@@ -99,9 +106,12 @@ Rectangle {
                         Text { text: "Style"; color: "#cccccc"; font.pixelSize: 10 }
                         RowLayout {
                             spacing: 4
-                            Button { id: btnBold; text: "B"; checkable: true; width: 32; height: 24 }
-                            Button { id: btnItalic; text: "I"; checkable: true; width: 32; height: 24 }
-                            Button { text: "Outline"; checkable: true; width: 70; height: 24 }
+                            Button { id: btnBold; text: "B"; checkable: true; width: 32; height: 24
+                                onClicked: statusText.text = checked ? "Bold on" : "Bold off" }
+                            Button { id: btnItalic; text: "I"; checkable: true; width: 32; height: 24
+                                onClicked: statusText.text = checked ? "Italic on" : "Italic off" }
+                            Button { text: "Outline"; checkable: true; width: 70; height: 24
+                                onClicked: statusText.text = checked ? "Outline on" : "Outline off" }
                         }
                     }
 
@@ -121,7 +131,8 @@ Rectangle {
                                 onValueChanged: FontCreator.setFontSize(value)
                             }
                             Text { text: "Spacing"; color: "#aaaaaa"; font.pixelSize: 10 }
-                            SpinBox { from: -10; to: 50; value: 0; editable: true }
+                            SpinBox { from: -10; to: 50; value: 0; editable: true
+                                onValueChanged: statusText.text = "Spacing: " + value }
                         }
                     }
 
@@ -167,7 +178,7 @@ Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         clip: true
-                        model: ["ksHUD", "ksTiming", "ksMenu", "CustomFont"]
+                        model: FontCreator ? FontCreator.getSystemFonts() : []
 
                         delegate: Rectangle {
                             height: 22
@@ -182,6 +193,13 @@ Rectangle {
                                 color: "#dddddd"
                                 font.pixelSize: 11
                                 elide: Text.ElideRight
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    fontList.currentIndex = index
+                                    FontCreator.setFontFamily(modelData)
+                                }
                             }
                         }
                     }
@@ -207,7 +225,8 @@ Rectangle {
                         Text { text: "Glyphs"; color: "#ffffff"; font.pixelSize: 12; font.bold: true }
                         Item { Layout.fillWidth: true }
                         Text { text: "Zoom"; color: "#aaaaaa"; font.pixelSize: 10 }
-                        Slider { id: zoomSlider; width: 150; from: 1; to: 16; value: 4 }
+                        Slider { id: zoomSlider; width: 150; from: 1; to: 16; value: 4
+                            onValueChanged: { glyphGrid.cellWidth = value * 16; glyphGrid.cellHeight = value * 16 } }
                     }
 
                     // Generation controls
@@ -227,19 +246,14 @@ Rectangle {
                             height: 28
                             bgcolor: "transparent"
                             color: "#ffffff"
-                            onClicked: {
-                                // In a real app, open a file dialog
-                                FontCreator.loadPreset("font.preset.acf")
-                            }
+                            onClicked: openPresetDialog.open()
                         }
                         Button {
                             text: "Save Preset"
                             height: 28
                             bgcolor: "transparent"
                             color: "#ffffff"
-                            onClicked: {
-                                FontCreator.savePreset("font.preset.acf")
-                            }
+                            onClicked: savePresetDialog.open()
                         }
                         Button {
                             text: "Export JSON"
@@ -357,10 +371,32 @@ Rectangle {
                         rowSpacing: 2
 
                         Text { text: "Char"; color: "#bbbbbb"; font.pixelSize: 10 }
-                        TextField { text: "A"; font.pixelSize: 10 }
+                        TextField {
+                            id: glyphCharField
+                            font.pixelSize: 10
+                            text: {
+                                if (!FontCreator) return "A"
+                                var glyphs = FontCreator.getGlyphs()
+                                var idx = glyphGrid.currentIndex
+                                if (glyphs && idx >= 0 && idx < glyphs.length)
+                                    return String.fromCharCode(glyphs[idx].codepoint || 32)
+                                return "A"
+                            }
+                        }
 
                         Text { text: "Code"; color: "#bbbbbb"; font.pixelSize: 10 }
-                        TextField { text: "0x0041"; font.pixelSize: 10 }
+                        TextField {
+                            id: glyphCodeField
+                            font.pixelSize: 10
+                            text: {
+                                if (!FontCreator) return "0x0041"
+                                var glyphs = FontCreator.getGlyphs()
+                                var idx = glyphGrid.currentIndex
+                                if (glyphs && idx >= 0 && idx < glyphs.length)
+                                    return "U+" + (glyphs[idx].codepoint || 32).toString(16).toUpperCase()
+                                return "0x0041"
+                            }
+                        }
 
                         Text { text: "Advance"; color: "#bbbbbb"; font.pixelSize: 10 }
                         SpinBox { from: 0; to: 512; value: 16; editable: true }
@@ -383,7 +419,7 @@ Rectangle {
 
                         Text {
                             anchors.centerIn: parent
-                            text: "Sample Text"
+                            text: FontCreator ? FontCreator.getPreviewText() : "Sample Text"
                             color: "#ffffff"
                             font.pixelSize: 20
                         }
@@ -413,6 +449,28 @@ Rectangle {
                 Item { Layout.fillWidth: true }
                 Text { text: currentFilePath; color: "#777777"; font.pixelSize: 10; elide: Text.ElideLeft }
             }
+        }
+    }
+
+    FileDialog {
+        id: openPresetDialog
+        title: "Open Font Preset"
+        nameFilters: ["Font Preset (*.acf)", "All Files (*)"]
+        onAccepted: {
+            var path = file.toString().replace("file:///", "")
+            currentFilePath = path
+            FontCreator.loadPreset(path)
+        }
+    }
+
+    FileDialog {
+        id: savePresetDialog
+        title: "Save Font Preset As"
+        nameFilters: ["Font Preset (*.acf)", "All Files (*)"]
+        onAccepted: {
+            var path = file.toString().replace("file:///", "")
+            currentFilePath = path
+            FontCreator.savePreset(path)
         }
     }
 }

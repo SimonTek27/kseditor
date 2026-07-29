@@ -22,8 +22,8 @@ class WaveProcessor;
 class WaveformEngine;
 class QTcpSocket;
 namespace ks {
-class AudioRecorder;
 namespace audio {
+class AudioRecorder;
 class TextToSpeech;
 
 class AudioEditorModule : public ModuleGuiBase {
@@ -152,7 +152,7 @@ private:
     QLabel* m_connectionStatusLabel = nullptr;
 
     WaveProcessor* m_waveProcessor = nullptr;
-    ks::AudioRecorder* m_audioRecorder = nullptr;
+    AudioRecorder* m_audioRecorder = nullptr;
     QTcpSocket* m_tcpSocket = nullptr;
     QString m_loadedAudioPath;
 

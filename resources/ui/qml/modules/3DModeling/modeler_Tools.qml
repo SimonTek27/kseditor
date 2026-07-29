@@ -166,12 +166,18 @@ Rectangle {
                 Rectangle { height: 10 }
 
                 Text { text: "EDITING"; color: "#666"; font.pixelSize: 10; font.bold: true }
-                AppButton { height: 28; text: "Extrude"; bgcolor: "#E10600"; color: "#121212" }
-                AppButton { height: 28; text: "Inset"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Bevel"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Loop Cut"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Knife"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Weld"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Extrude"; bgcolor: "#E10600"; color: "#121212"
+                    onClicked: { if (Modeler.extrudeFaces) Modeler.extrudeFaces([], 1.0) } }
+                AppButton { height: 28; text: "Inset"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.insetFaces) Modeler.insetFaces([], 0.5) } }
+                AppButton { height: 28; text: "Bevel"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.bevelEdges) Modeler.bevelEdges([], 0.1, 1) } }
+                AppButton { height: 28; text: "Loop Cut"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.subdivideFaces) Modeler.subdivideFaces([], 2) } }
+                AppButton { height: 28; text: "Knife"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.knifeCut) Modeler.knifeCut(0, 0, 0, 1, 1, 1) } }
+                AppButton { height: 28; text: "Weld"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.weldVertices) Modeler.weldVertices(0.01) } }
 
                 Rectangle { height: 10 }
 
@@ -289,12 +295,16 @@ Rectangle {
                 }
 
                 RowLayout {
-                    AppButton { height: 24; text: "Mirror X"; bgcolor: "transparent"; color: "#ffffff"; Layout.fillWidth: true }
-                    AppButton { height: 24; text: "Y"; bgcolor: "transparent"; color: "#ffffff"; width: 30 }
-                    AppButton { height: 24; text: "Z"; bgcolor: "transparent"; color: "#ffffff"; width: 30 }
+                    AppButton { height: 24; text: "Mirror X"; bgcolor: "transparent"; color: "#ffffff"; Layout.fillWidth: true
+                        onClicked: { if (Modeler.mirrorMesh) Modeler.mirrorMesh(0) } }
+                    AppButton { height: 24; text: "Y"; bgcolor: "transparent"; color: "#ffffff"; width: 30
+                        onClicked: { if (Modeler.mirrorMesh) Modeler.mirrorMesh(1) } }
+                    AppButton { height: 24; text: "Z"; bgcolor: "transparent"; color: "#ffffff"; width: 30
+                        onClicked: { if (Modeler.mirrorMesh) Modeler.mirrorMesh(2) } }
                 }
 
-                AppButton { height: 28; text: "Align"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Align"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.setSelectedPosition) Modeler.setSelectedPosition(0, 0, 0) } }
                 AppButton {
                     id: propBtn
                     height: 28; text: "Proportional Edit (" + Modeler.getShortcutKey("toggle_proportional") + ")";
@@ -366,12 +376,18 @@ Rectangle {
                 Rectangle { height: 10 }
 
                 Text { text: "MESH OPS"; color: "#666"; font.pixelSize: 10; font.bold: true }
-                AppButton { height: 28; text: "Subsurf"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Decimate"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Remesh"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Spin"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Boolean"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Symmetry"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Subsurf"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.subdivideFaces) Modeler.subdivideFaces([], 2) } }
+                AppButton { height: 28; text: "Decimate"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.removeDoubles) Modeler.removeDoubles(0.1) } }
+                AppButton { height: 28; text: "Remesh"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.triangulateMesh) Modeler.triangulateMesh() } }
+                AppButton { height: 28; text: "Spin"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.duplicateSelected) Modeler.duplicateSelected() } }
+                AppButton { height: 28; text: "Boolean"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { boolOpPanel.visible = !boolOpPanel.visible } }
+                AppButton { height: 28; text: "Symmetry"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { symmetryPanel.visible = !symmetryPanel.visible } }
 
                 Rectangle { height: 10 }
 
@@ -380,65 +396,72 @@ Rectangle {
                     height: 28; text: "Twist";
                     bgcolor: activeTool === "twist" ? "#E10600" : "#3e3e42";
                     color: activeTool === "twist" ? "#121212" : "#ffffff";
-                    onClicked: { activeTool = "twist"; modelerTools.toolSelected("twist"); }
+                    onClicked: { activeTool = "twist"; if (Modeler.applySimpleDeform) Modeler.applySimpleDeform(0, 0, 45, 1.0); modelerTools.toolSelected("twist"); }
                 }
                 AppButton {
                     height: 28; text: "Bend";
                     bgcolor: activeTool === "bend" ? "#E10600" : "#3e3e42";
                     color: activeTool === "bend" ? "#121212" : "#ffffff";
-                    onClicked: { activeTool = "bend"; modelerTools.toolSelected("bend"); }
+                    onClicked: { activeTool = "bend"; if (Modeler.applySimpleDeform) Modeler.applySimpleDeform(1, 0, 45, 1.0); modelerTools.toolSelected("bend"); }
                 }
                 AppButton {
                     height: 28; text: "Stretch";
                     bgcolor: activeTool === "stretch" ? "#E10600" : "#3e3e42";
                     color: activeTool === "stretch" ? "#121212" : "#ffffff";
-                    onClicked: { activeTool = "stretch"; modelerTools.toolSelected("stretch"); }
+                    onClicked: { activeTool = "stretch"; if (Modeler.applySimpleDeform) Modeler.applySimpleDeform(2, 0, 45, 1.0); modelerTools.toolSelected("stretch"); }
                 }
                 AppButton {
                     height: 28; text: "Lattice";
                     bgcolor: activeTool === "lattice" ? "#E10600" : "#3e3e42";
                     color: activeTool === "lattice" ? "#121212" : "#ffffff";
-                    onClicked: { activeTool = "lattice"; modelerTools.toolSelected("lattice"); }
+                    onClicked: { activeTool = "lattice"; if (Modeler.applyLattice) Modeler.applyLattice(4, 4, 4, 1.0); modelerTools.toolSelected("lattice"); }
                 }
                 AppButton {
                     height: 28; text: "Cage Deform";
                     bgcolor: activeTool === "cage" ? "#E10600" : "#3e3e42";
                     color: activeTool === "cage" ? "#121212" : "#ffffff";
-                    onClicked: { activeTool = "cage"; modelerTools.toolSelected("cage"); }
+                    onClicked: { activeTool = "cage"; if (Modeler.applyCageDeform) Modeler.applyCageDeform("", 1.0, true); modelerTools.toolSelected("cage"); }
                 }
 
                 Rectangle { height: 10 }
 
                 Text { text: "UV"; color: "#666"; font.pixelSize: 10; font.bold: true }
-                AppButton { height: 28; text: "Unwrap"; bgcolor: "#E10600"; color: "#121212" }
-                AppButton { height: 28; text: "Project"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Mark Seam"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Unwrap"; bgcolor: "#E10600"; color: "#121212"
+                    onClicked: { if (Modeler.unwrapUVs) Modeler.unwrapUVs("lscm") } }
+                AppButton { height: 28; text: "Project"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.projectUVPlanar) Modeler.projectUVPlanar(0) } }
+                AppButton { height: 28; text: "Mark Seam"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.dissolveEdges) Modeler.dissolveEdges([]) } }
 
                 Rectangle { height: 10 }
 
                 Text { text: "SCULPT"; color: "#666"; font.pixelSize: 10; font.bold: true }
-                AppButton { height: 28; text: "Draw"; bgcolor: "#E10600"; color: "#121212" }
-                AppButton { height: 28; text: "Smooth"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Grab"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Flatten"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Crease"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Draw"; bgcolor: "#E10600"; color: "#121212"
+                    onClicked: activeTool = "draw" }
+                AppButton { height: 28; text: "Smooth"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: activeTool = "smooth" }
+                AppButton { height: 28; text: "Grab"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: activeTool = "grab" }
+                AppButton { height: 28; text: "Flatten"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: activeTool = "flatten" }
+                AppButton { height: 28; text: "Crease"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: activeTool = "crease" }
 
                 Rectangle { height: 10 }
 
                 Text { text: "AC TRACK TOOLS"; color: "#ff6600"; font.pixelSize: 10; font.bold: true }
-                AppButton { height: 28; text: "Spline Editor"; bgcolor: "#ff6600"; color: "#ffffff" }
-                AppButton { height: 28; text: "AI Line Tool"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Start Positions"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Checkpoints"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Kerb Placer"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Barrier Tool"; bgcolor: "transparent"; color: "#ffffff" }
-
-                Rectangle { height: 10 }
-
-                Text { text: "AC TERRAIN"; color: "#ff6600"; font.pixelSize: 10; font.bold: true }
-                AppButton { height: 28; text: "Heightmap Paint"; bgcolor: "#ff6600"; color: "#ffffff" }
-                AppButton { height: 28; text: "Grass Zones"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Surface Types"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Generate Track Mesh"; bgcolor: "#ff6600"; color: "#ffffff"
+                    onClicked: { if (Modeler.generateTrackMesh) Modeler.generateTrackMesh() } }
+                AppButton { height: 28; text: "AI Line"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.generateAILine) Modeler.generateAILine() } }
+                AppButton { height: 28; text: "Smooth Track"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.smoothTrackPoints) Modeler.smoothTrackPoints(3) } }
+                AppButton { height: 28; text: "Generate Terrain"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.generateTerrain) Modeler.generateTerrain(200, 20) } }
+                AppButton { height: 28; text: "Import GPX"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.importGPX) Modeler.importGPX("") } }
+                AppButton { height: 28; text: "Import KML"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.importKML) Modeler.importKML("") } }
                 AppButton {
                     height: 28; text: "Texture Paint";
                     bgcolor: activeTool === "paint" ? "#E10600" : "transparent";
@@ -461,22 +484,30 @@ Rectangle {
                         modelerTools.toolSelected(activeTool)
                     }
                 }
-                AppButton { height: 28; text: "Helmet Editor"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Suit Graphics"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Flip Normals"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.flipNormals) Modeler.flipNormals() } }
+                AppButton { height: 28; text: "Recalc Normals"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.recalculateNormals) Modeler.recalculateNormals() } }
 
                 Rectangle { height: 10 }
 
                 Text { text: "EXPORT"; color: "#666"; font.pixelSize: 10; font.bold: true }
-                AppButton { height: 28; text: "Export KN5"; bgcolor: "#E10600"; color: "#121212" }
-                AppButton { height: 28; text: "Export FBX"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Export OBJ"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Export KN5"; bgcolor: "#E10600"; color: "#121212"
+                    onClicked: { if (Modeler.exportKN5) Modeler.exportKN5("export.kn5") } }
+                AppButton { height: 28; text: "Export FBX"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.exportFBX) Modeler.exportFBX("export.fbx") } }
+                AppButton { height: 28; text: "Export GLB"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.exportGLB) Modeler.exportGLB("export.glb") } }
 
                 Rectangle { height: 10 }
 
                 Text { text: "VIEW"; color: "#666"; font.pixelSize: 10; font.bold: true }
-                AppButton { height: 28; text: "Wireframe"; bgcolor: "transparent"; color: "#ffffff" }
-                AppButton { height: 28; text: "Solid"; bgcolor: "#E10600"; color: "#121212" }
-                AppButton { height: 28; text: "Textured"; bgcolor: "transparent"; color: "#ffffff" }
+                AppButton { height: 28; text: "Wireframe"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.viewMode !== undefined) Modeler.viewMode = 1 } }
+                AppButton { height: 28; text: "Solid"; bgcolor: "#E10600"; color: "#121212"
+                    onClicked: { if (Modeler.viewMode !== undefined) Modeler.viewMode = 0 } }
+                AppButton { height: 28; text: "Textured"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.viewMode !== undefined) Modeler.viewMode = 2 } }
 
                 Item { height: 10 }
             }

@@ -15,7 +15,6 @@
 #include <map>
 
 namespace ks {
-namespace graphics {
 
 struct UniformBuffer {
     VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
@@ -228,5 +227,4 @@ private:
     std::unique_ptr<UniformBuffer> m_ppParamsUBO;
 };
 
-} // namespace graphics
 } // namespace ks

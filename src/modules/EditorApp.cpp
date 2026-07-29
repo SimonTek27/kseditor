@@ -28,7 +28,7 @@ bool ksEditor::initialize()
 {
     loadPreferences();
 
-    m_audioStudio = new AudioStudio(this);
+    m_audioStudio = new audio::AudioStudio(this);
 
     m_scene = new geometry::Scene3D(this);
     m_renderer = new rendering::RenderEngine(this);
@@ -128,7 +128,7 @@ void ksEditor::createAudioProject(const QString& name)
     
     // Create a new audio project
     delete m_currentAudioProject;
-    m_currentAudioProject = new AudioProject(this);
+    m_currentAudioProject = new audio::AudioProject(this);
     m_currentAudioProject->setName(name);
     
     emit audioProjectCreated(name);
@@ -143,7 +143,7 @@ void ksEditor::importAudio(const QString& path)
     }
     
     // Import audio file
-    AudioManager audioManager;
+    audio::AudioManager audioManager;
     if (audioManager.importAudio(path, QStandardPaths::writableLocation(QStandardPaths::MusicLocation))) {
         emit statusMessage("Audio imported successfully: " + path);
         emit audioImported(path);
