@@ -3,7 +3,7 @@
 A comprehensive, professional-grade modding toolkit for **Assetto Corsa** and other Kunos/Steam racing games. ksEditor provides a unified environment for editing game audio, 3D models, physics, telemetry, liveries, events, server configs, and more.
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)]()
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.txt)
+[![License](https://img.shields.io/badge/license-GPL3-blue.svg)](LICENSE.txt)
 [![Version](https://img.shields.io/badge/version-1.16.4-orange)]()
 [![Qt](https://img.shields.io/badge/Qt-6.11-green)]()
 [![C++](https://img.shields.io/badge/C++-17-blue)]()
