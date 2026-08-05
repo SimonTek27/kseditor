@@ -91,13 +91,13 @@ The **Physics Editor** delivers a complete **vehicle dynamics simulation and tun
 
 The **Display Editor** configures **on-screen dashboards and UI elements** for in-game telemetry. It edits **segment-based LCD/LED displays** (gear, RPM, speed, lap time, fuel, temperatures) with customizable fonts, colors, and layouts. Supports **custom display pages** with conditional visibility (pit limiter, DRS, ERS modes, flag signals). Preview mode simulates game rendering with accurate character spacing and kerning.
 
-### Font Editor
+### Font Editor (ksFontEditor)
 
 The **Font Editor** generates **game-ready font atlases** from TTF/OTF sources. It packs glyphs into **power-of-two textures** with configurable padding, supports **Unicode ranges** (Basic Latin, Latin Extended, Cyrillic, CJK), and exports **distance field** or **standard bitmap** formats. Includes **kerning pair** extraction, **fallback chain** configuration, and **preview rendering** at multiple sizes. Output formats match game engine requirements (DDS/BC, PNG).
 
-### Livery Editor
+### Paint Editor (ksPaintEditor)
 
-The **Livery Editor** is a **layer-based 3D painting system** for creating custom car liveries. It features **unlimited layers** with blending modes (normal, multiply, overlay, screen), **vector drawing tools** (pen, shapes, text, gradients), and a **decal/stencil system** for logos, numbers, and sponsorship graphics with precise placement. **Material masks** allow per-layer control over paint, metallic, roughness, and clearcoat properties. A **template system** provides base UV layouts for popular cars with automatic seam alignment. **Color palettes** support manufacturer swatches, custom gradients, and eyedropper sampling. The **3D preview viewport** uses studio lighting rigs (HDRI, key/fill/rim) with real-time PBR rendering. Export produces **DDS textures** with mipmaps and BC compression ready for game integration.
+The **Paint Editor** is a **layer-based 3D painting system** for creating custom car liveries. It features **unlimited layers** with blending modes (normal, multiply, overlay, screen), **vector drawing tools** (pen, shapes, text, gradients), and a **decal/stencil system** for logos, numbers, and sponsorship graphics with precise placement. **Material masks** allow per-layer control over paint, metallic, roughness, and clearcoat properties. A **template system** provides base UV layouts for popular cars with automatic seam alignment. **Color palettes** support manufacturer swatches, custom gradients, and eyedropper sampling. The **3D preview viewport** uses studio lighting rigs (HDRI, key/fill/rim) with real-time PBR rendering. Export produces **DDS textures** with mipmaps and BC compression ready for game integration.
 
 ### License Plates
 
@@ -172,6 +172,7 @@ kseditor/
 │   │   ├── tools/              # Tools framework (49 files, LOD/collision)
 │   │   ├── ui/                 # Widgets (30 files, node graph, title bar)
 │   │   ├── modmanager/         # Mod/package manager
+│   │   ├── paint/              # Paint tool
 │   │   ├── Scripting/          # Python/Lua hosts, debugger, hot-reload
 │   │   ├── network/            # Cloud sync, collaboration, WebSocket
 │   │   ├── Config/             # CSP config editor, schema-driven UI
@@ -195,7 +196,7 @@ kseditor/
 │   │   ├── modellingEditor/    # 3D modeling (49 files)
 │   │   ├── soundEditor/        # Audio editing (30 files)
 │   │   ├── PhysicsEditor/      # Physics simulation (38 files)
-│   │   ├── LiveryEditor/       # Car livery painting (20 files)
+│   │   ├── PaintEditor/       # Car livery painting (20 files)
 │   │   ├── ShowroomEditor/     # 3D showroom (10 files)
 │   │   ├── displayEditor/      # Display editor (6 files)
 │   │   ├── LicensePlatesEditor/ (6 files)
