@@ -67,7 +67,7 @@ The **Help System** provides **context-sensitive assistance** throughout the app
 
 ## Modules
 
-### Text Editor
+### Text Editor (ksIDEEditor)
 
 The **Text Editor** is a **code-aware IDE** for scripting and config files. It provides **LSP client** integration (clangd for C++, pylsp for Python, lua-language-server for Lua) with **hover docs, go-to-definition, find-references, rename, diagnostics**. **Syntax highlighting** for 20+ languages (C++, Python, Lua, JSON, XML, INI, GLSL, HLSL, CSP, ACD). **Minimap** with error/warning markers. **Multi-cursor editing**, **snippets**, **bracket matching**, **auto-indent**, **folding**. **Integrated terminal** for build/test commands.
 
