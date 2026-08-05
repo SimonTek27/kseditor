@@ -1,4 +1,4 @@
-/* KSEditor Audio File Editor — Light Theme (Green Accent, Compact) */
+/* KSEditor Audio File Editor — Light Theme (Modeler-compatible Accent, Compact) */
 
 QMainWindow, QDialog, QWidget {
     background-color: #f4f4f5;
@@ -29,7 +29,7 @@ QMenuBar::item:selected {
     color: #18181b;
 }
 QMenuBar::item:pressed {
-    background-color: #22aa55;
+    background-color: #cc7832;
     color: #ffffff;
 }
 
@@ -46,7 +46,7 @@ QMenu::item {
     border-radius: 3px;
 }
 QMenu::item:selected {
-    background-color: #22aa55;
+    background-color: #cc7832;
     color: #ffffff;
 }
 QMenu::separator {
@@ -79,7 +79,7 @@ QToolButton:hover {
     border: 1px solid #a1a1aa;
 }
 QToolButton:pressed, QToolButton:checked {
-    background: #22aa55;
+    background: #cc7832;
     color: #ffffff;
 }
 QToolButton:disabled {
@@ -141,9 +141,9 @@ QTabBar::tab {
     min-width: 60px;
 }
 QTabBar::tab:selected {
-    background: #22aa55;
+    background: #cc7832;
     color: #ffffff;
-    border-color: #22aa55;
+    border-color: #cc7832;
 }
 QTabBar::tab:hover:!selected {
     background: #d4d4d8;
@@ -181,8 +181,8 @@ QPushButton:hover {
     border-color: #a1a1aa;
 }
 QPushButton:pressed {
-    background: #22aa55;
-    border-color: #22aa55;
+    background: #cc7832;
+    border-color: #cc7832;
     color: #ffffff;
 }
 QPushButton:disabled {
@@ -198,11 +198,11 @@ QLineEdit {
     border-radius: 3px;
     padding: 3px 6px;
     font-size: 11px;
-    selection-background-color: #22aa55;
+    selection-background-color: #cc7832;
     selection-color: #ffffff;
 }
 QLineEdit:focus {
-    border-color: #22aa55;
+    border-color: #cc7832;
 }
 
 QComboBox {
@@ -215,14 +215,14 @@ QComboBox {
     min-height: 18px;
 }
 QComboBox:focus {
-    border-color: #22aa55;
+    border-color: #cc7832;
 }
 QComboBox QAbstractItemView {
     background: #ffffff;
     color: #18181b;
     border: 1px solid #d4d4d8;
     border-radius: 3px;
-    selection-background-color: #22aa55;
+    selection-background-color: #cc7832;
     selection-color: #ffffff;
 }
 
@@ -235,7 +235,7 @@ QSpinBox, QDoubleSpinBox {
     font-size: 11px;
 }
 QSpinBox:focus, QDoubleSpinBox:focus {
-    border-color: #22aa55;
+    border-color: #cc7832;
 }
 
 QSlider::groove:horizontal {
@@ -244,17 +244,17 @@ QSlider::groove:horizontal {
     border-radius: 2px;
 }
 QSlider::handle:horizontal {
-    background: #22aa55;
+    background: #cc7832;
     width: 12px;
     height: 12px;
     margin: -4px 0;
     border-radius: 6px;
 }
 QSlider::handle:horizontal:hover {
-    background: #33cc66;
+    background: #dd9944;
 }
 QSlider::sub-page:horizontal {
-    background: #22aa55;
+    background: #cc7832;
     border-radius: 2px;
 }
 
@@ -271,8 +271,8 @@ QCheckBox::indicator {
     background: #ffffff;
 }
 QCheckBox::indicator:checked {
-    background: #22aa55;
-    border-color: #22aa55;
+    background: #cc7832;
+    border-color: #cc7832;
 }
 
 QRadioButton {
@@ -288,8 +288,8 @@ QRadioButton::indicator {
     background: #ffffff;
 }
 QRadioButton::indicator:checked {
-    background: #22aa55;
-    border-color: #22aa55;
+    background: #cc7832;
+    border-color: #cc7832;
 }
 
 QListWidget, QTreeWidget, QTableWidget {
@@ -304,7 +304,7 @@ QListWidget::item, QTreeWidget::item, QTableWidget::item {
     padding: 3px 6px;
 }
 QListWidget::item:selected, QTreeWidget::item:selected, QTableWidget::item:selected {
-    background: #22aa55;
+    background: #cc7832;
     color: #ffffff;
 }
 QListWidget::item:hover:!selected, QTreeWidget::item:hover:!selected {
@@ -345,7 +345,7 @@ QSplitter::handle {
     background: #d4d4d8;
 }
 QSplitter::handle:hover {
-    background: #22aa55;
+    background: #cc7832;
 }
 
 QProgressBar {
@@ -358,7 +358,7 @@ QProgressBar {
     height: 16px;
 }
 QProgressBar::chunk {
-    background: #22aa55;
+    background: #cc7832;
     border-radius: 2px;
 }
 
@@ -387,7 +387,7 @@ QWidget#audioEditorViewport {
     border: 1px solid #d4d4d8;
 }
 QWidget#audioEditorViewport:focus {
-    border-color: #22aa55;
+    border-color: #cc7832;
 }
 
 QWidget#audioEditorDetailPanel {

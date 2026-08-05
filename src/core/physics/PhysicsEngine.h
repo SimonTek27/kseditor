@@ -5,14 +5,14 @@
 #include <QVector>
 #include <QPair>
 
+#include "PhysicsSystem.h"
+
 namespace ks {
 namespace physics {
 
 // ============================================================================
 // Rigid Body Physics - Core Engine Classes
 // ============================================================================
-
-#include "PhysicsSystem.h"
 
 class RigidBody : public QObject
 {

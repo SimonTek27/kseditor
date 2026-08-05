@@ -208,7 +208,7 @@ void VREditorModule::startVR()
         return;
     }
 
-    auto* renderer = graphics::VulkanRenderer::instance();
+    auto* renderer = VulkanRenderer::instance();
     if (!renderer || !renderer->isInitialized()) {
         emit vrError("Vulkan renderer not available");
         return;
@@ -253,7 +253,7 @@ void VREditorModule::stopVR()
     // Ensure all in-flight XR frames complete before destroying resources
     m_viewportRenderer->shutdown();
 
-    auto* renderer = graphics::VulkanRenderer::instance();
+    auto* renderer = VulkanRenderer::instance();
     if (renderer) {
         VkDevice device = renderer->device();
         vkDeviceWaitIdle(device);
@@ -268,7 +268,7 @@ void VREditorModule::stopVR()
 
 void VREditorModule::setupVulkanForVR()
 {
-    auto* renderer = graphics::VulkanRenderer::instance();
+    auto* renderer = VulkanRenderer::instance();
     if (!renderer || !renderer->isInitialized()) {
         qWarning() << "VREditor: Vulkan renderer not available - VR cannot start";
         m_vkReady = false;
@@ -290,7 +290,7 @@ void VREditorModule::updateFrame()
     if (m_viewportRenderer) {
         // Rebuild mesh buffers if scene has changed
         if (m_scene && (m_buffersDirty || m_scene->objectCount() != m_sceneObjectCount)) {
-            auto* renderer = graphics::VulkanRenderer::instance();
+            auto* renderer = VulkanRenderer::instance();
             if (renderer) {
                 destroyVRMeshBuffers(renderer->device());
                 createVRMeshBuffers(renderer->device(), renderer->physicalDevice());
@@ -501,7 +501,7 @@ bool VREditorModule::createVRPipeline(VkDevice device)
         VkMemoryRequirements memReqs;
         vkGetBufferMemoryRequirements(device, m_ubo, &memReqs);
 
-        auto* renderer = graphics::VulkanRenderer::instance();
+        auto* renderer = VulkanRenderer::instance();
         VkPhysicalDevice physicalDevice = renderer ? renderer->physicalDevice() : VK_NULL_HANDLE;
         VkPhysicalDeviceMemoryProperties memProps;
         vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProps);
@@ -587,22 +587,22 @@ bool VREditorModule::createVRPipeline(VkDevice device)
     // Vertex input (SceneVertex layout)
     VkVertexInputBindingDescription vertBind{};
     vertBind.binding = 0;
-    vertBind.stride = sizeof(graphics::SceneVertex);
+    vertBind.stride = sizeof(SceneVertex);
     vertBind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
     VkVertexInputAttributeDescription vertAttrs[3]{};
     vertAttrs[0].location = 0;
     vertAttrs[0].binding = 0;
     vertAttrs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertAttrs[0].offset = offsetof(graphics::SceneVertex, position);
+    vertAttrs[0].offset = offsetof(SceneVertex, position);
     vertAttrs[1].location = 1;
     vertAttrs[1].binding = 0;
     vertAttrs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertAttrs[1].offset = offsetof(graphics::SceneVertex, normal);
+    vertAttrs[1].offset = offsetof(SceneVertex, normal);
     vertAttrs[2].location = 2;
     vertAttrs[2].binding = 0;
     vertAttrs[2].format = VK_FORMAT_R32G32_SFLOAT;
-    vertAttrs[2].offset = offsetof(graphics::SceneVertex, uv);
+    vertAttrs[2].offset = offsetof(SceneVertex, uv);
 
     VkPipelineVertexInputStateCreateInfo viInfo{};
     viInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -692,7 +692,7 @@ bool VREditorModule::createVRPipeline(VkDevice device)
 
 void VREditorModule::destroyVRPipeline()
 {
-    auto* renderer = graphics::VulkanRenderer::instance();
+    auto* renderer = VulkanRenderer::instance();
     if (!renderer) return;
     VkDevice device = renderer->device();
 
@@ -754,7 +754,7 @@ void VREditorModule::createVRMeshBuffers(VkDevice device, VkPhysicalDevice physi
         // Vertex buffer
         VkBufferCreateInfo vbi{};
         vbi.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        vbi.size = verts.size() * sizeof(graphics::SceneVertex);
+        vbi.size = verts.size() * sizeof(SceneVertex);
         vbi.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
         vbi.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         if (vkCreateBuffer(device, &vbi, nullptr, &buf.vertexBuffer) != VK_SUCCESS) continue;
@@ -781,7 +781,7 @@ void VREditorModule::createVRMeshBuffers(VkDevice device, VkPhysicalDevice physi
             vkFreeMemory(device, buf.vertexMemory, nullptr);
             continue;
         }
-        memcpy(mapped, verts.data(), verts.size() * sizeof(graphics::SceneVertex));
+        memcpy(mapped, verts.data(), verts.size() * sizeof(SceneVertex));
         VkMappedMemoryRange mmr{};
         mmr.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
         mmr.memory = buf.vertexMemory;
@@ -864,7 +864,7 @@ void VREditorModule::updateCameraUBO(const QMatrix4x4& view, const QMatrix4x4& p
     uboData.cameraPos = QVector4D(camPos, 1.0f);
 
     void* mapped;
-    VkDevice device = graphics::VulkanRenderer::instance()->device();
+    VkDevice device = VulkanRenderer::instance()->device();
     if (vkMapMemory(device, m_uboMemory, 0, sizeof(CameraUBO), 0, &mapped) == VK_SUCCESS) {
         memcpy(mapped, &uboData, sizeof(CameraUBO));
         VkMappedMemoryRange flushRange{};
@@ -884,7 +884,7 @@ void VREditorModule::drawScene(VkCommandBuffer cmd, int eyeIndex,
     if (m_pipeline == VK_NULL_HANDLE || m_descriptorSet == VK_NULL_HANDLE) return;
     if (m_meshBuffers.isEmpty()) return;
 
-    auto* renderer = graphics::VulkanRenderer::instance();
+    auto* renderer = VulkanRenderer::instance();
     if (!renderer) return;
     VkDevice device = renderer->device();
 

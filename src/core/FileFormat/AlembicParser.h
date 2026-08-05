@@ -94,9 +94,9 @@ public:
     static bool write(const QString& filePath, const AlembicArchive& archive, QString* error = nullptr);
     
     // Mesh conversion
-    static bool alembicMeshToMeshData(const AlembicMesh& mesh, int frameIndex, MeshData& outData);
-    static bool meshDataToAlembicMesh(const MeshData& data, AlembicMesh& outMesh);
-    static bool sampleMeshAtTime(const AlembicMesh& mesh, double time, MeshData& outData);
+    static bool alembicMeshToMeshData(const AlembicMesh& mesh, int frameIndex, fileformat::MeshData& outData);
+    static bool meshDataToAlembicMesh(const fileformat::MeshData& data, AlembicMesh& outMesh);
+    static bool sampleMeshAtTime(const AlembicMesh& mesh, double time, fileformat::MeshData& outData);
     
     // Camera conversion
     static bool sampleCameraAtTime(const AlembicCamera& cam, double time,

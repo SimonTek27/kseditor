@@ -1,8 +1,8 @@
 # ksAssettoCorsaEVO.dll — Product Overview
 
-## Current Status: DOES NOT EXIST
+## Current Status: INITIAL IMPLEMENTATION
 
-`ksAssettoCorsaEVO.dll` does **not exist** in this codebase. No source files, no build target, no references — the name appears zero times across the entire repository. This document describes what such a plugin **would be** based on the existing `ksAssettoCorsa.dll` architecture, the ACE SDK, and community tooling.
+`ksAssettoCorsaEVO.dll` has been **initially implemented** as of July 2026. The plugin skeleton, content discovery, kspkg parser, game launcher, and QML bridges are all in place. The CMake target builds alongside the existing AC1 plugin.
 
 ---
 

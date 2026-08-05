@@ -10,32 +10,9 @@
 #include <QVector>
 #include <QTextCharFormat>
 #include <QTextDocument>
+#include "IniSyntaxHighlighter.h"
 
 namespace ks {
-
-// ─────────────────────────────────────────────────────────────────────────────
-// IniSyntaxHighlighter — syntax highlighting for AC .ini files
-// ─────────────────────────────────────────────────────────────────────────────
-class IniSyntaxHighlighter : public QSyntaxHighlighter {
-    Q_OBJECT
-public:
-    explicit IniSyntaxHighlighter(QTextDocument* parent = nullptr);
-
-protected:
-    void highlightBlock(const QString& text) override;
-
-private:
-    struct HighlightingRule {
-        QRegularExpression pattern;
-        QTextCharFormat    format;
-    };
-    QVector<HighlightingRule> m_rules;
-    QTextCharFormat m_sectionFormat;
-    QTextCharFormat m_keyFormat;
-    QTextCharFormat m_commentFormat;
-    QTextCharFormat m_numberFormat;
-    QTextCharFormat m_stringFormat;
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IniEditorWidget — text editor with line numbers and highlighting

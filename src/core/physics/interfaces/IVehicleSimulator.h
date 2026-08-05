@@ -22,6 +22,7 @@ struct SimulationState {
     double steeringAngle;
     double slipAngle;
     double tireLoad;
+    int gear = 0;
 };
 
 struct TireSlipCurve {
@@ -288,10 +289,10 @@ public:
         const QVector<double>& refSteering) const = 0;
 
 signals:
-    virtual void stateUpdated(const SimulationState& state) = 0;
-    virtual void simulationStarted() = 0;
-    virtual void simulationStopped() = 0;
-    virtual void tireDataUpdated(double slipAngle, double lateralForce, double slipRatio, double longitudinalForce) = 0;
+    void stateUpdated(const SimulationState& state);
+    void simulationStarted();
+    void simulationStopped();
+    void tireDataUpdated(double slipAngle, double lateralForce, double slipRatio, double longitudinalForce);
 };
 
 } // namespace physics

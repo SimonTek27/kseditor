@@ -1,4 +1,4 @@
-#include "GraphicsEditorModule.h"
+﻿#include "GraphicsEditorModule.h"
 #include "VulkanRenderer.h"
 #include "VulkanShaderLoader.h"
 #include "RenderGraph.h"
@@ -539,4 +539,3 @@ void GraphicsEditorModule::onResetDefaults() {
 
 } // namespace ks
 
-#include "GraphicsEditorModule.moc"

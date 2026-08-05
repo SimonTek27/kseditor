@@ -11,7 +11,6 @@
 #include <exception>
 
 namespace ks {
-using namespace graphics;
 
 // ============================================================================
 // PythonScriptConsole Implementation

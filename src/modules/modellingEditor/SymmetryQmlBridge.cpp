@@ -6,8 +6,6 @@
 
 namespace ks {
 
-using namespace graphics;
-
 SymmetryQmlBridge::SymmetryQmlBridge(QObject* parent)
     : QObject(parent)
 {

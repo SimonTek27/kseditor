@@ -116,6 +116,10 @@ public:
     QVector<Session> getAbandonedSessions() const;
     bool recoverAbandonedSession(const QString& sessionId);
 
+    // Removes the on-disk marker for an abandoned session (after the user has
+    // been informed), so it is not offered again on the next launch.
+    void dismissSession(const QString& sessionId);
+
 signals:
     void sessionStarted();
     void sessionEnded();

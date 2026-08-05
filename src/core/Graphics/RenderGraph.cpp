@@ -1,4 +1,4 @@
-#include "RenderGraph.h"
+﻿#include "RenderGraph.h"
 #include "VulkanRenderer.h"
 #include "VulkanFunctions.h"
 #include <QJsonDocument>
@@ -15,7 +15,7 @@
 
 namespace ks {
 
-// ── RenderGraph Implementation ────────────────────────────────────────────
+// â”€â”€ RenderGraph Implementation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 RenderGraph::RenderGraph(VulkanRenderer* renderer, QObject* parent)
     : QObject(parent), m_renderer(renderer)
@@ -409,7 +409,7 @@ void RenderGraph::computeResourceLifetimes()
     // Could use this for memory aliasing optimization
 }
 
-// ── PBRMaterial Implementation ────────────────────────────────────────────
+// â”€â”€ PBRMaterial Implementation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 PBRMaterial::PBRMaterial(QObject* parent) : QObject(parent)
 {
@@ -452,7 +452,7 @@ VkPipeline PBRMaterial::createPipeline(VkDevice device, VkPipelineLayout layout,
     m_pipelineLayout = layout;
     if (!device || !layout || !renderPass) return VK_NULL_HANDLE;
 
-    // Shader stages — callers must set m_vertModule/m_fragModule before calling
+    // Shader stages â€” callers must set m_vertModule/m_fragModule before calling
     VkPipelineShaderStageCreateInfo stages[2] = {};
     uint32_t stageCount = 0;
 
@@ -874,7 +874,7 @@ VkSampler PBRMaterial::createSampler(VkDevice device, VkFilter filter, VkSampler
     return sampler;
 }
 
-// ── PBRPipelineFactory Implementation ────────────────────────────────────
+// â”€â”€ PBRPipelineFactory Implementation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 PBRPipelineFactory::PBRPipelineFactory(VulkanRenderer* renderer, QObject* parent)
     : QObject(parent), m_renderer(renderer)
@@ -1177,13 +1177,13 @@ VkPipeline PBRPipelineFactory::createPipeline(VkDevice device, VkRenderPass rend
     return pipeline;
 }
 
-// ── SceneGraph Implementation ────────────────────────────────────────────
+// â”€â”€ SceneGraph Implementation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-SceneGraph::SceneGraph(QObject* parent) : QObject(parent)
+RenderSceneGraph::RenderSceneGraph(QObject* parent) : QObject(parent)
 {
 }
 
-SceneGraph::~SceneGraph()
+RenderSceneGraph::~RenderSceneGraph()
 {
     // Clean up all entities and components
     for (auto e : m_entities) delete e;
@@ -1194,7 +1194,7 @@ SceneGraph::~SceneGraph()
     if (m_environment) delete m_environment;
 }
 
-QUuid SceneGraph::createEntity(const QString& name)
+QUuid RenderSceneGraph::createEntity(const QString& name)
 {
     QUuid id = QUuid::createUuid();
     Entity* entity = new Entity();
@@ -1205,7 +1205,7 @@ QUuid SceneGraph::createEntity(const QString& name)
     return id;
 }
 
-void SceneGraph::destroyEntity(QUuid id)
+void RenderSceneGraph::destroyEntity(QUuid id)
 {
     if (auto* entity = getEntity(id)) {
         // Remove all components
@@ -1227,17 +1227,17 @@ void SceneGraph::destroyEntity(QUuid id)
     }
 }
 
-SceneGraph::Entity* SceneGraph::getEntity(QUuid id)
+RenderSceneGraph::Entity* RenderSceneGraph::getEntity(QUuid id)
 {
     return m_entities.value(id, nullptr);
 }
 
-const SceneGraph::Entity* SceneGraph::getEntity(QUuid id) const
+const RenderSceneGraph::Entity* RenderSceneGraph::getEntity(QUuid id) const
 {
     return m_entities.value(id, nullptr);
 }
 
-QVector<SceneGraph::Entity*> SceneGraph::getEntitiesByTag(const QString& tag)
+QVector<RenderSceneGraph::Entity*> RenderSceneGraph::getEntitiesByTag(const QString& tag)
 {
     QVector<Entity*> result;
     for (auto* e : m_entities) {
@@ -1246,12 +1246,12 @@ QVector<SceneGraph::Entity*> SceneGraph::getEntitiesByTag(const QString& tag)
     return result;
 }
 
-QVector<SceneGraph::Entity*> SceneGraph::getAllEntities() const
+QVector<RenderSceneGraph::Entity*> RenderSceneGraph::getAllEntities() const
 {
     return m_entities.values();
 }
 
-void SceneGraph::setParent(QUuid child, QUuid parent)
+void RenderSceneGraph::setParent(QUuid child, QUuid parent)
 {
     if (child == parent) return;
     
@@ -1271,7 +1271,7 @@ void SceneGraph::setParent(QUuid child, QUuid parent)
     }
 }
 
-void SceneGraph::updateTransforms()
+void RenderSceneGraph::updateTransforms()
 {
     // Update root entities first
     for (auto* entity : m_entities) {
@@ -1281,7 +1281,7 @@ void SceneGraph::updateTransforms()
     }
 }
 
-void SceneGraph::updateTransformRecursive(Entity* entity)
+void RenderSceneGraph::updateTransformRecursive(Entity* entity)
 {
     auto* transform = getComponent<TransformComponent>(entity->id);
     if (!transform) return;
@@ -1315,7 +1315,7 @@ void SceneGraph::updateTransformRecursive(Entity* entity)
     }
 }
 
-QMatrix4x4 SceneGraph::getWorldTransform(QUuid id) const
+QMatrix4x4 RenderSceneGraph::getWorldTransform(QUuid id) const
 {
     const auto* transform = getComponent<TransformComponent>(id);
     if (transform) {
@@ -1324,7 +1324,7 @@ QMatrix4x4 SceneGraph::getWorldTransform(QUuid id) const
     return QMatrix4x4();
 }
 
-QVector<QUuid> SceneGraph::getEntitiesWithMesh() const
+QVector<QUuid> RenderSceneGraph::getEntitiesWithMesh() const
 {
     QVector<QUuid> result;
     for (auto it = m_meshes.constBegin(); it != m_meshes.constEnd(); ++it) {
@@ -1333,7 +1333,7 @@ QVector<QUuid> SceneGraph::getEntitiesWithMesh() const
     return result;
 }
 
-QVector<QUuid> SceneGraph::getEntitiesWithLight() const
+QVector<QUuid> RenderSceneGraph::getEntitiesWithLight() const
 {
     QVector<QUuid> result;
     for (auto it = m_lights.constBegin(); it != m_lights.constEnd(); ++it) {
@@ -1342,7 +1342,7 @@ QVector<QUuid> SceneGraph::getEntitiesWithLight() const
     return result;
 }
 
-SceneGraph::CameraComponent* SceneGraph::getMainCamera() const
+RenderSceneGraph::CameraComponent* RenderSceneGraph::getMainCamera() const
 {
     // Return first active camera
     for (auto* cam : m_cameras) {
@@ -1353,7 +1353,7 @@ SceneGraph::CameraComponent* SceneGraph::getMainCamera() const
     return nullptr;
 }
 
-QJsonObject SceneGraph::serialize() const
+QJsonObject RenderSceneGraph::serialize() const
 {
     QJsonObject obj;
     QJsonArray entitiesArray;
@@ -1400,7 +1400,7 @@ QJsonObject SceneGraph::serialize() const
     return obj;
 }
 
-void SceneGraph::clear()
+void RenderSceneGraph::clear()
 {
     for (auto e : m_entities) delete e;
     for (auto c : m_transforms) delete c;
@@ -1416,7 +1416,7 @@ void SceneGraph::clear()
     m_environment = nullptr;
 }
 
-bool SceneGraph::deserialize(const QJsonObject& data)
+bool RenderSceneGraph::deserialize(const QJsonObject& data)
 {
     clear(); // Clear existing
     

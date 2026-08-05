@@ -1,4 +1,4 @@
-#include "AssetEditorModule.h"
+﻿#include "AssetEditorModule.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -389,4 +389,3 @@ void AssetEditorModule::onShowDependencies() {
 } // namespace assets
 } // namespace ks
 
-#include "AssetEditorModule.moc"

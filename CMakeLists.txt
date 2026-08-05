@@ -258,16 +258,26 @@ else()
     add_compile_definitions(HAS_VULKAN=0)
 endif()
 
-file(GLOB_RECURSE ALL_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/resources/*.cpp)
+file(GLOB_RECURSE ALL_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/resources/*.cpp)
 
 # plugin_stubs.cpp removed — no longer needed (real implementations compiled into kseditor_lib)
 
 # Exclude plugin sources from main exe (they are compiled into the plugin DLL)
-file(GLOB_RECURSE PLUGIN_SOURCES_EXCLUDE
+file(GLOB_RECURSE PLUGIN_SOURCES_EXCLUDE CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsaevo/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsaevo/*.h
 )
 list(REMOVE_ITEM ALL_SOURCES ${PLUGIN_SOURCES_EXCLUDE})
+
+# Exclude physics sources from kseditor_lib: they are compiled into the dedicated
+# ksacPhysics library (see below), which also moc's the physics Q_OBJECT headers.
+# Compiling them in both places duplicates moc symbols and non-moc physics symbols.
+file(GLOB_RECURSE PHYSICS_CORE_SOURCES CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core/physics/*.cpp
+)
+list(REMOVE_ITEM ALL_SOURCES ${PHYSICS_CORE_SOURCES})
 
 # Exclude standalone fontEditor main.cpp (has its own main(), conflicts with app main)
 list(REMOVE_ITEM ALL_SOURCES
@@ -280,11 +290,16 @@ list(REMOVE_ITEM ALL_SOURCES
 list(APPEND ALL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/acFiles/FBXExporter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/acFiles/KN5Parser.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/FormatConverter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/FormatToolsEditorModule.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/audio/AudioEngineQML.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/audio/CarAudioEngine.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/sdk/SDKBackend.cpp
 )
 
 set(SOURCES ${ALL_SOURCES})
 
-file(GLOB_RECURSE ALL_HEADERS
+file(GLOB_RECURSE ALL_HEADERS CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/resources/*.h
@@ -292,19 +307,28 @@ file(GLOB_RECURSE ALL_HEADERS
 
 list(REMOVE_ITEM ALL_HEADERS ${PLUGIN_SOURCES_EXCLUDE})
 
+# Exclude physics headers from kseditor_lib (owned by ksacPhysics, avoids moc duplication)
+file(GLOB_RECURSE PHYSICS_CORE_HEADERS CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core/physics/*.h
+)
+list(REMOVE_ITEM ALL_HEADERS ${PHYSICS_CORE_HEADERS})
+
 # VR module headers re-enabled
+
+# Re-add plugin headers that were excluded by PLUGIN_SOURCES_EXCLUDE but needed in the library
+list(APPEND ALL_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/FormatConverter.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/FormatToolsEditorModule.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/audio/AudioEngineQML.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/audio/CarAudioEngine.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/sdk/SDKBackend.h
+)
 
 file(GLOB BROKEN_HEADERS
 )
 
 list(REMOVE_ITEM ALL_HEADERS ${BROKEN_HEADERS})
 set(HEADERS ${ALL_HEADERS})
-
-# Auto-reconfigure when source files change (mitigates GLOB_RECURSE staleness)
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/src"
-    "${CMAKE_CURRENT_SOURCE_DIR}/resources"
-)
 
 add_library(kseditor_lib STATIC
     ${SOURCES} ${HEADERS}
@@ -401,9 +425,8 @@ if(HAS_BULLET)
 endif()
 
 if(HAS_7ZIP)
-    # 7zip symbols are duplicated when both kseditor.exe and ksAssettoCorsa.dll
-    # consume kseditor_lib (e.g. IID_* from DllExports.obj vs SevenZipLibrary.obj).
-    # The /FORCE:MULTIPLE flags on the exe and DLL handle this.
+    # IID_* GUIDs are defined once in DllExports.obj (7zip_archive.lib);
+    # SevenZipLibrary.cpp no longer includes MyInitGuid.h to avoid duplicates.
     target_link_libraries(kseditor_lib PRIVATE 7zip)
 else()
     # Archive source files still need 7zip headers for compilation (unit tests etc.)
@@ -469,6 +492,7 @@ add_executable(kseditor WIN32
 
 target_link_libraries(kseditor PRIVATE
     kseditor_lib
+    ksacPhysics
     Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Quick3D Qt6::QuickControls2 Qt6::QuickWidgets Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::OpenGL Qt6::Sql Qt6::Charts Qt6::WebSockets
 )
 
@@ -507,15 +531,45 @@ file(GLOB_RECURSE PHYSICS_SOURCES
     ${PHYSICS_SOURCE_DIR}/general/*.cpp
     ${PHYSICS_SOURCE_DIR}/interfaces/*.cpp
     ${PHYSICS_SOURCE_DIR}/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/physics/*.cpp
 )
-add_library(ksacPhysics STATIC ${PHYSICS_SOURCES})
+# IVehicleSimulator.h declares Q_OBJECT classes but has no matching .cpp, so it
+# must be listed explicitly for AUTOMOC to generate its moc symbols.
+add_library(ksacPhysics STATIC ${PHYSICS_SOURCES} ${PHYSICS_SOURCE_DIR}/interfaces/IVehicleSimulator.h)
 target_include_directories(ksacPhysics PUBLIC
     ${PHYSICS_SOURCE_DIR}
     ${PHYSICS_SOURCE_DIR}/general
     ${PHYSICS_SOURCE_DIR}/interfaces
+    ${PROJECT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsa/physics
 )
-target_link_libraries(ksacPhysics PUBLIC Qt6::Core Qt6::Gui)
+target_link_libraries(ksacPhysics PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Charts)
 set_target_properties(ksacPhysics PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
+
+# ksACEVOPhysics: EVO-specific physics library. ksacPhysics is exclusive to AC1
+# (it bundles the AC1 plugin physics models), so the EVO plugin gets its own
+# library built from the shared core physics plus EVO-specific physics sources.
+set(ACEVO_PHYSICS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsaevo/physics)
+file(GLOB_RECURSE ACEVO_PHYSICS_SOURCES CONFIGURE_DEPENDS
+    ${PHYSICS_SOURCE_DIR}/general/*.cpp
+    ${PHYSICS_SOURCE_DIR}/interfaces/*.cpp
+    ${PHYSICS_SOURCE_DIR}/*.cpp
+    ${ACEVO_PHYSICS_SOURCE_DIR}/*.cpp
+)
+add_library(ksACEVOPhysics STATIC ${ACEVO_PHYSICS_SOURCES} ${PHYSICS_SOURCE_DIR}/interfaces/IVehicleSimulator.h)
+target_include_directories(ksACEVOPhysics PUBLIC
+    ${PHYSICS_SOURCE_DIR}
+    ${PHYSICS_SOURCE_DIR}/general
+    ${PHYSICS_SOURCE_DIR}/interfaces
+    ${ACEVO_PHYSICS_SOURCE_DIR}
+    ${PROJECT_SOURCE_DIR}/src
+)
+target_link_libraries(ksACEVOPhysics PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Charts)
+set_target_properties(ksACEVOPhysics PROPERTIES
     POSITION_INDEPENDENT_CODE ON
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
@@ -585,11 +639,9 @@ endif()
 set_property(TARGET kseditor PROPERTY CXX_STANDARD 17)
 set_property(TARGET kseditor PROPERTY CXX_STANDARD_REQUIRED ON)
 
-# /FORCE:MULTIPLE is required because 7zip static library IID_* symbols are
-# duplicated when both kseditor.exe and ksAssettoCorsa.dll link kseditor_lib
-# which contains both 7zip static archives and kseditor's own SevenZipLibrary.obj.
-# Similar duplicates exist for Ribbon/RenderGraph/ModManager classes whose
-# implementations appear in more than one translation unit within kseditor_lib.
+# /FORCE:MULTIPLE is a safety net for any remaining static-library symbol overlaps.
+# (7zip IID_* duplicates were eliminated by removing MyInitGuid.h from SevenZipLibrary.cpp;
+#  RibbonTab, ModManager, RenderGraph duplicates were resolved by dead-code removal.)
 if(MSVC)
     target_link_options(kseditor PRIVATE "LINKER:/FORCE:MULTIPLE")
 endif()
@@ -620,6 +672,7 @@ target_include_directories(ksACsoundlib PUBLIC
 
 target_link_libraries(ksACsoundlib PUBLIC
     kseditor_lib
+    Qt6::Core
 )
 
 if(MSVC)
@@ -647,14 +700,12 @@ set(ASSETTOCORSA_PLUGIN_MOC_HEADERS
     ${ASSETTOCORSA_PLUGIN_DIR}/acCSP/CspConfigHandler.h
     ${ASSETTOCORSA_PLUGIN_DIR}/ACSharedMemory.h
     ${ASSETTOCORSA_PLUGIN_DIR}/ACLivePreviewBridge.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/AssetsLibraryModule.h
 )
 
 qt6_wrap_cpp(ASSETTOCORSA_MOC_SOURCES ${ASSETTOCORSA_PLUGIN_MOC_HEADERS})
 
 set(ASSETTOCORSA_SOURCES
     ${ASSETTOCORSA_PLUGIN_DIR}/ksAssettoCorsa.cpp
-    ${ASSETTOCORSA_PLUGIN_DIR}/AssetsLibraryModule.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/ContentBrowser.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/KsAssettoCorsaContentPath.cpp
     ${ASSETTOCORSA_PLUGIN_DIR}/KsConverters.cpp
@@ -681,7 +732,6 @@ set(ASSETTOCORSA_SOURCES
 set(ASSETTOCORSA_HEADERS
     ${ASSETTOCORSA_PLUGIN_DIR}/assettocorsa.h
     ${ASSETTOCORSA_PLUGIN_DIR}/assettocorsa_core.h
-    ${ASSETTOCORSA_PLUGIN_DIR}/AssetsLibraryModule.h
     ${ASSETTOCORSA_PLUGIN_DIR}/ksAssettoCorsa_export.h
     ${ASSETTOCORSA_PLUGIN_DIR}/ContentBrowser.h
     ${ASSETTOCORSA_PLUGIN_DIR}/KsAssettoCorsaContentPath.h
@@ -791,6 +841,100 @@ target_compile_definitions(ksAssettoCorsa PRIVATE NOMINMAX)
 add_dependencies(kseditor ksAssettoCorsa)
 
 # ============================================================================
+# ksAssettoCorsaEVO Plugin DLL
+# ============================================================================
+
+set(ASSETOCORSAEVO_PLUGIN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos/assettocorsaevo)
+
+set(ASSETOCORSAEVO_PLUGIN_MOC_HEADERS
+    ${ASSETOCORSAEVO_PLUGIN_DIR}/ACEPaths.h
+    ${ASSETOCORSAEVO_PLUGIN_DIR}/ACERunner.h
+    ${ASSETOCORSAEVO_PLUGIN_DIR}/ACEQmlBridge.h
+    ${ASSETOCORSAEVO_PLUGIN_DIR}/ACEventBridge.h
+)
+
+qt6_wrap_cpp(ASSETOCORSAEVO_MOC_SOURCES ${ASSETOCORSAEVO_PLUGIN_MOC_HEADERS})
+
+set(ASSETOCORSAEVO_SOURCES
+    ${ASSETOCORSAEVO_PLUGIN_DIR}/ksAssettoCorsaEVO.cpp
+    ${ASSETOCORSAEVO_PLUGIN_DIR}/ACEPaths.cpp
+    ${ASSETOCORSAEVO_PLUGIN_DIR}/ACEPackageParser.cpp
+    ${ASSETOCORSAEVO_PLUGIN_DIR}/ACEProtobufDecoder.cpp
+    ${ASSETOCORSAEVO_PLUGIN_DIR}/ACERunner.cpp
+    ${ASSETOCORSAEVO_PLUGIN_DIR}/ACEQmlBridge.cpp
+    ${ASSETOCORSAEVO_PLUGIN_DIR}/ACEventBridge.cpp
+    ${ASSETOCORSAEVO_MOC_SOURCES}
+)
+
+set(ASSETOCORSAEVO_HEADERS
+    ${ASSETOCORSAEVO_PLUGIN_DIR}/ksAssettoCorsaEVO_export.h
+    ${ASSETOCORSAEVO_PLUGIN_DIR}/ACEPaths.h
+    ${ASSETOCORSAEVO_PLUGIN_DIR}/ACEPackageParser.h
+    ${ASSETOCORSAEVO_PLUGIN_DIR}/ACEProtobufDecoder.h
+    ${ASSETOCORSAEVO_PLUGIN_DIR}/ACERunner.h
+    ${ASSETOCORSAEVO_PLUGIN_DIR}/ACEQmlBridge.h
+    ${ASSETOCORSAEVO_PLUGIN_DIR}/ACEventBridge.h
+)
+
+add_library(ksAssettoCorsaEVO SHARED
+    ${ASSETOCORSAEVO_SOURCES}
+    ${ASSETOCORSAEVO_HEADERS}
+)
+
+set_target_properties(ksAssettoCorsaEVO PROPERTIES
+    AUTOMOC OFF
+    AUTOUIC OFF
+    AUTORCC OFF
+)
+
+target_compile_definitions(ksAssettoCorsaEVO PRIVATE KSASSETTOCORSAEVO_EXPORTS)
+
+target_include_directories(ksAssettoCorsaEVO PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/modules
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugins/simulators/kunos
+    ${ASSETOCORSAEVO_PLUGIN_DIR}
+    "${Qt6Core_DIR}/../../../include/QtCore/${Qt6Core_VERSION}"
+)
+
+target_link_libraries(ksAssettoCorsaEVO PRIVATE
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Widgets
+    Qt6::Network
+    Qt6::Qml
+    Qt6::Quick
+    Qt6::Sql
+    Qt6::Multimedia
+)
+
+set_target_properties(ksAssettoCorsaEVO PROPERTIES
+    OUTPUT_NAME "ksAssettoCorsaEVO"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin/plugins"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin/plugins"
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_SOURCE_DIR}/bin/plugins"
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_SOURCE_DIR}/bin/plugins"
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_CURRENT_SOURCE_DIR}/bin/plugins"
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_CURRENT_SOURCE_DIR}/bin/plugins"
+)
+
+target_link_libraries(ksAssettoCorsaEVO PRIVATE kseditor_lib ksACEVOPhysics)
+
+target_link_options(ksAssettoCorsaEVO PRIVATE /FORCE:MULTIPLE)
+
+if(MSVC)
+    target_compile_options(ksAssettoCorsaEVO PRIVATE /Zc:__cplusplus /FS)
+else()
+    target_compile_options(ksAssettoCorsaEVO PRIVATE -fpermissive -Wa,-mbig-obj)
+endif()
+
+target_compile_definitions(ksAssettoCorsaEVO PRIVATE NOMINMAX)
+
+add_dependencies(kseditor ksAssettoCorsaEVO)
+
+# ============================================================================
 # Installation and Packaging
 # ============================================================================
 
@@ -802,6 +946,12 @@ install(TARGETS kseditor
 
 # Install plugin
 install(TARGETS ksAssettoCorsa
+    RUNTIME DESTINATION bin/plugins
+    LIBRARY DESTINATION bin/plugins
+)
+
+# Install ACE plugin
+install(TARGETS ksAssettoCorsaEVO
     RUNTIME DESTINATION bin/plugins
     LIBRARY DESTINATION bin/plugins
 )

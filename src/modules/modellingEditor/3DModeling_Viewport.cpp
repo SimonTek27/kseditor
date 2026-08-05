@@ -16,7 +16,6 @@
 #endif
 
 namespace ks {
-using namespace graphics;
 
 namespace {
 std::optional<uint32_t> findHostVisibleMemoryType(uint32_t memoryTypeBits,

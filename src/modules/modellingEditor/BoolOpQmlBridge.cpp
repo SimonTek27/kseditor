@@ -5,7 +5,6 @@
 #include "3DModelingQmlBridge.h"
 
 namespace ks::editor {
-using namespace graphics;
 
 BoolOpQmlBridge::BoolOpQmlBridge(QObject* parent)
     : QObject(parent)

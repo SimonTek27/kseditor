@@ -1,4 +1,4 @@
-#include "MeshEditorModule.h"
+﻿#include "MeshEditorModule.h"
 #include "AdvancedMeshOps.h"
 #include "UVUnwrap.h"
 #include "ModifierSystem.h"
@@ -813,4 +813,3 @@ void MeshEditorModule::onShowContextMenu(const QPoint& pos) {
 } // namespace mesh
 } // namespace ks
 
-#include "MeshEditorModule.moc"

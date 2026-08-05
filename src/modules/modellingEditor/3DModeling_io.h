@@ -37,15 +37,15 @@ public:
 
     enum Format {
         OBJ, FBX, GLTF, GLB_FILE, STL, THREE_DS, BLEND,
-        DAE, DXF, STEP, IGES, SAT, DWG
+        DAE, DXF, STEP, IGES, SAT, DWG, KS3D
     };
 
     static QStringList supportedImportFormats() {
-        return {"obj", "fbx", "gltf", "glb", "stl", "3ds", "dae", "dxf", "step", "iges", "sat"};
+        return {"obj", "fbx", "gltf", "glb", "stl", "3ds", "dae", "dxf", "step", "iges", "sat", "ks3d"};
     }
 
     static QStringList supportedExportFormats() {
-        return {"obj", "fbx", "gltf", "glb", "stl", "dae", "dxf"};
+        return {"obj", "fbx", "gltf", "glb", "stl", "dae", "dxf", "ks3d"};
     }
 
     geometry::Mesh3D* importMesh(const QString& path);
@@ -76,10 +76,12 @@ private:
     bool importGLTF(const QString& path, geometry::Scene3D* scene);
     bool importSTL(const QString& path, geometry::Scene3D* scene);
     bool importFBX(const QString& path, geometry::Scene3D* scene);
+    bool importKS3D(const QString& path, geometry::Scene3D* scene);
 
     bool exportOBJ(geometry::Scene3D* scene, const QString& path);
     bool exportGLTF(geometry::Scene3D* scene, const QString& path);
     bool exportSTL(geometry::Scene3D* scene, const QString& path);
+    bool exportKS3D(geometry::Scene3D* scene, const QString& path);
 
     QMap<QString, bool> m_importOptions;
     QMap<QString, bool> m_exportOptions;

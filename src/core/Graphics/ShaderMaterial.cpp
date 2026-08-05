@@ -41,7 +41,8 @@ QByteArray KsMaterial::serialize() const {
         stream << it.key() << it.value();
     }
 
-} // namespace ks
+    return data;
+} // KsMaterial::serialize
 
 
 bool KsMaterial::deserialize(const QByteArray& data) {

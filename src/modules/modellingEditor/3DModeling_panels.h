@@ -20,12 +20,8 @@
 #include "3DModeling.h"
 #include "TrackBuilder/TrackEditorWidget.h"
 
-namespace ks { namespace graphics {
-class SceneObject;
-} }
-
 namespace ks {
-using graphics::SceneObject;
+class SceneObject;
 
 // ============================================================================
 // Properties Panel

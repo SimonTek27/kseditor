@@ -177,6 +177,126 @@ MeshData NodeTree::processNode(Node* node, MeshData input)
     if (!node) return input;
 
     switch (node->type) {
+        // ── Input nodes ──
+        case NodeType::InputPosition: {
+            MeshData result;
+            for (const Vertex& v : input.vertices) {
+                Vertex out;
+                out.position = v.position;
+                result.vertices.append(out);
+            }
+            return result;
+        }
+        case NodeType::InputNormal: {
+            MeshData result;
+            for (const Vertex& v : input.vertices) {
+                Vertex out;
+                out.position = v.normal;
+                result.vertices.append(out);
+            }
+            return result;
+        }
+        case NodeType::InputUV: {
+            MeshData result;
+            for (const Vertex& v : input.vertices) {
+                Vertex out;
+                out.position = QVector3D(v.uv.x(), v.uv.y(), 0);
+                result.vertices.append(out);
+            }
+            return result;
+        }
+        case NodeType::Color: {
+            float r = getSocketValue(node, 0).toFloat();
+            float g = getSocketValue(node, 1).toFloat();
+            float b = getSocketValue(node, 2).toFloat();
+            MeshData result = input;
+            for (Vertex& v : result.vertices) {
+                v.color = QVector4D(r, g, b, 1.0f);
+            }
+            return result;
+        }
+        case NodeType::Index: {
+            MeshData result;
+            for (int i = 0; i < input.vertices.size(); ++i) {
+                Vertex v;
+                v.position = QVector3D((float)i, 0, 0);
+                result.vertices.append(v);
+            }
+            return result;
+        }
+        case NodeType::PointCount: {
+            MeshData result;
+            Vertex v;
+            v.position = QVector3D((float)input.vertices.size(), 0, 0);
+            result.vertices.append(v);
+            return result;
+        }
+        case NodeType::SplinePoint: {
+            float t = getSocketValue(node, 0).toFloat();
+            t = qBound(0.0f, t, 1.0f);
+            MeshData result;
+            if (!input.vertices.isEmpty()) {
+                int idx = qBound(0, (int)(t * (input.vertices.size() - 1)), input.vertices.size() - 1);
+                Vertex v = input.vertices[idx];
+                result.vertices.append(v);
+            }
+            return result;
+        }
+        case NodeType::SplineLerp: {
+            float t = getSocketValue(node, 0).toFloat();
+            t = qBound(0.0f, t, 1.0f);
+            MeshData result;
+            if (input.vertices.size() >= 2) {
+                float totalLen = 0;
+                QVector<float> cumLen;
+                cumLen.append(0);
+                for (int i = 1; i < input.vertices.size(); ++i) {
+                    totalLen += (input.vertices[i].position - input.vertices[i-1].position).length();
+                    cumLen.append(totalLen);
+                }
+                float target = t * totalLen;
+                for (int i = 1; i < input.vertices.size(); ++i) {
+                    if (cumLen[i] >= target) {
+                        float segT = (totalLen > 0) ? (target - cumLen[i-1]) / (cumLen[i] - cumLen[i-1]) : 0;
+                        Vertex v;
+                        v.position = input.vertices[i-1].position + (input.vertices[i].position - input.vertices[i-1].position) * segT;
+                        v.normal = (input.vertices[i-1].normal + input.vertices[i].normal).normalized();
+                        result.vertices.append(v);
+                        break;
+                    }
+                }
+            }
+            return result;
+        }
+
+        // ── Geometry passthrough ──
+        case NodeType::GeometryMesh:
+        case NodeType::GeometryCurve:
+        case NodeType::Points:
+        case NodeType::Volume:
+            return input;
+
+        // ── Object nodes ──
+        case NodeType::ObjectInfo: {
+            MeshData result;
+            Vertex v;
+            v.position = QVector3D((float)input.vertices.size(), 0, 0);
+            result.vertices.append(v);
+            return result;
+        }
+        case NodeType::CollectionInfo:
+            return input;
+        case NodeType::InstanceIndex: {
+            MeshData result;
+            for (int i = 0; i < input.vertices.size(); ++i) {
+                Vertex v;
+                v.position = QVector3D((float)i, 0, 0);
+                result.vertices.append(v);
+            }
+            return result;
+        }
+
+        // ── Transform nodes ──
         case NodeType::MeshPrimitive: {
             return MeshOperations::createSphere(0.5f, 32, 16);
         }
@@ -201,46 +321,20 @@ MeshData NodeTree::processNode(Node* node, MeshData input)
             }
             break;
         }
-        case NodeType::Random: {
+        case NodeType::AlignEulerToVector: {
+            QVector3D dir = getSocketValue(node, 0).value<QVector3D>();
+            if (dir.lengthSquared() > 0.0001f) dir.normalize();
+            else dir = QVector3D(0, 1, 0);
+            QQuaternion rot = QQuaternion::fromDirection(dir, QVector3D(0, 1, 0));
+            QVector3D euler = rot.toEulerAngles();
             MeshData result;
-            int count = getSocketValue(node, 0).toInt();
-            if (count <= 0) count = 100;
-            for (int i = 0; i < count; ++i) {
-                Vertex v;
-                v.position = QVector3D(
-                    QRandomGenerator::global()->generateDouble() * 10 - 5,
-                    QRandomGenerator::global()->generateDouble() * 10 - 5,
-                    QRandomGenerator::global()->generateDouble() * 10 - 5);
-                result.vertices.append(v);
-            }
+            Vertex v;
+            v.position = euler;
+            result.vertices.append(v);
             return result;
         }
-        case NodeType::MathOp: {
-            float a = getSocketValue(node, 1).toFloat();
-            float b = getSocketValue(node, 2).toFloat();
-            int op = getSocketValue(node, 0).toInt();
-            for (Vertex& v : input.vertices) {
-                switch (op) {
-                    case 0: v.position.setX(v.position.x() + a + b); break;
-                    case 1: v.position.setX(v.position.x() - b); break;
-                    case 2: v.position.setX(v.position.x() * b); break;
-                    case 3: if (b != 0) v.position.setX(v.position.x() / b); break;
-                    default: break;
-                }
-            }
-            break;
-        }
-        case NodeType::InstanceOnPoints: {
-            int count = getSocketValue(node, 0).toInt();
-            if (count <= 0) count = 1;
-            MeshData result;
-            for (const Vertex& v : input.vertices) {
-                for (int i = 0; i < count; ++i) {
-                    result.vertices.append(v);
-                }
-            }
-            return result;
-        }
+
+        // ── Point nodes ──
         case NodeType::MeshToPoints: {
             int count = getSocketValue(node, 0).toInt();
             if (count <= 0) count = 10;
@@ -248,6 +342,71 @@ MeshData NodeTree::processNode(Node* node, MeshData input)
             int step = qMax(1, input.vertices.size() / count);
             for (int i = 0; i < input.vertices.size(); i += step) {
                 result.vertices.append(input.vertices[i]);
+            }
+            return result;
+        }
+        case NodeType::CurveToPoints: {
+            int count = getSocketValue(node, 0).toInt();
+            if (count <= 0) count = 10;
+            MeshData result;
+            if (input.vertices.size() >= 2) {
+                float totalLen = 0;
+                for (int i = 1; i < input.vertices.size(); ++i)
+                    totalLen += (input.vertices[i].position - input.vertices[i-1].position).length();
+                if (totalLen > 0) {
+                    float step = totalLen / count;
+                    float accum = 0;
+                    int seg = 0;
+                    for (int i = 0; i <= count && seg < input.vertices.size() - 1; ++i) {
+                        float target = i * step;
+                        while (seg < input.vertices.size() - 2 && accum + (input.vertices[seg+1].position - input.vertices[seg].position).length() < target)
+                            accum += (input.vertices[seg+1].position - input.vertices[seg].position).length();
+                        float segLen = (input.vertices[seg+1].position - input.vertices[seg].position).length();
+                        float localT = (segLen > 0) ? (target - accum) / segLen : 0;
+                        localT = qBound(0.0f, localT, 1.0f);
+                        Vertex v;
+                        v.position = input.vertices[seg].position + (input.vertices[seg+1].position - input.vertices[seg].position) * localT;
+                        v.normal = input.vertices[seg].normal;
+                        result.vertices.append(v);
+                    }
+                }
+            }
+            return result;
+        }
+        case NodeType::DistributePoints: {
+            int count = getSocketValue(node, 0).toInt();
+            if (count <= 0) count = 100;
+            MeshData result;
+            for (int i = 0; i < count; ++i) {
+                Vertex v;
+                float t = (float)i / count;
+                if (!input.vertices.isEmpty()) {
+                    int idx = qMin((int)(t * (input.vertices.size() - 1)), input.vertices.size() - 1);
+                    v.position = input.vertices[idx].position;
+                } else {
+                    v.position = QVector3D(
+                        (float)QRandomGenerator::global()->bounded(1000) / 500.0f - 1.0f,
+                        0,
+                        (float)QRandomGenerator::global()->bounded(1000) / 500.0f - 1.0f);
+                }
+                result.vertices.append(v);
+            }
+            return result;
+        }
+        case NodeType::PointsToVolume: {
+            float radius = getSocketValue(node, 0).toFloat();
+            if (radius <= 0) radius = 0.1f;
+            MeshData result;
+            for (const Vertex& v : input.vertices) {
+                for (int dx = -1; dx <= 1; ++dx) {
+                    for (int dy = -1; dy <= 1; ++dy) {
+                        for (int dz = -1; dz <= 1; ++dz) {
+                            Vertex ov;
+                            ov.position = v.position + QVector3D(dx, dy, dz) * radius * 0.5f;
+                            result.vertices.append(ov);
+                        }
+                    }
+                }
             }
             return result;
         }
@@ -259,6 +418,37 @@ MeshData NodeTree::processNode(Node* node, MeshData input)
             for (int i = 0; i < count - 1 && origSize > 0; ++i) {
                 for (int j = 0; j < origSize; ++j) {
                     result.vertices.append(input.vertices[j]);
+                }
+            }
+            return result;
+        }
+
+        // ── Curve nodes ──
+        case NodeType::Curveprimitive: {
+            MeshData result;
+            int segments = getSocketValue(node, 0).toInt();
+            if (segments <= 0) segments = 8;
+            float radius = getSocketValue(node, 1).toFloat();
+            if (radius <= 0) radius = 1.0f;
+            float height = getSocketValue(node, 2).toFloat();
+            if (height <= 0) height = 2.0f;
+            for (int i = 0; i <= segments; ++i) {
+                float angle = (2.0f * M_PI * i) / segments;
+                Vertex v;
+                v.position = QVector3D(radius * std::cos(angle), height * ((float)i / segments), radius * std::sin(angle));
+                v.normal = QVector3D(std::cos(angle), 0, std::sin(angle));
+                result.vertices.append(v);
+            }
+            return result;
+        }
+        case NodeType::MeshToCurve: {
+            MeshData result;
+            for (const Face& f : input.faces) {
+                for (int i = 0; i < f.indices.size(); ++i) {
+                    int a = f.indices[i];
+                    int b = f.indices[(i + 1) % f.indices.size()];
+                    if (a < input.vertices.size()) result.vertices.append(input.vertices[a]);
+                    if (b < input.vertices.size()) result.vertices.append(input.vertices[b]);
                 }
             }
             return result;
@@ -282,6 +472,27 @@ MeshData NodeTree::processNode(Node* node, MeshData input)
             }
             return result;
         }
+
+        // ── Volume nodes ──
+        case NodeType::MeshToVolume: {
+            int resolution = getSocketValue(node, 0).toInt();
+            if (resolution <= 0) resolution = 4;
+            float size = getSocketValue(node, 1).toFloat();
+            if (size <= 0) size = 2.0f;
+            float half = size / 2.0f;
+            float step = size / resolution;
+            MeshData result;
+            for (int x = 0; x <= resolution; ++x) {
+                for (int y = 0; y <= resolution; ++y) {
+                    for (int z = 0; z <= resolution; ++z) {
+                        Vertex v;
+                        v.position = QVector3D(-half + x * step, -half + y * step, -half + z * step);
+                        result.vertices.append(v);
+                    }
+                }
+            }
+            return result;
+        }
         case NodeType::VolumeToMesh: {
             int resolution = getSocketValue(node, 0).toInt();
             if (resolution <= 0) resolution = 4;
@@ -294,13 +505,99 @@ MeshData NodeTree::processNode(Node* node, MeshData input)
                 for (int y = 0; y <= resolution; ++y) {
                     for (int z = 0; z <= resolution; ++z) {
                         Vertex v;
-                        v.position = QVector3D(
-                            -half + x * step, -half + y * step, -half + z * step);
+                        v.position = QVector3D(-half + x * step, -half + y * step, -half + z * step);
                         result.vertices.append(v);
                     }
                 }
             }
             return result;
+        }
+
+        // ── Read nodes ──
+        case NodeType::ReadPosition: {
+            int idx = getSocketValue(node, 0).toInt();
+            MeshData result;
+            Vertex v;
+            if (idx >= 0 && idx < input.vertices.size())
+                v.position = input.vertices[idx].position;
+            result.vertices.append(v);
+            return result;
+        }
+        case NodeType::ReadNormal: {
+            int idx = getSocketValue(node, 0).toInt();
+            MeshData result;
+            Vertex v;
+            if (idx >= 0 && idx < input.vertices.size())
+                v.position = input.vertices[idx].normal;
+            result.vertices.append(v);
+            return result;
+        }
+        case NodeType::ReadUV: {
+            int idx = getSocketValue(node, 0).toInt();
+            MeshData result;
+            Vertex v;
+            if (idx >= 0 && idx < input.vertices.size())
+                v.position = QVector3D(input.vertices[idx].uv.x(), input.vertices[idx].uv.y(), 0);
+            result.vertices.append(v);
+            return result;
+        }
+        case NodeType::MeshVertex: {
+            int idx = getSocketValue(node, 0).toInt();
+            MeshData result;
+            if (idx >= 0 && idx < input.vertices.size())
+                result.vertices.append(input.vertices[idx]);
+            return result;
+        }
+        case NodeType::VertexCount: {
+            MeshData result;
+            Vertex v;
+            v.position = QVector3D((float)input.vertices.size(), 0, 0);
+            result.vertices.append(v);
+            return result;
+        }
+        case NodeType::FaceArea: {
+            int faceIdx = getSocketValue(node, 0).toInt();
+            MeshData result;
+            Vertex v;
+            if (faceIdx >= 0 && faceIdx < input.faces.size()) {
+                const Face& f = input.faces[faceIdx];
+                if (f.indices.size() >= 3) {
+                    const QVector3D& a = input.vertices[f[0]].position;
+                    const QVector3D& b = input.vertices[f[1]].position;
+                    const QVector3D& c = input.vertices[f[2]].position;
+                    float area = QVector3D::crossProduct(b - a, c - a).length() * 0.5f;
+                    v.position = QVector3D(area, 0, 0);
+                }
+            }
+            result.vertices.append(v);
+            return result;
+        }
+        case NodeType::FaceSet: {
+            int faceIdx = getSocketValue(node, 0).toInt();
+            MeshData result;
+            Vertex v;
+            if (faceIdx >= 0 && faceIdx < input.faces.size())
+                v.position = QVector3D((float)input.faces[faceIdx].materialId, 0, 0);
+            result.vertices.append(v);
+            return result;
+        }
+
+        // ── Write nodes ──
+        case NodeType::WriteSetPosition: {
+            QVector3D offset = getSocketValue(node, 0).value<QVector3D>();
+            for (Vertex& v : input.vertices) {
+                v.position += offset;
+            }
+            break;
+        }
+        case NodeType::SetColor: {
+            float r = getSocketValue(node, 0).toFloat();
+            float g = getSocketValue(node, 1).toFloat();
+            float b = getSocketValue(node, 2).toFloat();
+            for (Vertex& v : input.vertices) {
+                v.color = QVector4D(r, g, b, 1.0f);
+            }
+            break;
         }
         case NodeType::WriteSetShadeSmooth: {
             bool smooth = getSocketValue(node, 0).toBool();
@@ -309,6 +606,98 @@ MeshData NodeTree::processNode(Node* node, MeshData input)
             }
             break;
         }
+
+        // ── Math nodes ──
+        case NodeType::MathOp: {
+            float a = getSocketValue(node, 1).toFloat();
+            float b = getSocketValue(node, 2).toFloat();
+            int op = getSocketValue(node, 0).toInt();
+            for (Vertex& v : input.vertices) {
+                switch (op) {
+                    case 0: v.position.setX(v.position.x() + a + b); break;
+                    case 1: v.position.setX(v.position.x() - b); break;
+                    case 2: v.position.setX(v.position.x() * b); break;
+                    case 3: if (b != 0) v.position.setX(v.position.x() / b); break;
+                    case 4: v.position.setX(std::fmod(v.position.x(), b)); break;
+                    case 5: v.position.setX(std::pow(v.position.x(), b)); break;
+                    default: break;
+                }
+            }
+            break;
+        }
+        case NodeType::VectorMath: {
+            int op = getSocketValue(node, 0).toInt();
+            QVector3D a = getSocketValue(node, 1).value<QVector3D>();
+            QVector3D b = getSocketValue(node, 2).value<QVector3D>();
+            MeshData result;
+            Vertex v;
+            switch (op) {
+                case 0: v.position = a + b; break;
+                case 1: v.position = a - b; break;
+                case 2: v.position = QVector3D(a.x() * b.x(), a.y() * b.y(), a.z() * b.z()); break;
+                case 3: v.position = QVector3D::crossProduct(a, b); break;
+                case 4: v.position = QVector3D(a.length(), 0, 0); break;
+                case 5: v.position = a.normalized(); break;
+                default: v.position = a + b; break;
+            }
+            result.vertices.append(v);
+            return result;
+        }
+
+        // ── Vector nodes ──
+        case NodeType::VectorSetPosition: {
+            QVector3D offset = getSocketValue(node, 0).value<QVector3D>();
+            for (Vertex& v : input.vertices) {
+                v.position += offset;
+            }
+            break;
+        }
+        case NodeType::VectorNormal: {
+            MeshData result;
+            for (const Vertex& v : input.vertices) {
+                Vertex nv;
+                nv.position = v.normal;
+                result.vertices.append(nv);
+            }
+            return result;
+        }
+        case NodeType::VectorSetShadeSmooth: {
+            bool smooth = getSocketValue(node, 0).toBool();
+            for (auto& v : input.vertices) {
+                v.normal = smooth ? QVector3D(0, 1, 0) : QVector3D(0, 0, 0);
+            }
+            break;
+        }
+
+        // ── Random (generate) ──
+        case NodeType::Random: {
+            MeshData result;
+            int count = getSocketValue(node, 0).toInt();
+            if (count <= 0) count = 100;
+            for (int i = 0; i < count; ++i) {
+                Vertex v;
+                v.position = QVector3D(
+                    QRandomGenerator::global()->generateDouble() * 10 - 5,
+                    QRandomGenerator::global()->generateDouble() * 10 - 5,
+                    QRandomGenerator::global()->generateDouble() * 10 - 5);
+                result.vertices.append(v);
+            }
+            return result;
+        }
+
+        // ── Instance ──
+        case NodeType::InstanceOnPoints: {
+            int count = getSocketValue(node, 0).toInt();
+            if (count <= 0) count = 1;
+            MeshData result;
+            for (const Vertex& v : input.vertices) {
+                for (int i = 0; i < count; ++i) {
+                    result.vertices.append(v);
+                }
+            }
+            return result;
+        }
+
         default:
             break;
     }

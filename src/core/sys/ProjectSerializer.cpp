@@ -11,9 +11,6 @@
 #include <QStandardPaths>
 
 namespace ks {
-using graphics::SceneObject;
-using graphics::SceneMesh;
-using graphics::SceneVertex;
 
 ProjectSerializer& ProjectSerializer::instance() {
     static ProjectSerializer s;

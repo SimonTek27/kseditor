@@ -5,8 +5,6 @@
 #include <QSharedPointer>
 #include <QJsonArray>
 
-using namespace ks::mesh;
-
 namespace ks {
 
 QVector3D MeshObject::getCenter() const

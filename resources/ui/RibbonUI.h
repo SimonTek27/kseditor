@@ -42,6 +42,7 @@ public:
     void setTextBelow(bool below);
     void setCompact(bool compact);
     void setAction(QAction* action);
+    void applyTheme(const RibbonTheme& theme);
 protected:
     void init();
     void paintEvent(QPaintEvent* event) override;
@@ -49,11 +50,13 @@ protected:
     void enterEvent(QEnterEvent* e) override;
     void leaveEvent(QEvent* e) override;
 private:
+    void resolveColors(QColor& background, QColor& foreground) const;
     Style m_style = Style::Normal;
     bool m_textBelow = true;
     bool m_compact = false;
     QAction* m_action = nullptr;
     bool hovering = false;
+    const RibbonTheme* m_theme = nullptr;
 };
 
 class RibbonGroup : public QFrame {
@@ -68,6 +71,7 @@ public:
     void addWidget(QWidget* widget);
     void addSeparator();
     void addStretch();
+    void applyTheme(const RibbonTheme& theme);
     const QList<QWidget*>& widgets() const { return m_widgets; }
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -75,6 +79,7 @@ private:
     QString m_title;
     QList<QWidget*> m_widgets;
     QHBoxLayout* m_layout = nullptr;
+    const RibbonTheme* m_theme = nullptr;
 };
 
 class RibbonPanel : public QFrame {
@@ -87,6 +92,7 @@ public:
     RibbonGroup* addGroup(const QString& title);
     void addGroup(RibbonGroup* group);
     void addStretch();
+    void applyTheme(const RibbonTheme& theme);
     const QList<RibbonGroup*>& groups() const { return m_groups; }
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -94,6 +100,7 @@ private:
     QString m_title;
     QList<RibbonGroup*> m_groups;
     QHBoxLayout* m_layout = nullptr;
+    const RibbonTheme* m_theme = nullptr;
 };
 
 class RibbonSubTab : public QWidget {
@@ -115,6 +122,7 @@ public:
     bool isActive() const { return m_active; }
     void setTabColor(const QColor& color);
     void applyTheme(const RibbonTheme& theme);
+    const RibbonTheme* theme() const { return m_theme; }
 signals:
     void activated();
 protected:
@@ -131,6 +139,7 @@ protected:
     QScrollArea* m_scrollArea = nullptr;
     QWidget* m_contentWidget = nullptr;
     QHBoxLayout* m_contentLayout = nullptr;
+    const RibbonTheme* m_theme = nullptr;
 };
 
 class RibbonSubTabBar : public QTabBar {
@@ -174,6 +183,7 @@ public:
     virtual void refresh() {}
     void setTabColor(const QColor& color);
     void applyTheme(const RibbonTheme& theme);
+    const RibbonTheme* theme() const { return m_theme; }
 signals:
     void tabChanged();
     void subTabChanged(int index);
@@ -193,6 +203,7 @@ protected:
     QScrollArea* m_scrollArea = nullptr;
     QWidget* m_contentWidget = nullptr;
     QHBoxLayout* m_contentLayout = nullptr;
+    const RibbonTheme* m_theme = nullptr;
 };
 
 class RibbonBar : public QWidget {
@@ -223,6 +234,7 @@ private:
     void updateLayout();
     QTabBar* m_tabBar = nullptr;
     QStackedWidget* m_stackedWidget = nullptr;
+    const RibbonTheme* m_theme = nullptr;
 };
 
 class RibbonWindowManager : public QObject {

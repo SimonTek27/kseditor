@@ -1,26 +1,39 @@
 # Audio
 
-The ksEditor audio subsystem provides a complete game audio middleware solution with 100% feature parity against FMOD Studio 1.08.12, Wwise 2024, and GoldWave.
+ksEditor's audio subsystem consists of two complementary components:
 
-## Core Components
+## Audio Editor (ksAudioEditor)
 
-**`src/core/Audio/`** — 62 files powering the audio engine:
+The **user-facing DAW environment** in `src/modules/soundEditor/` (28 files) providing:
+- Multi-track timeline with region editing
+- Real-time effects rack (EQ, compression, reverb, delay, distortion)
+- Spectral analysis (sonogram, frequency response)
+- **AI-assisted engine sound synthesis** (granular, sample-based, RPM-driven layering)
+- Sound bank management (Wwise-style containers, randomizers, switches, RTPCs)
+- Loudness metering (EBU R128)
+- Export to game audio middleware formats
+- AC event bridge for Assetto Corsa integration
 
-- **KSAudio** / **KSAudioCore** — Core audio engine
+## Audio Studio (ksAudioStudio)
+
+The **internal audio engine** in `src/core/Audio/` (62 files) powering all audio functionality:
+- **KSAudio / KSAudioCore** — Core audio engine with real-time mixing
 - **KSAudioMixer** — Multi-bus mixing with DSP chain
-- **KSAudioGenerator** — Procedural audio generation
-- **KSAudioVST3Host** / **KSAudioVSTHost** / **LADSPAHost** — Plugin hosting
-- **KSBankParser** / **KSBankWriter** — FMOD bank read/write/encrypt
+- **KSAudioGenerator** — Procedural audio generation (additive, subtractive, FM, granular, wavetable)
+- **KSAudioVST3Host / KSAudioVSTHost / LADSPAHost** — VST2/3 plugin hosting with parameter automation
+- **KSBankParser / KSBankWriter** — FMOD bank read/write/encrypt (version-aware: FMOD 1.x for AC1, FMOD 2.x for ACC/ACR/ACE)
+- **BankVersionManager** — Auto-detects bank format version and game target
+- **BankParserFactory / BankWriterFactory** — Factory pattern for version-specific parsers/writers
 - **AudioFormatConverter** — Cross-format conversion
-- **AudioRecording** — Recording engine
-- **AudioTimeStretch** / **FFTProcessor** — DSP processing
-- **WaveformEngine** / **WaveProcessor** — Waveform analysis
-- **KSCarAcoustics** / **KsCarAudioEngine** — Vehicle acoustic simulation
-- **KSRPMProfile** / **KSRPMRecorder** / **EngineSimHook** — RPM-based engine sound synthesis
-- **KSAudioBankGenerator** — Bank generation for runtime
-
-**`src/modules/soundEditor/`** — 28 files for the sound editor UI:
-- AudioEffects (basic + advanced DSP), AudioMixer, AudioAnalysis, AudioBank, AIAudioEngine, LoudnessMeter, AudioWaveformBridge
+- **AudioRecording** — Multi-channel recording with punch-in/out, loop recording, take management
+- **AudioTimeStretch / FFTProcessor** — DSP processing
+- **WaveformEngine / WaveProcessor** — Waveform analysis
+- **KSCarAcoustics / KsCarAudioEngine** — Vehicle acoustic simulation
+- **KSRPMProfile / KSRPMRecorder / EngineSimHook** — RPM-based engine sound synthesis
+- **KSAudioBankGenerator** — Bank generation for runtime deployment
+- **Node-based audio graph editor** — Visual signal flow design with real-time modulation
+- **Analysis tools** — Spectrum (FFT, 1/3 octave), oscilloscope, phase correlation, loudness (EBU R128, ATSC A/85), true peak detection
+- **Batch processing** — Effect chains, format conversion, loudness normalization, dithering
 
 ## Feature Parity
 
@@ -38,11 +51,18 @@ The ksEditor audio subsystem provides a complete game audio middleware solution 
 
 ## File Format: `.ksaudio`
 
-Custom JSON-based audio project format (`docs/file_formats.md` for details).
+**Native JSON-based project format** with **100% bidirectional compatibility** with **FMOD Studio `.fspro` project files version 1.08.12**.
+
+- **Import:** Reads `.fspro` XML (events, parameters, buses, VCAs, banks, snapshots, mixer routing, DSP chains)
+- **Export:** Writes `.fspro` XML fully loadable in FMOD Studio 1.08.12+
+- **Internal:** `.ksaudio` JSON stores full signal graph, automation, plugin state, and asset references
+- **Round-trip:** Lossless conversion between `.ksaudio` ↔ `.fspro` (1.08.12 schema)
+
+**Code:** `src/core/Audio/FSPROImporter.cpp/.h` — parses FMOD Studio 1.08.12 `.fspro` entities into `.ksaudio` JSON
 
 ## Audio Import/Export
 
-- **Import:** WAV, MP3, OGG, FLAC, FSB
-- **Export:** WAV, OGG, MP3, FLAC
-- **Bank Formats:** FMOD `.bank` (read/write/encrypt), Wwise-compatible soundbanks
+- **Import:** WAV, MP3, OGG, FLAC, FSB, **FMOD Studio `.fspro` (1.08.12)**
+- **Export:** WAV, OGG, MP3, FLAC, **FMOD Studio `.fspro` (1.08.12)**
+- **Bank Formats:** FMOD `.bank` (read/write/encrypt, 1.08.12 runtime format), Wwise-compatible soundbanks
 - **Proprietary:** `.ksaudio` project files

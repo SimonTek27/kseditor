@@ -29,7 +29,7 @@
 #include <algorithm>
 #include <limits>
 
-#include "SDKBackend.h"
+#include "sdk/SDKBackend.h"
 #include "ksAssettoCorsaIni.h"
 #include "plugins/simulators/kunos/ks/physics/KsPhysics.h"
 #include "plugins/simulators/kunos/ks/track/KsTrack.h"
@@ -2004,7 +2004,7 @@ using ks::plugins::kunos::ks::estimateLapTime;
 #include <QTextStream>
 #include <QIODevice>
 
-#include "SDKBackend.h"
+#include "sdk/SDKBackend.h"
 
 namespace ks {
 namespace kunos {

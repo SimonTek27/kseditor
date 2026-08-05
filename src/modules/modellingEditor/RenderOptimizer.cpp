@@ -5,7 +5,6 @@
 #include <algorithm>
 
 namespace ks {
-using namespace graphics;
 
 RenderOptimizer::RenderOptimizer()
 	: m_config()

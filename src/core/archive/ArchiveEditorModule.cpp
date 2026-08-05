@@ -1,4 +1,4 @@
-#include "ArchiveEditorModule.h"
+﻿#include "ArchiveEditorModule.h"
 #include "core/editor/ModuleGuiBase.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -1038,10 +1038,10 @@ void ArchiveEditorModule::testArchive() {
     m_testLog->append("Exit code: " + QString::number(proc.exitCode()));
     
     if (proc.exitCode() == 0) {
-        m_testLog->append("<span style='color:#6bff6b;'><b>✓ Archive test PASSED - no errors found</b></span>");
+        m_testLog->append("<span style='color:#6bff6b;'><b>âœ“ Archive test PASSED - no errors found</b></span>");
         logSuccess("Archive integrity test passed");
     } else {
-        m_testLog->append("<span style='color:#ff6b6b;'><b>✗ Archive test FAILED</b></span>");
+        m_testLog->append("<span style='color:#ff6b6b;'><b>âœ— Archive test FAILED</b></span>");
         logError("Archive integrity test failed");
     }
 }
@@ -1153,11 +1153,11 @@ void ArchiveEditorModule::verifyHash() {
     file.close();
     
     if (actual == expected.toUpper()) {
-        QMessageBox::information(this, "Hash Verification", "<span style='color:#6bff6b'><b>✓ Hash MATCHES</b></span>");
+        QMessageBox::information(this, "Hash Verification", "<span style='color:#6bff6b'><b>âœ“ Hash MATCHES</b></span>");
         m_hashResult->append("<span style='color:#6bff6b'>VERIFIED: Hash matches!</span>");
         logSuccess("Hash verification passed");
     } else {
-        QMessageBox::warning(this, "Hash Verification", "<span style='color:#ff6b6b'><b>✗ Hash MISMATCH</b></span><br>Expected: " + expected + "<br>Actual: " + actual);
+        QMessageBox::warning(this, "Hash Verification", "<span style='color:#ff6b6b'><b>âœ— Hash MISMATCH</b></span><br>Expected: " + expected + "<br>Actual: " + actual);
         m_hashResult->append("<span style='color:#ff6b6b'>FAILED: Hash mismatch!</span>");
         m_hashResult->append("Expected: " + expected);
         m_hashResult->append("Actual: " + actual);
@@ -1255,4 +1255,3 @@ void ArchiveEditorModule::onDeactivation() {
 
 } // namespace ks
 
-#include "ArchiveEditorModule.moc"

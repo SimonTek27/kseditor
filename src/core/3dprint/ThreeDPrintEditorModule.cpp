@@ -1,4 +1,4 @@
-#include "ThreeDPrintEditorModule.h"
+﻿#include "ThreeDPrintEditorModule.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -595,11 +595,11 @@ void ThreeDPrintEditorModule::onFilamentDiameterChanged(double value) {
 }
 
 void ThreeDPrintEditorModule::onNozzleTempChanged(int value) {
-    log(QString("Nozzle temp: %1°C").arg(value));
+    log(QString("Nozzle temp: %1Â°C").arg(value));
 }
 
 void ThreeDPrintEditorModule::onBedTempChanged(int value) {
-    log(QString("Bed temp: %1°C").arg(value));
+    log(QString("Bed temp: %1Â°C").arg(value));
 }
 
 void ThreeDPrintEditorModule::onFanSpeedChanged(int value) {
@@ -792,7 +792,7 @@ void ThreeDPrintEditorModule::onExportProfile() {
 }
 
 void ThreeDPrintEditorModule::onLoadFilament() {
-    m_printerStatusLabel->setText("Loading filament (temp: " + QString::number(m_nozzleTempSpin->value()) + "°C)...");
+    m_printerStatusLabel->setText("Loading filament (temp: " + QString::number(m_nozzleTempSpin->value()) + "Â°C)...");
     m_printerStatusLabel->setStyleSheet("QLabel { color: #ffa500; }");
     log("Loading filament");
     QTimer::singleShot(3000, this, [this]() {
@@ -847,4 +847,3 @@ void ThreeDPrintEditorModule::onShowGCodeContextMenu(const QPoint& pos) {
 } // namespace printing
 } // namespace ks
 
-#include "ThreeDPrintEditorModule.moc"

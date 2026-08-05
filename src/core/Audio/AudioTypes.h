@@ -17,6 +17,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QUuid>
+#include <QFileSystemWatcher>
 
 #include "AudioVST3Host.h"
 
@@ -29,6 +30,27 @@ namespace audio {
 
 enum class AttenuationModel { None, Linear, Logarithmic, Inverse };
 enum class EffectType { LowPass, HighPass, BandPass, Reverb, Delay, Chorus, Flanger, Compressor, Limiter };
+enum class AutomationParameter { Volume, Pan, LowPassCutoff, HighPassCutoff, ReverbMix, Pitch };
+
+struct AutomationPoint {
+    float time = 0.0f;       // time in seconds
+    float value = 0.0f;      // parameter value
+    float tension = 0.5f;    // curve tension (0=linear, 1=exponential)
+
+    AutomationPoint() = default;
+    AutomationPoint(float t, float v, float tn = 0.5f) : time(t), value(v), tension(tn) {}
+};
+
+struct AutomationLane {
+    AutomationParameter parameter = AutomationParameter::Volume;
+    QVector<AutomationPoint> points;
+    bool enabled = true;
+
+    float getValueAtTime(float timeSec) const;
+    void addPoint(const AutomationPoint& point);
+    void removePoint(int index);
+    void updatePoint(int index, float time, float value);
+};
 
 enum class EventStatus { Ready, Playing, Stopped, Paused };
 
@@ -47,10 +69,18 @@ struct AudioEvent {
     bool is3D = true;
     QVariantMap parameters;
 
+    // Automation lanes
+    QVector<AutomationLane> automationLanes;
+
     float getParameter(const QString& name, float defaultValue = 0.0f) const {
         return parameters.contains(name) ? parameters[name].toFloat() : defaultValue;
     }
     void setParameter(const QString& name, float value) { parameters[name] = value; }
+
+    AutomationLane* findAutomationLane(AutomationParameter param);
+    AutomationLane& addAutomationLane(AutomationParameter param);
+    void removeAutomationLane(AutomationParameter param);
+    float getAutomatedValue(AutomationParameter param, float timeSec) const;
 };
 
 struct SoundBank {
@@ -145,6 +175,11 @@ public:
     void unloadBank(const QString& bankName);
     void unloadAllBanks();
 
+    // Hot-reload support
+    void enableHotReload(bool enable);
+    bool isHotReloadEnabled() const { return m_hotReloadEnabled; }
+    void reloadBank(const QString& bankName);
+
     QStringList getEvents(const QString& bankName) const;
     AudioEvent getEventInfo(const QString& eventPath) const;
 
@@ -173,6 +208,7 @@ signals:
     void eventStopped(int instanceId);
     void bankLoaded(const QString& bankName);
     void bankUnloaded(const QString& bankName);
+    void bankReloaded(const QString& bankName);
 
 private:
     static KSAudioEngine* s_instance;
@@ -189,6 +225,13 @@ private:
     ListenerInfo m_listener;
     QTimer* m_updateTimer = nullptr;
     mutable QMutex m_instancesMutex;
+
+    // Hot-reload
+    bool m_hotReloadEnabled = false;
+    QFileSystemWatcher* m_bankWatcher = nullptr;
+    QMap<QString, QString> m_bankPathByName;  // bank name → file path
+
+    void onBankFileChanged(const QString& path);
 
     float applyAttenuation(const AudioEvent& event, const QVector3D& sourcePos) const;
     QVector3D calculatePan(const QVector3D& sourcePos) const;

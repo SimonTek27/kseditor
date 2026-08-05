@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 import QtQuick3D 6.5
 import ksEditor.Modeler 1.0
@@ -12,7 +13,8 @@ Rectangle {
     color: "#111111"
     focus: true
 
-    property string currentFile: "untitled.zm"
+    property string currentFile: "untitled.ks3d"
+    property real uiScale: 1.18
     property int viewMode: 0
     property string selectedObject: ""
     property int activeViewport: 3
@@ -37,6 +39,154 @@ Rectangle {
     property var viewportViewModes: ["top", "front", "right", "persp"]
 
     property var selectedObj: Modeler ? Modeler.selectedObject : null
+
+    property bool snapGrid: true
+    property bool snapOrtho: false
+    property bool snapOsnap: false
+    property bool snapPlanar: false
+    property string commandHistory: ""
+    property string commandEcho: "Ready"
+    property int activeRibbonTab: 0
+
+    property var ribbonDefs: [
+        { title: "File", groups: [
+            { name: "File", buttons: [
+                { label: "New", icon: "\u2795", cmd: "new" },
+                { label: "Open", icon: "\u2601", cmd: "open" },
+                { label: "Save", icon: "\u2913", cmd: "save" },
+                { label: "Import", icon: "\u2B07", cmd: "import" },
+                { label: "Export", icon: "\u2B06", cmd: "export" }
+            ]},
+            { name: "History", buttons: [
+                { label: "Undo", icon: "\u21B6", cmd: "undo" },
+                { label: "Redo", icon: "\u21B7", cmd: "redo" }
+            ]}
+        ]},
+        { title: "Edit", groups: [
+            { name: "Gizmo", buttons: [
+                { label: "Select", icon: "\u25CE", cmd: "select", mode: 0 },
+                { label: "Move", icon: "\u2194", cmd: "move", mode: 1 },
+                { label: "Rotate", icon: "\u21BB", cmd: "rotate", mode: 2 },
+                { label: "Scale", icon: "\u2195", cmd: "scale", mode: 3 }
+            ]},
+            { name: "Clipboard", buttons: [
+                { label: "Cut", icon: "\u2702", cmd: "cut" },
+                { label: "Copy", icon: "\u2398", cmd: "copy" },
+                { label: "Paste", icon: "\u2399", cmd: "paste" }
+            ]},
+            { name: "Selection", buttons: [
+                { label: "All", icon: "\u2606", cmd: "selectall" },
+                { label: "None", icon: "\u2606", cmd: "deselect" },
+                { label: "Delete", icon: "\u2715", cmd: "delete" }
+            ]},
+            { name: "3D Print", buttons: [
+                { label: "Check", icon: "\u2714", cmd: "printcheck" },
+                { label: "Export STL", icon: "\u21E3", cmd: "exportstl" },
+                { label: "Scale", icon: "\u2195", cmd: "printscale" },
+                { label: "Hollow", icon: "\u25CB", cmd: "printhollow" },
+                { label: "Supports", icon: "\u2191", cmd: "printsupports" },
+                { label: "Slice", icon: "\u25A0", cmd: "printslice" }
+            ]}
+        ]},
+        { title: "Create", groups: [
+            { name: "Primitives", buttons: [
+                { label: "Box", icon: "\u25A8", cmd: "box" },
+                { label: "Sphere", icon: "\u25C9", cmd: "sphere" },
+                { label: "Cylinder", icon: "\u25E0", cmd: "cylinder" },
+                { label: "Cone", icon: "\u25BC", cmd: "cone" },
+                { label: "Torus", icon: "\u25F0", cmd: "torus" },
+                { label: "Plane", icon: "\u25A1", cmd: "plane" }
+            ]}
+        ]},
+        { title: "View", groups: [
+            { name: "Display", buttons: [
+                { label: "Grid", icon: "\u2317", cmd: "grid" },
+                { label: "Wireframe", icon: "\u25A2", cmd: "wireframe" },
+                { label: "Shaded", icon: "\u25C6", cmd: "shaded" },
+                { label: "Textured", icon: "\u25C4", cmd: "textured" }
+            ]},
+            { name: "Views", buttons: [
+                { label: "Top", icon: "T", cmd: "view0" },
+                { label: "Front", icon: "F", cmd: "view1" },
+                { label: "Right", icon: "R", cmd: "view2" },
+                { label: "Persp", icon: "P", cmd: "view3" }
+            ]}
+        ]},
+        { title: "Modify", groups: [
+            { name: "Boolean", buttons: [
+                { label: "Bool Ops", icon: "\u2296", cmd: "boolop" },
+                { label: "Weld", icon: "\u2695", cmd: "weld" },
+                { label: "Symmetry", icon: "\u2194", cmd: "symmetry" }
+            ]}
+        ]},
+        { title: "Tools", groups: [
+            { name: "Tools", buttons: [
+                { label: "Materials", icon: "M", cmd: "material" },
+                { label: "Paint", icon: "\u270E", cmd: "paint" }
+            ]}
+        ]},
+        { title: "Panels", groups: [
+            { name: "Panels", buttons: [
+                { label: "Outliner", icon: "\u2630", cmd: "outliner" },
+                { label: "Props", icon: "\u2699", cmd: "props" },
+                { label: "Timeline", icon: "\u23F1", cmd: "timeline" }
+            ]}
+        ]}
+    ]
+
+    function runCommand(cmd) {
+        commandEcho = "Command: " + cmd
+        var c = String(cmd).trim().toLowerCase()
+        if (c === "new") { if (Modeler.newProject) Modeler.newProject(); currentFile = "untitled.ks3d" }
+        else if (c === "open") { openSceneDialog.open() }
+        else if (c === "import") { importDialog.open() }
+        else if (c === "save") { saveDialog.open() }
+        else if (c === "export") { exportDialog.open() }
+        else if (c === "undo") { if (Modeler.undo) Modeler.undo() }
+        else if (c === "redo") { if (Modeler.redo) Modeler.redo() }
+        else if (c === "delete") { if (Modeler.deleteSelected) Modeler.deleteSelected() }
+        else if (c === "cut") { if (Modeler.cutSelected) Modeler.cutSelected() }
+        else if (c === "copy") { if (Modeler.copySelected) Modeler.copySelected() }
+        else if (c === "paste") { if (Modeler.pasteClipboard) Modeler.pasteClipboard() }
+        else if (c === "print") { if (Modeler.printScene) Modeler.printScene() }
+        else if (c === "printcheck") { if (Modeler.checkMesh) Modeler.checkMesh() }
+        else if (c === "exportstl") { if (Modeler.exportSTL) Modeler.exportSTL() }
+        else if (c === "printscale") { if (Modeler.scaleForPrint) Modeler.scaleForPrint() }
+        else if (c === "printhollow") { if (Modeler.hollowMesh) Modeler.hollowMesh() }
+        else if (c === "printsupports") { if (Modeler.generateSupports) Modeler.generateSupports() }
+        else if (c === "printslice") { if (Modeler.sliceModel) Modeler.sliceModel() }
+        else if (c === "selectall") { if (Modeler.selectAll) Modeler.selectAll() }
+        else if (c === "deselect") { if (Modeler.deselectAll) Modeler.deselectAll() }
+        else if (c === "grid") { if (Modeler.gridVisible !== undefined) Modeler.gridVisible = !Modeler.gridVisible }
+        else if (c === "wireframe") { if (Modeler.viewMode !== undefined) Modeler.viewMode = 1 }
+        else if (c === "shaded") { if (Modeler.viewMode !== undefined) Modeler.viewMode = 0 }
+        else if (c === "textured") { if (Modeler.viewMode !== undefined) Modeler.viewMode = 2 }
+        else if (c === "box") { if (Modeler.addPrimitiveCube) Modeler.addPrimitiveCube() }
+        else if (c === "sphere") { if (Modeler.addPrimitiveSphere) Modeler.addPrimitiveSphere() }
+        else if (c === "cylinder") { if (Modeler.addPrimitiveCylinder) Modeler.addPrimitiveCylinder() }
+        else if (c === "cone") { if (Modeler.addPrimitiveCone) Modeler.addPrimitiveCone() }
+        else if (c === "torus") { if (Modeler.addPrimitiveTorus) Modeler.addPrimitiveTorus() }
+        else if (c === "plane") { if (Modeler.addPrimitivePlane) Modeler.addPrimitivePlane() }
+        else if (c === "move") { if (Modeler.setGizmoMode) Modeler.setGizmoMode(1) }
+        else if (c === "select") { if (Modeler.setGizmoMode) Modeler.setGizmoMode(0) }
+        else if (c === "rotate") { if (Modeler.setGizmoMode) Modeler.setGizmoMode(2) }
+        else if (c === "scale") { if (Modeler.setGizmoMode) Modeler.setGizmoMode(3) }
+        else if (c === "symmetry") { openSymmetryPanel() }
+        else if (c === "boolop") { boolOpOverlay.visible = !boolOpOverlay.visible }
+        else if (c === "material") { materialEditorOverlay.visible = !materialEditorOverlay.visible }
+        else if (c === "paint") { openPaintPanel() }
+        else if (c === "outliner") { outlinerDock.visible = !outlinerDock.visible }
+        else if (c === "props") { propsOverlay.visible = !propsOverlay.visible }
+        else if (c === "timeline") { timelineOverlay.visible = !timelineOverlay.visible }
+        else if (c === "view0") { activateViewport(0) }
+        else if (c === "view1") { activateViewport(1) }
+        else if (c === "view2") { activateViewport(2) }
+        else if (c === "view3") { activateViewport(3) }
+        else if (c === "weld") { if (Modeler.weldVertices) Modeler.weldVertices(0.01) }
+        else if (c === "help") { commandEcho = "KS Modeler \u2014 3D scene editor" }
+        else { commandEcho = "Unknown command: " + cmd }
+        commandHistory = commandEcho
+    }
 
     function notifySelection(name, id) {
         selectedObject = name
@@ -131,150 +281,223 @@ Rectangle {
         }
     }
 
+    Item {
+        width: parent.width / uiScale
+        height: parent.height / uiScale
+        scale: uiScale
+        transformOrigin: Item.TopLeft
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
 
         Rectangle {
-            height: 36
             color: "#2d2d30"
+            Layout.fillWidth: true
+            border.color: "#3f3f46"
+            border.width: 1
+            height: ribbonTabs.Layout.preferredHeight + ribbonContent.Layout.preferredHeight
+
+            ColumnLayout {
+                id: ribbonBar
+                anchors.fill: parent
+                spacing: 0
+
+                RowLayout {
+                    id: ribbonTabs
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 32
+                    spacing: 0
+
+                    Rectangle {
+                        width: 40; Layout.fillHeight: true
+                        color: "#1f1f22"
+                        MouseArea {
+                            anchors.fill: parent
+                            onPressed: { if (winBridge) winBridge.beginMove() }
+                        }
+                        Text {
+                            anchors.centerIn: parent
+                            text: "KS"
+                            color: "#E10600"; font.pixelSize: 13; font.bold: true
+                        }
+                    }
+
+                    Repeater {
+                        model: ribbonDefs
+                        delegate: Rectangle {
+                            Layout.fillHeight: true
+                            width: Math.max(ribbonTabTxt.implicitWidth + 20, 64)
+                            color: activeRibbonTab === index ? "#3e3e42" : (ribbonTabHover.containsMouse ? "#333336" : "transparent")
+                            border.color: activeRibbonTab === index ? "#569cd6" : "transparent"
+                            border.width: 1
+                            Text {
+                                id: ribbonTabTxt
+                                anchors.centerIn: parent
+                                text: modelData.title
+                                color: activeRibbonTab === index ? "#569cd6" : "#ccc"
+                                font.pixelSize: 11; font.bold: activeRibbonTab === index
+                            }
+                            MouseArea { id: ribbonTabHover; anchors.fill: parent; hoverEnabled: true
+                                onClicked: activeRibbonTab = index
+                            }
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        width: 120; height: 22; radius: 3; color: "#18181b"; border.color: "#3f3f46"; border.width: 1
+                        anchors.verticalCenter: parent.verticalCenter
+                        Text {
+                            anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8
+                            verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideMiddle
+                            text: currentFile
+                            color: "#aaa"; font.pixelSize: 9
+                        }
+                    }
+
+                    Rectangle { width: 1; height: 22; color: "#3f3f46"; anchors.verticalCenter: parent.verticalCenter }
+
+                    Repeater {
+                        model: [
+                            { icon: "\u003f", tip: "Help", act: function(){ if (winBridge) winBridge.showHelp() } },
+                            { icon: "\u2013", tip: "Minimize", act: function(){ if (winBridge) winBridge.minimize() } },
+                            { icon: "\u2750", tip: "Maximize", act: function(){ if (winBridge) winBridge.toggleMaximize() } },
+                            { icon: "\u2715", tip: "Close", act: function(){ if (winBridge) winBridge.closeWindow() } }
+                        ]
+                        delegate: Rectangle {
+                            width: 42; height: 32
+                            Layout.fillHeight: true
+                            color: (modelData.icon === "\u2715" && wbBtn.containsMouse) ? "#E81123"
+                                 : wbBtn.containsMouse ? "#3e3e42" : "transparent"
+                            Text {
+                                anchors.centerIn: parent
+                                text: modelData.icon; color: "#ccc"; font.pixelSize: 12
+                            }
+                            MouseArea { id: wbBtn; anchors.fill: parent; hoverEnabled: true
+                                onClicked: modelData.act()
+                            }
+                            ToolTip { visible: wbBtn.containsMouse; text: modelData.tip }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    id: ribbonContent
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 64
+                    spacing: 0
+
+                    Repeater {
+                        model: ribbonDefs[activeRibbonTab] ? ribbonDefs[activeRibbonTab].groups : []
+                        delegate: Item {
+                            Layout.fillHeight: true
+                            Layout.leftMargin: index > 0 ? 10 : 0
+                            width: Math.max(rgName.implicitWidth + 16, ribbonGroupRow.width + 8)
+
+                            Rectangle {
+                                visible: index > 0
+                                width: 1; height: parent.height - 6
+                                color: "#3f3f46"
+                                anchors.left: parent.left
+                                anchors.leftMargin: -5
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            RowLayout {
+                                id: ribbonGroupRow
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                anchors.top: parent.top
+                                anchors.topMargin: 2
+                                height: 46
+                                spacing: 1
+
+                                Repeater {
+                                    model: modelData.buttons
+                                    delegate: Rectangle {
+                                        width: 46; height: 44
+                                        radius: 2
+                                        color: rbBtnHover.containsMouse ? "#3e3e42" : "transparent"
+                                        border.color: modelData.mode !== undefined && Modeler.gizmoMode === modelData.mode ? "#569cd6" : "transparent"
+                                        border.width: 1
+                                        Column {
+                                            anchors.centerIn: parent; spacing: 2
+                                            Text {
+                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                text: modelData.icon
+                                                color: modelData.mode !== undefined && Modeler.gizmoMode === modelData.mode ? "#569cd6" : "#bbb"
+                                                font.pixelSize: 16
+                                            }
+                                            Text {
+                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                text: modelData.label
+                                                color: "#999"; font.pixelSize: 8
+                                            }
+                                        }
+                                        MouseArea { id: rbBtnHover; anchors.fill: parent; hoverEnabled: true
+                                            onClicked: runCommand(modelData.cmd)
+                                        }
+                                    }
+                                }
+                            }
+
+                            Text {
+                                id: rgName
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                anchors.bottom: parent.bottom
+                                anchors.bottomMargin: 1
+                                text: modelData.name
+                                color: "#888"; font.pixelSize: 8; font.italic: true
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            height: 26
+            color: "#1f1f22"
             Layout.fillWidth: true
             border.color: "#3f3f46"
             border.width: 1
 
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 6
-                anchors.rightMargin: 6
-                spacing: 2
+                anchors.leftMargin: 8
+                anchors.rightMargin: 8
+                spacing: 8
 
-                Repeater {
-                    model: [
-                        { label: "New", icon: "\u2795", tip: "New Scene" },
-                        { label: "Open", icon: "\u2601", tip: "Open" },
-                        { label: "Save", icon: "\u2913", tip: "Save" },
-                        { label: "Import", icon: "\u2B07", tip: "Import" },
-                        { label: "Export", icon: "\u2B06", tip: "Export" }
-                    ]
-                    delegate: Rectangle {
-                        width: 55; height: 28; radius: 3
-                        color: tbMa.containsMouse ? "#3e3e42" : "transparent"
-                        Column {
-                            anchors.centerIn: parent; spacing: -2
-                            Text { text: modelData.icon; color: "#ccc"; font.pixelSize: 13; anchors.horizontalCenter: parent.horizontalCenter }
-                            Text { text: modelData.label; color: "#999"; font.pixelSize: 8; anchors.horizontalCenter: parent.horizontalCenter }
-                        }
-                        MouseArea { id: tbMa; anchors.fill: parent; hoverEnabled: true
-                            onClicked: {
-                                if (index === 0 && Modeler.newScene) Modeler.newScene()
-                                else if (index === 2 && Modeler.saveScene) Modeler.saveScene(currentFile)
-                            }
-                        }
-                        ToolTip { visible: tbMa.containsMouse; text: modelData.tip }
+                Text {
+                    text: "Command:"
+                    color: "#569cd6"; font.pixelSize: 11; font.bold: true
+                }
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 18
+                    radius: 2
+                    color: "#18181b"
+                    border.color: "#3f3f46"
+                    border.width: 1
+                    TextInput {
+                        id: commandInput
+                        anchors.fill: parent
+                        anchors.leftMargin: 6
+                        anchors.rightMargin: 6
+                        verticalAlignment: Text.AlignVCenter
+                        color: "#e0e0e0"; font.pixelSize: 11
+                        clip: true
+                        Keys.onReturnPressed: { runCommand(commandInput.text); commandInput.text = "" }
+                        Keys.onEnterPressed: { runCommand(commandInput.text); commandInput.text = "" }
                     }
                 }
-
-                Rectangle { width: 1; height: 24; color: "#3f3f46" }
-
-                Repeater {
-                    model: [
-                        { label: "Undo", icon: "\u21B6", tip: "Undo (Ctrl+Z)" },
-                        { label: "Redo", icon: "\u21B7", tip: "Redo (Ctrl+Shift+Z)" }
-                    ]
-                    delegate: Rectangle {
-                        width: 50; height: 28; radius: 3
-                        color: tbMa2.containsMouse ? "#3e3e42" : "transparent"
-                        opacity: (index === 0 ? pageKsModeler.canUndo : pageKsModeler.canRedo) ? 1.0 : 0.4
-                        Column {
-                            anchors.centerIn: parent; spacing: -2
-                            Text { text: modelData.icon; color: "#ccc"; font.pixelSize: 13; anchors.horizontalCenter: parent.horizontalCenter }
-                            Text { text: modelData.label; color: "#999"; font.pixelSize: 8; anchors.horizontalCenter: parent.horizontalCenter }
-                        }
-                        MouseArea { id: tbMa2; anchors.fill: parent; hoverEnabled: true
-                            enabled: index === 0 ? pageKsModeler.canUndo : pageKsModeler.canRedo
-                            onClicked: { if (index === 0 && Modeler.undo) Modeler.undo(); else if (index === 1 && Modeler.redo) Modeler.redo() }
-                        }
-                    }
-                }
-
-                Rectangle { width: 1; height: 24; color: "#3f3f46" }
-
-                Repeater {
-                    model: [
-                        { label: "Sel", icon: "\u25CE", mode: 0, tip: "Select (Q)" },
-                        { label: "Move", icon: "\u2194", mode: 1, tip: "Move (W)" },
-                        { label: "Rot", icon: "\u21BB", mode: 2, tip: "Rotate (E)" },
-                        { label: "Scl", icon: "\u2195", mode: 3, tip: "Scale (R)" }
-                    ]
-                    delegate: Rectangle {
-                        width: 50; height: 28; radius: 3
-                        color: Modeler.gizmoMode === modelData.mode ? "#264f78" : (tbMa3.containsMouse ? "#3e3e42" : "transparent")
-                        border.color: Modeler.gizmoMode === modelData.mode ? "#569cd6" : "transparent"
-                        border.width: 1
-                        Column {
-                            anchors.centerIn: parent; spacing: -2
-                            Text { text: modelData.icon; color: Modeler.gizmoMode === modelData.mode ? "#569cd6" : "#ccc"; font.pixelSize: 13; anchors.horizontalCenter: parent.horizontalCenter }
-                            Text { text: modelData.label; color: "#999"; font.pixelSize: 8; anchors.horizontalCenter: parent.horizontalCenter }
-                        }
-                        MouseArea { id: tbMa3; anchors.fill: parent; hoverEnabled: true
-                            onClicked: { if (Modeler.setGizmoMode) Modeler.setGizmoMode(modelData.mode) }
-                        }
-                        ToolTip { visible: tbMa3.containsMouse; text: modelData.tip }
-                    }
-                }
-
-                Rectangle { width: 1; height: 24; color: "#3f3f46" }
-
-                Repeater {
-                    model: [
-                        { label: "Grid", icon: "\u2317", tip: "Toggle Grid (G)" },
-                        { label: "Sym", icon: "\u2194", tip: "Symmetry (Shift+S)" },
-                        { label: "Mat", icon: "M", tip: "Material Editor" }
-                    ]
-                    delegate: Rectangle {
-                        width: 50; height: 28; radius: 3
-                        color: tbMa4.containsMouse ? "#3e3e42" : "transparent"
-                        Column {
-                            anchors.centerIn: parent; spacing: -2
-                            Text { text: modelData.icon; color: "#ccc"; font.pixelSize: 13; anchors.horizontalCenter: parent.horizontalCenter }
-                            Text { text: modelData.label; color: "#999"; font.pixelSize: 8; anchors.horizontalCenter: parent.horizontalCenter }
-                        }
-                        MouseArea { id: tbMa4; anchors.fill: parent; hoverEnabled: true
-                            onClicked: {
-                                if (index === 0 && Modeler.gridVisible !== undefined) Modeler.gridVisible = !Modeler.gridVisible
-                                else if (index === 1) openSymmetryPanel()
-                                else if (index === 2) materialEditorOverlay.visible = !materialEditorOverlay.visible
-                            }
-                        }
-                        ToolTip { visible: tbMa4.containsMouse; text: modelData.tip }
-                    }
-                }
-
-                Item { Layout.fillWidth: true }
-
-                Repeater {
-                    model: [
-                        { label: "Outliner", tip: "Scene Outliner" },
-                        { label: "Props", tip: "Properties" },
-                        { label: "Timeline", tip: "Animation Timeline" }
-                    ]
-                    delegate: Rectangle {
-                        width: 60; height: 28; radius: 3
-                        color: tbMa5.containsMouse ? "#3e3e42" : "transparent"
-                        Text {
-                            anchors.centerIn: parent
-                            text: modelData.label
-                            color: "#999"; font.pixelSize: 9
-                        }
-                        MouseArea { id: tbMa5; anchors.fill: parent; hoverEnabled: true
-                            onClicked: {
-                                if (index === 0) outlinerOverlay.visible = !outlinerOverlay.visible
-                                else if (index === 1) propsOverlay.visible = !propsOverlay.visible
-                                else if (index === 2) timelineOverlay.visible = !timelineOverlay.visible
-                            }
-                        }
-                        ToolTip { visible: tbMa5.containsMouse; text: modelData.tip }
-                    }
+                Text {
+                    text: commandEcho
+                    color: "#10b981"; font.pixelSize: 10
+                    elide: Text.ElideRight
+                    Layout.maximumWidth: 320
                 }
             }
         }
@@ -285,199 +508,108 @@ Rectangle {
             spacing: 0
 
             Rectangle {
-                width: 180
+                width: 44
                 Layout.fillHeight: true
-                color: "#1e1e1e"
+                color: "#242427"
                 border.color: "#2d2d30"
                 border.width: 1
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 4
-                    spacing: 4
+                    spacing: 2
+                    anchors.topMargin: 4
+                    anchors.bottomMargin: 4
 
-                    Text { text: "COMMANDS"; color: "#888"; font.pixelSize: 10; font.bold: true; leftPadding: 4 }
+                    Text {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: "TOOLS"
+                        color: "#5a5a60"; font.pixelSize: 8; font.bold: true
+                    }
 
-                    ScrollView {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        clip: true
-
-                        ListView {
-                            id: commandsList
-                            model: ListModel {
-                                id: commandsModel
-                                ListElement { category: "Create"; expanded: true; tools: "" }
-                                ListElement { category: "Display"; expanded: false; tools: "" }
-                                ListElement { category: "Modify"; expanded: false; tools: "" }
-                                ListElement { category: "Select"; expanded: false; tools: "" }
-                                ListElement { category: "Local Axes"; expanded: false; tools: "" }
-                                ListElement { category: "Surface"; expanded: false; tools: "" }
+                    Repeater {
+                        model: [
+                            { icon: "\u25CE", mode: 0, tip: "Select (Q)", railGroup: "gizmo" },
+                            { icon: "\u2194", mode: 1, tip: "Move (W)", railGroup: "gizmo" },
+                            { icon: "\u21BB", mode: 2, tip: "Rotate (E)", railGroup: "gizmo" },
+                            { icon: "\u2195", mode: 3, tip: "Scale (R)", railGroup: "gizmo" }
+                        ]
+                        delegate: Rectangle {
+                            Layout.preferredWidth: 34; Layout.preferredHeight: 30
+                            Layout.alignment: Qt.AlignHCenter
+                            radius: 3
+                            color: Modeler.gizmoMode === modelData.mode ? "#264f78" : (railGizmo.containsMouse ? "#3e3e42" : "transparent")
+                            border.color: Modeler.gizmoMode === modelData.mode ? "#569cd6" : "transparent"
+                            border.width: 1
+                            Text {
+                                anchors.centerIn: parent
+                                text: modelData.icon; color: Modeler.gizmoMode === modelData.mode ? "#569cd6" : "#ccc"
+                                font.pixelSize: 14
                             }
-                            spacing: 1
-
-                            delegate: Column {
-                                width: commandsList.width
-
-                                Rectangle {
-                                    width: parent.width
-                                    height: 24
-                                    color: catMouse.containsMouse ? "#2d2d30" : "transparent"
-                                    radius: 2
-
-                                    Row {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 4
-                                        spacing: 4
-                                        Text { text: model.expanded ? "\u25BC" : "\u25B6"; color: "#888"; font.pixelSize: 8; anchors.verticalCenter: parent.verticalCenter }
-                                        Text { text: model.category.toUpperCase(); color: "#cccccc"; font.pixelSize: 11; font.bold: true; anchors.verticalCenter: parent.verticalCenter }
-                                    }
-
-                                    MouseArea {
-                                        id: catMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        onClicked: commandsModel.setProperty(index, "expanded", !model.expanded)
-                                    }
-                                }
-
-                                Repeater {
-                                    model: {
-                                        if (!model.expanded) return []
-                                        if (index === 0) return [
-                                            { tool: "Box", icon: "\u25A0" }, { tool: "Sphere", icon: "\u25CB" },
-                                            { tool: "Cylinder", icon: "\u25AD" }, { tool: "Cone", icon: "\u25B3" },
-                                            { tool: "Torus", icon: "\u25CE" }, { tool: "Plane", icon: "\u25A1" }
-                                        ]
-                                        if (index === 1) return [
-                                            { tool: "Wireframe", icon: "\u25A1" }, { tool: "Solid", icon: "\u25A0" },
-                                            { tool: "Textured", icon: "\u25A3" }
-                                        ]
-                                        if (index === 2) return [
-                                            { tool: "Move", icon: "\u2194" }, { tool: "Rotate", icon: "\u21BB" },
-                                            { tool: "Scale", icon: "\u2195" }, { tool: "Extrude", icon: "\u21E7" },
-                                            { tool: "Bevel", icon: "\u2261" }, { tool: "Weld", icon: "\u2228" }
-                                        ]
-                                        if (index === 3) return [
-                                            { tool: "Box Select", icon: "\u25A1" }, { tool: "Circle Select", icon: "\u25CB" },
-                                            { tool: "All", icon: "\u25A0" }, { tool: "None", icon: "\u25CB" }
-                                        ]
-                                        if (index === 4) return [
-                                            { tool: "Copy", icon: "\u2398" }, { tool: "Paste", icon: "\u2399" },
-                                            { tool: "Reset", icon: "\u21BA" }
-                                        ]
-                                        if (index === 5) return [
-                                            { tool: "Assign Material", icon: "\u25A3" },
-                                            { tool: "UV Map", icon: "\u25A1" }
-                                        ]
-                                        return []
-                                    }
-
-                                    delegate: Rectangle {
-                                        width: commandsList.width
-                                        height: 22
-                                        color: toolMouse.containsMouse ? "#264f78" : "transparent"
-                                        radius: 2
-
-                                        Row {
-                                            anchors.fill: parent
-                                            anchors.leftMargin: 24
-                                            spacing: 6
-                                            Text { text: modelData.icon; color: "#aaa"; font.pixelSize: 12; anchors.verticalCenter: parent.verticalCenter }
-                                            Text { text: modelData.tool; color: "#cccccc"; font.pixelSize: 11; anchors.verticalCenter: parent.verticalCenter }
-                                        }
-
-                                        MouseArea { id: toolMouse; anchors.fill: parent; hoverEnabled: true
-                                            onClicked: {
-                                                var tool = modelData.tool
-                                                var cat = commandsModel.get(index).category
-                                                if (cat === "Create") {
-                                                    if (tool === "Box" && Modeler.addPrimitiveCube) Modeler.addPrimitiveCube()
-                                                    else if (tool === "Sphere" && Modeler.addPrimitiveSphere) Modeler.addPrimitiveSphere()
-                                                    else if (tool === "Cylinder" && Modeler.addPrimitiveCylinder) Modeler.addPrimitiveCylinder()
-                                                    else if (tool === "Cone" && Modeler.addPrimitiveCone) Modeler.addPrimitiveCone()
-                                                    else if (tool === "Torus" && Modeler.addPrimitiveTorus) Modeler.addPrimitiveTorus()
-                                                    else if (tool === "Plane" && Modeler.addPrimitivePlane) Modeler.addPrimitivePlane()
-                                                } else if (cat === "Display") {
-                                                    if (tool === "Wireframe" && Modeler.viewMode !== undefined) Modeler.viewMode = 1
-                                                    else if (tool === "Solid" && Modeler.viewMode !== undefined) Modeler.viewMode = 0
-                                                    else if (tool === "Textured" && Modeler.viewMode !== undefined) Modeler.viewMode = 2
-                                                } else if (cat === "Modify") {
-                                                    if (tool === "Move" && Modeler.setGizmoMode) Modeler.setGizmoMode(1)
-                                                    else if (tool === "Rotate" && Modeler.setGizmoMode) Modeler.setGizmoMode(2)
-                                                    else if (tool === "Scale" && Modeler.setGizmoMode) Modeler.setGizmoMode(3)
-                                                    else if (tool === "Extrude" && Modeler.extrudeFaces) Modeler.extrudeFaces([], 1.0)
-                                                    else if (tool === "Bevel" && Modeler.bevelEdges) Modeler.bevelEdges([], 0.1, 1)
-                                                    else if (tool === "Weld" && Modeler.weldVertices) Modeler.weldVertices(0.01)
-                                                } else if (cat === "Select") {
-                                                    if (tool === "All" && Modeler.selectAll) { /* selectAll not exposed, use loop */ }
-                                                    else if (tool === "None" && Modeler.deselectAll) Modeler.deselectAll()
-                                                } else if (cat === "Surface") {
-                                                    if (tool === "Assign Material") materialEditorOverlay.visible = !materialEditorOverlay.visible
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                            MouseArea { id: railGizmo; anchors.fill: parent; hoverEnabled: true
+                                onClicked: { if (Modeler.setGizmoMode) Modeler.setGizmoMode(modelData.mode) }
                             }
+                            ToolTip { visible: railGizmo.containsMouse; text: modelData.tip }
                         }
                     }
 
-                    Rectangle { height: 1; color: "#2d2d30"; Layout.fillWidth: true }
+                    Rectangle { Layout.preferredHeight: 1; Layout.fillWidth: true; Layout.leftMargin: 5; Layout.rightMargin: 5; color: "#2d2d30" }
 
-                    Text { text: "TRANSFORM"; color: "#888"; font.pixelSize: 10; font.bold: true; leftPadding: 4 }
-
-                    GridLayout {
-                        columns: 2; Layout.fillWidth: true; rowSpacing: 2; columnSpacing: 4
-                        Text { text: "X:"; color: "#ff4444"; font.pixelSize: 10 }
-                        TextField { id: posXField; text: "0.000"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
-                            onEditingFinished: { if (selectedObj) selectedObj.position = Qt.vector3d(parseFloat(text)||0, selectedObj.position.y, selectedObj.position.z) }
-                        }
-                        Text { text: "Y:"; color: "#44ff44"; font.pixelSize: 10 }
-                        TextField { id: posYField; text: "0.000"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
-                            onEditingFinished: { if (selectedObj) selectedObj.position = Qt.vector3d(selectedObj.position.x, parseFloat(text)||0, selectedObj.position.z) }
-                        }
-                        Text { text: "Z:"; color: "#4444ff"; font.pixelSize: 10 }
-                        TextField { id: posZField; text: "0.000"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
-                            onEditingFinished: { if (selectedObj) selectedObj.position = Qt.vector3d(selectedObj.position.x, selectedObj.position.y, parseFloat(text)||0) }
+                    Repeater {
+                        model: [
+                            { icon: "\u25A8", cmd: "box", tip: "Box" },
+                            { icon: "\u25C9", cmd: "sphere", tip: "Sphere" },
+                            { icon: "\u25E0", cmd: "cylinder", tip: "Cylinder" },
+                            { icon: "\u25BC", cmd: "cone", tip: "Cone" },
+                            { icon: "\u25F0", cmd: "torus", tip: "Torus" },
+                            { icon: "\u25A1", cmd: "plane", tip: "Plane" }
+                        ]
+                        delegate: Rectangle {
+                            Layout.preferredWidth: 34; Layout.preferredHeight: 30
+                            Layout.alignment: Qt.AlignHCenter
+                            radius: 3
+                            color: railPrim.containsMouse ? "#3e3e42" : "transparent"
+                            Text {
+                                anchors.centerIn: parent
+                                text: modelData.icon; color: "#bbb"
+                                font.pixelSize: 14
+                            }
+                            MouseArea { id: railPrim; anchors.fill: parent; hoverEnabled: true
+                                onClicked: runCommand(modelData.cmd)
+                            }
+                            ToolTip { visible: railPrim.containsMouse; text: modelData.tip }
                         }
                     }
 
-                    GridLayout {
-                        columns: 2; Layout.fillWidth: true; rowSpacing: 2; columnSpacing: 4
-                        Text { text: "RX:"; color: "#ff4444"; font.pixelSize: 10 }
-                        TextField { id: rotXField; text: "0.0"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
-                            onEditingFinished: { if (selectedObj) selectedObj.rotation = Qt.vector3d(parseFloat(text)||0, selectedObj.rotation.y, selectedObj.rotation.z) }
-                        }
-                        Text { text: "RY:"; color: "#44ff44"; font.pixelSize: 10 }
-                        TextField { id: rotYField; text: "0.0"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
-                            onEditingFinished: { if (selectedObj) selectedObj.rotation = Qt.vector3d(selectedObj.rotation.x, parseFloat(text)||0, selectedObj.rotation.z) }
-                        }
-                        Text { text: "RZ:"; color: "#4444ff"; font.pixelSize: 10 }
-                        TextField { id: rotZField; text: "0.0"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
-                            onEditingFinished: { if (selectedObj) selectedObj.rotation = Qt.vector3d(selectedObj.rotation.x, selectedObj.rotation.y, parseFloat(text)||0) }
+                    Rectangle { Layout.preferredHeight: 1; Layout.fillWidth: true; Layout.leftMargin: 5; Layout.rightMargin: 5; color: "#2d2d30" }
+
+                    Repeater {
+                        model: [
+                            { icon: "\u2317", cmd: "grid", tip: "Grid (G)", active: Modeler.gridVisible },
+                            { icon: "\u2194", cmd: "symmetry", tip: "Symmetry" },
+                            { icon: "M", cmd: "material", tip: "Materials" },
+                            { icon: "\u21B6", cmd: "undo", tip: "Undo" },
+                            { icon: "\u21B7", cmd: "redo", tip: "Redo" }
+                        ]
+                        delegate: Rectangle {
+                            Layout.preferredWidth: 34; Layout.preferredHeight: 30
+                            Layout.alignment: Qt.AlignHCenter
+                            radius: 3
+                            color: railTgl.containsMouse ? "#3e3e42" : "transparent"
+                            border.color: modelData.active === true ? "#569cd6" : "transparent"
+                            border.width: 1
+                            Text {
+                                anchors.centerIn: parent
+                                text: modelData.icon; color: modelData.active === true ? "#569cd6" : "#bbb"
+                                font.pixelSize: 14
+                            }
+                            MouseArea { id: railTgl; anchors.fill: parent; hoverEnabled: true
+                                onClicked: runCommand(modelData.cmd)
+                            }
+                            ToolTip { visible: railTgl.containsMouse; text: modelData.tip }
                         }
                     }
 
-                    GridLayout {
-                        columns: 2; Layout.fillWidth: true; rowSpacing: 2; columnSpacing: 4
-                        Text { text: "SX:"; color: "#ff4444"; font.pixelSize: 10 }
-                        TextField { id: sclXField; text: "1.000"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
-                            onEditingFinished: { if (selectedObj) selectedObj.scale = Qt.vector3d(parseFloat(text)||1, selectedObj.scale.y, selectedObj.scale.z) }
-                        }
-                        Text { text: "SY:"; color: "#44ff44"; font.pixelSize: 10 }
-                        TextField { id: sclYField; text: "1.000"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
-                            onEditingFinished: { if (selectedObj) selectedObj.scale = Qt.vector3d(selectedObj.scale.x, parseFloat(text)||1, selectedObj.scale.z) }
-                        }
-                        Text { text: "SZ:"; color: "#4444ff"; font.pixelSize: 10 }
-                        TextField { id: sclZField; text: "1.000"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
-                            onEditingFinished: { if (selectedObj) selectedObj.scale = Qt.vector3d(selectedObj.scale.x, selectedObj.scale.y, parseFloat(text)||1) }
-                        }
-                    }
-
-                    Rectangle { height: 1; color: "#2d2d30"; Layout.fillWidth: true }
-                    Text { text: "SELECTION"; color: "#888"; font.pixelSize: 10; font.bold: true; leftPadding: 4 }
-                    Text { text: selectedObject !== "" ? selectedObject : "(none)"; color: "#aaa"; font.pixelSize: 10; leftPadding: 4 }
+                    Item { Layout.fillHeight: true }
                 }
             }
 
@@ -486,13 +618,60 @@ Rectangle {
                 Layout.fillHeight: true
                 color: "#111111"
 
-                GridLayout {
+                ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 1
-                    columns: 2
-                    rows: 2
-                    columnSpacing: 1
-                    rowSpacing: 1
+                    spacing: 0
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 26
+                        color: "#1f1f22"
+                        border.color: "#2d2d30"
+                        border.width: 1
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 2
+                            spacing: 2
+
+                            Repeater {
+                                model: viewportNames
+                                delegate: Rectangle {
+                                    Layout.preferredWidth: 78; Layout.preferredHeight: 20
+                                    radius: 2
+                                    color: vpTabHover.containsMouse || activeViewport === index ? "#2d2d30" : "transparent"
+                                    border.color: activeViewport === index ? "#569cd6" : "transparent"
+                                    border.width: 1
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: modelData
+                                        color: activeViewport === index ? "#569cd6" : "#aaa"
+                                        font.pixelSize: 9; font.bold: activeViewport === index
+                                    }
+                                    MouseArea { id: vpTabHover; anchors.fill: parent; hoverEnabled: true
+                                        onClicked: activateViewport(index)
+                                    }
+                                }
+                            }
+
+                            Item { Layout.fillWidth: true }
+
+                            Text {
+                                Layout.rightMargin: 6
+                                text: "Tris: " + totalTris
+                                color: "#5a5a60"; font.pixelSize: 9
+                            }
+                        }
+                    }
+
+                    GridLayout {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        anchors.margins: 1
+                        columns: 2
+                        rows: 2
+                        columnSpacing: 1
+                        rowSpacing: 1
 
                     Rectangle {
                         Layout.fillWidth: true; Layout.fillHeight: true
@@ -828,12 +1007,98 @@ Rectangle {
                     }
                 }
             }
-
-            Item { width: 0; Layout.fillHeight: true }
         }
 
         Rectangle {
-            height: 24
+            width: 180
+            Layout.fillHeight: true
+            color: "#1e1e1e"
+            border.color: "#2d2d30"
+            border.width: 1
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 4
+                spacing: 4
+
+                Text { text: "TRANSFORM"; color: "#888"; font.pixelSize: 10; font.bold: true; leftPadding: 4 }
+
+                GridLayout {
+                    columns: 2; Layout.fillWidth: true; rowSpacing: 2; columnSpacing: 4
+                    Text { text: "X:"; color: "#ff4444"; font.pixelSize: 10 }
+                    TextField { id: posXField; text: "0.000"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
+                        onEditingFinished: { if (selectedObj) selectedObj.position = Qt.vector3d(parseFloat(text)||0, selectedObj.position.y, selectedObj.position.z) }
+                    }
+                    Text { text: "Y:"; color: "#44ff44"; font.pixelSize: 10 }
+                    TextField { id: posYField; text: "0.000"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
+                        onEditingFinished: { if (selectedObj) selectedObj.position = Qt.vector3d(selectedObj.position.x, parseFloat(text)||0, selectedObj.position.z) }
+                    }
+                    Text { text: "Z:"; color: "#4444ff"; font.pixelSize: 10 }
+                    TextField { id: posZField; text: "0.000"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
+                        onEditingFinished: { if (selectedObj) selectedObj.position = Qt.vector3d(selectedObj.position.x, selectedObj.position.y, parseFloat(text)||0) }
+                    }
+                }
+
+                GridLayout {
+                    columns: 2; Layout.fillWidth: true; rowSpacing: 2; columnSpacing: 4
+                    Text { text: "RX:"; color: "#ff4444"; font.pixelSize: 10 }
+                    TextField { id: rotXField; text: "0.0"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
+                        onEditingFinished: { if (selectedObj) selectedObj.rotation = Qt.vector3d(parseFloat(text)||0, selectedObj.rotation.y, selectedObj.rotation.z) }
+                    }
+                    Text { text: "RY:"; color: "#44ff44"; font.pixelSize: 10 }
+                    TextField { id: rotYField; text: "0.0"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
+                        onEditingFinished: { if (selectedObj) selectedObj.rotation = Qt.vector3d(selectedObj.rotation.x, parseFloat(text)||0, selectedObj.rotation.z) }
+                    }
+                    Text { text: "RZ:"; color: "#4444ff"; font.pixelSize: 10 }
+                    TextField { id: rotZField; text: "0.0"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
+                        onEditingFinished: { if (selectedObj) selectedObj.rotation = Qt.vector3d(selectedObj.rotation.x, selectedObj.rotation.y, parseFloat(text)||0) }
+                    }
+                }
+
+                GridLayout {
+                    columns: 2; Layout.fillWidth: true; rowSpacing: 2; columnSpacing: 4
+                    Text { text: "SX:"; color: "#ff4444"; font.pixelSize: 10 }
+                    TextField { id: sclXField; text: "1.000"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
+                        onEditingFinished: { if (selectedObj) selectedObj.scale = Qt.vector3d(parseFloat(text)||1, selectedObj.scale.y, selectedObj.scale.z) }
+                    }
+                    Text { text: "SY:"; color: "#44ff44"; font.pixelSize: 10 }
+                    TextField { id: sclYField; text: "1.000"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
+                        onEditingFinished: { if (selectedObj) selectedObj.scale = Qt.vector3d(selectedObj.scale.x, parseFloat(text)||1, selectedObj.scale.z) }
+                    }
+                    Text { text: "SZ:"; color: "#4444ff"; font.pixelSize: 10 }
+                    TextField { id: sclZField; text: "1.000"; Layout.fillWidth: true; font.pixelSize: 10; implicitHeight: 20; color: "#ccc"; background: Rectangle { color: "#2d2d30"; radius: 2 }
+                        onEditingFinished: { if (selectedObj) selectedObj.scale = Qt.vector3d(selectedObj.scale.x, selectedObj.scale.y, parseFloat(text)||1) }
+                    }
+                }
+
+                Rectangle { height: 1; color: "#2d2d30"; Layout.fillWidth: true }
+                Text { text: "SELECTION"; color: "#888"; font.pixelSize: 10; font.bold: true; leftPadding: 4 }
+                Text { text: selectedObject !== "" ? selectedObject : "(none)"; color: "#aaa"; font.pixelSize: 10; leftPadding: 4 }
+
+                Item { Layout.fillHeight: true }
+            }
+        }
+
+        Rectangle {
+            id: outlinerDock
+                width: 240
+                Layout.fillHeight: true
+                visible: true
+                color: "#1e1e1e"
+                border.color: "#2d2d30"
+                border.width: 1
+                clip: true
+
+                Loader {
+                    anchors.fill: parent
+                    source: "../modules/3DModeling/SceneOutliner.qml"
+                    onItemChanged: if (item) item.closeRequested.connect(function() { outlinerDock.visible = false })
+                }
+            }
+        }
+
+        Rectangle {
+            height: 26
             color: "#1e1e1e"
             Layout.fillWidth: true
             border.color: "#2d2d30"
@@ -843,18 +1108,44 @@ Rectangle {
                 anchors.fill: parent
                 anchors.leftMargin: 8
                 anchors.rightMargin: 8
-                spacing: 12
+                spacing: 6
 
-                Text { text: "Ready"; color: "#10b981"; font.pixelSize: 10 }
+                Text {
+                    text: "X " + camTargetX.toFixed(2) + "  Y " + camTargetY.toFixed(2) + "  Z " + camTargetZ.toFixed(2)
+                    color: "#888"; font.pixelSize: 10
+                }
+                Rectangle { width: 1; height: 16; color: "#2d2d30" }
+                Text { text: "Dist: " + camDistance.toFixed(1); color: "#888"; font.pixelSize: 10 }
+                Item { Layout.fillWidth: true }
+
+                Repeater {
+                    model: [
+                        { label: "Grid", prop: Modeler.gridVisible, set: function(v){ if (Modeler.gridVisible !== undefined) Modeler.gridVisible = v } },
+                        { label: "Wireframe", prop: Modeler.viewMode === 1, set: function(v){ if (Modeler.viewMode !== undefined) Modeler.viewMode = v ? 1 : 0 } },
+                        { label: "Snap", prop: pageKsModeler.snapGrid, set: function(v){ pageKsModeler.snapGrid = v } }
+                    ]
+                    delegate: Rectangle {
+                        Layout.preferredWidth: 44; Layout.preferredHeight: 18
+                        radius: 3
+                        color: modelData.prop ? "#264f78" : (snapHover.containsMouse ? "#3e3e42" : "transparent")
+                        border.color: modelData.prop ? "#569cd6" : "#3f3f46"
+                        border.width: 1
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData.label
+                            color: modelData.prop ? "#569cd6" : "#888"; font.pixelSize: 9
+                        }
+                        MouseArea { id: snapHover; anchors.fill: parent; hoverEnabled: true
+                            onClicked: { if (modelData.set) modelData.set(!modelData.prop) }
+                        }
+                    }
+                }
+
+                Rectangle { width: 1; height: 16; color: "#2d2d30" }
+                Text { text: "Objects: " + (sceneModel ? sceneModel.count : 0); color: "#888"; font.pixelSize: 10 }
                 Rectangle { width: 1; height: 16; color: "#2d2d30" }
                 Text { text: "View: " + viewportNames[activeViewport]; color: "#888"; font.pixelSize: 10 }
                 Rectangle { width: 1; height: 16; color: "#2d2d30" }
-                Text { text: "Camera: " + Math.round(camTheta) + "\u00B0 / " + Math.round(camPhi) + "\u00B0  Dist: " + camDistance.toFixed(1); color: "#888"; font.pixelSize: 10 }
-                Rectangle { width: 1; height: 16; color: "#2d2d30" }
-                Text { text: "Objects: " + (sceneModel ? (sceneModel.count || (sceneModel.rowCount ? sceneModel.rowCount() : 0)) : 0); color: "#888"; font.pixelSize: 10 }
-                Rectangle { width: 1; height: 16; color: "#2d2d30" }
-                Text { text: "Verts: " + totalVerts + "  Tris: " + totalTris; color: "#888"; font.pixelSize: 10 }
-                Item { Layout.fillWidth: true }
                 Text { text: "Tool: " + (Modeler.gizmoMode === 0 ? "Select" : Modeler.gizmoMode === 1 ? "Move" : Modeler.gizmoMode === 2 ? "Rotate" : "Scale"); color: "#888"; font.pixelSize: 10 }
                 Rectangle { width: 1; height: 16; color: "#2d2d30" }
                 Text { text: currentFile; color: "#666"; font.pixelSize: 10 }
@@ -866,14 +1157,6 @@ Rectangle {
             anchors.fill: parent
             source: "../modules/3DModeling/MaterialEditor.qml"
             onItemChanged: if (item) item.closeRequested.connect(function() { materialEditorOverlay.visible = false })
-        }
-    }
-
-    Rectangle { id: outlinerOverlay; visible: false; z: 10; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8; width: 320; height: Math.min(parent.height * 0.85, 500); color: "#1e1e1e"; border.color: "#333"; border.width: 1; radius: 4
-        Loader {
-            anchors.fill: parent
-            source: "../modules/3DModeling/SceneOutliner.qml"
-            onItemChanged: if (item) item.closeRequested.connect(function() { outlinerOverlay.visible = false })
         }
     }
 
@@ -893,18 +1176,20 @@ Rectangle {
         }
     }
 
-    SymmetryPanel {
-        id: symmetryPanel
-        visible: false; z: 10
-        anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8
-        onClosePanel: symmetryPanel.visible = false
+    Rectangle { id: symmetryOverlay; visible: false; z: 10; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8; width: 260; height: Math.min(parent.height * 0.85, 420); color: "#1e1e1e"; border.color: "#333"; border.width: 1; radius: 4
+        Loader {
+            anchors.fill: parent
+            source: "../modules/3DModeling/SymmetryPanel.qml"
+            onItemChanged: if (item) item.closePanel.connect(function() { symmetryOverlay.visible = false })
+        }
     }
 
-    BoolOpPanel {
-        id: boolOpPanel
-        visible: false; z: 10
-        anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8
-        onClosePanel: boolOpPanel.visible = false
+    Rectangle { id: boolOpOverlay; visible: false; z: 10; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8; width: 260; height: Math.min(parent.height * 0.85, 400); color: "#1e1e1e"; border.color: "#333"; border.width: 1; radius: 4
+        Loader {
+            anchors.fill: parent
+            source: "../modules/3DModeling/BoolOpPanel.qml"
+            onItemChanged: if (item) item.closePanel.connect(function() { boolOpOverlay.visible = false })
+        }
     }
 
     Rectangle {
@@ -924,10 +1209,66 @@ Rectangle {
             MouseArea { anchors.fill: parent; onClicked: closePaintPanel() }
         }
     }
+    }
 
-    function openSymmetryPanel() { symmetryPanel.visible = !symmetryPanel.visible }
+    function openSymmetryPanel() { symmetryOverlay.visible = !symmetryOverlay.visible }
     function openPaintPanel() { paintPanelOverlay.visible = !paintPanelOverlay.visible }
     function closePaintPanel() { paintPanelOverlay.visible = false }
+
+    FileDialog {
+        id: openSceneDialog
+        title: "Open Scene"
+        nameFilters: ["KS Scene (*.ks3d)", "KN5 Scene (*.kn5)", "All Files (*)"]
+        onAccepted: {
+            var path = fileUrl.toString().replace("file:///", "").replace("file://", "")
+            if (Modeler.loadScene) {
+                var ok = Modeler.loadScene(path)
+                currentFile = ok ? path : currentFile
+                commandEcho = ok ? "Opened: " + path : "Open failed"
+            }
+            if (sceneModel) sceneModel.refresh()
+        }
+    }
+
+    FileDialog {
+        id: saveDialog
+        title: "Save Scene As"
+        fileMode: FileDialog.SaveFile
+        nameFilters: ["KS Scene (*.ks3d)"]
+        onAccepted: {
+            var path = fileUrl.toString().replace("file:///", "").replace("file://", "")
+            if (!path.toLowerCase().endsWith(".ks3d"))
+                path += ".ks3d"
+            var ok = Modeler.saveScene ? Modeler.saveScene(path) : false
+            currentFile = ok ? path : currentFile
+            commandEcho = ok ? "Saved: " + path : "Save failed"
+        }
+    }
+
+    FileDialog {
+        id: importDialog
+        title: "Import 3D Model"
+        nameFilters: ["Supported Files (*.kn5 *.fbx *.glb *.gltf *.obj)", "KN5 (*.kn5)", "FBX (*.fbx)", "GLB/GLTF (*.glb *.gltf)", "OBJ (*.obj)"]
+        onAccepted: {
+            if (Modeler.importFile) {
+                var ok = Modeler.importFile(fileUrl.toString().replace("file:///", "").replace("file://", ""))
+                commandEcho = ok ? "Imported: " + fileUrl : "Import failed"
+            }
+            if (sceneModel) sceneModel.refresh()
+        }
+    }
+
+    FileDialog {
+        id: exportDialog
+        title: "Export 3D Model"
+        fileMode: FileDialog.SaveFile
+        nameFilters: ["KN5 (*.kn5)", "FBX (*.fbx)", "OBJ (*.obj)", "GLB (*.glb)"]
+        onAccepted: {
+            var path = fileUrl.toString().replace("file:///", "").replace("file://", "")
+            var ok = Modeler.exportFile ? Modeler.exportFile(path) : false
+            commandEcho = ok ? "Exported: " + path : "Export failed"
+        }
+    }
 
     Shortcut { sequence: "Q"; onActivated: { if (Modeler.setGizmoMode) Modeler.setGizmoMode(0) } }
     Shortcut { sequence: "W"; onActivated: { if (Modeler.setGizmoMode) Modeler.setGizmoMode(1) } }

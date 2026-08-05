@@ -1,4 +1,4 @@
-#include "ModManagerEditorModule.h"
+﻿#include "ModManagerEditorModule.h"
 #include "ModManager.h"
 #include "ContentRepairTool.h"
 #include "ContentBrowser.h"
@@ -473,4 +473,3 @@ void ModManagerEditorModule::onDeactivation() {
 } // namespace modmanager
 } // namespace ks
 
-#include "ModManagerEditorModule.moc"

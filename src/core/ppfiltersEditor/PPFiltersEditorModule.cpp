@@ -1,4 +1,4 @@
-#include "PPFiltersEditorModule.h"
+﻿#include "PPFiltersEditorModule.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -487,4 +487,3 @@ void PPFiltersEditorModule::onRealTimePreviewToggled(bool checked) {
 } // namespace ppfilters
 } // namespace ks
 
-#include "PPFiltersEditorModule.moc"

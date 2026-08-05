@@ -894,7 +894,7 @@ void PhysicsQmlBridge::setErsArchitecture(int v) {
 void PhysicsQmlBridge::setErsDeploymentMode(int v) {
     m_config.ers.deploymentMode = v;
     auto* sim = phys_Simulator::instance();
-    sim->setErsMode(static_cast<HybridSystem::ErsMode>(v));
+    sim->setErsMode(v);
     emit ersChanged();
 }
 

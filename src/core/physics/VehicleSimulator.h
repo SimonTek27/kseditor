@@ -73,7 +73,7 @@ public:
 
     void setDrsEnabled(bool enabled) override { m_drsEnabled = enabled; }
     bool drsEnabled() const override { return m_drsEnabled; }
-    void setDrsAutoActivate(bool autoActivate) override;
+    void setDrsAutoActivate(bool autoActivate) override { m_drsAutoActivate = autoActivate; }
     bool drsAutoActivate() const override { return m_drsAutoActivate; }
     void setDrsSpeedThreshold(double kmh) override { m_drsSpeedThreshold = kmh; }
     double drsSpeedThreshold() const override { return m_drsSpeedThreshold; }
@@ -126,14 +126,15 @@ public:
         const QVector<double>& refBrake,
         const QVector<double>& refSteering) const override;
 
+    void updatePhysics(double dt);
+
 signals:
-    void stateUpdated(const SimulationState& state) override;
-    void simulationStarted() override;
-    void simulationStopped() override;
-    void tireDataUpdated(double slipAngle, double lateralForce, double slipRatio, double longitudinalForce) override;
+    void stateUpdated(const SimulationState& state);
+    void simulationStarted();
+    void simulationStopped();
+    void tireDataUpdated(double slipAngle, double lateralForce, double slipRatio, double longitudinalForce);
 
 private:
-    void updatePhysics(double dt);
     void updateTireModel(double dt);
     void updateWeightTransfer(double longitudinalAccel, double lateralAccel);
     void updatePerWheelForces(double dt);

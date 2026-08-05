@@ -2,6 +2,7 @@
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QTableWidgetItem>
+#include <QHeaderView>
 
 namespace ks {
 

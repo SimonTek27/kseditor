@@ -10,8 +10,13 @@
 #include <QStringList>
 
 namespace ks {
-class KsIniDocument;
-class KsSetupData;
+namespace kunos { struct KsSetupData; class KsSetupManager; }
+namespace plugins { namespace kunos { namespace ks { class KsIniDocument; class KsIniSection; } } }
+
+using KsSetupData     = ::ks::kunos::KsSetupData;
+using KsSetupManager  = ::ks::kunos::KsSetupManager;
+using KsIniDocument   = ::ks::plugins::kunos::ks::KsIniDocument;
+using KsIniSection    = ::ks::plugins::kunos::ks::KsIniSection;
 }
 
 namespace ks {

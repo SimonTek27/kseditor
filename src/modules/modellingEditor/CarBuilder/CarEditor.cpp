@@ -245,46 +245,46 @@ void CarEditor::setConfig(const CarConfig& config)
     emit carModified();
 }
 
-void CarEditor::loadLivery(const QString& path)
+void CarEditor::loadPaint(const QString& path)
 {
-    qDebug() << "Loading livery from:" << path;
+    qDebug() << "Loading paint from:" << path;
 
-    LiveryEditor::instance()->setCarPath(path);
+    PaintEditor::instance()->setCarPath(path);
 
-    emit liveryLoaded(path);
+    emit paintLoaded(path);
     emit carModified();
 }
 
-void CarEditor::saveLivery(const QString& path)
+void CarEditor::savePaint(const QString& path)
 {
-    qDebug() << "Saving livery to:" << path;
+    qDebug() << "Saving paint to:" << path;
 
-    LiveryEditor::instance()->saveCurrentSkin();
+    PaintEditor::instance()->saveCurrentSkin();
 
-    emit liverySaved(path);
+    emit paintSaved(path);
 }
 
-bool CarEditor::loadLiveryTexture(const QString& skinPath)
+bool CarEditor::loadPaintTexture(const QString& skinPath)
 {
-    return LiveryEditor::instance()->loadLiveryTexture(skinPath);
+    return PaintEditor::instance()->loadPaintTexture(skinPath);
 }
 
-bool CarEditor::saveLiveryTexture(const QImage& texture, const QString& skinPath)
+bool CarEditor::savePaintTexture(const QImage& texture, const QString& skinPath)
 {
-    return LiveryEditor::instance()->saveLiveryTexture(texture, skinPath);
+    return PaintEditor::instance()->savePaintTexture(texture, skinPath);
 }
 
 QStringList CarEditor::getSkins() const
 {
-    return LiveryEditor::instance()->getSkinNames();
+    return PaintEditor::instance()->getSkinNames();
 }
 
 bool CarEditor::setCurrentSkin(const QString& skinName)
 {
-    bool ok = LiveryEditor::instance()->setCurrentSkin(skinName);
+    bool ok = PaintEditor::instance()->setCurrentSkin(skinName);
     if (ok) {
-        m_liveryConfig = LiveryEditor::instance()->currentConfig();
-        emit liveryLoaded(skinName);
+        m_paintConfig = PaintEditor::instance()->currentConfig();
+        emit paintLoaded(skinName);
     }
     return ok;
 }

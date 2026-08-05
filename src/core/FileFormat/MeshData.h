@@ -7,6 +7,7 @@
 #include <QMatrix4x4>
 
 namespace ks {
+namespace fileformat {
 
 struct MeshVertex {
     float px = 0, py = 0, pz = 0;
@@ -52,4 +53,5 @@ struct MeshData {
     uint32_t triangleCount() const { return indices.size() / 3; }
 };
 
+} // namespace fileformat
 } // namespace ks

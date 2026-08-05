@@ -46,15 +46,39 @@ public:
     QIODevice* outputDevice() { return m_outputDevice; }
     QIODevice* inputDevice() { return m_inputDevice; }
 
+    // Real-time preview / audition
+    bool previewEvent(const QString& eventPath, const QString& audioFilePath,
+                      float volume = 1.0f, float pitch = 1.0f, bool loop = false);
+    void stopPreview();
+    bool isPreviewing() const { return m_previewing; }
+    void setPreviewVolume(float volume);
+    void setPreviewPitch(float pitch);
+
 signals:
+    void previewStarted(const QString& eventPath);
+    void previewStopped();
+    void previewError(const QString& msg);
     void error(const QString& msg);
 
 private:
+    void processPreviewOutput();
+
     QAudioSink* m_audioOut = nullptr;
     QAudioSource* m_audioIn = nullptr;
     QIODevice* m_outputDevice = nullptr;
     QIODevice* m_inputDevice = nullptr;
     QMutex m_mutex;
+
+    // Preview state
+    bool m_previewing = false;
+    QString m_previewEventPath;
+    QVector<float> m_previewSamples;
+    int m_previewSampleRate = 44100;
+    int m_previewChannels = 2;
+    int m_previewPosition = 0;
+    float m_previewVolume = 1.0f;
+    float m_previewPitch = 1.0f;
+    bool m_previewLoop = false;
 };
 
 class KSAudioCore : public QObject {

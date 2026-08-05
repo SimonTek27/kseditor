@@ -16,7 +16,7 @@ Rectangle {
     property var uvChannels: ["Map 1", "Lightmap", "Detail"]
     property real lodDistance: 50
     property bool isExporting: false
-    property string currentFile: Modeler ? Modeler.currentFile || "untitled.zm" : "untitled.zm"
+    property string currentFile: Modeler ? Modeler.currentFile || "untitled.ks3d" : "untitled.ks3d"
 
     RowLayout {
         anchors.fill: parent

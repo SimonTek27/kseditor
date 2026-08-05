@@ -1,4 +1,4 @@
-#include "HelpEditorModule.h"
+﻿#include "HelpEditorModule.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -402,9 +402,9 @@ Blender, Maya, 3ds Max, and other DCC tools.</p>
 </ul>
 <h3>Format Pipeline</h3>
 <pre>
-FBX/OBJ/glTF → ksEditor → KN5 → Assetto Corsa
-                        → FBX → Blender/Maya (further editing)
-                        → glTF → Web/Unreal/Unity
+FBX/OBJ/glTF â†’ ksEditor â†’ KN5 â†’ Assetto Corsa
+                        â†’ FBX â†’ Blender/Maya (further editing)
+                        â†’ glTF â†’ Web/Unreal/Unity
 </pre>)"},
         {"EditorModule Base Class", R"(<h2>EditorModule Base Class</h2>
 <p>All editor features inherit from <code>EditorModule</code> or <code>ModuleGuiBase</code>.</p>
@@ -603,4 +603,3 @@ void HelpEditorModule::onOpenExternalDocs() {
 } // namespace help
 } // namespace ks
 
-#include "HelpEditorModule.moc"

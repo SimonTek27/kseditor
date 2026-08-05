@@ -10,8 +10,6 @@
 
 namespace ks {
 
-using graphics::SceneObject;
-
 class SceneGraph
 {
 public:

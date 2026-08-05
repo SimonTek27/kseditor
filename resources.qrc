@@ -267,6 +267,7 @@
         <file alias="modules/collab_Editor.qml">resources/ui/qml/modules/collab_Editor.qml</file>
         <file alias="modules/Car_LicensePlates.qml">resources/ui/qml/modules/Car_LicensePlates.qml</file>
         <file alias="modules/car_DisplayEditor.qml">resources/ui/qml/modules/car_DisplayEditor.qml</file>
+        <file alias="modules/ace_ContentBrowser.qml">resources/ui/qml/modules/ace_ContentBrowser.qml</file>
         <file alias="widgets/AllWidgets.qml">resources/ui/qml/widgets/AllWidgets.qml</file>
         <file alias="widgets/qmldir">resources/ui/qml/widgets/qmldir</file>
         <file alias="modules/3DModeling/main.qml">resources/ui/qml/modules/3DModeling/main.qml</file>

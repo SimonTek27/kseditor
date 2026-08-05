@@ -7,6 +7,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QMap>
+#include <QBoxLayout>
 
 namespace ks {
 

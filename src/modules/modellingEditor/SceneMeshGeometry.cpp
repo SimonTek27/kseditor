@@ -6,14 +6,13 @@
 #include <cstring>
 
 namespace ks {
-using namespace graphics;
 
-ks::SceneMeshGeometry::SceneMeshGeometry(QQuick3DObject* parent)
+ks::QmlSceneMeshGeometry::QmlSceneMeshGeometry(QQuick3DObject* parent)
     : QQuick3DGeometry(parent)
 {
 }
 
-void ks::SceneMeshGeometry::setObjectId(int id) {
+void ks::QmlSceneMeshGeometry::setObjectId(int id) {
     if (m_objectId != id) {
         m_objectId = id;
         emit objectIdChanged();
@@ -21,7 +20,7 @@ void ks::SceneMeshGeometry::setObjectId(int id) {
     }
 }
 
-void ks::SceneMeshGeometry::rebuild() {
+void ks::QmlSceneMeshGeometry::rebuild() {
     clear();
     if (m_objectId < 0) return;
 

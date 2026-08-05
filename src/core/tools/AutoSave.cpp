@@ -495,6 +495,14 @@ bool CrashRecovery::recoverAbandonedSession(const QString& sessionId)
     return false;
 }
 
+void CrashRecovery::dismissSession(const QString& sessionId)
+{
+    if (sessionId.isEmpty()) return;
+    QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+                  + "/sessions";
+    QFile::remove(dir + "/" + sessionId + ".json");
+}
+
 void CrashRecovery::loadSession()
 {
     QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)

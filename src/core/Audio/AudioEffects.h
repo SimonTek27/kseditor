@@ -409,6 +409,59 @@ namespace ks {
             double m_x1 = 0, m_x2 = 0, m_y1 = 0, m_y2 = 0;
         };
 
+class Phaser : public QObject
+        {
+            Q_OBJECT
+                Q_PROPERTY(float rate READ rate WRITE setRate)
+                Q_PROPERTY(float depth READ depth WRITE setDepth)
+                Q_PROPERTY(float feedback READ feedback WRITE setFeedback)
+                Q_PROPERTY(float mix READ mix WRITE setMix)
+            public:
+                explicit Phaser(QObject* parent = nullptr) : QObject(parent) {}
+                ~Phaser() {}
+
+                void setRate(float hz) { m_rate = qBound(0.01f, hz, 20.0f); }
+                float rate() const { return m_rate; }
+                void setDepth(float d) { m_depth = qBound(0.0f, d, 1.0f); }
+                float depth() const { return m_depth; }
+                void setFeedback(float fb) { m_feedback = qBound(-0.99f, fb, 0.99f); }
+                float feedback() const { return m_feedback; }
+                void setMix(float mix) { m_mix = qBound(0.0f, mix, 1.0f); }
+                float mix() const { return m_mix; }
+
+                QVector<float> process(const QVector<float>& input, int sampleRate) {
+                    QVector<float> output(input.size());
+                    float phase = 0.0f;
+                    float phaseInc = 2.0f * M_PI * m_rate / sampleRate;
+                    float delayBuffer = 0.0f;
+
+                    for (int i = 0; i < input.size(); ++i) {
+                        float dry = input[i];
+                        float lfo = sinf(phase);
+                        float modDelay = m_depth * 0.002f * (1.0f + lfo); // 0-2ms delay
+                        int delaySamples = static_cast<int>(modDelay * sampleRate);
+
+                        // Simple all-pass phaser
+                        float wet = dry * 0.5f + delayBuffer * 0.5f;
+                        delayBuffer = wet * m_feedback + dry * 0.5f;
+
+                        phase += 2.0f * M_PI * m_rate / sampleRate;
+                        if (phase > 2.0f * M_PI) phase -= 2.0f * M_PI;
+
+                        output[i] = dry * (1.0f - m_mix) + wet * m_mix;
+                    }
+                    return output;
+                }
+
+                void reset() {}
+
+private:
+                float m_rate = 0.5f;
+                float m_depth = 0.5f;
+                float m_feedback = 0.0f;
+                float m_mix = 0.5f;
+            };
+
         class BitCrusher : public QObject
         {
             Q_OBJECT
@@ -416,58 +469,58 @@ namespace ks {
                 Q_PROPERTY(int sampleRateReduction READ sampleRateReduction WRITE setSampleRateReduction)
                 Q_PROPERTY(float mix READ mix WRITE setMix)
                 Q_PROPERTY(float noiseShaping READ noiseShaping WRITE setNoiseShaping)
-        public:
-            explicit BitCrusher(QObject* parent = nullptr) : QObject(parent) {}
-            ~BitCrusher() {}
+            public:
+                explicit BitCrusher(QObject* parent = nullptr) : QObject(parent) {}
+                ~BitCrusher() {}
 
-            void setBitDepth(int bits) { m_bitDepth = qBound(1, bits, 24); }
-            int bitDepth() const { return m_bitDepth; }
-            void setSampleRateReduction(int factor) { m_srReduction = qBound(1, factor, 100); }
-            int sampleRateReduction() const { return m_srReduction; }
-            void setMix(float mix) { m_mix = qBound(0.0f, mix, 1.0f); }
-            float mix() const { return m_mix; }
-            void setNoiseShaping(float ns) { m_noiseShaping = qBound(0.0f, ns, 1.0f); }
-            float noiseShaping() const { return m_noiseShaping; }
+                void setBitDepth(int bits) { m_bitDepth = qBound(1, bits, 24); }
+                int bitDepth() const { return m_bitDepth; }
+                void setSampleRateReduction(int factor) { m_srReduction = qBound(1, factor, 100); }
+                int sampleRateReduction() const { return m_srReduction; }
+                void setMix(float mix) { m_mix = qBound(0.0f, mix, 1.0f); }
+                float mix() const { return m_mix; }
+                void setNoiseShaping(float ns) { m_noiseShaping = qBound(0.0f, ns, 1.0f); }
+                float noiseShaping() const { return m_noiseShaping; }
 
-            QVector<float> process(const QVector<float>& input, int sampleRate) {
-                Q_UNUSED(sampleRate)
+                QVector<float> process(const QVector<float>& input, int sampleRate) {
+                    Q_UNUSED(sampleRate)
                     QVector<float> output(input.size());
-                float quantSteps = std::pow(2.0f, m_bitDepth - 1);
-                float invSteps = 1.0f / quantSteps;
+                    float quantSteps = std::pow(2.0f, m_bitDepth - 1);
+                    float invSteps = 1.0f / quantSteps;
 
-                for (int i = 0; i < input.size(); ++i) {
-                    float s = input[i];
+                    for (int i = 0; i < input.size(); ++i) {
+                        float s = input[i];
 
-                    m_holdCounter++;
-                    if (m_holdCounter >= m_srReduction) {
-                        m_holdCounter = 0;
-                        m_heldSample = s;
+                        m_holdCounter++;
+                        if (m_holdCounter >= m_srReduction) {
+                            m_holdCounter = 0;
+                            m_heldSample = s;
+                        }
+
+                        float sample = m_heldSample + m_error * m_noiseShaping;
+                        sample = std::round(sample * quantSteps) * invSteps;
+                        m_error = s - sample;
+
+                        output[i] = s * (1.0f - m_mix) + sample * m_mix;
                     }
-
-                    float sample = m_heldSample + m_error * m_noiseShaping;
-                    sample = std::round(sample * quantSteps) * invSteps;
-                    m_error = s - sample;
-
-                    output[i] = s * (1.0f - m_mix) + sample * m_mix;
+                    return output;
                 }
-                return output;
-            }
 
-            void reset() {
-                m_heldSample = 0.0f;
-                m_holdCounter = 0;
-                m_error = 0.0f;
-            }
+                void reset() {
+                    m_heldSample = 0.0f;
+                    m_holdCounter = 0;
+                    m_error = 0.0f;
+                }
 
-        private:
-            int m_bitDepth = 8;
-            int m_srReduction = 4;
-            float m_mix = 0.5f;
-            float m_noiseShaping = 0.5f;
-            float m_heldSample = 0.0f;
-            int m_holdCounter = 0;
-            float m_error = 0.0f;
-        };
+            private:
+                int m_bitDepth = 8;
+                int m_srReduction = 4;
+                float m_mix = 0.5f;
+                float m_noiseShaping = 0.5f;
+                float m_heldSample = 0.0f;
+                int m_holdCounter = 0;
+                float m_error = 0.0f;
+            };
 
         class Ducker : public QObject
         {
@@ -1897,6 +1950,23 @@ namespace ks {
         signals:
             void settingsChanged();
 
+        public:
+            // Additional effect wrappers
+            QVector<float> applyPhaser(const QVector<float>& input, int sampleRate, float rate, float depth, float feedback, float mix);
+            QVector<float> applyTremolo(const QVector<float>& input, int sampleRate, float rate, float depth);
+            QVector<float> applyAutoWah(const QVector<float>& input, int sampleRate, float freq, float range, float resonance);
+            QVector<float> applyNoiseGate(const QVector<float>& input, int sampleRate, float threshold, float floor, float attack, float release);
+            QVector<float> applyDeEsser(const QVector<float>& input, int sampleRate, float freq, float threshold);
+            QVector<float> applyBitCrusher(const QVector<float>& input, int sampleRate, int bitDepth, float downsample);
+            QVector<float> applyRingMod(const QVector<float>& input, int sampleRate, float freq, float mix);
+            QVector<float> applySaturation(const QVector<float>& input, int sampleRate, float drive, float mix);
+            QVector<float> applyTapeEmulation(const QVector<float>& input, int sampleRate, float saturation, float wow, float flutter);
+            QVector<float> applyGuitarAmp(const QVector<float>& input, int sampleRate, float gain, float tone, float volume);
+            QVector<float> applyTransientDesigner(const QVector<float>& input, int sampleRate, float attack, float sustain);
+            QVector<float> applyStereoEnhancer(const QVector<float>& input, int sampleRate, float width);
+            QVector<float> applyMultibandCompressor(const QVector<float>& input, int sampleRate, float lowThresh, float midThresh, float highThresh,
+                                                     float lowRatio, float midRatio, float highRatio, float attack, float release);
+
         private:
             void applyEQ(QVector<float>& samples) {
                 for (int i = 0; i < samples.size(); ++i) {
@@ -2029,6 +2099,132 @@ namespace ks {
         void    resetMasterChain();
         QJsonObject saveMasterPreset(const QString& name);
         void    loadMasterPreset(const QJsonObject& preset);
+
+        // Additional effect implementations
+        inline QVector<float> AudioEffects::applyPhaser(const QVector<float>& input, int sampleRate, float rate, float depth, float feedback, float mix)
+        {
+            Phaser phaser;
+            phaser.setRate(rate);
+            phaser.setDepth(depth);
+            phaser.setFeedback(feedback);
+            phaser.setMix(mix);
+            return phaser.process(input, sampleRate);
+        }
+
+        inline QVector<float> AudioEffects::applyTremolo(const QVector<float>& input, int sampleRate, float rate, float depth)
+        {
+            TremoloModulation trem;
+            trem.setRate(rate);
+            trem.setDepth(depth);
+            return trem.process(input, sampleRate);
+        }
+
+        inline QVector<float> AudioEffects::applyAutoWah(const QVector<float>& input, int sampleRate, float freq, float range, float resonance)
+        {
+            AutoWah wah;
+            wah.setFreqMin(freq - range/2);
+            wah.setFreqMax(freq + range/2);
+            wah.setResonance(resonance);
+            return wah.process(input, sampleRate);
+        }
+
+        inline QVector<float> AudioEffects::applyNoiseGate(const QVector<float>& input, int sampleRate, float threshold, float floor, float attack, float release)
+        {
+            NoiseGate gate;
+            gate.setThreshold(threshold);
+            gate.setRatio(floor);  // floor maps to ratio
+            gate.setAttack(attack);
+            gate.setRelease(release);
+            return gate.process(input, sampleRate);
+        }
+
+        inline QVector<float> AudioEffects::applyDeEsser(const QVector<float>& input, int sampleRate, float freq, float threshold)
+        {
+            DeEsser deesser;
+            deesser.setFrequency(freq);
+            deesser.setThreshold(threshold);
+            return deesser.process(input, sampleRate);
+        }
+
+        inline QVector<float> AudioEffects::applyBitCrusher(const QVector<float>& input, int sampleRate, int bitDepth, float downsample)
+        {
+            BitCrusher crusher;
+            crusher.setBitDepth(bitDepth);
+            crusher.setSampleRateReduction(static_cast<int>(downsample));
+            return crusher.process(input, sampleRate);
+        }
+
+        inline QVector<float> AudioEffects::applyRingMod(const QVector<float>& input, int sampleRate, float freq, float mix)
+        {
+            RingMod ring;
+            ring.setFrequency(freq);
+            ring.setMix(mix);
+            return ring.process(input, sampleRate);
+        }
+
+        inline QVector<float> AudioEffects::applySaturation(const QVector<float>& input, int sampleRate, float drive, float mix)
+        {
+            SaturationDistortion sat;
+            sat.setDrive(drive);
+            sat.setMix(mix);
+            return sat.process(input, sampleRate);
+        }
+
+        inline QVector<float> AudioEffects::applyTapeEmulation(const QVector<float>& input, int sampleRate, float saturation, float wow, float flutter)
+        {
+            TapeEmulator tape;
+            tape.setDrive(saturation);
+            tape.setWowRate(wow);
+            tape.setWowDepth(flutter);
+            return tape.process(input, sampleRate);
+        }
+
+        inline QVector<float> AudioEffects::applyGuitarAmp(const QVector<float>& input, int sampleRate, float gain, float tone, float volume)
+        {
+            GuitarAmpSimulator amp;
+            amp.setGain(gain);
+            amp.setMid(tone);  // tone maps to mid EQ
+            amp.setVolume(volume);
+            return amp.process(input, sampleRate);
+        }
+
+        inline QVector<float> AudioEffects::applyTransientDesigner(const QVector<float>& input, int sampleRate, float attack, float sustain)
+        {
+            TransientDesigner td;
+            td.setAttack(attack);
+            td.setSustain(sustain);
+            return td.process(input, sampleRate);
+        }
+
+        inline QVector<float> AudioEffects::applyStereoEnhancer(const QVector<float>& input, int sampleRate, float width)
+        {
+            StereoEnhancer se;
+            se.setWidth(width);
+            return se.process(input, sampleRate);
+        }
+
+        inline QVector<float> AudioEffects::applyMultibandCompressor(const QVector<float>& input, int sampleRate, float lowThresh, float midThresh, float highThresh,
+                                                               float lowRatio, float midRatio, float highRatio, float attack, float release)
+        {
+            MultibandCompressor mbc;
+            mbc.setBandCount(3);
+            // Band 0: Low
+            mbc.setBandThreshold(0, lowThresh);
+            mbc.setBandRatio(0, lowRatio);
+            mbc.setBandAttack(0, attack);
+            mbc.setBandRelease(0, release);
+            // Band 1: Mid
+            mbc.setBandThreshold(1, midThresh);
+            mbc.setBandRatio(1, midRatio);
+            mbc.setBandAttack(1, attack);
+            mbc.setBandRelease(1, release);
+            // Band 2: High
+            mbc.setBandThreshold(2, highThresh);
+            mbc.setBandRatio(2, highRatio);
+            mbc.setBandAttack(2, attack);
+            mbc.setBandRelease(2, release);
+            return mbc.process(input, sampleRate);
+        }
 
     } // namespace audio
 } // namespace ks

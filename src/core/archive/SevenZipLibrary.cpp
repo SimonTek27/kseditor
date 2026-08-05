@@ -1,8 +1,8 @@
 #include "SevenZipLibrary.h"
 
 #if HAS_7ZIP
-// 7zip headers - must include MyInitGuid.h before interface headers to define GUIDs
-#include "MyInitGuid.h"
+// 7zip headers - GUIDs are defined once in DllExports.obj (7zip_archive.lib)
+#include "Common/MyWindows.h"
 #include "Common/Common.h"
 #include "Archive/IArchive.h"
 #include "Common/FileStreams.h"

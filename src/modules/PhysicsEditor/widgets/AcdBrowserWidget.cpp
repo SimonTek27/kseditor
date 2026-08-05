@@ -5,6 +5,8 @@
 #include <QTextEdit>
 #include <QPushButton>
 #include <QTreeWidgetItem>
+#include <QLabel>
+#include <QFileDialog>
 #include <QFileInfo>
 #include <QDir>
 #include <QFile>

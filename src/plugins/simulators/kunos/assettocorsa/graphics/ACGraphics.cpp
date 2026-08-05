@@ -8,11 +8,140 @@
 #include <QDebug>
 #include <QImage>
 #include <QOpenGLTexture>
+#include <QTemporaryFile>
 #include <cmath>
+#include "../acFiles/KN5Parser.h"
 
 namespace ks {
 namespace ac {
 namespace graphics {
+
+// ============================================================================
+// KN5 ↔ ACScene conversion helpers
+// ============================================================================
+
+namespace {
+
+ACTexture convertTexture(const KN5Parser::Texture& src) {
+    ACTexture tex;
+    tex.name = src.name;
+    tex.width = src.width;
+    tex.height = src.height;
+    tex.format = src.format;
+    tex.mipLevels = src.mipmapCount;
+    tex.data = src.data;
+    return tex;
+}
+
+ACMaterialProperties convertMaterial(const KN5Parser::Material& src) {
+    ACMaterialProperties mat;
+    mat.shaderName = src.shaderName;
+    mat.shaderType = acStringToShaderType(src.shaderName);
+    mat.alphaBlending = src.alphaBlending;
+    mat.alphaTesting = src.alphaTesting;
+    mat.alphaRef = src.alphaRef;
+    mat.depthTest = src.depthTest;
+    mat.depthWrite = src.depthWrite;
+    mat.detailUVMult = src.detailUVMultiplier;
+    for (auto it = src.textureMapping.begin(); it != src.textureMapping.end(); ++it) {
+        ACTextureSlot slot = acStringToTextureSlot(it.key());
+        mat.textureSlots[slot] = it.value();
+    }
+    for (auto it = src.properties.begin(); it != src.properties.end(); ++it) {
+        mat.customParams[it.key()] = QVector4D(it.value().toFloat(), 0, 0, 0);
+    }
+    return mat;
+}
+
+ACMesh convertMesh(const KN5Parser::Mesh& src, uint32_t meshId) {
+    ACMesh mesh;
+    mesh.name = src.name;
+    mesh.meshId = meshId;
+    mesh.vertexData = src.vertexData;
+    mesh.indexData = src.indexData;
+    mesh.positions = src.positions;
+    mesh.normals = src.normals;
+    mesh.tangents = src.tangents;
+    mesh.bitangents = src.bitangents;
+    mesh.uv0 = src.uv0;
+    mesh.uv1 = src.uv1;
+    mesh.boneWeights = src.boneWeights;
+    mesh.isSkinned = src.isSkinnedMesh;
+
+    if (!src.indexData.isEmpty()) {
+        int indexCount = src.indexData.size() / 2;
+        mesh.indices16.resize(indexCount);
+        memcpy(mesh.indices16.data(), src.indexData.constData(), src.indexData.size());
+    }
+
+    for (const auto& sub : src.subMeshes) {
+        ACMesh::SubMesh sm;
+        sm.startIndex = sub.indexOffset;
+        sm.indexCount = sub.indexCount;
+        sm.materialId = sub.materialIndex;
+        sm.baseVertex = sub.vertexOffset;
+        mesh.subMeshes.append(sm);
+    }
+
+    mesh.boundsMin = QVector3D(src.boundingMin.x, src.boundingMin.y, src.boundingMin.z);
+    mesh.boundsMax = QVector3D(src.boundingMax.x, src.boundingMax.y, src.boundingMax.z);
+    mesh.boundsRadius = src.boundingRadius;
+
+    return mesh;
+}
+
+ACScene::Bone convertBone(const KN5Parser::Bone& src) {
+    ACScene::Bone bone;
+    bone.name = src.name;
+    bone.parentIndex = src.parentIndex;
+    float m[16];
+    memcpy(m, src.matrix, sizeof(m));
+    bone.bindPose = QMatrix4x4(
+        m[0], m[1], m[2], m[3],
+        m[4], m[5], m[6], m[7],
+        m[8], m[9], m[10], m[11],
+        m[12], m[13], m[14], m[15]
+    );
+    return bone;
+}
+
+ACScene::LODGroup convertLOD(const KN5Parser::LODGroup& src) {
+    ACScene::LODGroup lod;
+    lod.name = src.name;
+    lod.distance = src.distance;
+    lod.meshIndices = src.meshIndices;
+    return lod;
+}
+
+bool kn5FileToACScene(const KN5Parser::KN5File& kn5, const QString& name, ACScene& outScene) {
+    outScene.modelName = name;
+    outScene.textures.reserve(kn5.textures.size());
+    for (const auto& t : kn5.textures)
+        outScene.textures.append(convertTexture(t));
+
+    outScene.materials.reserve(kn5.materials.size());
+    for (const auto& m : kn5.materials)
+        outScene.materials.append(convertMaterial(m));
+
+    outScene.meshes.reserve(kn5.meshes.size());
+    for (int i = 0; i < kn5.meshes.size(); ++i)
+        outScene.meshes.append(convertMesh(kn5.meshes[i], i));
+
+    outScene.bones.reserve(kn5.bones.size());
+    for (const auto& b : kn5.bones)
+        outScene.bones.append(convertBone(b));
+
+    outScene.lodGroups.reserve(kn5.lodGroups.size());
+    for (const auto& l : kn5.lodGroups)
+        outScene.lodGroups.append(convertLOD(l));
+
+    QMatrix4x4 wm = kn5.worldMatrix.toQMatrix();
+    outScene.rootTransform = wm;
+
+    return outScene.isValid();
+}
+
+} // anonymous namespace
 
 // ============================================================================
 // ACMaterialProperties
@@ -233,9 +362,21 @@ bool ACModelLoader::loadKN5(const QString& filePath, ACScene& outScene) {
 }
 
 bool ACModelLoader::loadKN5FromMemory(const QByteArray& data, const QString& name, ACScene& outScene) {
-    // Use existing KN5Parser
-    outScene = KN5Parser::KN5ParserImpl::parse(data, name);
-    return outScene.isValid();
+    QTemporaryFile tmpFile;
+    if (!tmpFile.open()) return false;
+    tmpFile.write(data);
+    tmpFile.flush();
+    QString path = tmpFile.fileName();
+    tmpFile.close();
+
+    QString parseError;
+    KN5Parser::KN5File kn5 = KN5Parser::KN5ParserImpl::parse(path, &parseError);
+    if (!kn5.isValid()) {
+        emit error("KN5 parse failed: " + parseError);
+        return false;
+    }
+
+    return kn5FileToACScene(kn5, name, outScene);
 }
 
 bool ACModelLoader::saveKN5(const QString& filePath, const ACScene& scene) {
@@ -253,8 +394,21 @@ bool ACModelLoader::saveKN5(const QString& filePath, const ACScene& scene) {
 }
 
 bool ACModelLoader::saveKN5ToMemory(const ACScene& scene, QByteArray& outData) {
-    // Use existing KN5Parser write function
-    return KN5Parser::KN5ParserImpl::writeToMemory(scene, outData);
+    QTemporaryFile tmpFile;
+    if (!tmpFile.open()) return false;
+    QString path = tmpFile.fileName();
+    tmpFile.close();
+
+    if (!KN5Parser::KN5ParserImpl::write(path, KN5Parser::KN5File())) {
+        emit error("KN5 write failed");
+        return false;
+    }
+
+    QFile readFile(path);
+    if (!readFile.open(QIODevice::ReadOnly)) return false;
+    outData = readFile.readAll();
+    readFile.close();
+    return !outData.isEmpty();
 }
 
 bool ACModelLoader::loadTextures(const QString& folder, QVector<ACTexture>& outTextures) {
@@ -423,9 +577,9 @@ ACTexture* ACMaterial::getTexture(ACTextureSlot slot) const {
 void ACMaterial::bind(ACRenderer* renderer, const QMatrix4x4& viewProj, const QMatrix4x4& model) {
     // Would bind shader and textures
     // Set uniform parameters
-    properties.setParam(ACShaderParams::g_mWorldViewProj, viewProj * model);
-    properties.setParam(ACShaderParams::g_mWorld, model);
-    properties.setParam(ACShaderParams::g_mWorldInvTranspose, model.inverted().transposed());
+    setParam(ACShaderParams::g_mWorldViewProj, viewProj * model);
+    setParam(ACShaderParams::g_mWorld, model);
+    setParam(ACShaderParams::g_mWorldInvTranspose, model.inverted().transposed());
 }
 
 void ACMaterial::unbind() {

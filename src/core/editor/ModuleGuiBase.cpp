@@ -1,4 +1,4 @@
-#include "ModuleGuiBase.h"
+﻿#include "ModuleGuiBase.h"
 #include "core/sys/LogManager.h"
 #include <QMainWindow>
 #include <QStandardPaths>
@@ -317,4 +317,3 @@ QVariant ModuleGuiBase::loadSetting(const QString& key, const QVariant& defaultV
     return settings.value("modules/" + moduleId() + "/" + key, defaultValue);
 }
 
-#include "ModuleGuiBase.moc"

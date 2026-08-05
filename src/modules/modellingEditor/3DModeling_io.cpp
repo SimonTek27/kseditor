@@ -1,5 +1,7 @@
 #include "3DModeling_io.h"
 #include "3DModeling.h"
+#include "core/FileFormat/KS3DReader.h"
+#include "core/FileFormat/KS3DWriter.h"
 #include <QDebug>
 #include <QFile>
 #include <QVBoxLayout>
@@ -43,6 +45,7 @@ geometry::Mesh3D* ImportExport3D::importMesh(const QString& path)
     else if (ext == "stl") ok = importSTL(path, scene);
     else if (ext == "gltf" || ext == "glb") ok = importGLTF(path, scene);
     else if (ext == "fbx") ok = importFBX(path, scene);
+    else if (ext == "ks3d") ok = importKS3D(path, scene);
 
     if (ok && !scene->allObjects().isEmpty()) {
         auto* mesh = scene->allObjects().first()->mesh;
@@ -69,6 +72,7 @@ bool ImportExport3D::exportMesh(geometry::Mesh3D* mesh, const QString& path, For
     case OBJ:  ok = exportOBJ(scene, path); break;
     case STL:  ok = exportSTL(scene, path); break;
     case GLTF: ok = exportGLTF(scene, path); break;
+    case KS3D: ok = exportKS3D(scene, path); break;
     default:
         qWarning() << "[ImportExport3D] Unsupported export format:" << format;
         break;
@@ -95,6 +99,7 @@ geometry::Scene3D* ImportExport3D::importScene(const QString& path)
     else if (ext == "stl") ok = importSTL(path, scene);
     else if (ext == "gltf" || ext == "glb") ok = importGLTF(path, scene);
     else if (ext == "fbx") ok = importFBX(path, scene);
+    else if (ext == "ks3d") ok = importKS3D(path, scene);
     else qWarning() << "[ImportExport3D] Unsupported format for scene import:" << ext;
 
     if (!ok) {
@@ -114,6 +119,7 @@ bool ImportExport3D::exportScene(geometry::Scene3D* scene, const QString& path, 
     case OBJ:  return exportOBJ(scene, path);
     case STL:  return exportSTL(scene, path);
     case GLTF: return exportGLTF(scene, path);
+    case KS3D: return exportKS3D(scene, path);
     default:
         qWarning() << "[ImportExport3D] Unsupported export format:" << format;
         return false;
@@ -138,6 +144,7 @@ ImportExport3D::ImportResult ImportExport3D::import(const QString& path)
     else if (ext == "stl") ok = importSTL(path, scene);
     else if (ext == "gltf" || ext == "glb") ok = importGLTF(path, scene);
     else if (ext == "fbx") ok = importFBX(path, scene);
+    else if (ext == "ks3d") ok = importKS3D(path, scene);
     else {
         result.success = false;
         result.error = "Unsupported format: " + ext;
@@ -1301,5 +1308,232 @@ TexturingSystem::TextureType TexturingSystem::stringToTextureType(const QString&
 }
 
 namespace io {
+
+bool ImportExport3D::importKS3D(const QString& path, geometry::Scene3D* scene)
+{
+    if (!scene || !QFileInfo(path).exists()) return false;
+
+    KS3DReader reader;
+    if (!reader.readFromFile(path.toStdString())) {
+        qWarning() << "[ImportExport3D] Failed to load .ks3d file:" << reader.lastError().c_str();
+        return false;
+    }
+
+    const auto& ksScene = reader.scene();
+
+    // Import materials
+    QVector<geometry::Material3D*> materials;
+    for (const auto& ksMat : ksScene.materials) {
+        auto* mat = new geometry::Material3D();
+        mat->setName(QString::fromStdString(ksMat.name));
+        mat->setDiffuse(QVector3D(ksMat.baseColor[0], ksMat.baseColor[1], ksMat.baseColor[2]));
+        mat->setMetallic(ksMat.metallic);
+        mat->setRoughness(ksMat.roughness);
+        mat->setOpacity(ksMat.opacity);
+        mat->setEmissive(QVector3D(ksMat.emissive[0], ksMat.emissive[1], ksMat.emissive[2]));
+        materials.append(mat);
+    }
+
+    // Import meshes
+    QVector<geometry::Mesh3D*> meshes;
+    for (const auto& ksMesh : ksScene.meshes) {
+        auto* mesh = new geometry::Mesh3D();
+        mesh->setObjectName(QString::fromStdString(ksMesh.name));
+
+        auto positions = KS3DReader::getVertexPositions(ksMesh);
+        auto normals = KS3DReader::getVertexNormals(ksMesh);
+        auto uvs = KS3DReader::getVertexUVs(ksMesh);
+
+        QVector<QVector3D> verts;
+        verts.reserve(static_cast<int>(positions.size() / 3));
+        for (size_t i = 0; i + 2 < positions.size(); i += 3)
+            verts.append(QVector3D(positions[i], positions[i + 1], positions[i + 2]));
+        mesh->setVertices(verts);
+
+        QVector<QVector3D> norms;
+        norms.reserve(static_cast<int>(normals.size() / 3));
+        for (size_t i = 0; i + 2 < normals.size(); i += 3)
+            norms.append(QVector3D(normals[i], normals[i + 1], normals[i + 2]));
+        mesh->setNormals(norms);
+
+        QVector<QVector2D> uvVec;
+        uvVec.reserve(static_cast<int>(uvs.size() / 2));
+        for (size_t i = 0; i + 1 < uvs.size(); i += 2)
+            uvVec.append(QVector2D(uvs[i], uvs[i + 1]));
+        mesh->setUVs(uvVec);
+
+        QVector<quint32> indices;
+        indices.reserve(static_cast<int>(ksMesh.indices.size()));
+        for (auto idx : ksMesh.indices)
+            indices.append(static_cast<quint32>(idx));
+        mesh->setIndices(indices);
+
+        meshes.append(mesh);
+    }
+
+    // Import scene nodes
+    for (int i = 0; i < ksScene.nodes.size(); i++) {
+        const auto& ksNode = ksScene.nodes[i];
+        auto* mesh = (ksNode.meshIndex >= 0 && ksNode.meshIndex < meshes.size())
+            ? meshes[ksNode.meshIndex] : nullptr;
+        auto* material = (ksNode.materialIndex >= 0 && ksNode.materialIndex < materials.size())
+            ? materials[ksNode.materialIndex] : nullptr;
+
+        QString name = QString::fromStdString(ksNode.name);
+        if (name.isEmpty()) name = "Object_" + QString::number(i);
+
+        QString objId = scene->addObject(name, mesh);
+
+        if (auto* obj = scene->getObject(objId)) {
+            QMatrix4x4 xform;
+            xform.translate(QVector3D(ksNode.position[0], ksNode.position[1], ksNode.position[2]));
+            xform.rotate(QQuaternion(ksNode.rotationQuat[3], ksNode.rotationQuat[0],
+                                     ksNode.rotationQuat[1], ksNode.rotationQuat[2]));
+            xform.scale(QVector3D(ksNode.scale[0], ksNode.scale[1], ksNode.scale[2]));
+            scene->setObjectTransform(objId, xform);
+            obj->visible = ksNode.visible;
+        }
+    }
+
+    return true;
+}
+
+bool ImportExport3D::exportKS3D(geometry::Scene3D* scene, const QString& path)
+{
+    if (!scene) return false;
+
+    KS3DScene ksScene;
+
+    // Export materials
+    QMap<QString, int> materialMap;
+    QVector<geometry::Material3D*> sceneMaterials;
+    for (auto* obj : scene->allObjects()) {
+        if (obj->material && !materialMap.contains(obj->material->name())) {
+            materialMap[obj->material->name()] = sceneMaterials.size();
+            sceneMaterials.append(obj->material);
+        }
+    }
+
+    for (auto* mat : sceneMaterials) {
+        KS3DMaterial ksMat;
+        ksMat.name = mat->name().toStdString();
+        auto diff = mat->diffuse();
+        ksMat.baseColor[0] = diff.x();
+        ksMat.baseColor[1] = diff.y();
+        ksMat.baseColor[2] = diff.z();
+        ksMat.metallic = mat->metallic();
+        ksMat.roughness = mat->roughness();
+        ksMat.opacity = mat->opacity();
+        auto emiss = mat->emissive();
+        ksMat.emissive[0] = emiss.x();
+        ksMat.emissive[1] = emiss.y();
+        ksMat.emissive[2] = emiss.z();
+        ksScene.materials.push_back(ksMat);
+    }
+
+    // Export meshes
+    QMap<QString, int> meshMap;
+    QVector<geometry::Mesh3D*> sceneMeshes;
+    for (auto* obj : scene->allObjects()) {
+        if (obj->mesh && !meshMap.contains(obj->mesh->objectName())) {
+            meshMap[obj->mesh->objectName()] = sceneMeshes.size();
+            sceneMeshes.append(obj->mesh);
+        }
+    }
+
+    for (auto* mesh : sceneMeshes) {
+        KS3DMesh ksMesh;
+        ksMesh.name = mesh->objectName().toStdString();
+        ksMesh.vertexFlags = static_cast<uint32_t>(ks3d::VertexFlags::Position)
+                           | static_cast<uint32_t>(ks3d::VertexFlags::Normal)
+                           | static_cast<uint32_t>(ks3d::VertexFlags::UV0);
+
+        auto verts = mesh->vertices();
+        auto norms = mesh->normals();
+        auto uvs = mesh->uvs();
+        auto indices = mesh->indices();
+
+        int vertCount = verts.size();
+        ksMesh.vertices.reserve(vertCount * 19);  // 19 floats per vertex
+        for (int i = 0; i < vertCount; i++) {
+            ksMesh.vertices.push_back(verts[i].x());
+            ksMesh.vertices.push_back(verts[i].y());
+            ksMesh.vertices.push_back(verts[i].z());
+            if (i < norms.size()) {
+                ksMesh.vertices.push_back(norms[i].x());
+                ksMesh.vertices.push_back(norms[i].y());
+                ksMesh.vertices.push_back(norms[i].z());
+            } else {
+                ksMesh.vertices.insert(ksMesh.vertices.end(), {0, 0, 1});
+            }
+            if (i < uvs.size()) {
+                ksMesh.vertices.push_back(uvs[i].x());
+                ksMesh.vertices.push_back(uvs[i].y());
+            } else {
+                ksMesh.vertices.insert(ksMesh.vertices.end(), {0, 0});
+            }
+            // tangent, bitangent, bone weights, bone index (zeroed)
+            ksMesh.vertices.insert(ksMesh.vertices.end(), {1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0});
+        }
+
+        ksMesh.indices.reserve(indices.size());
+        for (auto idx : indices)
+            ksMesh.indices.push_back(static_cast<uint32_t>(idx));
+
+        if (!indices.isEmpty()) {
+            KS3DSubmesh sub;
+            sub.materialIndex = 0;
+            sub.indexOffset = 0;
+            sub.indexCount = static_cast<uint32_t>(indices.size());
+            ksMesh.submeshes.push_back(sub);
+        }
+
+        ksScene.meshes.push_back(ksMesh);
+    }
+
+    // Export nodes
+    for (auto* obj : scene->allObjects()) {
+        KS3DNode ksNode;
+        ksNode.name = obj->name.toStdString();
+
+        auto xform = obj->transform;
+        ksNode.position[0] = xform(0, 3);
+        ksNode.position[1] = xform(1, 3);
+        ksNode.position[2] = xform(2, 3);
+
+        QQuaternion q = QQuaternion::fromRotationMatrix(xform.normalMatrix());
+        // Simplified: extract rotation from matrix
+        ksNode.rotationQuat[0] = q.x(); ksNode.rotationQuat[1] = q.y();
+        ksNode.rotationQuat[2] = q.z(); ksNode.rotationQuat[3] = q.scalar();
+
+        ksNode.scale[0] = xform(0, 0);
+        ksNode.scale[1] = xform(1, 1);
+        ksNode.scale[2] = xform(2, 2);
+
+        if (obj->mesh && meshMap.contains(obj->mesh->objectName()))
+            ksNode.meshIndex = meshMap[obj->mesh->objectName()];
+        else
+            ksNode.meshIndex = -1;
+
+        if (obj->material && materialMap.contains(obj->material->name()))
+            ksNode.materialIndex = materialMap[obj->material->name()];
+        else
+            ksNode.materialIndex = -1;
+
+        ksNode.visible = obj->visible;
+        ksNode.parentIndex = -1;
+
+        ksScene.nodes.push_back(ksNode);
+    }
+
+    KS3DWriter writer;
+    if (!writer.writeToFile(path.toStdString(), ksScene)) {
+        qWarning() << "[ImportExport3D] Failed to write .ks3d file:" << writer.lastError().c_str();
+        return false;
+    }
+
+    return true;
+}
+
 } // namespace io
 } // namespace ks

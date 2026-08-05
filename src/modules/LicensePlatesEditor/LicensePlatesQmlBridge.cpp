@@ -334,11 +334,11 @@ void LicensePlatesQmlBridge::setHolographicEnabled(bool enabled) { m_holographic
 void LicensePlatesQmlBridge::setGradientColor(const QString& color) { m_gradientColor = color; }
 
 bool LicensePlatesQmlBridge::insertPlateIntoLivery(const QString& skinPath, const QString& text, const QString& country) {
-    bool ok = LiverySystem::generateLicensePlate(text, country, skinPath + "/license_plate.png");
+    bool ok = PaintSystem::generateLicensePlate(text, country, skinPath + "/license_plate.png");
     if (ok) {
-        LiverySystem::SkinConfig config = LiverySystem::loadSkinConfig(skinPath);
+PaintSystem::SkinConfig config = PaintSystem::loadSkinConfig(skinPath);
 
-        LiverySystem::LiveryLayer layer;
+        PaintSystem::PaintLayer layer;
         layer.name = "license_plate";
         layer.type = "decal";
         layer.opacity = 1.0f;
@@ -352,14 +352,14 @@ bool LicensePlatesQmlBridge::insertPlateIntoLivery(const QString& skinPath, cons
 
         config.licensePlateText = text;
         config.licensePlateCountry = country;
-        ok = LiverySystem::saveSkinConfig(config, skinPath);
+ok = PaintSystem::saveSkinConfig(config, skinPath);
     }
     emit plateInsertedIntoLivery(skinPath, ok);
     return ok;
 }
 
 QStringList LicensePlatesQmlBridge::getSupportedLiveryCountries() {
-    return LiverySystem::getSupportedCountries();
+    return PaintSystem::getSupportedCountries();
 }
 
 } // namespace ks

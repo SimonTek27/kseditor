@@ -140,6 +140,9 @@ public slots:
     void runInSimulator();
     void runInAssettoCorsa() { runInSimulator(); }
 
+    // Paint mode
+    void connectPaintTabButtons();
+
     // UI customization
     void saveWindowLayout();
     void loadWindowLayout();
@@ -301,4 +304,33 @@ private:
     ks::FileComparisonEngine* m_diffEngine = nullptr;
     ks::HelpBrowser* m_helpBrowser = nullptr;
     CustomTitleBar* m_customTitleBar = nullptr;
+
+    // Paint tab ribbon buttons (connected in setPaintMode)
+    ks::editor::RibbonButton* m_paintBrushBtn = nullptr;
+    ks::editor::RibbonButton* m_paintPencilBtn = nullptr;
+    ks::editor::RibbonButton* m_paintEraserBtn = nullptr;
+    ks::editor::RibbonButton* m_paintAirbrushBtn = nullptr;
+    ks::editor::RibbonButton* m_paintFillBtn = nullptr;
+    ks::editor::RibbonButton* m_paintGradientBtn = nullptr;
+    ks::editor::RibbonButton* m_paintCloneBtn = nullptr;
+    ks::editor::RibbonButton* m_paintFgColorBtn = nullptr;
+    ks::editor::RibbonButton* m_paintBgColorBtn = nullptr;
+    ks::editor::RibbonButton* m_paintSwapColorsBtn = nullptr;
+    ks::editor::RibbonButton* m_paintDefaultColorsBtn = nullptr;
+    ks::editor::RibbonButton* m_paintRectSelectBtn = nullptr;
+    ks::editor::RibbonButton* m_paintEllipseSelectBtn = nullptr;
+    ks::editor::RibbonButton* m_paintLassoBtn = nullptr;
+    ks::editor::RibbonButton* m_paintMagicWandBtn = nullptr;
+    ks::editor::RibbonButton* m_paintDeselectBtn = nullptr;
+    ks::editor::RibbonButton* m_paintInvertBtn = nullptr;
+    ks::editor::RibbonButton* m_paintZoomInBtn = nullptr;
+    ks::editor::RibbonButton* m_paintZoomOutBtn = nullptr;
+    ks::editor::RibbonButton* m_paintFitBtn = nullptr;
+    ks::editor::RibbonButton* m_paintZoomToolBtn = nullptr;
+    ks::editor::RibbonButton* m_paintFullscreenBtn = nullptr;
+    ks::editor::RibbonButton* m_paintRulersBtn = nullptr;
+    ks::editor::RibbonButton* m_paintNewLayerBtn = nullptr;
+    ks::editor::RibbonButton* m_paintDupLayerBtn = nullptr;
+    ks::editor::RibbonButton* m_paintMergeLayerBtn = nullptr;
+    ks::editor::RibbonButton* m_paintFlattenBtn = nullptr;
 };

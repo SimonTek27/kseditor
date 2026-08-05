@@ -2,7 +2,6 @@
 #include "core/Graphics/SceneMesh.h"
 
 namespace ks {
-using namespace graphics;
 
 SceneObjectListModel::SceneObjectListModel(QObject* parent)
     : QAbstractListModel(parent)

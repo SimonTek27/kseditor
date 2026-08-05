@@ -39,7 +39,7 @@
 #include <algorithm>
 #include <limits>
 
-#include "SDKBackend.h"
+#include "sdk/SDKBackend.h"
 
 #include "assettocorsa_core.h"
 
@@ -526,7 +526,7 @@ events.append("wind");
 #include <QJsonObject>
 #include <QJsonArray>
 
-#include "SDKBackend.h"
+#include "sdk/SDKBackend.h"
 
 #include "ksAssettoCorsaIni.h"
 
@@ -3615,7 +3615,7 @@ inline float* multiplyMatrix(float out[16], const float a[16], const float b[16]
 #include <QDataStream>
 #include <QIODevice>
 
-#include "SDKBackend.h"
+#include "sdk/SDKBackend.h"
 
 
 namespace ks {
@@ -4024,7 +4024,7 @@ inline QString formatReplayTime(float seconds) {
 #include <QMap>
 #include <QTextStream>
 
-#include "SDKBackend.h"
+#include "sdk/SDKBackend.h"
 
 namespace ks {
 
@@ -5648,7 +5648,7 @@ public:
 #include <QTextStream>
 #include <QIODevice>
 
-#include "SDKBackend.h"
+#include "sdk/SDKBackend.h"
 
 
 namespace ks {
@@ -7272,7 +7272,7 @@ public:
 #endif
 
 
-#include "SDKBackend.h"
+#include "sdk/SDKBackend.h"
 
 namespace ks {
 
@@ -7588,7 +7588,7 @@ inline QString formatFileSize(qint64 bytes) {
 #include <QMap>
 #include <QRandomGenerator>
 
-#include "SDKBackend.h"
+#include "sdk/SDKBackend.h"
 
 
 

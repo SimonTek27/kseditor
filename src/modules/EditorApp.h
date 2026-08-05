@@ -33,7 +33,7 @@ namespace geometry { class Scene3D; }
 namespace rendering { class RenderEngine; class Camera3D; }
 namespace io { class ImportExport3D; }
 namespace ac { class TrackModeler; class CarModeler; }
-namespace physics { class PhysicsWorld; class CarPhysics; }
+namespace physics { class PhysicsWorld; class VehicleSimulator; }
 namespace ui { class EditorWindow; class DockPanel; class Timeline; class Viewport; }
 namespace weather { class WeatherEditorModule; }
 namespace audio { class AudioStudio; class AudioProject; class AudioManager; }
@@ -74,7 +74,7 @@ public:
 
     // Physics methods
     physics::PhysicsWorld* physicsWorld() { return m_physicsWorld; }
-    physics::CarPhysics* carPhysics() { return m_carPhysics; }
+    physics::VehicleSimulator* carPhysics() { return m_carPhysics; }
     void simulate(float dt);
 
     // Assetto Corsa methods
@@ -187,7 +187,7 @@ private:
 
     // Physics
     physics::PhysicsWorld* m_physicsWorld = nullptr;
-    physics::CarPhysics* m_carPhysics = nullptr;
+    physics::VehicleSimulator* m_carPhysics = nullptr;
 
     // UI
     ui::EditorWindow* m_mainWindow = nullptr;

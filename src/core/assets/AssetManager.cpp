@@ -1,7 +1,7 @@
 #include "AssetManager.h"
 #include "AssetSearchEngine.h"
 #include "AssetFileWatcher.h"
-#include "../FileFormat/FormatConverter.h"
+#include "plugins/simulators/kunos/assettocorsa/FormatConverter.h"
 
 #include <QDir>
 #include <QFileInfo>

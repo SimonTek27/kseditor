@@ -1,7 +1,8 @@
 #include "SoundEditorModule.h"
+#include "AudioEditorModule.h"
 #include "../../../core/Audio/AudioStudioTypes.h"
 #include "../../../core/Audio/AudioWaveformBridge.h"
-#include "../../../core/Audio/ACEventBridge.h"
+#include "core/Audio/KsACSndEventBridge.h"
 #include "../../../core/sys/LogManager.h"
 #include <QVBoxLayout>
 #include <QUrl>
@@ -36,7 +37,7 @@ bool SoundEditorModule::initialize()
             new AudioEditorModule(this);
 
         m_waveformBridge = new ks::audio::AudioWaveformBridge(this);
-        m_eventBridge = new ks::audio::ACEventBridge(this);
+        m_eventBridge = new ks::audio::KsACSndEventBridge(this);
         auto* ctx = m_quickWidget->rootContext();
         ctx->setContextProperty("waveformBridge", m_waveformBridge);
         ctx->setContextProperty("eventDefs", m_eventBridge);

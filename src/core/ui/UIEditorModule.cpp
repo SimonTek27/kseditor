@@ -1,4 +1,4 @@
-#include "UIEditorModule.h"
+﻿#include "UIEditorModule.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -312,4 +312,3 @@ void UIEditorModule::onToggleAnimations(bool checked) {
 } // namespace ui
 } // namespace ks
 
-#include "UIEditorModule.moc"

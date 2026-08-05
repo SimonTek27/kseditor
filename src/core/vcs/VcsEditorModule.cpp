@@ -1,4 +1,4 @@
-#include "VcsEditorModule.h"
+﻿#include "VcsEditorModule.h"
 #include "GitStatusWidget.h"
 #include "GitManager.h"
 #include "core/editor/ModuleGuiBase.h"
@@ -1137,4 +1137,3 @@ void VcsEditorModule::onDeactivation() {
 
 } // namespace ks
 
-#include "VcsEditorModule.moc"

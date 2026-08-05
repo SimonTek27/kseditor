@@ -6,12 +6,7 @@
 
 namespace ks {
 class SceneGraph;
-namespace graphics {
 class SceneObject;
-} }
-
-namespace ks {
-using graphics::SceneObject;
 
 namespace editor {
 

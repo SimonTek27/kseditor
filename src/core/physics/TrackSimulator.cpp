@@ -1,6 +1,6 @@
 #include "TrackSimulator.h"
 #include "VehicleSimulator.h"
-#include "PhysicsProfiler.h"
+
 #include <QDebug>
 #include <QtMath>
 #include <algorithm>
@@ -20,7 +20,7 @@ TrackSimulator::TrackSimulator(QObject* parent)
     , m_sessionTimer()
 {
     // Initialize default session state
-    m_sessionState.type = TrackSessionState::Practice;
+    m_sessionState.type = TrackSessionState::SessionType::Practice;
     m_sessionState.sessionActive = false;
     
     // Default weather
@@ -182,8 +182,8 @@ bool TrackSimulator::setVehicle(VehicleSimulator* vehicle) {
 // Session Control
 // ============================================================================
 
-void TrackSimulator::setSessionType(SessionType type) {
-    m_sessionState.type = static_cast<TrackSessionState::SessionType>(type);
+void TrackSimulator::setSessionType(TrackSessionState::SessionType type) {
+    m_sessionState.type = type;
     emit sessionTypeChanged(m_sessionState.type);
 }
 
@@ -278,7 +278,7 @@ void TrackSimulator::resumeSession() {
 void TrackSimulator::resetSession() {
     stopSession();
     m_sessionState = TrackSessionState();
-    m_sessionState.type = TrackSessionState::Practice;
+    m_sessionState.type = TrackSessionState::SessionType::Practice;
     m_replayData.clear();
     m_lastReplayTime = 0.0;
 }
@@ -537,7 +537,7 @@ void TrackSimulator::checkTrackLimits() {
     if (warning != m_sessionState.cornerCutWarning) {
         m_sessionState.cornerCutWarning = warning;
         if (warning) {
-            TrackCorner* corner = cornerAtDistance(m_sessionState.trackDistance);
+            const TrackCorner* corner = cornerAtDistance(m_sessionState.trackDistance);
             QString cornerName = corner ? corner->name : "Unknown";
             emit trackLimitWarning(true, cornerName);
         } else {
@@ -550,8 +550,8 @@ void TrackSimulator::checkTrackLimits() {
 // Track Queries
 // ============================================================================
 
-TrackCorner* TrackSimulator::cornerAtDistance(double distance) {
-    for (auto& corner : m_trackLayout.corners) {
+const TrackCorner* TrackSimulator::cornerAtDistance(double distance) const {
+    for (const auto& corner : m_trackLayout.corners) {
         double cornerStart = corner.position - 50.0;
         double cornerEnd = corner.position + 50.0;
         if (distance >= cornerStart && distance <= cornerEnd) {
@@ -561,8 +561,8 @@ TrackCorner* TrackSimulator::cornerAtDistance(double distance) {
     return nullptr;
 }
 
-TrackSector* TrackSimulator::sectorAtDistance(double distance) {
-    for (auto& sector : m_trackLayout.sectors) {
+const TrackSector* TrackSimulator::sectorAtDistance(double distance) const {
+    for (const auto& sector : m_trackLayout.sectors) {
         if (distance >= sector.startDistance && distance <= sector.endDistance) {
             return &sector;
         }
@@ -570,8 +570,8 @@ TrackSector* TrackSimulator::sectorAtDistance(double distance) {
     return nullptr;
 }
 
-TrackLayout::DrsZone* TrackSimulator::drsZoneAtDistance(double distance) {
-    for (auto& zone : m_trackLayout.drsZones) {
+const TrackLayout::DrsZone* TrackSimulator::drsZoneAtDistance(double distance) const {
+    for (const auto& zone : m_trackLayout.drsZones) {
         if (distance >= zone.detectionPoint && distance <= zone.endPoint) {
             return &zone;
         }
@@ -579,8 +579,8 @@ TrackLayout::DrsZone* TrackSimulator::drsZoneAtDistance(double distance) {
     return nullptr;
 }
 
-TrackLayout::SurfaceSection* TrackSimulator::surfaceAtDistance(double distance) {
-    for (auto& section : m_trackLayout.surfaceSections) {
+const TrackLayout::SurfaceSection* TrackSimulator::surfaceAtDistance(double distance) const {
+    for (const auto& section : m_trackLayout.surfaceSections) {
         if (distance >= section.startDistance && distance <= section.endDistance) {
             return &section;
         }
@@ -608,7 +608,7 @@ double TrackSimulator::racingLineLateralOffset(const QVector3D& position) const 
 }
 
 double TrackSimulator::targetSpeedAtDistance(double distance) const {
-    TrackCorner* corner = cornerAtDistance(distance);
+    const TrackCorner* corner = cornerAtDistance(distance);
     if (corner) {
         // Return apex speed when in corner, exit speed when leaving
         double cornerDist = std::abs(distance - corner->position);

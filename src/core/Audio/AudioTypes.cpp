@@ -1,7 +1,7 @@
 #include "AudioTypes.h"
 #include "AudioFormatConverter.h"
-#include "BankWriter.h"
-#include "BankParser.h"
+#include "../FileFormat/BankWriter.h"
+#include "../FileFormat/BankParser.h"
 #include <QDebug>
 #include <QFileInfo>
 #include <QDir>
@@ -13,9 +13,123 @@
 #include <QUuid>
 #include <cmath>
 #include <cstring>
+#include <algorithm>
 
 namespace ks {
 namespace audio {
+
+// ============================================================================
+// AutomationLane implementation
+// ============================================================================
+
+float AutomationLane::getValueAtTime(float timeSec) const
+{
+    if (points.isEmpty()) return 0.0f;
+    if (points.size() == 1) return points.first().value;
+
+    // Find surrounding points
+    for (int i = 0; i < points.size() - 1; ++i) {
+        if (timeSec >= points[i].time && timeSec < points[i + 1].time) {
+            float dt = points[i + 1].time - points[i].time;
+            if (dt <= 0.0f) return points[i].value;
+
+            float t = (timeSec - points[i].time) / dt;
+            // Apply tension curve
+            float curvedT = t;
+            float tension = points[i].tension;
+            if (tension != 0.5f) {
+                // Tension: 0 = ease-in, 0.5 = linear, 1 = ease-out
+                float curve = 2.0f * (tension - 0.5f);
+                if (curve > 0.0f) {
+                    curvedT = std::pow(t, 1.0f + curve * 3.0f);
+                } else {
+                    curvedT = 1.0f - std::pow(1.0f - t, 1.0f - curve * 3.0f);
+                }
+            }
+            return points[i].value + curvedT * (points[i + 1].value - points[i].value);
+        }
+    }
+
+    // Before first or after last point
+    if (timeSec < points.first().time) return points.first().value;
+    return points.last().value;
+}
+
+void AutomationLane::addPoint(const AutomationPoint& point)
+{
+    points.append(point);
+    std::sort(points.begin(), points.end(),
+              [](const AutomationPoint& a, const AutomationPoint& b) { return a.time < b.time; });
+}
+
+void AutomationLane::removePoint(int index)
+{
+    if (index >= 0 && index < points.size()) {
+        points.removeAt(index);
+    }
+}
+
+void AutomationLane::updatePoint(int index, float time, float value)
+{
+    if (index >= 0 && index < points.size()) {
+        points[index].time = time;
+        points[index].value = value;
+        std::sort(points.begin(), points.end(),
+                  [](const AutomationPoint& a, const AutomationPoint& b) { return a.time < b.time; });
+    }
+}
+
+// ============================================================================
+// AudioEvent automation methods
+// ============================================================================
+
+AutomationLane* AudioEvent::findAutomationLane(AutomationParameter param)
+{
+    for (auto& lane : automationLanes) {
+        if (lane.parameter == param) return &lane;
+    }
+    return nullptr;
+}
+
+AutomationLane& AudioEvent::addAutomationLane(AutomationParameter param)
+{
+    auto* existing = findAutomationLane(param);
+    if (existing) return *existing;
+
+    AutomationLane lane;
+    lane.parameter = param;
+    automationLanes.append(lane);
+    return automationLanes.last();
+}
+
+void AudioEvent::removeAutomationLane(AutomationParameter param)
+{
+    for (int i = automationLanes.size() - 1; i >= 0; --i) {
+        if (automationLanes[i].parameter == param) {
+            automationLanes.removeAt(i);
+            return;
+        }
+    }
+}
+
+float AudioEvent::getAutomatedValue(AutomationParameter param, float timeSec) const
+{
+    for (const auto& lane : automationLanes) {
+        if (lane.parameter == param && lane.enabled) {
+            return lane.getValueAtTime(timeSec);
+        }
+    }
+    // Return default value if no automation lane exists
+    switch (param) {
+    case AutomationParameter::Volume: return volume;
+    case AutomationParameter::Pan: return 0.0f;
+    case AutomationParameter::LowPassCutoff: return 20000.0f;
+    case AutomationParameter::HighPassCutoff: return 0.0f;
+    case AutomationParameter::ReverbMix: return 0.0f;
+    case AutomationParameter::Pitch: return 1.0f;
+    }
+    return 0.0f;
+}
 
 // ============================================================================
 // KSAudioEngine Implementation
@@ -91,8 +205,8 @@ bool KSAudioEngine::loadBank(const QString& bankPath) {
 
     if (bankPath.endsWith(".bank", Qt::CaseInsensitive)) {
         // FMOD FEV2 format — use KSBankParser
-        KSBankParser parser;
-        ParsedBankData data = parser.parse(bankPath);
+        fileformat::KSBankParser parser;
+        fileformat::ParsedBankData data = parser.parse(bankPath);
         if (data.isValid) {
             // Pre-load decoded audio samples from FSB5 data
             QMap<QString, QVector<float>> soundSamples;
@@ -178,6 +292,15 @@ bool KSAudioEngine::loadBank(const QString& bankPath) {
     }
     m_banks.append(bank);
     m_bankMap[bank.name] = &m_banks.last();
+    m_bankPathByName[bank.name] = bankPath;
+
+    // Add to file watcher if hot-reload is enabled
+    if (m_hotReloadEnabled && m_bankWatcher && !bankPath.isEmpty()) {
+        if (!m_bankWatcher->files().contains(bankPath)) {
+            m_bankWatcher->addPath(bankPath);
+        }
+    }
+
     emit bankLoaded(bank.name);
     qInfo() << "KSAudioEngine: Loaded bank" << bank.name;
     return true;
@@ -186,6 +309,11 @@ bool KSAudioEngine::loadBank(const QString& bankPath) {
 void KSAudioEngine::unloadBank(const QString& name) {
     for (int i = 0; i < m_banks.size(); ++i) {
         if (m_banks[i].name == name) {
+            // Remove from file watcher
+            if (m_bankWatcher && !m_banks[i].filePath.isEmpty()) {
+                m_bankWatcher->removePath(m_banks[i].filePath);
+            }
+            m_bankPathByName.remove(name);
             m_banks.removeAt(i);
             m_bankMap.remove(name);
             emit bankUnloaded(name);
@@ -197,6 +325,82 @@ void KSAudioEngine::unloadBank(const QString& name) {
 void KSAudioEngine::unloadAllBanks() {
     QStringList b = loadedBanks();
     for (const auto& n : b) unloadBank(n);
+}
+
+void KSAudioEngine::enableHotReload(bool enable) {
+    if (enable == m_hotReloadEnabled) return;
+
+    if (enable) {
+        if (!m_bankWatcher) {
+            m_bankWatcher = new QFileSystemWatcher(this);
+            connect(m_bankWatcher, &QFileSystemWatcher::fileChanged,
+                    this, &KSAudioEngine::onBankFileChanged);
+        }
+        // Watch all loaded bank files
+        for (const auto& bank : m_banks) {
+            if (!bank.filePath.isEmpty() && !m_bankWatcher->files().contains(bank.filePath)) {
+                m_bankWatcher->addPath(bank.filePath);
+            }
+        }
+    } else {
+        if (m_bankWatcher) {
+            m_bankWatcher->removePaths(m_bankWatcher->files());
+        }
+    }
+
+    m_hotReloadEnabled = enable;
+}
+
+void KSAudioEngine::reloadBank(const QString& bankName) {
+    QString filePath;
+    if (m_bankPathByName.contains(bankName)) {
+        filePath = m_bankPathByName[bankName];
+    } else {
+        // Find from loaded banks
+        for (const auto& b : m_banks) {
+            if (b.name == bankName) {
+                filePath = b.filePath;
+                break;
+            }
+        }
+    }
+
+    if (filePath.isEmpty()) {
+        emit error("Cannot reload bank: no file path for " + bankName);
+        return;
+    }
+
+    qInfo() << "KSAudioEngine: Hot-reloading bank" << bankName << "from" << filePath;
+
+    // Stop any playing events from this bank
+    QMutexLocker l(&m_instancesMutex);
+    for (int i = m_activeInstances.size() - 1; i >= 0; --i) {
+        if (m_activeInstances[i].eventPath.startsWith(bankName + "/")) {
+            m_activeInstances[i].isPlaying = false;
+        }
+    }
+    l.unlock();
+
+    // Unload the old bank
+    unloadBank(bankName);
+
+    // Reload it
+    loadBank(filePath);
+
+    emit bankReloaded(bankName);
+    qInfo() << "KSAudioEngine: Bank reloaded:" << bankName;
+}
+
+void KSAudioEngine::onBankFileChanged(const QString& path) {
+    if (!m_hotReloadEnabled) return;
+
+    QFileInfo info(path);
+    QString bankName = info.baseName();
+
+    // Small delay to ensure the file write is complete
+    QTimer::singleShot(200, this, [this, bankName]() {
+        reloadBank(bankName);
+    });
 }
 
 QStringList KSAudioEngine::getEvents(const QString& bankName) const {
@@ -1139,7 +1343,7 @@ bool KSAudioBankExporter::exportBank(const SoundBank& bank, const QString& outpu
     emit exportStarted(bank.name);
 
     // Use KSBankWriter to generate FMOD FEV2 format .bank files
-    KSBankWriter writer;
+    fileformat::KSBankWriter writer;
     QString assetsDir = QFileInfo(outputPath).absolutePath() + "/Assets/audio";
 
     // Build a temporary project with this bank

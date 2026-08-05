@@ -66,7 +66,7 @@ void IdeEditorWidget::setupUI()
         "  background: #1e1e1e; color: #fff; border-bottom: 2px solid #569cd6;"
         "}"
         "QTabBar::tab:hover { background: #3a3a3a; }");
-    m_splitter->addWidget(m_tabWidget, 1);
+    m_splitter->addWidget(m_tabWidget);
 
     // Right: search panel
     m_searchPanel = new IdeEditorSearchPanel(this);

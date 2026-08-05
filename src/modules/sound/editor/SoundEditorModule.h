@@ -6,8 +6,8 @@
 
 namespace ks {
 namespace audio {
-class ACEventBridge;
 class AudioWaveformBridge;
+class KsACSndEventBridge;
 }
 
 class SoundEditorModule : public EditorModule {
@@ -39,7 +39,7 @@ protected:
 private:
     QQuickWidget* m_quickWidget = nullptr;
     audio::AudioWaveformBridge* m_waveformBridge = nullptr;
-    ks::audio::ACEventBridge* m_eventBridge = nullptr;
+    audio::KsACSndEventBridge* m_eventBridge = nullptr;
     bool m_initialized = false;
 };
 

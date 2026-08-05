@@ -7,6 +7,7 @@
 #include <QJsonArray>
 #include <QFileInfo>
 #include <QAudioFormat>
+#include <QProcess>
 
 namespace ks { namespace audio {
 
@@ -202,66 +203,14 @@ void AudioProject::removeEvent(const QString& id)
     emit changed();
 }
 
-bool AudioManager::importAudio(const QString& path, const QString& destDir)
-{
-    if (!QFile::exists(path)) return false;
-
-    QDir dir(destDir);
-    if (!dir.exists()) dir.mkpath(destDir);
-
-    QString destPath = dir.filePath(QFileInfo(path).fileName());
-    if (QFile::copy(path, destPath)) {
-        emit audioImported(destPath);
-        return true;
-    }
-    return false;
-}
-
-bool AudioManager::exportAudio(const QString& sourcePath, const QString& destPath, const QString& format)
-{
-    if (!QFile::exists(sourcePath)) return false;
-
-    AudioFormatConverter converter;
-    QVector<float> samples;
-    QAudioFormat audioFormat;
-
-    if (!converter.convert(sourcePath, samples, audioFormat)) return false;
-
-    if (format == "wav") {
-        return converter.convertToWav(destPath, samples, audioFormat);
-    } else if (format == "mp3") {
-        return converter.convertToMp3(destPath, samples, audioFormat, AudioFormatConverter::QualityHigh);
-    } else if (format == "ogg") {
-        return converter.convertToOgg(destPath, samples, audioFormat, AudioFormatConverter::QualityHigh);
-    }
-    return false;
-}
-
-AudioManager::AudioInfo AudioManager::getAudioInfo(const QString& path) const
-{
-    AudioInfo info;
-    info.path = path;
-
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) return info;
-
-    QByteArray header = file.read(44);
-    if (header.size() < 44) return info;
-
-    info.sampleRate = *reinterpret_cast<const quint32*>(header.constData() + 24);
-    info.channels = *reinterpret_cast<const quint16*>(header.constData() + 22);
-    info.bitsPerSample = *reinterpret_cast<const quint16*>(header.constData() + 34);
-    info.duration = static_cast<double>(file.size() - 44) / (info.sampleRate * info.channels * info.bitsPerSample / 8);
-
-    return info;
-}
-
 // AudioFormatConverter
 
 bool AudioFormatConverter::readWav(QFile& file, QVector<float>& samples, QAudioFormat& format)
 {
     QByteArray header = file.read(44);
     if (header.size() < 44) return false;
+
+
     if (header.mid(0, 4) != "RIFF" || header.mid(8, 4) != "WAVE") return false;
 
     quint16 audioFormat = *reinterpret_cast<const quint16*>(header.constData() + 20);

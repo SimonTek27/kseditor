@@ -23,6 +23,8 @@
 #include <QStyleOptionTab>
 #include <QStylePainter>
 #include <QProxyStyle>
+#include <QStyleOptionToolButton>
+#include <QFontMetrics>
 
 namespace ks {
 namespace editor {
@@ -55,6 +57,54 @@ void RibbonButton::init() {
     setMinimumSize(RibbonStyle::BUTTON_SIZE, RibbonStyle::BUTTON_SIZE);
     setMouseTracking(true);
     setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    setCursor(Qt::PointingHandCursor);
+}
+
+void RibbonButton::applyTheme(const RibbonTheme& theme) {
+    m_theme = &theme;
+    update();
+}
+
+void RibbonButton::resolveColors(QColor& background, QColor& foreground) const {
+    const bool hover = hovering && !isDown();
+
+    switch (m_style) {
+    case Style::Primary: {
+        const QColor base = m_theme ? m_theme->primary : QColor("#007ACC");
+        background = hover ? base.lighter(114) : (isDown() ? base.darker(118) : base);
+        foreground = Qt::white;
+        return;
+    }
+    case Style::Danger: {
+        const QColor base("#E5484D");
+        background = hover ? base.lighter(114) : (isDown() ? base.darker(118) : base);
+        foreground = Qt::white;
+        return;
+    }
+    case Style::Success: {
+        const QColor base("#2EA043");
+        background = hover ? base.lighter(114) : (isDown() ? base.darker(118) : base);
+        foreground = Qt::white;
+        return;
+    }
+    case Style::Warning: {
+        const QColor base("#D29922");
+        background = hover ? base.lighter(114) : (isDown() ? base.darker(118) : base);
+        foreground = QColor("#1B1B1F");
+        return;
+    }
+    default:
+        break;
+    }
+
+    if (isDown() || isChecked()) {
+        background = m_theme ? m_theme->buttonPressed : QColor("#3E3E42");
+    } else if (hover) {
+        background = m_theme ? m_theme->buttonHover : QColor("#3E3E42");
+    } else {
+        background = QColor(0, 0, 0, 0);
+    }
+    foreground = m_theme ? m_theme->titleBarText : palette().windowText().color();
 }
 
 void RibbonButton::setStyle(Style style) {
@@ -84,33 +134,77 @@ void RibbonButton::setAction(QAction* action) {
 }
 
 void RibbonButton::paintEvent(QPaintEvent* event) {
+    Q_UNUSED(event);
+
+    QColor bgColor;
+    QColor fgColor;
+    resolveColors(bgColor, fgColor);
+
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
+    p.setRenderHint(QPainter::TextAntialiasing);
 
-    QColor bgColor = palette().window().color();
-    QColor fgColor = palette().windowText().color();
-
-    if (m_style == Style::Primary) {
-        bgColor = QColor("#E63946");
-        fgColor = Qt::white;
-    } else if (m_style == Style::Danger) {
-        fgColor = QColor("#FF4444");
-    } else if (m_style == Style::Success) {
-        bgColor = QColor("#28A745");
-        fgColor = Qt::white;
-    } else if (m_style == Style::Warning) {
-        bgColor = QColor("#FFC107");
-        fgColor = Qt::black;
+    // Rounded background
+    if (bgColor.alpha() > 0) {
+        p.setPen(Qt::NoPen);
+        p.setBrush(bgColor);
+        p.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), 4.0, 4.0);
     }
 
-    if (isDown()) {
-        bgColor = bgColor.darker(110);
-    } else if (hovering) {
-        bgColor = bgColor.lighter(110);
+    if (!isEnabled()) {
+        fgColor = fgColor.darker(150);
     }
 
-    p.fillRect(rect(), bgColor);
-    QToolButton::paintEvent(event);
+    QRect contentRect = rect().adjusted(4, 3, -4, -3);
+    if (contentRect.width() <= 0 || contentRect.height() <= 0) {
+        return;
+    }
+
+    const QFont buttonFont = font();
+    const QFontMetrics fm(buttonFont);
+    const QIcon buttonIcon = icon();
+    const bool hasIcon = !buttonIcon.isNull();
+    const QSize desiredIconSize = iconSize();
+
+    if (m_textBelow) {
+        const int textH = fm.height();
+        int iconSizePx = 0;
+        QRect iconRect;
+        if (hasIcon) {
+            iconSizePx = qMin(desiredIconSize.height(), qMax(0, contentRect.height() - textH - 4));
+            iconRect = QRect(QPoint(contentRect.center().x() - iconSizePx / 2, contentRect.top()),
+                             QSize(iconSizePx, iconSizePx));
+            buttonIcon.paint(&p, iconRect, Qt::AlignCenter,
+                             isEnabled() ? QIcon::Normal : QIcon::Disabled, QIcon::Off);
+        }
+        QRect textRect = contentRect;
+        if (hasIcon) {
+            textRect.setTop(iconRect.bottom() + 2);
+        }
+        p.setPen(fgColor);
+        p.setFont(buttonFont);
+        const QString elided = fm.elidedText(text(), Qt::ElideRight, contentRect.width());
+        p.drawText(textRect, Qt::AlignHCenter | Qt::AlignVCenter, elided);
+    } else {
+        const int gap = 4;
+        const int iconW = hasIcon ? qMin(desiredIconSize.width(), contentRect.width() - 64) : 0;
+        const int textW = qMin(fm.horizontalAdvance(text()),
+                               contentRect.width() - (hasIcon ? iconW + gap : 0));
+        const int totalW = (hasIcon ? iconW + gap : 0) + textW;
+        int x = contentRect.center().x() - totalW / 2;
+
+        if (hasIcon) {
+            QRect iconRect(x, contentRect.center().y() - iconW / 2, iconW, iconW);
+            buttonIcon.paint(&p, iconRect, Qt::AlignCenter,
+                             isEnabled() ? QIcon::Normal : QIcon::Disabled, QIcon::Off);
+            x += iconW + gap;
+        }
+        QRect textRect(x, contentRect.top(), textW, contentRect.height());
+        p.setPen(fgColor);
+        p.setFont(buttonFont);
+        const QString elided = fm.elidedText(text(), Qt::ElideRight, textW);
+        p.drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft, elided);
+    }
 }
 
 void RibbonButton::enterEvent(QEnterEvent* e) { hovering = true; QToolButton::enterEvent(e); update(); }
@@ -159,13 +253,24 @@ void RibbonGroup::addWidget(QWidget* widget) {
 void RibbonGroup::addSeparator() {
     auto* sep = new QFrame(this);
     sep->setFrameShape(QFrame::VLine);
-    sep->setStyleSheet("background: #4A1520;");
     sep->setFixedWidth(1);
+    const QColor border = m_theme ? m_theme->borderColor : QColor("#4A1520");
+    sep->setStyleSheet(QString("background: %1;").arg(border.name()));
     m_layout->addWidget(sep);
 }
 
 void RibbonGroup::addStretch() {
     m_layout->addStretch();
+}
+
+void RibbonGroup::applyTheme(const RibbonTheme& theme) {
+    m_theme = &theme;
+    for (QWidget* w : m_widgets) {
+        if (auto* btn = qobject_cast<RibbonButton*>(w)) {
+            btn->applyTheme(theme);
+        }
+    }
+    update();
 }
 
 void RibbonGroup::paintEvent(QPaintEvent* event) {
@@ -174,9 +279,12 @@ void RibbonGroup::paintEvent(QPaintEvent* event) {
     p.setRenderHint(QPainter::Antialiasing);
 
     if (!m_title.isEmpty()) {
-        p.setPen(QColor("#F08080"));
-        p.setFont(QFont("Segoe UI", 9));
-        QRect labelRect(0, rect().bottom() - 16, rect().width(), 14);
+        const QColor labelColor = m_theme ? m_theme->groupLabel : QColor("#F08080");
+        p.setPen(labelColor);
+        QFont labelFont("Segoe UI", 8);
+        labelFont.setWeight(QFont::DemiBold);
+        p.setFont(labelFont);
+        QRect labelRect(0, rect().bottom() - 18, rect().width(), 16);
         p.drawText(labelRect, Qt::AlignHCenter | Qt::AlignVCenter, m_title);
     }
 }
@@ -220,10 +328,19 @@ void RibbonPanel::addStretch() {
     m_layout->addStretch();
 }
 
+void RibbonPanel::applyTheme(const RibbonTheme& theme) {
+    m_theme = &theme;
+    for (RibbonGroup* group : m_groups) {
+        group->applyTheme(theme);
+    }
+    update();
+}
+
 void RibbonPanel::paintEvent(QPaintEvent* event) {
     QFrame::paintEvent(event);
     QPainter p(this);
-    p.fillRect(rect(), palette().window().color());
+    const QColor bg = m_theme ? m_theme->panelBg : palette().window().color();
+    p.fillRect(rect(), bg);
 }
 
 // ==================== RibbonSubTabBar ====================
@@ -265,7 +382,7 @@ void RibbonSubTabBar::applyTheme(const RibbonTheme& theme) {
         QTabBar::tab:selected {
             background: %5;
             color: %6;
-            border-bottom: 2px solid %7;
+            border-bottom: 3px solid %7;
         }
     )").arg(theme.background.name())
         .arg(theme.groupLabel.name())
@@ -353,7 +470,11 @@ void RibbonSubTab::setTabColor(const QColor& color) {
 }
 
 void RibbonSubTab::applyTheme(const RibbonTheme& theme) {
+    m_theme = &theme;
     setTabColor(theme.primary);
+    for (RibbonPanel* panel : m_panels) {
+        panel->applyTheme(theme);
+    }
     setStyleSheet(QString(R"(
         RibbonSubTab { background: %1; }
         RibbonPanel { background: %2; border-right: 1px solid %3; }
@@ -368,7 +489,8 @@ void RibbonSubTab::applyTheme(const RibbonTheme& theme) {
 void RibbonSubTab::paintEvent(QPaintEvent* event) {
     QWidget::paintEvent(event);
     QPainter p(this);
-    p.fillRect(rect(), m_tabColor.isValid() ? m_tabColor : palette().window().color());
+    const QColor bg = m_theme ? m_theme->background : palette().window().color();
+    p.fillRect(rect(), bg);
 }
 
 void RibbonSubTab::resizeEvent(QResizeEvent* event) {
@@ -419,6 +541,12 @@ RibbonTab::RibbonTab(const QString& title, QWidget* parent)
     : RibbonTab(parent)
 {
     setTitle(title);
+}
+
+RibbonTab::RibbonTab(const QString& title, const QIcon& icon, QWidget* parent)
+    : RibbonTab(title, parent)
+{
+    setIcon(icon);
 }
 
 RibbonTab::~RibbonTab() {
@@ -506,9 +634,10 @@ void RibbonTab::setTabColor(const QColor& color) {
 }
 
 void RibbonTab::applyTheme(const RibbonTheme& theme) {
+    m_theme = &theme;
     setTabColor(theme.primary);
     m_subTabBar->applyTheme(theme);
-    for (auto* subTab : m_subTabs) {
+    for (RibbonSubTab* subTab : m_subTabs) {
         subTab->applyTheme(theme);
     }
     setStyleSheet(QString(R"(
@@ -526,7 +655,8 @@ void RibbonTab::applyTheme(const RibbonTheme& theme) {
 void RibbonTab::paintEvent(QPaintEvent* event) {
     QWidget::paintEvent(event);
     QPainter p(this);
-    p.fillRect(rect(), m_tabColor.isValid() ? m_tabColor : palette().window().color());
+    const QColor bg = m_theme ? m_theme->background : palette().window().color();
+    p.fillRect(rect(), bg);
 }
 
 void RibbonTab::resizeEvent(QResizeEvent* event) {
@@ -638,16 +768,23 @@ void RibbonBar::applyTheme(const QString& themeKey) {
     manager.applyTheme(themeKey);
 
     const RibbonTheme& theme = manager.theme(themeKey);
+    m_theme = &theme;
+
+    setStyleSheet(QString("RibbonBar { background: %1; }").arg(theme.background.name()));
 
     m_tabBar->setStyleSheet(QString(R"(
+        QTabBar {
+            background: %1;
+        }
         QTabBar::tab {
             background: %1;
             color: %2;
-            padding: 8px 24px;
+            padding: 8px 22px;
             border: none;
             border-bottom: 3px solid transparent;
-            font-weight: bold;
-            font-size: 12px;
+            font-weight: 600;
+            font-size: 11px;
+            min-width: 88px;
         }
         QTabBar::tab:hover {
             background: %3;
@@ -657,14 +794,15 @@ void RibbonBar::applyTheme(const QString& themeKey) {
             background: %5;
             color: %6;
             border-bottom: 3px solid %7;
+            font-weight: 700;
         }
     )").arg(theme.background.name())
         .arg(theme.groupLabel.name())
         .arg(theme.buttonHover.name())
         .arg(theme.accent.name())
-        .arg(theme.panelBg.name())
-        .arg(theme.titleBarText.name())
-        .arg(theme.primary.name()));
+        .arg(theme.primary.name())
+        .arg("#FFFFFF")
+        .arg(theme.accent.name()));
 
     for (int i = 0; i < tabCount(); ++i) {
         if (RibbonTab* t = tab(i)) {

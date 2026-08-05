@@ -17,6 +17,8 @@
 #include <QJsonArray>
 #include <QMenu>
 #include <QElapsedTimer>
+#include <QFileDialog>
+#include <QMessageBox>
 #include "core/editor/EditorConfig.h"
 
 namespace ks {
@@ -219,6 +221,50 @@ void PhysicsEditorModule::onShowAcdBrowser() {
     m_contentStack->setCurrentWidget(m_acdBrowser);
 }
 
+void PhysicsEditorModule::onShowSuspGeometry() {
+    m_contentStack->setCurrentWidget(m_suspGeometry);
+}
+
+void PhysicsEditorModule::onShowFfbPreview() {
+    m_contentStack->setCurrentWidget(m_ffbPreview);
+}
+
+void PhysicsEditorModule::onShowTireCurveEditor() {
+    m_contentStack->setCurrentWidget(m_tireCurveEditor);
+}
+
+void PhysicsEditorModule::onShowCarValidator() {
+    if (!m_currentCar.isEmpty()) {
+        m_validator->validateCar(m_currentCar);
+    }
+    m_contentStack->setCurrentWidget(m_validator);
+}
+
+void PhysicsEditorModule::onShowTyreTempModel() {
+    m_contentStack->setCurrentWidget(m_tyreTempModel);
+}
+
+QJsonObject PhysicsEditorModule::serializeProject() const {
+    QJsonObject data;
+    data["carsPath"]     = m_carsPath;
+    data["currentCar"]   = m_currentCar;
+    data["currentFile"]  = m_currentFile;
+    return data;
+}
+
+void PhysicsEditorModule::deserializeProject(const QJsonObject& data) {
+    m_carsPath   = data["carsPath"].toString();
+    m_currentCar = data["currentCar"].toString();
+    m_currentFile = data["currentFile"].toString();
+
+    if (!m_carsPath.isEmpty() && QDir(m_carsPath).exists()) {
+        m_carBrowser->setCarsPath(m_carsPath);
+    }
+    if (!m_currentCar.isEmpty() && QDir(m_currentCar).exists()) {
+        onCarSelected(m_currentCar);
+    }
+}
+
 void PhysicsEditorModule::onCarSelected(const QString& carFolder) {
     m_currentCar = carFolder;
     QString carName = QFileInfo(carFolder).fileName();
@@ -318,21 +364,9 @@ bool PhysicsEditorModule::saveCurrentIni() {
 }
 
 void PhysicsEditorModule::shutdown() {
-    delete m_carBrowser; m_carBrowser = nullptr;
-    delete m_fileTree; m_fileTree = nullptr;
-    delete m_iniEditor; m_iniEditor = nullptr;
-    delete m_tyresEditor; m_tyresEditor = nullptr;
-    delete m_acdManager; m_acdManager = nullptr;
-    delete m_lutEditor; m_lutEditor = nullptr;
-    delete m_engineEditor; m_engineEditor = nullptr;
-    delete m_telemetryWidget; m_telemetryWidget = nullptr;
-    delete m_setupCompare; m_setupCompare = nullptr;
-    delete m_acdBrowser; m_acdBrowser = nullptr;
-    delete m_suspGeometry; m_suspGeometry = nullptr;
-    delete m_ffbPreview; m_ffbPreview = nullptr;
-    delete m_validator; m_validator = nullptr;
-    delete m_tyreTempModel; m_tyreTempModel = nullptr;
-    m_statusLabel->setText(tr("Physics Editor shutdown complete"));
+    if (m_contentStack) {
+        m_contentStack->setCurrentIndex(0);
+    }
 }
 
 void PhysicsEditorModule::populateFileTree(const QString& carFolder) {

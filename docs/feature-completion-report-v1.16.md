@@ -104,7 +104,7 @@ The plugin does NOT exist in the codebase at all. Full development required:
 
 ## 3. ACE Plugin (`ksAssettoCorsaEVO.dll`)
 
-Not started. No source files exist. Currently a product/vision document only.
+**Phase 1 complete.** Plugin skeleton, CMake target, C API entry points, content discovery, .kspkg parser, game launcher, and QML bridges implemented. Source files in `src/plugins/simulators/kunos/assettocorsaevo/`. CMake target `ksAssettoCorsaEVO` added to build system.
 
 ---
 

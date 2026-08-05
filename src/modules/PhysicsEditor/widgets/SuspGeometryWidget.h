@@ -8,11 +8,11 @@
 #include <QLineSeries>
 #include <QVector>
 #include <QPointF>
-#include <ks/plugins/simulators/kunos/assettocorsa/ksAssettoCorsaSetup.h>
+#include "../../../plugins/simulators/kunos/assettocorsa/ksAssettoCorsaSetup.h"
 
 namespace ks {
 
-class KsSetupData;
+using KsSetupData = ::ks::kunos::KsSetupData;
 
 class SuspGeometryWidget : public QWidget {
     Q_OBJECT

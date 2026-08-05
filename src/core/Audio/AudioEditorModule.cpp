@@ -1,4 +1,4 @@
-#include "AudioEditorModule.h"
+﻿#include "AudioEditorModule.h"
 #include "WaveformEngine.h"
 #include "WaveProcessor.h"
 #include "AudioRecording.h"
@@ -649,7 +649,7 @@ void AudioEditorModule::onBufferSizeChanged(int index) {
     log(QString("Buffer size: %1").arg(m_bufferSizeCombo->currentText()));
 }
 
-// ── Text-to-Speech Tab ──────────────────────────────────────────────────────
+// â”€â”€ Text-to-Speech Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 void AudioEditorModule::setupTtsTab() {
     m_ttsTab = new QWidget();
@@ -781,4 +781,3 @@ void AudioEditorModule::onTtsSaveToWav() {
 } // namespace audio
 } // namespace ks
 
-#include "AudioEditorModule.moc"

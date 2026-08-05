@@ -1,4 +1,4 @@
-#include "Viewport3DWidget.h"
+#include "Viewport3DSystem.h"
 #include "Graphics/SceneObject.h"
 #include "Graphics/SceneMesh.h"
 #include <QOpenGLFunctions>

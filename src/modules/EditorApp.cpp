@@ -2,7 +2,8 @@
 #include "../core/mesh/RenderEngine.h"
 #include "../modules/modellingEditor/3DModeling.h"
 #include "../modules/modellingEditor/3DModeling_io.h"
-#include "../modules/PhysicsEditor/PhysicsEngine.h"
+#include "../core/physics/PhysicsEngine.h"
+#include "../core/physics/VehicleSimulator.h"
 #include "../plugins/simulators/kunos/KsPlugin.h"
 #include <QFile>
 #include <QJsonDocument>
@@ -35,7 +36,7 @@ bool ksEditor::initialize()
     m_importer = new io::ImportExport3D(this);
 
     m_physicsWorld = new physics::PhysicsWorld(this);
-    m_carPhysics = new physics::CarPhysics(this);
+    m_carPhysics = new physics::VehicleSimulator(this);
 
     // Initialize new editor modules
     m_weatherEditor = new WeatherEditorModule(nullptr);
@@ -220,7 +221,7 @@ void ksEditor::simulate(float dt)
 
     // Drive car physics with default inputs for editor preview
     if (m_physicsEnabled && m_carPhysics && m_mode == Physics) {
-        m_carPhysics->update(dt);
+        m_carPhysics->updatePhysics(dt);
     }
 
     emit simulationUpdated(dt);

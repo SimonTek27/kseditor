@@ -9,6 +9,9 @@
 
 namespace ks {
 
+using fileformat::MeshData;
+using fileformat::MeshVertex;
+using fileformat::MeshSubmesh;
 
 // Note: Real Alembic support requires the Alembic C++ library (AbcCore)
 // This is a simplified implementation for demonstration

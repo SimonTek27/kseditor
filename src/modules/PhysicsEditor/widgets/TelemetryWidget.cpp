@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QPainter>
+#include <QHeaderView>
 
 namespace ks {
 

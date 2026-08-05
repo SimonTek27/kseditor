@@ -11,9 +11,12 @@
 #include <QLabel>
 #include <QPushButton>
 #include <algorithm>
-#include <ks/plugins/simulators/kunos/assettocorsa/ksAssettoCorsaIni.h>
+#include "../../../plugins/simulators/kunos/assettocorsa/ksAssettoCorsaIni.h"
 
 namespace ks {
+
+using KsIniDocument = ::ks::plugins::kunos::ks::KsIniDocument;
+using KsIniSection  = ::ks::plugins::kunos::ks::KsIniSection;
 
 EngineCurveWidget::EngineCurveWidget(QWidget* parent)
     : QWidget(parent)

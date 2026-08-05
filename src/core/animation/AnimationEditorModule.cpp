@@ -1,4 +1,4 @@
-#include "AnimationEditorModule.h"
+﻿#include "AnimationEditorModule.h"
 #include "core/editor/ModuleGuiBase.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -1389,4 +1389,3 @@ void AnimationEditorModule::onDeactivation() {
 
 } // namespace ks
 
-#include "AnimationEditorModule.moc"

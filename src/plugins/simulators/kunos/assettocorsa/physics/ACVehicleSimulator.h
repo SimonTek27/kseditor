@@ -132,10 +132,10 @@ public:
         const QVector<double>& refSteering) const override;
 
 signals:
-    void stateUpdated(const SimulationState& state) override;
-    void simulationStarted() override;
-    void simulationStopped() override;
-    void tireDataUpdated(double slipAngle, double lateralForce, double slipRatio, double longitudinalForce) override;
+    void stateUpdated(const SimulationState& state);
+    void simulationStarted();
+    void simulationStopped();
+    void tireDataUpdated(double slipAngle, double lateralForce, double slipRatio, double longitudinalForce);
 
 private:
     void updatePhysics(double dt);

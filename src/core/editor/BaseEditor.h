@@ -42,12 +42,7 @@
 
 namespace ks {
 class SceneGraph; // SceneGraph is directly in namespace ks
-namespace graphics {
 class SceneObject;
-} }
-
-namespace ks {
-using graphics::SceneObject;
 }
 
 using ks::SceneGraph;

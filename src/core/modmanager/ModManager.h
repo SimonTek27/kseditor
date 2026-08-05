@@ -435,12 +435,13 @@ public:
     // Refresh from WorkshopManager
     void refresh();
 
+    // Download a mod package (returns true on success)
+    bool downloadMod(const ModInfo& info, QString& outputPath);
+
 signals:
     void repositoryUpdated();
     void fetchProgress(const QString& modName, int percent);
     void fetchFinished(const QString& modName, bool success, const QString& error = QString());
-
-    bool downloadMod(const ModInfo& info, QString& outputPath);
 
 private:
     WorkshopManager* m_workshop = nullptr;

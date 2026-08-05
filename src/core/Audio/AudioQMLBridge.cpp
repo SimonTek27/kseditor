@@ -6,6 +6,7 @@
 #include "AudioTimeStretch.h"
 #include "AudioRecording.h"
 #include "AudioCore.h"
+#include "AudioEffects.h"
 #include "TextToSpeech.h"
 #include <QDebug>
 #include <QFileInfo>
@@ -13,11 +14,23 @@
 #include <QMediaDevices>
 #include <QTimer>
 #include <QDateTime>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QFile>
+#include <QDir>
+#include <QUuid>
+#include <QDataStream>
+#include <QBuffer>
+#include <cmath>
 
 AudioQMLBridge* AudioQMLBridge::s_instance = nullptr;
 
 AudioQMLBridge::AudioQMLBridge(QObject *parent)
     : QObject(parent)
+    , m_activeTrackModel(new TrackModel(this))
+    , m_tracks()
+    , m_activeTrack(0)
     , m_waveProcessor(new WaveProcessor(this))
     , m_waveformEngine(new WaveformEngine(this))
     , m_fft(new FFTProcessor(this))
@@ -32,6 +45,9 @@ AudioQMLBridge::AudioQMLBridge(QObject *parent)
     , m_recordingStartTime(0)
 {
     s_instance = this;
+
+    m_activeTrackModel->name = tr("Track 1");
+    m_tracks.append(m_activeTrackModel);
 
     m_peakMeter->setSampleRate(44100);
     m_peakMeter->setChannelCount(2);
@@ -201,12 +217,430 @@ void AudioQMLBridge::newAudio(int channels, int sampleRate, int durationMs)
 
 void AudioQMLBridge::play()
 {
-    m_waveformEngine->setSamples(
-        m_waveProcessor->getSamples(),
-        m_waveProcessor->getChannelCount(),
-        m_waveProcessor->getSampleRate()
-    );
+    if (m_tracks.isEmpty()) return;
+
+    bool hasSolo = false;
+    for (TrackModel *tm : m_tracks) {
+        if (tm && tm->solo) { hasSolo = true; break; }
+    }
+
+    int outputRate = projectRate();
+    int outputChannels = 2;
+    qint64 maxFrames = 0;
+    QVector<int> playable;
+    for (int i = 0; i < m_tracks.size(); ++i) {
+        TrackModel *tm = m_tracks[i];
+        if (!tm || tm->mute || (hasSolo && !tm->solo)) continue;
+        if (tm->clips.isEmpty()) continue;
+        int rate = tm->maxSampleRate();
+        int ch = tm->maxChannels();
+        qint64 frames = tm->durationMs() * rate / 1000;
+        if (frames > maxFrames) maxFrames = frames;
+        playable.append(i);
+    }
+    if (playable.isEmpty()) { m_waveformEngine->stop(); return; }
+    if (maxFrames < 1) maxFrames = 1;
+
+    QVector<float> mix(maxFrames * outputChannels, 0.0f);
+
+    for (int idx : playable) {
+        TrackModel *tm = m_tracks[idx];
+        int trackRate = tm->maxSampleRate();
+        int trackCh = tm->maxChannels();
+        float gain = tm->gain;
+        float pan = qBound(-1.0f, tm->pan, 1.0f);
+        float gl = gain * (1.0f - (pan + 1.0f) * 0.5f);
+        float gr = gain * (1.0f + (pan + 1.0f) * 0.5f);
+
+        for (AudioClip *clip : tm->clips) {
+            int clipRate = clip->sampleRate;
+            int clipCh = qMax(1, clip->channels);
+            const QVector<float> &src = clip->samples;
+            qint64 clipFrames = src.size() / clipCh;
+            qint64 clipStartFrame = clip->startMs * outputRate / 1000;
+
+            for (qint64 f = 0; f < clipFrames; ++f) {
+                qint64 dest = clipStartFrame + f * outputRate / qMax(1, clipRate);
+                if (dest >= maxFrames) break;
+                float l = src[f * clipCh];
+                float r = (clipCh > 1) ? src[f * clipCh + 1] : l;
+                mix[dest * outputChannels] += l * gl;
+                if (outputChannels > 1) mix[dest * outputChannels + 1] += r * gr;
+            }
+        }
+    }
+    for (int i = 0; i < mix.size(); ++i) {
+        mix[i] = qBound(-1.0f, mix[i], 1.0f);
+    }
+
+    m_waveformEngine->setSamples(mix, outputChannels, outputRate);
     m_waveformEngine->play();
+}
+
+int AudioQMLBridge::trackCount() const
+{
+    return m_tracks.size();
+}
+
+int AudioQMLBridge::activeTrack() const
+{
+    return m_activeTrack;
+}
+
+void AudioQMLBridge::setActiveTrack(int index)
+{
+    if (index < 0 || index >= m_tracks.size() || index == m_activeTrack) return;
+    m_activeTrack = index;
+    m_activeTrackModel = m_tracks[index];
+    m_waveProcessor = m_activeTrackModel->clips.isEmpty() ? m_waveProcessor : m_activeTrackModel->clips.first()->processor();
+    emit audioChanged();
+    emit statusMessage(tr("Active track: %1").arg(trackName(index)));
+}
+
+int AudioQMLBridge::addTrack()
+{
+    int index = m_tracks.size();
+    TrackModel *tm = new TrackModel(this);
+    tm->name = tr("Track %1").arg(index + 1);
+    m_tracks.append(tm);
+    setActiveTrack(index);
+    emit audioChanged();
+    return index;
+}
+
+void AudioQMLBridge::removeTrack(int index)
+{
+    if (index < 0 || index >= m_tracks.size()) return;
+    if (m_tracks.size() <= 1) return;
+    TrackModel *tm = m_tracks.takeAt(index);
+    tm->deleteLater();
+    if (m_activeTrack >= m_tracks.size()) m_activeTrack = m_tracks.size() - 1;
+    if (m_activeTrack == index) {
+        m_activeTrackModel = m_tracks[m_activeTrack];
+        emit audioChanged();
+    } else if (index < m_activeTrack) {
+        --m_activeTrack;
+    }
+}
+
+QString AudioQMLBridge::trackName(int index) const
+{
+    if (index < 0 || index >= m_tracks.size()) return QString();
+    return m_tracks[index]->name;
+}
+
+void AudioQMLBridge::setTrackName(int index, const QString &name)
+{
+    if (index < 0 || index >= m_tracks.size()) return;
+    m_tracks[index]->name = name;
+    emit audioChanged();
+}
+
+float AudioQMLBridge::trackGain(int index) const
+{
+    return (index >= 0 && index < m_tracks.size() && m_tracks[index]) ? m_tracks[index]->gain : 1.0f;
+}
+
+void AudioQMLBridge::setTrackGain(int index, float gain)
+{
+    if (index < 0 || index >= m_tracks.size()) return;
+    m_tracks[index]->gain = gain;
+    emit audioChanged();
+}
+
+float AudioQMLBridge::trackPan(int index) const
+{
+    return (index >= 0 && index < m_tracks.size() && m_tracks[index]) ? m_tracks[index]->pan : 0.0f;
+}
+
+void AudioQMLBridge::setTrackPan(int index, float pan)
+{
+    if (index < 0 || index >= m_tracks.size()) return;
+    m_tracks[index]->pan = pan;
+    emit audioChanged();
+}
+
+bool AudioQMLBridge::trackMute(int index) const
+{
+    return (index >= 0 && index < m_tracks.size() && m_tracks[index]) ? m_tracks[index]->mute : false;
+}
+
+void AudioQMLBridge::setTrackMute(int index, bool mute)
+{
+    if (index < 0 || index >= m_tracks.size()) return;
+    m_tracks[index]->mute = mute;
+    emit audioChanged();
+}
+
+bool AudioQMLBridge::trackSolo(int index) const
+{
+    return (index >= 0 && index < m_tracks.size() && m_tracks[index]) ? m_tracks[index]->solo : false;
+}
+
+void AudioQMLBridge::setTrackSolo(int index, bool solo)
+{
+    if (index < 0 || index >= m_tracks.size()) return;
+    m_tracks[index]->solo = solo;
+    emit audioChanged();
+}
+
+qint64 AudioQMLBridge::trackDurationMs(int index) const
+{
+    if (index < 0 || index >= m_tracks.size()) return 0;
+    return m_tracks[index]->durationMs();
+}
+
+int AudioQMLBridge::trackSampleCount(int index) const
+{
+    if (index < 0 || index >= m_tracks.size()) return 0;
+    return m_tracks[index]->durationMs() * m_tracks[index]->maxSampleRate() / 1000;
+}
+
+int AudioQMLBridge::trackRate(int index) const
+{
+    if (index < 0 || index >= m_tracks.size()) return 0;
+    return m_tracks[index]->maxSampleRate();
+}
+
+QVariantList AudioQMLBridge::getTrackWaveformData(int index, int startMs, int endMs, int width)
+{
+    QVariantList result;
+    if (index < 0 || index >= m_tracks.size() || width <= 0) return result;
+    TrackModel *tm = m_tracks[index];
+    if (!tm || tm->clips.isEmpty()) return result;
+
+    int outputRate = projectRate();
+    if (outputRate <= 0) outputRate = 44100;
+    int outputChannels = 2;
+
+    qint64 totalFrames = (qint64)width * (endMs - startMs) / 1000 * outputRate / 1000;
+    if (totalFrames < 1) totalFrames = 1;
+    int framesPerPixel = qMax(1, (int)((endMs - startMs) * outputRate / 1000 / width));
+
+    for (int i = 0; i < width; ++i) {
+        float minVal = 0.0f, maxVal = 0.0f;
+        qint64 winStartMs = startMs + (qint64)i * (endMs - startMs) / width;
+        qint64 winEndMs = startMs + (qint64)(i + 1) * (endMs - startMs) / width;
+        qint64 winStartFrame = winStartMs * outputRate / 1000;
+        qint64 winEndFrame = winEndMs * outputRate / 1000;
+
+        for (AudioClip *clip : tm->clips) {
+            if (clip->endMs() <= winStartMs || clip->startMs >= winEndMs) continue;
+            int clipRate = clip->sampleRate;
+            int clipCh = qMax(1, clip->channels);
+            const QVector<float> &src = clip->samples;
+            qint64 clipFrames = src.size() / clipCh;
+            qint64 clipStartFrame = clip->startMs * outputRate / 1000;
+
+            qint64 f0 = qMax<qint64>(0, (winStartFrame - clipStartFrame) * clipRate / outputRate);
+            qint64 f1 = qMin<qint64>(clipFrames, (winEndFrame - clipStartFrame) * clipRate / outputRate);
+            for (qint64 f = f0; f < f1; ++f) {
+                float sample = src[f * clipCh];
+                minVal = qMin(minVal, sample);
+                maxVal = qMax(maxVal, sample);
+            }
+        }
+        result.append(minVal);
+        result.append(maxVal);
+    }
+    return result;
+}
+
+void AudioQMLBridge::trackUndo(int index)
+{
+    if (index < 0 || index >= m_tracks.size()) return;
+    m_tracks[index]->undo();
+    emit audioChanged();
+}
+
+void AudioQMLBridge::trackRedo(int index)
+{
+    if (index < 0 || index >= m_tracks.size()) return;
+    m_tracks[index]->redo();
+    emit audioChanged();
+}
+
+bool AudioQMLBridge::trackCanUndo(int index) const
+{
+    return (index >= 0 && index < m_tracks.size() && m_tracks[index] && m_tracks[index]->canUndo());
+}
+
+bool AudioQMLBridge::trackCanRedo(int index) const
+{
+    return (index >= 0 && index < m_tracks.size() && m_tracks[index] && m_tracks[index]->canRedo());
+}
+
+int AudioQMLBridge::trackUndoStackSize(int trackIndex) const
+{
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return 0;
+    return m_tracks[trackIndex]->undoStack.size();
+}
+
+int AudioQMLBridge::trackRedoStackSize(int trackIndex) const
+{
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return 0;
+    return m_tracks[trackIndex]->redoStack.size();
+}
+
+int AudioQMLBridge::trackUndoStackIndex(int trackIndex) const
+{
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return -1;
+    return m_tracks[trackIndex]->undoStack.size();
+}
+
+QVariantList AudioQMLBridge::trackUndoStackDescriptions(int trackIndex) const
+{
+    QVariantList result;
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return result;
+    TrackModel *tm = m_tracks[trackIndex];
+    for (int i = 0; i < tm->undoStack.size(); ++i) {
+        QVariantMap desc;
+        desc["index"] = i;
+        desc["clipCount"] = tm->undoStack[i].size();
+        result.append(desc);
+    }
+    return result;
+}
+
+void AudioQMLBridge::trackUndoToIndex(int trackIndex, int index)
+{
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return;
+    TrackModel *tm = m_tracks[trackIndex];
+    if (index < 0 || index >= tm->undoStack.size()) return;
+    
+    // Move states from undo to redo stack to reach target index
+    while (tm->undoStack.size() - 1 > index) {
+        tm->redoStack.append(tm->undoStack.takeLast());
+    }
+    tm->undo();
+    emit audioChanged();
+}
+
+void AudioQMLBridge::trackRedoToIndex(int trackIndex, int index)
+{
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return;
+    TrackModel *tm = m_tracks[trackIndex];
+    if (index < 0 || index >= tm->redoStack.size()) return;
+    
+    // Move states from redo to undo stack to reach target index
+    while (tm->redoStack.size() - 1 > index) {
+        tm->undoStack.append(tm->redoStack.takeLast());
+    }
+    tm->redo();
+    emit audioChanged();
+}
+
+int AudioQMLBridge::projectRate() const
+{
+    int maxRate = 44100;
+    for (TrackModel *tm : m_tracks) {
+        if (tm) maxRate = qMax(maxRate, tm->maxSampleRate());
+    }
+    return maxRate;
+}
+
+int AudioQMLBridge::trackClipCount(int index) const
+{
+    if (index < 0 || index >= m_tracks.size() || !m_tracks[index]) return 0;
+    return m_tracks[index]->clips.size();
+}
+
+qint64 AudioQMLBridge::trackClipStartMs(int trackIndex, int clipIndex) const
+{
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return 0;
+    if (clipIndex < 0 || clipIndex >= m_tracks[trackIndex]->clips.size()) return 0;
+    return m_tracks[trackIndex]->clips[clipIndex]->startMs;
+}
+
+qint64 AudioQMLBridge::trackClipEndMs(int trackIndex, int clipIndex) const
+{
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return 0;
+    if (clipIndex < 0 || clipIndex >= m_tracks[trackIndex]->clips.size()) return 0;
+    return m_tracks[trackIndex]->clips[clipIndex]->endMs();
+}
+
+void AudioQMLBridge::trackSplitClip(int trackIndex, int clipIndex, qint64 positionMs)
+{
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return;
+    m_tracks[trackIndex]->splitClipAt(positionMs);
+    emit audioChanged();
+}
+
+void AudioQMLBridge::trackTrimClip(int trackIndex, int clipIndex, qint64 newStartMs, qint64 newEndMs)
+{
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return;
+    m_tracks[trackIndex]->trimClip(clipIndex, newStartMs, newEndMs);
+    emit audioChanged();
+}
+
+void AudioQMLBridge::trackDeleteSelection(int trackIndex, int startMs, int endMs)
+{
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return;
+    TrackModel *tm = m_tracks[trackIndex];
+    tm->pushUndoState();
+
+    for (int i = tm->clips.size() - 1; i >= 0; --i) {
+        AudioClip *c = tm->clips[i];
+        if (c->endMs() <= startMs || c->startMs >= endMs) continue;
+
+        if (c->startMs >= startMs && c->endMs() <= endMs) {
+            tm->removeClip(i);
+        } else if (c->startMs < startMs && c->endMs() > endMs) {
+            // Split into two clips
+            AudioClip *right = new AudioClip(
+                QVector<float>(c->samples.mid((endMs - c->startMs) * c->sampleRate / 1000 * c->channels)),
+                c->channels, c->sampleRate, endMs, tm);
+            right->name = c->name + "_R";
+            right->color = c->color;
+            c->samples.resize((startMs - c->startMs) * c->sampleRate / 1000 * c->channels);
+            tm->addClip(right);
+        } else if (c->startMs < startMs) {
+            // Trim end
+            c->samples.resize((startMs - c->startMs) * c->sampleRate / 1000 * c->channels);
+        } else {
+            // Trim start
+            int frameStart = (endMs - c->startMs) * c->sampleRate / 1000 * c->channels;
+            c->samples = QVector<float>(c->samples.mid(frameStart));
+            c->startMs = endMs;
+        }
+    }
+    emit audioChanged();
+}
+
+void AudioQMLBridge::trackAddClip(int trackIndex, const QString &filePath, qint64 positionMs)
+{
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return;
+    TrackModel *tm = m_tracks[trackIndex];
+    WaveProcessor wp;
+    if (!wp.load(filePath)) return;
+    qint64 pos = (positionMs >= 0) ? positionMs : tm->durationMs();
+    AudioClip *clip = new AudioClip(wp.getSamples(), wp.getChannelCount(), wp.getSampleRate(), pos, tm);
+    clip->name = QFileInfo(filePath).baseName();
+    tm->addClip(clip);
+    emit audioChanged();
+}
+
+void AudioQMLBridge::trackJoinClips(int trackIndex, int clipIndex1, int clipIndex2)
+{
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return;
+    TrackModel *tm = m_tracks[trackIndex];
+    if (clipIndex1 < 0 || clipIndex1 >= tm->clips.size() || clipIndex2 < 0 || clipIndex2 >= tm->clips.size()) return;
+    AudioClip *c1 = tm->clips[clipIndex1];
+    AudioClip *c2 = tm->clips[clipIndex2];
+    if (c1->sampleRate != c2->sampleRate || c1->channels != c2->channels) return;
+    if (c1->endMs() != c2->startMs) return;
+
+    tm->pushUndoState();
+    c1->samples.append(c2->samples);
+    tm->removeClip(clipIndex2);
+    emit audioChanged();
+}
+
+void AudioQMLBridge::trackMoveClip(int trackIndex, int clipIndex, qint64 newStartMs)
+{
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return;
+    m_tracks[trackIndex]->moveClip(clipIndex, newStartMs);
+    emit audioChanged();
 }
 
 void AudioQMLBridge::stop()
@@ -436,6 +870,244 @@ void AudioQMLBridge::applyLimiter(float threshold, float release)
     m_modified = true;
 }
 
+void AudioQMLBridge::applyPhaser(float rate, float depth, float feedback, float mix)
+{
+    TrackModel *tm = m_activeTrackModel;
+    if (!tm) return;
+    for (AudioClip *clip : tm->clips) {
+        ks::audio::Phaser phaser;
+        phaser.setRate(rate);
+        phaser.setDepth(depth);
+        phaser.setFeedback(feedback);
+        phaser.setMix(mix);
+        clip->samples = phaser.process(clip->samples, clip->sampleRate);
+    }
+    tm->pushUndoState();
+    m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::applyTremolo(float rate, float depth)
+{
+    TrackModel *tm = m_activeTrackModel;
+    if (!tm) return;
+    for (AudioClip *clip : tm->clips) {
+        ks::audio::TremoloModulation trem;
+        trem.setRate(rate);
+        trem.setDepth(depth);
+        clip->samples = trem.process(clip->samples, clip->sampleRate);
+    }
+    tm->pushUndoState();
+    m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::applyWahWah(float freq, float range, float resonance)
+{
+    TrackModel *tm = m_activeTrackModel;
+    if (!tm) return;
+    for (AudioClip *clip : tm->clips) {
+        ks::audio::AutoWah wah;
+        wah.setFreqMin(freq - range/2);
+        wah.setFreqMax(freq + range/2);
+        wah.setResonance(resonance);
+        clip->samples = wah.process(clip->samples, clip->sampleRate);
+    }
+    tm->pushUndoState();
+    m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::applyVocalReduction(float panLow, float panHigh)
+{
+    TrackModel *tm = m_activeTrackModel;
+    if (!tm) return;
+    for (AudioClip *clip : tm->clips) {
+        int ch = clip->channels;
+        if (ch < 2) continue;
+        QVector<float> &s = clip->samples;
+        for (int i = 0; i < s.size(); i += ch) {
+            float L = s[i];
+            float R = s[i + 1];
+            // Center cancellation: remove mid content
+            float mid = (L + R) * 0.5f;
+            float side = (L - R) * 0.5f;
+            float centerRemoved = mid * (1.0f - panLow) + side;
+            s[i] = centerRemoved;
+            s[i + 1] = centerRemoved;
+        }
+    }
+    tm->pushUndoState();
+    m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::applyNoiseGate(float threshold, float floor, float attack, float release)
+{
+    TrackModel *tm = m_activeTrackModel;
+    if (!tm) return;
+    for (AudioClip *clip : tm->clips) {
+        ks::audio::NoiseGate gate;
+        gate.setThreshold(threshold);
+        gate.setRatio(floor);
+        gate.setAttack(attack);
+        gate.setRelease(release);
+        clip->samples = gate.process(clip->samples, clip->sampleRate);
+    }
+    tm->pushUndoState();
+    m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::applyDeEsser(float freq, float threshold)
+{
+    TrackModel *tm = m_activeTrackModel;
+    if (!tm) return;
+    for (AudioClip *clip : tm->clips) {
+        ks::audio::DeEsser deesser;
+        deesser.setFrequency(freq);
+        deesser.setThreshold(threshold);
+        clip->samples = deesser.process(clip->samples, clip->sampleRate);
+    }
+    tm->pushUndoState();
+    m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::applyBitCrusher(int bitDepth, float downsample)
+{
+    TrackModel *tm = m_activeTrackModel;
+    if (!tm) return;
+    for (AudioClip *clip : tm->clips) {
+        ks::audio::BitCrusher crusher;
+        crusher.setBitDepth(bitDepth);
+        crusher.setSampleRateReduction(static_cast<int>(downsample));
+        clip->samples = crusher.process(clip->samples, clip->sampleRate);
+    }
+    tm->pushUndoState();
+    m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::applyRingMod(float freq, float mix)
+{
+    TrackModel *tm = m_activeTrackModel;
+    if (!tm) return;
+    for (AudioClip *clip : tm->clips) {
+        ks::audio::RingMod ring;
+        ring.setFrequency(freq);
+        ring.setMix(mix);
+        clip->samples = ring.process(clip->samples, clip->sampleRate);
+    }
+    tm->pushUndoState();
+    m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::applySaturation(float drive, float mix)
+{
+    TrackModel *tm = m_activeTrackModel;
+    if (!tm) return;
+    for (AudioClip *clip : tm->clips) {
+        ks::audio::SaturationDistortion sat;
+        sat.setDrive(drive);
+        sat.setMix(mix);
+        clip->samples = sat.process(clip->samples, clip->sampleRate);
+    }
+    tm->pushUndoState();
+    m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::applyTapeEmulation(float saturation, float wow, float flutter)
+{
+    TrackModel *tm = m_activeTrackModel;
+    if (!tm) return;
+    for (AudioClip *clip : tm->clips) {
+        ks::audio::TapeEmulator tape;
+        tape.setDrive(saturation);
+        tape.setWowRate(wow);
+        tape.setWowDepth(flutter);
+        clip->samples = tape.process(clip->samples, clip->sampleRate);
+    }
+    tm->pushUndoState();
+    m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::applyGuitarAmp(float gain, float tone, float volume)
+{
+    TrackModel *tm = m_activeTrackModel;
+    if (!tm) return;
+    for (AudioClip *clip : tm->clips) {
+        ks::audio::GuitarAmpSimulator amp;
+        amp.setGain(gain);
+        amp.setMid(tone);
+        amp.setVolume(volume);
+        clip->samples = amp.process(clip->samples, clip->sampleRate);
+    }
+    tm->pushUndoState();
+    m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::applyTransientDesigner(float attack, float sustain)
+{
+    TrackModel *tm = m_activeTrackModel;
+    if (!tm) return;
+    for (AudioClip *clip : tm->clips) {
+        ks::audio::TransientDesigner td;
+        td.setAttack(attack);
+        td.setSustain(sustain);
+        clip->samples = td.process(clip->samples, clip->sampleRate);
+    }
+    tm->pushUndoState();
+    m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::applyStereoEnhancer(float width)
+{
+    TrackModel *tm = m_activeTrackModel;
+    if (!tm) return;
+    for (AudioClip *clip : tm->clips) {
+        ks::audio::StereoEnhancer se;
+        se.setWidth(width);
+        clip->samples = se.process(clip->samples, clip->sampleRate);
+    }
+    tm->pushUndoState();
+    m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::applyMultibandCompressor(float lowThresh, float midThresh, float highThresh,
+                                               float lowRatio, float midRatio, float highRatio,
+                                               float attack, float release)
+{
+    TrackModel *tm = m_activeTrackModel;
+    if (!tm) return;
+    for (AudioClip *clip : tm->clips) {
+        ks::audio::MultibandCompressor mbc;
+        mbc.setBandCount(3);
+        mbc.setBandThreshold(0, lowThresh);
+        mbc.setBandRatio(0, lowRatio);
+        mbc.setBandAttack(0, attack);
+        mbc.setBandRelease(0, release);
+        mbc.setBandThreshold(1, midThresh);
+        mbc.setBandRatio(1, midRatio);
+        mbc.setBandAttack(1, attack);
+        mbc.setBandRelease(1, release);
+        mbc.setBandThreshold(2, highThresh);
+        mbc.setBandRatio(2, highRatio);
+        mbc.setBandAttack(2, attack);
+        mbc.setBandRelease(2, release);
+        clip->samples = mbc.process(clip->samples, clip->sampleRate);
+    }
+    tm->pushUndoState();
+    m_modified = true;
+    emit audioChanged();
+}
+
 void AudioQMLBridge::captureNoiseProfile()
 {
     QVector<float> region;
@@ -490,6 +1162,47 @@ QVariantList AudioQMLBridge::getWaveformData(int width)
     return result;
 }
 
+QVariantList AudioQMLBridge::getWaveformDataRange(int startMs, int endMs, int width)
+{
+    QVariantList result;
+    const QVector<float> &samples = m_waveProcessor->getSamples();
+    if (samples.isEmpty() || width <= 0) return result;
+
+    int channels = m_waveProcessor->getChannelCount();
+    int sampleRate = m_waveProcessor->getSampleRate();
+    if (channels <= 0 || sampleRate <= 0) return result;
+
+    qint64 totalFrames = samples.size() / channels;
+    if (totalFrames <= 0) return result;
+
+    int startFrame = qBound<qint64>(0, (qint64)startMs * sampleRate / 1000, totalFrames);
+    int endFrame = qBound<qint64>(0, (qint64)endMs * sampleRate / 1000, totalFrames);
+    if (endFrame <= startFrame) {
+        endFrame = qMin<qint64>(startFrame + 1, totalFrames);
+    }
+
+    int frameSpan = endFrame - startFrame;
+    int framesPerPixel = frameSpan / width;
+    if (framesPerPixel < 1) framesPerPixel = 1;
+
+    for (int i = 0; i < width; ++i) {
+        float minVal = 0.0f, maxVal = 0.0f;
+        int from = startFrame + i * framesPerPixel;
+        int to = qMin(startFrame + (i + 1) * framesPerPixel, endFrame);
+
+        for (int j = from; j < to; ++j) {
+            float sample = samples[j * channels];
+            minVal = qMin(minVal, sample);
+            maxVal = qMax(maxVal, sample);
+        }
+
+        result.append(minVal);
+        result.append(maxVal);
+    }
+
+    return result;
+}
+
 QVariantList AudioQMLBridge::getSpectrumData()
 {
     const QVector<float> &samples = m_waveProcessor->getSamples();
@@ -524,6 +1237,234 @@ QVariantList AudioQMLBridge::getMelSpectrum(int bands)
         result.append(val);
     }
     return result;
+}
+
+QVariantList AudioQMLBridge::getOscilloscopeData(int width)
+{
+    QVariantList result;
+    if (!m_activeTrackModel || m_activeTrackModel->clips.isEmpty()) return result;
+    const QVector<float> &samples = m_activeTrackModel->clips.first()->samples;
+    if (samples.isEmpty()) return result;
+
+    int step = qMax(1, samples.size() / width);
+    for (int i = 0; i < width && i * step < samples.size(); ++i) {
+        result.append(samples[i * step]);
+    }
+    return result;
+}
+
+QVariantList AudioQMLBridge::getSonogramData(int width, int height)
+{
+    QVariantList result;
+    if (!m_activeTrackModel || m_activeTrackModel->clips.isEmpty()) return result;
+
+    const QVector<float> &samples = m_activeTrackModel->clips.first()->samples;
+    if (samples.isEmpty()) return result;
+
+    int fftSize = 1024;
+    int hop = fftSize / 4;
+    int numFrames = (samples.size() - fftSize) / hop;
+    if (numFrames <= 0) return result;
+
+    for (int x = 0; x < width && x < numFrames; ++x) {
+        int offset = x * hop;
+        QVector<float> frame(fftSize);
+        const float twoPi = 6.28318530717958647692f;
+        for (int i = 0; i < fftSize && offset + i < samples.size(); ++i) {
+            frame[i] = samples[offset + i] * 0.5f * (1.0f - cosf(twoPi * i / fftSize));
+        }
+        QVector<float> spectrum = m_fft->getFrequencyBands(frame, height);
+        for (int y = 0; y < height; ++y) {
+            result.append(spectrum[y]);
+        }
+    }
+    return result;
+}
+
+QVariantList AudioQMLBridge::getPitchAnalysis(int width)
+{
+    QVariantList result;
+    if (!m_activeTrackModel || m_activeTrackModel->clips.isEmpty()) return result;
+    const QVector<float> &samples = m_activeTrackModel->clips.first()->samples;
+    if (samples.isEmpty()) return result;
+
+    int sampleRate = m_activeTrackModel->clips.first()->sampleRate;
+    int frameSize = 2048;
+    int hop = frameSize / 4;
+    const float twoPi = 6.28318530717958647692f;
+
+    for (int x = 0; x < width && x * hop + frameSize < samples.size(); ++x) {
+        int offset = x * hop;
+        float sum = 0.0f;
+        float bestCorr = -1.0f;
+        int bestLag = 0;
+        for (int lag = sampleRate / 2000; lag < sampleRate / 50; ++lag) {
+            float corr = 0.0f;
+            for (int i = 0; i < frameSize - lag; ++i) {
+                corr += samples[offset + i] * samples[offset + i + lag];
+            }
+            if (corr > bestCorr) {
+                bestCorr = corr;
+                bestLag = lag;
+            }
+        }
+        float pitch = bestLag > 0 ? sampleRate / (float)bestLag : 0.0f;
+        result.append(pitch);
+    }
+    return result;
+}
+
+QVariantList AudioQMLBridge::getContrastData(int startMs, int endMs)
+{
+    QVariantList result;
+    if (!m_activeTrackModel || m_activeTrackModel->clips.isEmpty()) return result;
+
+    QVector<float> allSamples;
+    for (AudioClip *clip : m_activeTrackModel->clips) {
+        allSamples.append(clip->samples);
+    }
+    if (allSamples.isEmpty()) return result;
+
+    int sampleRate = m_activeTrackModel->clips.first()->sampleRate;
+    int startFrame = startMs * sampleRate / 1000;
+    int endFrame = endMs * sampleRate / 1000;
+    startFrame = qBound(0, startFrame, allSamples.size());
+    endFrame = qBound(0, endFrame, allSamples.size());
+
+    if (endFrame <= startFrame) return result;
+
+    float minVal = 1.0f, maxVal = -1.0f;
+    float sum = 0.0f, sumSq = 0.0f;
+    int count = 0;
+    for (int i = startFrame; i < endFrame; ++i) {
+        float s = allSamples[i];
+        minVal = qMin(minVal, s);
+        maxVal = qMax(maxVal, s);
+        sum += s;
+        sumSq += s * s;
+        ++count;
+    }
+    float mean = sum / count;
+    float rms = sqrtf(sumSq / count);
+    float peak = qMax(qAbs(minVal), qAbs(maxVal));
+    float crest = peak / (rms + 1e-10f);
+
+    result.append(minVal);
+    result.append(maxVal);
+    result.append(mean);
+    result.append(rms);
+    result.append(peak);
+    result.append(crest);
+    return result;
+}
+
+QVariantList AudioQMLBridge::getPlotSpectrum(int width)
+{
+    return getFrequencyBands(width);
+}
+
+QVariantMap AudioQMLBridge::getStatistics()
+{
+    QVariantMap result;
+    if (!m_activeTrackModel || m_activeTrackModel->clips.isEmpty()) return result;
+
+    QVector<float> allSamples;
+    for (AudioClip *clip : m_activeTrackModel->clips) {
+        allSamples.append(clip->samples);
+    }
+    if (allSamples.isEmpty()) return result;
+
+    float minVal = 1.0f, maxVal = -1.0f;
+    float sum = 0.0f, sumSq = 0.0f;
+    for (float s : allSamples) {
+        minVal = qMin(minVal, s);
+        maxVal = qMax(maxVal, s);
+        sum += s;
+        sumSq += s * s;
+    }
+    float mean = sum / allSamples.size();
+    float rms = sqrtf(sumSq / allSamples.size());
+    float peak = qMax(qAbs(minVal), qAbs(maxVal));
+    float crest = peak / (rms + 1e-10f);
+    float dcOffset = mean;
+
+    result["min"] = minVal;
+    result["max"] = maxVal;
+    result["mean"] = mean;
+    result["rms"] = rms;
+    result["peak"] = peak;
+    result["crestFactor"] = crest;
+    result["dcOffset"] = dcOffset;
+    result["duration"] = m_activeTrackModel->durationMs();
+    result["sampleRate"] = m_activeTrackModel->clips.first()->sampleRate;
+    result["channels"] = m_activeTrackModel->clips.first()->channels;
+    result["numClips"] = m_activeTrackModel->clips.size();
+
+    return result;
+}
+
+int AudioQMLBridge::trackEnvelopePointCount(int trackIndex, int clipIndex) const
+{
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return 0;
+    if (clipIndex < 0 || clipIndex >= m_tracks[trackIndex]->clips.size()) return 0;
+    return m_tracks[trackIndex]->clips[clipIndex]->envelope.size();
+}
+
+QVariantList AudioQMLBridge::trackEnvelopePoints(int trackIndex, int clipIndex) const
+{
+    QVariantList result;
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return result;
+    if (clipIndex < 0 || clipIndex >= m_tracks[trackIndex]->clips.size()) return result;
+    AudioClip *clip = m_tracks[trackIndex]->clips[clipIndex];
+    for (const AudioClip::EnvelopePoint &p : clip->envelope) {
+        QVariantMap point;
+        point["timeMs"] = p.timeMs;
+        point["gain"] = p.gain;
+        result.append(point);
+    }
+    return result;
+}
+
+void AudioQMLBridge::trackAddEnvelopePoint(int trackIndex, int clipIndex, qint64 timeMs, float gain)
+{
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return;
+    if (clipIndex < 0 || clipIndex >= m_tracks[trackIndex]->clips.size()) return;
+    m_tracks[trackIndex]->clips[clipIndex]->addEnvelopePoint(timeMs, gain);
+    m_tracks[trackIndex]->pushUndoState();
+    m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::trackRemoveEnvelopePoint(int trackIndex, int clipIndex, int pointIndex)
+{
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return;
+    if (clipIndex < 0 || clipIndex >= m_tracks[trackIndex]->clips.size()) return;
+    m_tracks[trackIndex]->clips[clipIndex]->removeEnvelopePoint(pointIndex);
+    m_tracks[trackIndex]->pushUndoState();
+    m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::trackSetEnvelopePoint(int trackIndex, int clipIndex, int pointIndex, qint64 timeMs, float gain)
+{
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return;
+    if (clipIndex < 0 || clipIndex >= m_tracks[trackIndex]->clips.size()) return;
+    m_tracks[trackIndex]->clips[clipIndex]->setEnvelopePoint(pointIndex, timeMs, gain);
+    m_tracks[trackIndex]->pushUndoState();
+    m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::trackApplyEnvelope(int trackIndex, int clipIndex)
+{
+    if (trackIndex < 0 || trackIndex >= m_tracks.size() || !m_tracks[trackIndex]) return;
+    if (clipIndex < 0 || clipIndex >= m_tracks[trackIndex]->clips.size()) return;
+    AudioClip *clip = m_tracks[trackIndex]->clips[clipIndex];
+    clip->samples = clip->applyEnvelope();
+    clip->envelope.clear();
+    m_tracks[trackIndex]->pushUndoState();
+    m_modified = true;
+    emit audioChanged();
 }
 
 int AudioQMLBridge::getSampleCount() const
@@ -705,6 +1646,226 @@ void AudioQMLBridge::setInputDevice(const QString& deviceName)
 QString AudioQMLBridge::getCurrentInputDevice() const
 {
     return m_inputDeviceName.isEmpty() ? "Default" : m_inputDeviceName;
+}
+
+// ── Project I/O ─────────────────────────────────────────────────────────────
+
+static QString samplesToBase64(const QVector<float>& samples)
+{
+    QByteArray raw;
+    raw.resize(static_cast<int>(samples.size() * sizeof(float)));
+    std::memcpy(raw.data(), samples.constData(), raw.size());
+    return raw.toBase64();
+}
+
+static QVector<float> base64ToSamples(const QString& b64)
+{
+    QByteArray raw = QByteArray::fromBase64(b64.toUtf8());
+    int floatCount = raw.size() / static_cast<int>(sizeof(float));
+    QVector<float> samples(floatCount);
+    std::memcpy(samples.data(), raw.constData(), raw.size());
+    return samples;
+}
+
+bool AudioQMLBridge::saveProject(const QString& filePath)
+{
+    QJsonObject root;
+    root["_schema"]  = QStringLiteral("kseditor-audio");
+    root["_version"] = QStringLiteral("1.0.0");
+    root["name"]     = QFileInfo(filePath).baseName();
+    root["format"]   = QStringLiteral("kseditor-audio.v1");
+    root["guid"]     = QUuid::createUuid().toString(QUuid::WithoutBraces);
+
+    QJsonArray tracksArr;
+    for (int ti = 0; ti < m_tracks.size(); ++ti) {
+        TrackModel* tm = m_tracks[ti];
+        if (!tm) continue;
+
+        QJsonObject to;
+        to["name"]   = tm->name;
+        to["gain"]   = static_cast<double>(tm->gain);
+        to["pan"]    = static_cast<double>(tm->pan);
+        to["mute"]   = tm->mute;
+        to["solo"]   = tm->solo;
+        to["sampleRate"] = tm->maxSampleRate();
+        to["channels"]   = tm->maxChannels();
+
+        QJsonArray clipsArr;
+        for (AudioClip* c : tm->clips) {
+            QJsonObject co;
+            co["startMs"]    = c->startMs;
+            co["channels"]   = c->channels;
+            co["sampleRate"] = c->sampleRate;
+            co["name"]       = c->name;
+            co["color"]      = c->color.name();
+            co["samples"]    = samplesToBase64(c->samples);
+
+            QJsonArray envArr;
+            for (const AudioClip::EnvelopePoint& ep : c->envelope) {
+                QJsonObject epo;
+                epo["timeMs"] = ep.timeMs;
+                epo["gain"]   = static_cast<double>(ep.gain);
+                envArr.append(epo);
+            }
+            co["envelope"] = envArr;
+            clipsArr.append(co);
+        }
+        to["clips"] = clipsArr;
+
+        QJsonArray undoArr;
+        for (const QVector<AudioClip*>& snapshot : tm->undoStack) {
+            QJsonArray snapArr;
+            for (AudioClip* c : snapshot) {
+                QJsonObject so;
+                so["startMs"]    = c->startMs;
+                so["channels"]   = c->channels;
+                so["sampleRate"] = c->sampleRate;
+                so["name"]       = c->name;
+                so["color"]      = c->color.name();
+                so["samples"]    = samplesToBase64(c->samples);
+                snapArr.append(so);
+            }
+            undoArr.append(snapArr);
+        }
+        to["undoStack"] = undoArr;
+
+        tracksArr.append(to);
+    }
+    root["tracks"] = tracksArr;
+    root["activeTrack"] = m_activeTrack;
+
+    QJsonObject viewState;
+    viewState["viewStart"]     = m_viewStart;
+    viewState["viewEnd"]       = m_viewEnd;
+    viewState["selStartFrac"]  = m_selectionStartFrac;
+    viewState["selEndFrac"]    = m_selectionEndFrac;
+    viewState["selStartMs"]    = m_selectionStartMs;
+    viewState["selEndMs"]      = m_selectionEndMs;
+    root["viewState"] = viewState;
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly)) {
+        emit error("Cannot write project file: " + filePath);
+        return false;
+    }
+    file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    file.close();
+
+    m_currentFilePath = filePath;
+    m_modified = false;
+    emit saveComplete();
+    emit statusMessage("Project saved: " + filePath);
+    return true;
+}
+
+bool AudioQMLBridge::loadProject(const QString& filePath)
+{
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        emit error("Cannot read project file: " + filePath);
+        return false;
+    }
+
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
+    file.close();
+
+    if (parseError.error != QJsonParseError::NoError) {
+        emit error("JSON parse error: " + parseError.errorString());
+        return false;
+    }
+
+    QJsonObject root = doc.object();
+
+    // Stop playback
+    if (m_waveformEngine->isPlaying()) {
+        m_waveformEngine->stop();
+    }
+
+    // Clear existing tracks
+    for (TrackModel* tm : m_tracks) {
+        tm->clearClips();
+        tm->undoStack.clear();
+        tm->redoStack.clear();
+    }
+    qDeleteAll(m_tracks);
+    m_tracks.clear();
+
+    // Load tracks
+    QJsonArray tracksArr = root["tracks"].toArray();
+    for (int ti = 0; ti < tracksArr.size(); ++ti) {
+        QJsonObject to = tracksArr[ti].toObject();
+        TrackModel* tm = new TrackModel(this);
+        tm->name     = to["name"].toString("Track " + QString::number(ti + 1));
+        tm->gain     = static_cast<float>(to["gain"].toDouble(1.0));
+        tm->pan      = static_cast<float>(to["pan"].toDouble(0.0));
+        tm->mute     = to["mute"].toBool(false);
+        tm->solo     = to["solo"].toBool(false);
+
+        QJsonArray clipsArr = to["clips"].toArray();
+        for (int ci = 0; ci < clipsArr.size(); ++ci) {
+            QJsonObject co = clipsArr[ci].toObject();
+            AudioClip* clip = new AudioClip(this);
+            clip->startMs    = co["startMs"].toVariant().toLongLong();
+            clip->channels   = co["channels"].toInt(1);
+            clip->sampleRate = co["sampleRate"].toInt(44100);
+            clip->name       = co["name"].toString();
+            clip->color      = QColor(co["color"].toString("#569cd6"));
+            clip->samples    = base64ToSamples(co["samples"].toString());
+
+            QJsonArray envArr = co["envelope"].toArray();
+            for (int ei = 0; ei < envArr.size(); ++ei) {
+                QJsonObject epo = envArr[ei].toObject();
+                clip->addEnvelopePoint(epo["timeMs"].toVariant().toLongLong(),
+                                       static_cast<float>(epo["gain"].toDouble(1.0)));
+            }
+            tm->addClip(clip);
+        }
+
+        QJsonArray undoArr = to["undoStack"].toArray();
+        for (int ui = 0; ui < undoArr.size(); ++ui) {
+            QJsonArray snapArr = undoArr[ui].toArray();
+            QVector<AudioClip*> snapshot;
+            for (int si = 0; si < snapArr.size(); ++si) {
+                QJsonObject so = snapArr[si].toObject();
+                AudioClip* clip = new AudioClip(this);
+                clip->startMs    = so["startMs"].toVariant().toLongLong();
+                clip->channels   = so["channels"].toInt(1);
+                clip->sampleRate = so["sampleRate"].toInt(44100);
+                clip->name       = so["name"].toString();
+                clip->color      = QColor(so["color"].toString("#569cd6"));
+                clip->samples    = base64ToSamples(so["samples"].toString());
+                snapshot.append(clip);
+            }
+            tm->undoStack.append(snapshot);
+        }
+
+        m_tracks.append(tm);
+    }
+
+    // Set active track
+    int activeIdx = root["activeTrack"].toInt(0);
+    if (activeIdx >= 0 && activeIdx < m_tracks.size()) {
+        m_activeTrack = activeIdx;
+        m_activeTrackModel = m_tracks[activeIdx];
+    }
+
+    // Load view state
+    QJsonObject viewState = root["viewState"].toObject();
+    m_viewStart           = viewState["viewStart"].toDouble(0.0);
+    m_viewEnd             = viewState["viewEnd"].toDouble(1.0);
+    m_selectionStartFrac  = viewState["selStartFrac"].toDouble(0.0);
+    m_selectionEndFrac    = viewState["selEndFrac"].toDouble(1.0);
+    m_selectionStartMs    = viewState["selStartMs"].toInt(0);
+    m_selectionEndMs      = viewState["selEndMs"].toInt(0);
+
+    m_currentFilePath = filePath;
+    m_modified = false;
+
+    emit loadComplete();
+    emit audioChanged();
+    emit statusMessage("Project loaded: " + filePath);
+    return true;
 }
 
 // ── Text-to-Speech ──────────────────────────────────────────────────────────

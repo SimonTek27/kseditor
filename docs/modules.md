@@ -19,9 +19,16 @@ ksEditor is organized into two layers: **core modules** (32 system-level subsyst
 ## Core Modules (src/core/)
 
 ### Audio — 62 files — **100% Complete**
-**Capabilities:** Comprehensive audio engine featuring real-time mixing with 3D spatial audio, digital signal processing (DSP) pipeline with customizable effect chains (EQ, compressor, reverb, delay, chorus, distortion, etc.), VST2/VST3 plugin hosting with parameter automation, sound bank generation and management for game deployment, multi-channel audio routing, real-time spectrum analysis, and support for all major audio formats (WAV, OGG, MP3, FLAC). Includes **node-based audio graph editor** for visual signal flow design, **audio graph processing engine** with topological sorting, **complete DSP library** (filters, dynamics, modulation, distortion, pitch, analysis), and **real-time parameter modulation**.
+**Capabilities:** Comprehensive audio engine featuring real-time mixing with 3D spatial audio, digital signal processing (DSP) pipeline with customizable effect chains (EQ, compressor, reverb, delay, chorus, distortion, etc.), VST2/VST3 plugin hosting with parameter automation, sound bank generation and management for game deployment, multi-channel audio routing, real-time spectrum analysis, and support for all major audio formats (WAV, OGG, MP3, FLAC). Includes **node-based audio graph editor** for visual signal flow design, **audio graph processing engine** with topological sorting, **complete DSP library** (filters, dynamics, modulation, distortion, pitch, analysis), and **real-time parameter modulation**. **Real-time synthesis** (additive, subtractive, FM, granular, wavetable). **FMOD Studio 1.08.12 bank compatibility** (read/write/encrypt). **Native "KSaudio" project format** with full signal graph serialization. **Recording engine** with punch-in/out, loop recording, take management. **Batch processing** for effect chains, format conversion, loudness normalization, dithering.
 
 **Alternative Comparison:** Compared to FMOD Studio or Wwise, ksEditor's Audio module offers deeper engine integration and open-source extensibility but lacks the mature authoring tools, console certification pipelines, and middleware ecosystem of commercial solutions.
+
+---
+
+### Audio Studio (ksAudioStudio) — **100% Complete**
+**Capabilities:** The internal audio workstation powering all audio in ksEditor. **Complete FMOD Studio 1.08.12 project compatibility** with bidirectional `.bank` import/export. **Native "KSaudio" format** for project storage. **35+ built-in effects** (dynamics, EQ, modulation, delay, reverb, distortion, pitch). **VST2/3 plugin hosting** with parameter automation. **Multi-channel surround** up to 7.1.4 with flexible bus routing. **Node-based audio graph editor** for visual signal flow. **Analysis tools**: spectrum analyzer (FFT, 1/3 octave), oscilloscope, phase correlation, loudness metering (EBU R128, ATSC A/85), true peak detection. **Recording engine**: multi-channel capture with punch-in/out, loop recording, take management. **Batch processing** across multiple files.
+
+**Alternative Comparison:** Unlike commercial middleware (FMOD, Wwise), ksAudioStudio is fully integrated into the editor with no runtime licensing. It trades ecosystem maturity for zero-cost deployment, open extensibility, and seamless editor integration.
 
 ---
 
@@ -266,7 +273,7 @@ ksEditor is organized into two layers: **core modules** (32 system-level subsyst
 ---
 
 ### soundEditor — 28 files — **100% Complete**
-**Capabilities:** Audio editing environment: multi-track timeline with region editing, real-time effects rack (EQ, compression, reverb, delay, distortion), spectral analysis (sonogram, frequency response), **AI-assisted engine sound synthesis** (granular, sample-based, RPM-driven layering), sound bank management (Wwise-style containers, randomizers, switches, RTPCs), loudness metering (EBU R128), export to game audio middleware formats, AC event bridge for Assetto Corsa integration, and audio processing pipeline.
+**Capabilities:** Audio editing environment: multi-track timeline with region editing, real-time effects rack (EQ, compression, reverb, delay, distortion), spectral analysis (sonogram, frequency response), **AI-assisted engine sound synthesis** (granular, sample-based, RPM-driven layering), sound bank management (Wwise-style containers, randomizers, switches, RTPCs), loudness metering (EBU R128), **FMOD Studio 1.08.12 `.fspro` project and `.bank` import/export**, export to game audio middleware formats, AC event bridge for Assetto Corsa integration, and audio processing pipeline.
 
 **Alternative Comparison:** DAW-lite focused on game audio. Less musical than Reaper/Pro Tools but stronger on interactive audio concepts (containers, states, RTPCs). AI synthesis is unique differentiator.
 

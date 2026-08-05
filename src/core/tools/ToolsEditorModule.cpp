@@ -1,4 +1,4 @@
-#include "ToolsEditorModule.h"
+﻿#include "ToolsEditorModule.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -510,4 +510,3 @@ void ToolsEditorModule::onOpenPythonConsole() {
 } // namespace tools
 } // namespace ks
 
-#include "ToolsEditorModule.moc"

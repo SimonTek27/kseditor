@@ -6,12 +6,8 @@
 #include <QString>
 #include <memory>
 
-namespace ks { namespace graphics {
-class SceneObject;
-} }
-
 namespace ks {
-using graphics::SceneObject;
+class SceneObject;
 
 /**
  * @brief Configurazione per l'ottimizzazione del rendering

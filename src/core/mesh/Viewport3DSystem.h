@@ -26,14 +26,9 @@
 #include "Graphics/VulkanRenderer.h"
 #endif
 
-namespace ks { namespace graphics {
+namespace ks {
 class SceneObject;
 class SceneMesh;
-} }
-
-namespace ks {
-using graphics::SceneObject;
-using graphics::SceneMesh;
 
 // ── Vulkan Fallback Widget (OpenGL-based) ──────────────────────────────────
 // Provides basic OpenGL rendering with camera orbit/pan/zoom and grid overlay.

@@ -2589,6 +2589,4 @@ void VulkanFramebuffer::unbind() {
 
 VulkanFramebuffer* VulkanFramebuffer::activeFramebuffer() { return s_activeFramebuffer; }
 bool VulkanFramebuffer::isBound() const { return m_bound; }
-
-}
 }

@@ -1,4 +1,4 @@
-#include "MaterialEditorModule.h"
+﻿#include "MaterialEditorModule.h"
 #include "ShaderGraphWidget.h"
 #include "core/editor/ModuleGuiBase.h"
 #include <QVBoxLayout>
@@ -411,14 +411,14 @@ void MaterialEditorModule::setupTexturePaintTab() {
     layerTree->header()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
     
     // Add default layer
-    QTreeWidgetItem* baseLayer = new QTreeWidgetItem(layerTree, {"Base", "Normal", "100%", "✓"});
+    QTreeWidgetItem* baseLayer = new QTreeWidgetItem(layerTree, {"Base", "Normal", "100%", "âœ“"});
     baseLayer->setFlags(baseLayer->flags() | Qt::ItemIsUserCheckable);
     baseLayer->setCheckState(3, Qt::Checked);
     
     QPushButton* addLayerBtn = createButton("+ Add Layer", "success");
     connect(addLayerBtn, &QPushButton::clicked, this, [layerTree]() {
         int count = layerTree->topLevelItemCount();
-        QTreeWidgetItem* item = new QTreeWidgetItem(layerTree, {QString("Layer %1").arg(count), "Normal", "100%", "✓"});
+        QTreeWidgetItem* item = new QTreeWidgetItem(layerTree, {QString("Layer %1").arg(count), "Normal", "100%", "âœ“"});
         item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
         item->setCheckState(3, Qt::Checked);
     });
@@ -1139,4 +1139,3 @@ void MaterialEditorModule::onNewMaterial() {
 } // namespace material
 } // namespace ks
 
-#include "MaterialEditorModule.moc"

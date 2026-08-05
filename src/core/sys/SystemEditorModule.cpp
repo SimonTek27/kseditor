@@ -1,4 +1,4 @@
-#include "SystemEditorModule.h"
+﻿#include "SystemEditorModule.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -223,9 +223,9 @@ void SystemEditorModule::populatePluginList() {
 void SystemEditorModule::populateTaskList() {
     m_taskTree->clear();
     m_taskTree->addTopLevelItem(new QTreeWidgetItem({"Asset Indexing", "Running", "45%", "Normal", "Worker 1"}));
-    m_taskTree->addTopLevelItem(new QTreeWidgetItem({"Texture Compression", "Queued", "0%", "Low", "—"}));
+    m_taskTree->addTopLevelItem(new QTreeWidgetItem({"Texture Compression", "Queued", "0%", "Low", "â€”"}));
     m_taskTree->addTopLevelItem(new QTreeWidgetItem({"GLTF Import", "Running", "60%", "High", "Worker 2"}));
-    m_taskTree->addTopLevelItem(new QTreeWidgetItem({"Cloud Sync", "Idle", "100%", "Normal", "—"}));
+    m_taskTree->addTopLevelItem(new QTreeWidgetItem({"Cloud Sync", "Idle", "100%", "Normal", "â€”"}));
 }
 
 void SystemEditorModule::onModuleToggled(QTreeWidgetItem* item, int column) {
@@ -328,4 +328,3 @@ void SystemEditorModule::onTaskSelected(QTreeWidgetItem* item, int column) {
 } // namespace sys
 } // namespace ks
 
-#include "SystemEditorModule.moc"

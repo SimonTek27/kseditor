@@ -1,4 +1,4 @@
-#include "NetworkEditorModule.h"
+﻿#include "NetworkEditorModule.h"
 #include "core/sys/LogManager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -220,7 +220,7 @@ void NetworkEditorModule::setupCloudSyncTab() {
         "projects", "assets", "materials", "scripts", "configs", "shaders", "textures", "models"
     };
     for (const QString& item : syncItems) {
-        QTreeWidgetItem* treeItem = new QTreeWidgetItem(m_syncTree, {item, "Folder", "✓", "✓", "Synced", "-", "Just now"});
+        QTreeWidgetItem* treeItem = new QTreeWidgetItem(m_syncTree, {item, "Folder", "âœ“", "âœ“", "Synced", "-", "Just now"});
         treeItem->setCheckState(0, Qt::Checked);
     }
     
@@ -1155,4 +1155,3 @@ void NetworkEditorModule::onSettingsChanged() {
 } // namespace network
 } // namespace ks
 
-#include "NetworkEditorModule.moc"

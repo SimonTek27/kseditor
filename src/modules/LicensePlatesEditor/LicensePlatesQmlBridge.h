@@ -5,7 +5,7 @@
 #include <QStringList>
 #include <QVariantMap>
 #include <QVariantList>
-#include "../LiveryEditor/LiverySystem.h"
+#include "../PaintEditor/PaintSystem.h"
 
 namespace ks {
 

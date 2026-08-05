@@ -19,7 +19,7 @@ class SceneObject;
 class PBRMaterial;
 
 // Project-level serialization format
-struct ProjectData {
+struct SceneProjectData {
     QString formatVersion = "0.9.0";
     QString editorVersion = "0.9.0";
     QString name;
@@ -92,7 +92,7 @@ struct AssetMetadata {
     QString errorMessage;
 };
 
-struct AssetCollection {
+struct SceneAssetCollection {
     QString name;
     QString description;
     QVector<QUuid> assets;
@@ -181,17 +181,17 @@ struct UserPreferences {
     QJsonObject advanced;
 };
 
-class ProjectSerializer : public QObject
+class SceneProjectSerializer : public QObject
 {
     Q_OBJECT
 
 public:
-    static ProjectSerializer& instance();
+    static SceneProjectSerializer& instance();
 
     // Project file operations
-    bool saveProject(const QString& path, const ProjectData& data);
-    bool loadProject(const QString& path, ProjectData& data);
-    bool saveBackup(const QString& path, const ProjectData& data);
+    bool saveProject(const QString& path, const SceneProjectData& data);
+    bool loadProject(const QString& path, SceneProjectData& data);
+    bool saveBackup(const QString& path, const SceneProjectData& data);
     
     // Scene serialization
     QJsonObject serializeScene(const SceneGraph* scene);
@@ -210,11 +210,11 @@ public:
     PBRMaterial* deserializeMaterial(const QJsonObject& json);
     
     // Version migration
-    bool migrateProject(ProjectData& data, const QString& fromVersion);
+    bool migrateProject(SceneProjectData& data, const QString& fromVersion);
     
     // Utility
     static QString generateProjectPath(const QString& baseDir, const QString& name);
-    static bool validateProject(const ProjectData& data, QStringList& errors);
+    static bool validateProject(const SceneProjectData& data, QStringList& errors);
 
 signals:
     void projectSaved(const QString& path);
@@ -223,11 +223,11 @@ signals:
     void migrationNeeded(const QString& fromVersion, const QString& toVersion);
 
 private:
-    ProjectSerializer(QObject* parent = nullptr);
-    ~ProjectSerializer();
-    Q_DISABLE_COPY(ProjectSerializer)
+    SceneProjectSerializer(QObject* parent = nullptr);
+    ~SceneProjectSerializer();
+    Q_DISABLE_COPY(SceneProjectSerializer)
 
-    static ProjectSerializer* s_instance;
+    static SceneProjectSerializer* s_instance;
     
     int m_currentFormatVersion = 2;
     int m_minSupportedVersion = 1;

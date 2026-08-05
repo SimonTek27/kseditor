@@ -6,7 +6,7 @@
 #include <QVector>
 #include <QJsonObject>
 #include <QVector3D>
-#include "../../LiveryEditor/LiveryEditorModule.h"
+#include "../../PaintEditor/PaintEditorModule.h"
 
 namespace ks {
 
@@ -76,15 +76,15 @@ public:
     CarConfig getConfig() const;
     void setConfig(const CarConfig& config);
 
-    void loadLivery(const QString& path);
-    void saveLivery(const QString& path);
+    void loadPaint(const QString& path);
+    void savePaint(const QString& path);
 
-    bool loadLiveryTexture(const QString& skinPath);
-    bool saveLiveryTexture(const QImage& texture, const QString& skinPath);
+    bool loadPaintTexture(const QString& skinPath);
+    bool savePaintTexture(const QImage& texture, const QString& skinPath);
     QStringList getSkins() const;
     bool setCurrentSkin(const QString& skinName);
-    LiverySystem::SkinConfig& liveryConfig() { return m_liveryConfig; }
-    LiveryPainter* liveryPainter() { return LiveryEditor::instance()->liveryPainter(); }
+    PaintSystem::SkinConfig& paintConfig() { return m_paintConfig; }
+    PaintPainter* paintPainter() { return PaintEditor::instance()->paintPainter(); }
 
     CarPhysicsData& physicsData() { return m_physics; }
     const CarPhysicsData& physicsData() const { return m_physics; }
@@ -98,8 +98,8 @@ signals:
     void partChanged(const QString& partId);
     void carModified();
     void validationComplete(bool valid, const QVector<QString>& errors);
-    void liveryLoaded(const QString& skinName);
-    void liverySaved(const QString& skinName);
+    void paintLoaded(const QString& skinName);
+    void paintSaved(const QString& skinName);
 
 private:
     explicit CarEditor(QObject* parent = nullptr);
@@ -110,7 +110,7 @@ private:
     QMap<QString, CarPart> m_parts;
     CarConfig m_config;
     
-    LiverySystem::SkinConfig m_liveryConfig;
+    PaintSystem::SkinConfig m_paintConfig;
     CarPhysicsData m_physics;
     
     void loadDefaultParts();

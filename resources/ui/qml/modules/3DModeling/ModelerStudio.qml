@@ -18,7 +18,7 @@ ApplicationWindow {
     color: "#111111"
     visible: true
 
-    property string currentFile: "untitled.zm"
+    property string currentFile: "untitled.ks3d"
     property int viewMode: 0
     property string selectedObject: ""
     property int gizmoMode: 1
@@ -48,6 +48,13 @@ ApplicationWindow {
         totalTris = sceneModel.totalTriangles
     }
 
+    function saveCurrentScene() {
+        if (currentFile === "untitled.ks3d" || currentFile === "untitled")
+            saveDialog.open()
+        else
+            Modeler.saveScene(currentFile)
+    }
+
     function openSymmetryPanel() {
         symmetryPanel.visible = !symmetryPanel.visible
     }
@@ -65,14 +72,12 @@ ApplicationWindow {
             title: "File"
             Action { text: "New Scene"; shortcut: "Ctrl+N"; onTriggered: Modeler.newScene() }
             Action { text: "Open..."; shortcut: "Ctrl+O"; onTriggered: openDialog.open() }
-            Action { text: "Save"; shortcut: "Ctrl+S"; onTriggered: Modeler.saveScene(currentFile) }
+            Action { text: "Save"; shortcut: "Ctrl+S"; onTriggered: saveCurrentScene() }
             Action { text: "Save As..."; shortcut: "Ctrl+Shift+S"; onTriggered: saveDialog.open() }
             MenuSeparator {}
             Action { text: "Import..."; shortcut: "Ctrl+I"; onTriggered: importDialog.open() }
             MenuSeparator {}
-            Action { text: "Export KN5"; onTriggered: Modeler.exportKN5() }
-            Action { text: "Export FBX"; onTriggered: Modeler.exportFBX() }
-            Action { text: "Export OBJ"; onTriggered: Modeler.exportOBJ() }
+            Action { text: "Export..."; onTriggered: exportDialog.open() }
             MenuSeparator {}
             Action { text: "Exit"; shortcut: "Ctrl+Q"; onTriggered: Qt.quit() }
         }
@@ -81,6 +86,28 @@ ApplicationWindow {
             title: "Edit"
             Action { text: "Undo"; shortcut: "Ctrl+Z"; onTriggered: Modeler.undo(); enabled: canUndo }
             Action { text: "Redo"; shortcut: "Ctrl+Shift+Z"; onTriggered: Modeler.redo(); enabled: canRedo }
+            MenuSeparator {}
+            Action {
+                text: "Cut"
+                shortcut: "Ctrl+X"
+                enabled: Modeler.hasSelection
+                onTriggered: Modeler.cutSelected()
+                icon.name: "edit-cut"
+            }
+            Action {
+                text: "Copy"
+                shortcut: "Ctrl+C"
+                enabled: Modeler.hasSelection
+                onTriggered: Modeler.copySelected()
+                icon.name: "edit-copy"
+            }
+            Action {
+                text: "Paste"
+                shortcut: "Ctrl+V"
+                enabled: Modeler.hasClipboard
+                onTriggered: Modeler.pasteClipboard()
+                icon.name: "edit-paste"
+            }
             MenuSeparator {}
             Action { text: "Delete Selected"; shortcut: "Delete"; onTriggered: Modeler.deleteSelected(); enabled: Modeler.hasSelection }
             Action { text: "Select All"; shortcut: "Ctrl+A"; onTriggered: Modeler.selectAll() }
@@ -161,7 +188,7 @@ ApplicationWindow {
                 ToolButton {
                     text: "\u{1F4BE}"; font.pixelSize: 14
                     ToolTip.visible: hovered; ToolTip.text: "Save"; ToolTip.delay: 500
-                    onClicked: Modeler.saveScene(currentFile)
+                    onClicked: saveCurrentScene()
                     background: Rectangle { color: parent.hovered ? "#3a3a3e" : "transparent"; radius: 3 }
                 }
             }
@@ -1052,7 +1079,7 @@ ApplicationWindow {
     FileDialog {
         id: openDialog
         title: "Open Scene"
-        nameFilters: ["KS Scene (*.zm *.kn5)", "All Files (*)"]
+        nameFilters: ["KS Scene (*.ks3d)", "KN5 Scene (*.kn5)", "All Files (*)"]
         onAccepted: {
             currentFile = file.toString().replace("file:///", "")
             Modeler.loadScene(currentFile)
@@ -1062,10 +1089,24 @@ ApplicationWindow {
     FileDialog {
         id: saveDialog
         title: "Save Scene As"
-        nameFilters: ["KS Scene (*.zm)", "KN5 (*.kn5)"]
+        nameFilters: ["KS Scene (*.ks3d)"]
+        defaultSuffix: "ks3d"
         onAccepted: {
-            currentFile = file.toString().replace("file:///", "")
+            var path = file.toString().replace("file:///", "")
+            if (!path.toLowerCase().endsWith(".ks3d"))
+                path += ".ks3d"
+            currentFile = path
             Modeler.saveScene(currentFile)
+        }
+    }
+
+    FileDialog {
+        id: exportDialog
+        title: "Export Model"
+        nameFilters: ["KN5 (*.kn5)", "FBX (*.fbx)", "OBJ (*.obj)", "All Files (*)"]
+        onAccepted: {
+            var path = file.toString().replace("file:///", "")
+            Modeler.exportFile(path)
         }
     }
 

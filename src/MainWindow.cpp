@@ -12,7 +12,8 @@
 #include "../modules/modellingEditor/wizard/CharacterWizard.h"
 #include "../modules/modellingEditor/3DModeling_Module.h"
 #include "../modules/PhysicsEditor/PhysicsEditor.h"
-#include "../modules/LiveryEditor/LiveryEditorModule.h"
+#include "../modules/sound/editor/AudioEditorModule.h"
+#include "../modules/PaintEditor/PaintEditorModule.h"
 #include "../modules/modellingEditor/TrackBuilder/TrackBuilderModule.h"
 #include "core/Audio/AudioStudioTypes.h"
 #include "plugins/simulators/kunos/assettocorsa/acFiles/AudioBankParser.h"
@@ -230,22 +231,22 @@ void MainWindow::setupCarTab() {
     auto* specBtn = texGroup->addButton(QIcon(":/icons/specular.svg"), "Specular");
     auto* emissBtn = texGroup->addButton(QIcon(":/icons/emissive.svg"), "Emissive");
     
-    auto* liveryPanel2 = textureSubTab->addPanel("Liveries");
-    auto* liveryGroup2 = liveryPanel2->addGroup("Skins");
-    auto* newSkinBtn2 = liveryGroup2->addButton(QIcon(":/icons/skin.svg"), "New Skin");
+    auto* paintPanel2 = textureSubTab->addPanel("Paint");
+    auto* paintGroup2 = paintPanel2->addGroup("Skins");
+    auto* newSkinBtn2 = paintGroup2->addButton(QIcon(":/icons/skin.svg"), "New Skin");
     newSkinBtn2->setStyle(ks::editor::RibbonButton::Style::Success);
-    auto* skinEditorBtn2 = liveryGroup2->addButton(QIcon(":/icons/edit.svg"), "Skin Editor");
+    auto* skinEditorBtn2 = paintGroup2->addButton(QIcon(":/icons/edit.svg"), "Paint Editor");
     connect(newSkinBtn2, &QToolButton::clicked, this, [this]() {
         bool ok;
         QString name = QInputDialog::getText(this, tr("New Skin"), tr("Skin name:"), QLineEdit::Normal, QString(), &ok);
         if (ok && !name.isEmpty()) {
-            ks::LiveryEditor::instance()->createSkin(name);
+            ks::PaintEditor::instance()->createSkin(name);
         }
     });
     connect(skinEditorBtn2, &QToolButton::clicked, this, [this]() {
         for (auto* mod : m_moduleManager->modules()) {
-            if (auto* livery = qobject_cast<ks::LiveryEditorModule*>(mod)) {
-                m_moduleManager->setCurrentModule(m_moduleManager->moduleIndex(livery->getModuleName()));
+            if (auto* paintModule = qobject_cast<ks::PaintEditorModule*>(mod)) {
+                m_moduleManager->setCurrentModule(m_moduleManager->moduleIndex(paintModule->getModuleName()));
                 return;
             }
         }
@@ -920,15 +921,15 @@ void MainWindow::setupSoundTab() {
     auto* recordStudioBtn = studioGroup->addButton(QIcon(":/icons/record.svg"), "Recording Studio");
     recordStudioBtn->setStyle(ks::editor::RibbonButton::Style::Primary);
     connect(bankBtn, &QToolButton::clicked, this, [this]() {
-        auto* audio = ks::audio::AudioEditorModule::instance();
+        auto* audio = ks::AudioEditorModule::instance();
         if (audio) audio->onBuildBanks();
     });
     connect(eventsBtn, &QToolButton::clicked, this, [this]() {
-        auto* audio = ks::audio::AudioEditorModule::instance();
+        auto* audio = ks::AudioEditorModule::instance();
         if (audio) audio->onImportAsset();
     });
     connect(recordStudioBtn, &QToolButton::clicked, this, [this]() {
-        auto* audio = ks::audio::AudioEditorModule::instance();
+        auto* audio = ks::AudioEditorModule::instance();
         if (audio) audio->onNewProject();
     });
     
@@ -1063,84 +1064,84 @@ void MainWindow::setupPaintTab() {
     auto* brushSubTab = paintTab->addSubTab("Brush", QIcon(":/icons/livery.svg"));
     auto* brushPanel = brushSubTab->addPanel("Tools");
     auto* brushGroup = brushPanel->addGroup("Brush");
-    auto* brushBtn = brushGroup->addButton(QIcon(":/icons/livery.svg"), "Brush");
-    brushBtn->setShortcut(QKeySequence("B"));
-    brushBtn->setStyle(ks::editor::RibbonButton::Style::Primary);
-    auto* pencilBtn = brushGroup->addButton(QIcon(":/icons/livery.svg"), "Pencil");
-    pencilBtn->setShortcut(QKeySequence("Shift+B"));
-    auto* eraserBtn = brushGroup->addButton(QIcon(":/icons/livery.svg"), "Eraser");
-    eraserBtn->setShortcut(QKeySequence("E"));
-    auto* airbrushBtn = brushGroup->addButton(QIcon(":/icons/livery.svg"), "Airbrush");
+    m_paintBrushBtn = brushGroup->addButton(QIcon(":/icons/livery.svg"), "Brush");
+    m_paintBrushBtn->setShortcut(QKeySequence("B"));
+    m_paintBrushBtn->setStyle(ks::editor::RibbonButton::Style::Primary);
+    m_paintPencilBtn = brushGroup->addButton(QIcon(":/icons/livery.svg"), "Pencil");
+    m_paintPencilBtn->setShortcut(QKeySequence("Shift+B"));
+    m_paintEraserBtn = brushGroup->addButton(QIcon(":/icons/livery.svg"), "Eraser");
+    m_paintEraserBtn->setShortcut(QKeySequence("E"));
+    m_paintAirbrushBtn = brushGroup->addButton(QIcon(":/icons/livery.svg"), "Airbrush");
 
     auto* fillPanel = brushSubTab->addPanel("Fill");
     auto* fillGroup = fillPanel->addGroup("Paint");
-    auto* fillBtn = fillGroup->addButton(QIcon(":/icons/livery.svg"), "Fill");
-    fillBtn->setShortcut(QKeySequence("Shift+G"));
-    auto* gradientBtn = fillGroup->addButton(QIcon(":/icons/livery.svg"), "Gradient");
-    gradientBtn->setShortcut(QKeySequence("G"));
-    auto* cloneBtn = fillGroup->addButton(QIcon(":/icons/livery.svg"), "Clone Stamp");
-    cloneBtn->setShortcut(QKeySequence("S"));
+    m_paintFillBtn = fillGroup->addButton(QIcon(":/icons/livery.svg"), "Fill");
+    m_paintFillBtn->setShortcut(QKeySequence("Shift+G"));
+    m_paintGradientBtn = fillGroup->addButton(QIcon(":/icons/livery.svg"), "Gradient");
+    m_paintGradientBtn->setShortcut(QKeySequence("G"));
+    m_paintCloneBtn = fillGroup->addButton(QIcon(":/icons/livery.svg"), "Clone Stamp");
+    m_paintCloneBtn->setShortcut(QKeySequence("S"));
 
     auto* colorPanel = brushSubTab->addPanel("Colors");
     auto* colorGroup = colorPanel->addGroup("Swatch");
-    auto* fgColorBtn = colorGroup->addButton(QIcon(":/icons/livery.svg"), "FG Color");
-    auto* bgColorBtn = colorGroup->addButton(QIcon(":/icons/livery.svg"), "BG Color");
-    auto* swapColorsBtn = colorGroup->addButton(QIcon(":/icons/livery.svg"), "Swap");
-    swapColorsBtn->setShortcut(QKeySequence("X"));
-    auto* defaultColorsBtn = colorGroup->addButton(QIcon(":/icons/livery.svg"), "Default");
-    defaultColorsBtn->setShortcut(QKeySequence("D"));
+    m_paintFgColorBtn = colorGroup->addButton(QIcon(":/icons/livery.svg"), "FG Color");
+    m_paintBgColorBtn = colorGroup->addButton(QIcon(":/icons/livery.svg"), "BG Color");
+    m_paintSwapColorsBtn = colorGroup->addButton(QIcon(":/icons/livery.svg"), "Swap");
+    m_paintSwapColorsBtn->setShortcut(QKeySequence("X"));
+    m_paintDefaultColorsBtn = colorGroup->addButton(QIcon(":/icons/livery.svg"), "Default");
+    m_paintDefaultColorsBtn->setShortcut(QKeySequence("D"));
 
     // === SUB-TAB: SELECT ===
     auto* selectSubTab = paintTab->addSubTab("Select", QIcon(":/icons/livery.svg"));
     auto* marqueePanel = selectSubTab->addPanel("Marquee");
     auto* marqueeGroup = marqueePanel->addGroup("Shape");
-    auto* rectSelectBtn = marqueeGroup->addButton(QIcon(":/icons/livery.svg"), "Rect Sel");
-    rectSelectBtn->setShortcut(QKeySequence("M"));
-    auto* ellipseSelectBtn = marqueeGroup->addButton(QIcon(":/icons/livery.svg"), "Ellipse Sel");
-    ellipseSelectBtn->setShortcut(QKeySequence("Shift+M"));
-    auto* lassoBtn = marqueeGroup->addButton(QIcon(":/icons/livery.svg"), "Lasso");
-    lassoBtn->setShortcut(QKeySequence("L"));
-    auto* magicWandBtn = marqueeGroup->addButton(QIcon(":/icons/livery.svg"), "Magic Wand");
-    magicWandBtn->setShortcut(QKeySequence("W"));
+    m_paintRectSelectBtn = marqueeGroup->addButton(QIcon(":/icons/livery.svg"), "Rect Sel");
+    m_paintRectSelectBtn->setShortcut(QKeySequence("M"));
+    m_paintEllipseSelectBtn = marqueeGroup->addButton(QIcon(":/icons/livery.svg"), "Ellipse Sel");
+    m_paintEllipseSelectBtn->setShortcut(QKeySequence("Shift+M"));
+    m_paintLassoBtn = marqueeGroup->addButton(QIcon(":/icons/livery.svg"), "Lasso");
+    m_paintLassoBtn->setShortcut(QKeySequence("L"));
+    m_paintMagicWandBtn = marqueeGroup->addButton(QIcon(":/icons/livery.svg"), "Magic Wand");
+    m_paintMagicWandBtn->setShortcut(QKeySequence("W"));
 
     auto* modPanel = selectSubTab->addPanel("Modify");
     auto* modGroup = modPanel->addGroup("Actions");
-    auto* deselectBtn = modGroup->addButton(QIcon(":/icons/livery.svg"), "Deselect");
-    deselectBtn->setShortcut(QKeySequence("Ctrl+D"));
-    auto* invertBtn = modGroup->addButton(QIcon(":/icons/livery.svg"), "Invert");
-    invertBtn->setShortcut(QKeySequence("Ctrl+I"));
+    m_paintDeselectBtn = modGroup->addButton(QIcon(":/icons/livery.svg"), "Deselect");
+    m_paintDeselectBtn->setShortcut(QKeySequence("Ctrl+D"));
+    m_paintInvertBtn = modGroup->addButton(QIcon(":/icons/livery.svg"), "Invert");
+    m_paintInvertBtn->setShortcut(QKeySequence("Ctrl+I"));
 
     // === SUB-TAB: VIEW ===
     auto* viewSubTab = paintTab->addSubTab("View", QIcon(":/icons/livery.svg"));
     auto* zoomPanel = viewSubTab->addPanel("Zoom");
     auto* zoomGroup = zoomPanel->addGroup("Navigate");
-    auto* zoomInBtn = zoomGroup->addButton(QIcon(":/icons/zoom-in.svg"), "Zoom In");
-    zoomInBtn->setShortcut(QKeySequence("Ctrl++"));
-    auto* zoomOutBtn = zoomGroup->addButton(QIcon(":/icons/zoom-out.svg"), "Zoom Out");
-    zoomOutBtn->setShortcut(QKeySequence("Ctrl+-"));
-    auto* fitBtn = zoomGroup->addButton(QIcon(":/icons/livery.svg"), "Fit");
-    fitBtn->setShortcut(QKeySequence("Ctrl+0"));
-    auto* zoomToolBtn = zoomGroup->addButton(QIcon(":/icons/livery.svg"), "Zoom Tool");
-    zoomToolBtn->setShortcut(QKeySequence("Z"));
+    m_paintZoomInBtn = zoomGroup->addButton(QIcon(":/icons/zoom-in.svg"), "Zoom In");
+    m_paintZoomInBtn->setShortcut(QKeySequence("Ctrl++"));
+    m_paintZoomOutBtn = zoomGroup->addButton(QIcon(":/icons/zoom-out.svg"), "Zoom Out");
+    m_paintZoomOutBtn->setShortcut(QKeySequence("Ctrl+-"));
+    m_paintFitBtn = zoomGroup->addButton(QIcon(":/icons/livery.svg"), "Fit");
+    m_paintFitBtn->setShortcut(QKeySequence("Ctrl+0"));
+    m_paintZoomToolBtn = zoomGroup->addButton(QIcon(":/icons/livery.svg"), "Zoom Tool");
+    m_paintZoomToolBtn->setShortcut(QKeySequence("Z"));
 
     auto* viewPanel = viewSubTab->addPanel("Display");
     auto* viewGroup = viewPanel->addGroup("Toggles");
-    auto* fullscreenBtn = viewGroup->addButton(QIcon(":/icons/livery.svg"), "Fullscreen");
-    fullscreenBtn->setShortcut(QKeySequence("F"));
-    auto* rulersBtn = viewGroup->addButton(QIcon(":/icons/livery.svg"), "Rulers");
-    rulersBtn->setShortcut(QKeySequence("Ctrl+Shift+R"));
+    m_paintFullscreenBtn = viewGroup->addButton(QIcon(":/icons/livery.svg"), "Fullscreen");
+    m_paintFullscreenBtn->setShortcut(QKeySequence("F"));
+    m_paintRulersBtn = viewGroup->addButton(QIcon(":/icons/livery.svg"), "Rulers");
+    m_paintRulersBtn->setShortcut(QKeySequence("Ctrl+Shift+R"));
 
     // === SUB-TAB: LAYER ===
     auto* layerSubTab = paintTab->addSubTab("Layer", QIcon(":/icons/layers.svg"));
     auto* layerPanel = layerSubTab->addPanel("Ops");
     auto* layerGroup = layerPanel->addGroup("Actions");
-    auto* newLayerBtn = layerGroup->addButton(QIcon(":/icons/layers.svg"), "New Layer");
-    newLayerBtn->setShortcut(QKeySequence("Ctrl+Shift+N"));
-    auto* dupLayerBtn = layerGroup->addButton(QIcon(":/icons/layers.svg"), "Duplicate");
-    dupLayerBtn->setShortcut(QKeySequence("Ctrl+J"));
-    auto* mergeLayerBtn = layerGroup->addButton(QIcon(":/icons/layers.svg"), "Merge Down");
-    mergeLayerBtn->setShortcut(QKeySequence("Ctrl+E"));
-    auto* flattenBtn = layerGroup->addButton(QIcon(":/icons/layers.svg"), "Flatten");
+    m_paintNewLayerBtn = layerGroup->addButton(QIcon(":/icons/layers.svg"), "New Layer");
+    m_paintNewLayerBtn->setShortcut(QKeySequence("Ctrl+Shift+N"));
+    m_paintDupLayerBtn = layerGroup->addButton(QIcon(":/icons/layers.svg"), "Duplicate");
+    m_paintDupLayerBtn->setShortcut(QKeySequence("Ctrl+J"));
+    m_paintMergeLayerBtn = layerGroup->addButton(QIcon(":/icons/layers.svg"), "Merge Down");
+    m_paintMergeLayerBtn->setShortcut(QKeySequence("Ctrl+E"));
+    m_paintFlattenBtn = layerGroup->addButton(QIcon(":/icons/layers.svg"), "Flatten");
 
     paintTab->setCurrentSubTabIndex(0);
     m_ribbonBar->addTab(paintTab);
@@ -1203,6 +1204,13 @@ MainWindow::MainWindow(const QString& projectPath, QWidget* parent)
         m_crashRecovery->addOpenDocument(m_currentProjectPath);
         m_crashRecovery->setActiveDocument(m_currentProjectPath);
     }
+
+    // Offer to recover any session left behind by a previous crash once the
+    // main window is visible (recoveryNeeded -> showRecoveryDialog).
+    QTimer::singleShot(0, this, [this]() {
+        if (m_crashRecovery)
+            m_crashRecovery->recover();
+    });
 
     // Setup template system
     m_templateManager = ks::TemplateManager::instance();
@@ -1881,7 +1889,7 @@ void MainWindow::setupConnections()
     help->registerHelp("PhysicsEditor", "ers", "ERS/Hybrid system: MGU-K, MGU-H, battery deployment");
     help->registerHelp("ShowroomEditor", "viewport", "3D showroom preview with configurable lighting and cameras");
     help->registerHelp("ShowroomEditor", "config", "Showroom configuration: camera, lighting, background");
-    help->registerHelp("LiveryEditor", "painting", "Car livery painting with DDS export and decal import");
+    help->registerHelp("PaintEditor", "painting", "Car paint editing with DDS export and decal import");
     help->registerHelp("DisplayEditor", "segments", "7/14/16-segment display editor for AC dashboards");
     help->registerHelp("FontCreator", "glyphs", "Bitmap glyph editor for font atlas generation");
     help->registerHelp("ScriptConsole", "console", "JavaScript console with auto-complete and history", "F12");
@@ -2540,20 +2548,44 @@ void MainWindow::showRecoveryDialog(const QVector<ks::CrashRecovery::Session>& s
 {
     if (sessions.isEmpty()) return;
 
+    // Sessions are in file-system order; pick the most recent one as target.
+    const auto& session = sessions.first();
+
+    QStringList documents = session.openDocuments;
+    documents.removeAll(QString());
+    QString target = !session.lastActiveDocument.isEmpty()
+        ? session.lastActiveDocument
+        : (documents.isEmpty() ? QString() : documents.first());
+
     QString message = tr("Crash recovery data found for %1 session(s):\n\n").arg(sessions.size());
-    for (const auto& session : sessions) {
-        QDateTime dt = QDateTime::fromMSecsSinceEpoch(session.timestamp);
-        message += tr("- %1: %2 document(s)\n").arg(dt.toString(Qt::ISODate)).arg(session.openDocuments.size());
+    for (const auto& s : sessions) {
+        QDateTime dt = QDateTime::fromSecsSinceEpoch(s.timestamp);
+        message += tr("- %1: %2 document(s)\n")
+                       .arg(dt.toString(Qt::ISODate))
+                       .arg(s.openDocuments.size());
     }
-    message += tr("\nWould you like to recover?");
+    message += tr("\nThe following project will be reopened:\n%1\n\nWould you like to recover?")
+                   .arg(target.isEmpty() ? tr("(none)") : target);
 
-    auto reply = QMessageBox::question(this, tr("Crash Recovery"), message,
-                                       QMessageBox::Yes | QMessageBox::No);
+    const auto reply = QMessageBox::question(this, tr("Crash Recovery"), message,
+                                             QMessageBox::Yes | QMessageBox::No);
 
-    if (reply == QMessageBox::Yes && !sessions.isEmpty()) {
-        m_crashRecovery->recoverSession(sessions.first());
-        setStatusMessage(tr("Session recovered"), 3000);
+    if (reply == QMessageBox::Yes) {
+        m_crashRecovery->recoverSession(session);
+        if (target.isEmpty()) {
+            setStatusMessage(tr("Session recovered"), 3000);
+        } else if (QFileInfo::exists(target)) {
+            openRecentProject(target);
+            setStatusMessage(tr("Session recovered"), 3000);
+        } else {
+            setStatusMessage(tr("Recovered session, but project file no longer exists"), 4000);
+        }
     }
+
+    // The user has been informed; drop the abandoned session markers so they
+    // are not offered again on the next launch.
+    for (const auto& s : sessions)
+        m_crashRecovery->dismissSession(s.id);
 }
 
 // ==================== Settings ====================
@@ -3069,20 +3101,20 @@ void MainWindow::setPaintMode(bool enabled)
     ks::editor::RibbonThemeManager::instance().applyTheme("paint");
     ks::editor::RibbonThemeManager::instance().applyWindowFrame(this, "paint");
 
-    // Apply paint QSS theme
-    QFile qssFile(":/ui/styles/paint.qss");
+    // Apply paint QSS theme (PhotoGIMP-inspired; mirrors ksModeler theme files)
+    QFile qssFile(":/ui/styles/paint-dark.qss");
     if (qssFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qApp->setStyleSheet(QString::fromUtf8(qssFile.readAll()));
         qssFile.close();
     }
 
-    // Set window title for paint mode
-    setWindowTitle(tr("LiveryEditor — PhotoGIMP Paint Mode"));
+// Set window title for paint mode
+    setWindowTitle(tr("PaintEditor PhotoGIMP Paint Mode"));
 
-    // Switch to LiveryEditor module
-    int liveryIdx = m_moduleManager->moduleIndex("Livery Editor");
-    if (liveryIdx >= 0) {
-        switchToModule(liveryIdx);
+    // Switch to PaintEditor module
+    int paintIdx = m_moduleManager->moduleIndex("Paint Editor");
+    if (paintIdx >= 0) {
+        switchToModule(paintIdx);
     }
 
     // Show ribbon paint tab (index 6 since we have 6 existing tabs)
@@ -3091,7 +3123,74 @@ void MainWindow::setPaintMode(bool enabled)
         m_ribbonBar->setCurrentIndex(6);
     }
 
+    // Connect paint tab ribbon buttons to PaintEditorWidget
+    connectPaintTabButtons();
+
     LOG_INFO("MainWindow", "Paint mode activated (PhotoGIMP-inspired)");
+}
+
+void MainWindow::connectPaintTabButtons()
+{
+    // Get the PaintEditorModule and its widget
+    ks::PaintEditorModule* paintModule = qobject_cast<ks::PaintEditorModule*>(m_moduleManager->editorModule(m_moduleManager->moduleIndex("Paint Editor")));
+    if (!paintModule) return;
+    ks::PaintEditorWidget* editorWidget = paintModule->editorWidget();
+    if (!editorWidget) return;
+
+    // Connect brush tool buttons
+    auto connectTool = [editorWidget](ks::editor::RibbonButton* btn, int brushTypeIndex) {
+        if (btn) connect(btn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, [editorWidget, brushTypeIndex](bool) {
+            editorWidget->onBrushTypeChanged(brushTypeIndex);
+        });
+    };
+
+    connectTool(m_paintBrushBtn, 0);      // Brush
+    connectTool(m_paintPencilBtn, 1);     // Pencil
+    connectTool(m_paintEraserBtn, 2);     // Eraser
+    connectTool(m_paintAirbrushBtn, 3);   // Airbrush
+
+    // Connect fill/gradient/clone (map to brush types)
+    if (m_paintFillBtn) connect(m_paintFillBtn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, [editorWidget](bool) {
+        editorWidget->onBrushTypeChanged(6); // Bucket Fill
+    });
+    if (m_paintGradientBtn) connect(m_paintGradientBtn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, [editorWidget](bool) {
+        editorWidget->onBrushTypeChanged(7); // Gradient
+    });
+    if (m_paintCloneBtn) connect(m_paintCloneBtn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, [editorWidget](bool) {
+        editorWidget->onBrushTypeChanged(8); // Clone
+    });
+
+    // Connect color buttons
+    if (m_paintFgColorBtn) connect(m_paintFgColorBtn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, &ks::PaintEditorWidget::onColorSelected);
+    if (m_paintBgColorBtn) connect(m_paintBgColorBtn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, &ks::PaintEditorWidget::onSecondaryColorSelected);
+    if (m_paintSwapColorsBtn) connect(m_paintSwapColorsBtn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, &ks::PaintEditorWidget::onSwapColors);
+    if (m_paintDefaultColorsBtn) connect(m_paintDefaultColorsBtn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, &ks::PaintEditorWidget::onResetColors);
+
+    // Connect selection buttons
+    auto connectSelect = [editorWidget](ks::editor::RibbonButton* btn, int selectTypeIndex) {
+        if (btn) connect(btn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, [editorWidget, selectTypeIndex](bool) {
+            editorWidget->onBrushTypeChanged(selectTypeIndex);
+        });
+    };
+    connectSelect(m_paintRectSelectBtn, 4);    // Rect Select
+    connectSelect(m_paintEllipseSelectBtn, 5); // Ellipse Select
+    connectSelect(m_paintLassoBtn, 9);         // Free Select (Lasso)
+    connectSelect(m_paintMagicWandBtn, 10);    // Fuzzy Select (Magic Wand)
+
+    if (m_paintDeselectBtn) connect(m_paintDeselectBtn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, &ks::PaintEditorWidget::onSelectNone);
+    if (m_paintInvertBtn) connect(m_paintInvertBtn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, &ks::PaintEditorWidget::onSelectInvert);
+
+    // Connect view buttons
+    if (m_paintZoomInBtn) connect(m_paintZoomInBtn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, &ks::PaintEditorWidget::onZoomIn);
+    if (m_paintZoomOutBtn) connect(m_paintZoomOutBtn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, &ks::PaintEditorWidget::onZoomOut);
+    if (m_paintFitBtn) connect(m_paintFitBtn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, &ks::PaintEditorWidget::onZoomFit);
+    if (m_paintZoomToolBtn) connect(m_paintZoomToolBtn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, &ks::PaintEditorWidget::onZoomTool);
+
+    // Connect layer buttons
+    if (m_paintNewLayerBtn) connect(m_paintNewLayerBtn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, &ks::PaintEditorWidget::onAddLayer);
+    if (m_paintDupLayerBtn) connect(m_paintDupLayerBtn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, &ks::PaintEditorWidget::onDuplicateSkin);
+    if (m_paintMergeLayerBtn) connect(m_paintMergeLayerBtn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, &ks::PaintEditorWidget::onMergeLayerDown);
+    if (m_paintFlattenBtn) connect(m_paintFlattenBtn, QOverload<bool>::of(&ks::editor::RibbonButton::clicked), editorWidget, &ks::PaintEditorWidget::onFlattenImage);
 }
 
 void MainWindow::setCSPVersion(const QString& version)

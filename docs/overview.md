@@ -68,6 +68,7 @@ src/
 | Domain | Status | Details |
 |--------|--------|---------|
 | Audio Editor | 100% | Complete: real-time mixing, spatial audio, DSP pipeline, VST2/3 hosting, sound bank management, node audio graph, spectrum analysis, all 30+ effects |
+| Audio Studio (ksAudioStudio) | 100% | Complete: internal audio engine, **FMOD 1.08.12 `.fspro` project + `.bank` runtime compatibility**, KSaudio native format, synthesis (additive/FM/granular/wavetable), 35+ built-in effects, VST2/3 hosting, surround 7.1.4, recording engine, batch processing |
 | 3D Modeler | 100% | Complete: boolean ops (BSP/CGAL), UV unwrap (LSCM/ABF++), subdivision, sculpting, geometry nodes, rig generator, Car/Track/Character builders |
 | Physics Editor | 100% | Complete: Pacejka tire model, aero, suspension, brakes, telemetry, ERS/hybrid, DRS, damage, weather, fuel, setup comparison, 86 tests passing |
 | Livery Editor | 100% | Complete: layer painting, vector tools, decal/stencil system, material masks, templates, color palette, DDS export, 3D preview |

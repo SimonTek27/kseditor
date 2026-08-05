@@ -12,7 +12,7 @@
 #include "../tools/FormatToolsQmlBridge.h"
 #include "../FfbEditor/FfbEditorQmlBridge.h"
 #include "../../modules/ShowroomEditor/ShowroomEditorModule.h"
-#include "../../modules/LiveryEditor/LiveryEditorModule.h"
+#include "../../modules/PaintEditor/PaintEditorModule.h"
 #include "../AIEditor/AIEditorModule.h"
 #include "../eventEditor/championshipEditor/ChampionshipEditorModule.h"
 #include "../textEditor/TextEditorModule.h"
@@ -23,10 +23,10 @@
 #include "../../modules/modellingEditor/TrackBuilder/TrackMapEditorModule.h"
 #include "../../modules/modellingEditor/TrackBuilder/TrackLightingEditorModule.h"
 #include "../../modules/modellingEditor/TrackBuilder/DRSZoneEditorModule.h"
-#include "../../modules/LiveryEditor/SkinIniEditorModule.h"
-#include "../../modules/LiveryEditor/GUISkinEditorModule.h"
+#include "../../modules/PaintEditor/SkinIniEditorModule.h"
+#include "../../modules/PaintEditor/GUISkinEditorModule.h"
 #include "../../modules/sound/editor/SoundEditorModule.h"
-#include "../../core/formatToolsEditor/FormatToolsEditorModule.h"
+#include "plugins/simulators/kunos/assettocorsa/FormatToolsEditorModule.h"
 #include "../../core/Scripting/luaScript/LuaScriptEditorModule.h"
 #include "../../core/eventEditor/specialEventsEditor/SpecialEventsEditorModule.h"
 #include "../../core/eventEditor/raceConfigEditor/RaceConfigEditorModule.h"
@@ -105,7 +105,7 @@ void ModuleManager::loadModules()
     registerModule(new ks::FormatToolsModule(this));
     registerModule(new ks::FfbEditorModule(this));
     registerModule(new ks::ShowroomEditorModule(this));
-    registerModule(new ks::LiveryEditorModule(this));
+    registerModule(new ks::PaintEditorModule(this));
     registerModule(new ks::ChampionshipEditorModule(this));
     registerModule(new ks::TextEditorModule(this));
     registerModule(new ks::SetupEditorModule(this));

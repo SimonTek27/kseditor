@@ -11,6 +11,9 @@
 
 namespace ks {
 
+using fileformat::MeshData;
+using fileformat::MeshVertex;
+using fileformat::MeshSubmesh;
 
 // Simple USD ASCII (.usda) parser - for USD binary (.usd) would need USD library
 bool USDParser::read(const QString& filePath, USDStage& stage, QString* error) {

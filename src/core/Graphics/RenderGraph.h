@@ -296,7 +296,7 @@ private:
 };
 
 // Scene graph with ECS-style components
-class SceneGraph : public QObject
+class RenderSceneGraph : public QObject
 {
     Q_OBJECT
 
@@ -369,8 +369,8 @@ public:
         float exposure = 1.0f;
     };
 
-    explicit SceneGraph(QObject* parent = nullptr);
-    ~SceneGraph();
+    explicit RenderSceneGraph(QObject* parent = nullptr);
+    ~RenderSceneGraph();
 
     // Entity management
     QUuid createEntity(const QString& name = QString());
@@ -515,13 +515,14 @@ public:
     QJsonObject serialize() const;
     bool deserialize(const QJsonObject& data);
 
+    // Recursive transform update (not a signal; called internally)
+    void updateTransformRecursive(Entity* entity);
+
 signals:
     void entityCreated(QUuid id);
     void entityDestroyed(QUuid id);
     void componentAdded(QUuid entityId, QUuid compId);
     void componentRemoved(QUuid entityId, QUuid compId);
-
-    void updateTransformRecursive(Entity* entity);
 
 private:
     QMap<QUuid, Entity*> m_entities;

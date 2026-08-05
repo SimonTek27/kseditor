@@ -12,7 +12,6 @@
 #include <QDataStream>
 
 namespace ks {
-using namespace graphics;
 
 // ============================================================================
 // CommandHistory Implementation

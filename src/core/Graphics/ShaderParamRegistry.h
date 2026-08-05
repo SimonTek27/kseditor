@@ -75,6 +75,4 @@ private:
     QMap<QString, QMap<QString, QVariant>> m_paramValues;
     QMap<QString, QVariant> m_globalParams;
 };
-
-}
 }

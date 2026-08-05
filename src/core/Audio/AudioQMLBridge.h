@@ -7,6 +7,7 @@
 #include <QVector>
 #include <QVariantList>
 #include <QTimer>
+#include "AudioClip.h"
 
 class WaveProcessor;
 class WaveformEngine;
@@ -63,6 +64,42 @@ public:
     Q_INVOKABLE bool saveAudio(const QString &filePath);
     Q_INVOKABLE void newAudio(int channels, int sampleRate, int durationMs);
 
+    Q_INVOKABLE int trackCount() const;
+    Q_INVOKABLE int activeTrack() const;
+    Q_INVOKABLE void setActiveTrack(int index);
+    Q_INVOKABLE int addTrack();
+    Q_INVOKABLE void removeTrack(int index);
+    Q_INVOKABLE QString trackName(int index) const;
+    Q_INVOKABLE void setTrackName(int index, const QString &name);
+    Q_INVOKABLE float trackGain(int index) const;
+    Q_INVOKABLE void setTrackGain(int index, float gain);
+    Q_INVOKABLE float trackPan(int index) const;
+    Q_INVOKABLE void setTrackPan(int index, float pan);
+    Q_INVOKABLE bool trackMute(int index) const;
+    Q_INVOKABLE void setTrackMute(int index, bool mute);
+    Q_INVOKABLE bool trackSolo(int index) const;
+    Q_INVOKABLE void setTrackSolo(int index, bool solo);
+    Q_INVOKABLE qint64 trackDurationMs(int index) const;
+    Q_INVOKABLE int trackSampleCount(int index) const;
+    Q_INVOKABLE int trackRate(int index) const;
+    Q_INVOKABLE QVariantList getTrackWaveformData(int index, int startMs, int endMs, int width);
+    Q_INVOKABLE void trackUndo(int index);
+    Q_INVOKABLE void trackRedo(int index);
+    Q_INVOKABLE bool trackCanUndo(int index) const;
+    Q_INVOKABLE bool trackCanRedo(int index) const;
+    Q_INVOKABLE int projectRate() const;
+
+    // Clip operations
+    Q_INVOKABLE int trackClipCount(int index) const;
+    Q_INVOKABLE qint64 trackClipStartMs(int trackIndex, int clipIndex) const;
+    Q_INVOKABLE qint64 trackClipEndMs(int trackIndex, int clipIndex) const;
+    Q_INVOKABLE void trackSplitClip(int trackIndex, int clipIndex, qint64 positionMs);
+    Q_INVOKABLE void trackTrimClip(int trackIndex, int clipIndex, qint64 newStartMs, qint64 newEndMs);
+    Q_INVOKABLE void trackDeleteSelection(int trackIndex, int startMs, int endMs);
+    Q_INVOKABLE void trackAddClip(int trackIndex, const QString &filePath, qint64 positionMs = -1);
+    Q_INVOKABLE void trackJoinClips(int trackIndex, int clipIndex1, int clipIndex2);
+    Q_INVOKABLE void trackMoveClip(int trackIndex, int clipIndex, qint64 newStartMs);
+
     Q_INVOKABLE void play();
     Q_INVOKABLE void stop();
     Q_INVOKABLE void pause();
@@ -110,6 +147,23 @@ public:
                                       float attack = 10.0f, float release = 100.0f, float makeupGain = 1.0f);
     Q_INVOKABLE void applyLimiter(float threshold = -0.1f, float release = 50.0f);
 
+    Q_INVOKABLE void applyPhaser(float rate = 0.5f, float depth = 1.0f, float feedback = 0.0f, float mix = 0.5f);
+    Q_INVOKABLE void applyTremolo(float rate = 5.0f, float depth = 1.0f);
+    Q_INVOKABLE void applyWahWah(float freq = 1000.0f, float range = 1200.0f, float resonance = 1.0f);
+    Q_INVOKABLE void applyVocalReduction(float panLow = 0.1f, float panHigh = 0.9f);
+    Q_INVOKABLE void applyNoiseGate(float threshold = -40.0f, float floor = -80.0f, float attack = 5.0f, float release = 100.0f);
+    Q_INVOKABLE void applyDeEsser(float freq = 5000.0f, float threshold = -20.0f);
+    Q_INVOKABLE void applyBitCrusher(int bitDepth = 8, float downsample = 1.0f);
+    Q_INVOKABLE void applyRingMod(float freq = 1000.0f, float mix = 0.5f);
+    Q_INVOKABLE void applySaturation(float drive = 2.0f, float mix = 0.5f);
+    Q_INVOKABLE void applyTapeEmulation(float saturation = 1.0f, float wow = 0.0f, float flutter = 0.0f);
+    Q_INVOKABLE void applyGuitarAmp(float gain = 10.0f, float tone = 0.5f, float volume = 1.0f);
+    Q_INVOKABLE void applyTransientDesigner(float attack = 0.0f, float sustain = 0.0f);
+    Q_INVOKABLE void applyStereoEnhancer(float width = 1.5f);
+    Q_INVOKABLE void applyMultibandCompressor(float lowThresh = -20.0f, float midThresh = -20.0f, float highThresh = -20.0f,
+                                               float lowRatio = 4.0f, float midRatio = 4.0f, float highRatio = 4.0f,
+                                               float attack = 10.0f, float release = 100.0f);
+
     Q_INVOKABLE void timeStretch(float ratio);
     Q_INVOKABLE void pitchShift(float semitones);
     Q_INVOKABLE void changeTempo(float percent);
@@ -136,9 +190,38 @@ public:
     Q_INVOKABLE bool hasNoiseProfile() const;
 
     Q_INVOKABLE QVariantList getWaveformData(int width);
+    Q_INVOKABLE QVariantList getWaveformDataRange(int startMs, int endMs, int width);
     Q_INVOKABLE QVariantList getSpectrumData();
     QVariantList getFrequencyBands(int bandCount);
     Q_INVOKABLE QVariantList getMelSpectrum(int bands = 64);
+
+    // Analysis tools
+    Q_INVOKABLE QVariantList getOscilloscopeData(int width);
+    Q_INVOKABLE QVariantList getSonogramData(int width, int height);
+    Q_INVOKABLE QVariantList getPitchAnalysis(int width);
+    Q_INVOKABLE QVariantList getContrastData(int startMs, int endMs);
+    Q_INVOKABLE QVariantList getPlotSpectrum(int width);
+    Q_INVOKABLE QVariantMap getStatistics();
+
+    // Envelope tools
+    Q_INVOKABLE int trackEnvelopePointCount(int trackIndex, int clipIndex) const;
+    Q_INVOKABLE QVariantList trackEnvelopePoints(int trackIndex, int clipIndex) const;
+    Q_INVOKABLE void trackAddEnvelopePoint(int trackIndex, int clipIndex, qint64 timeMs, float gain);
+    Q_INVOKABLE void trackRemoveEnvelopePoint(int trackIndex, int clipIndex, int pointIndex);
+    Q_INVOKABLE void trackSetEnvelopePoint(int trackIndex, int clipIndex, int pointIndex, qint64 timeMs, float gain);
+    Q_INVOKABLE void trackApplyEnvelope(int trackIndex, int clipIndex);
+
+    // Project I/O
+    Q_INVOKABLE bool saveProject(const QString &filePath);
+    Q_INVOKABLE bool loadProject(const QString &filePath);
+
+    // Indexed undo/redo stack
+    Q_INVOKABLE int trackUndoStackSize(int trackIndex) const;
+    Q_INVOKABLE int trackRedoStackSize(int trackIndex) const;
+    Q_INVOKABLE int trackUndoStackIndex(int trackIndex) const;
+    Q_INVOKABLE QVariantList trackUndoStackDescriptions(int trackIndex) const;
+    Q_INVOKABLE void trackUndoToIndex(int trackIndex, int index);
+    Q_INVOKABLE void trackRedoToIndex(int trackIndex, int index);
 
     Q_INVOKABLE int getSampleCount() const;
     Q_INVOKABLE int getChannelCount() const;
@@ -189,7 +272,10 @@ signals:
 private:
     static AudioQMLBridge* s_instance;
 
-    WaveProcessor *m_waveProcessor;
+    TrackModel *m_activeTrackModel;
+    QVector<TrackModel*> m_tracks;
+    int m_activeTrack;
+    WaveProcessor *m_waveProcessor;  // legacy active track processor
     WaveformEngine *m_waveformEngine;
     FFTProcessor *m_fft;
     NoiseReducer *m_noiseReducer;
@@ -199,6 +285,12 @@ private:
     int m_selectionEndMs;
     QString m_currentFilePath;
     bool m_modified;
+
+    // View state (for project save/load)
+    double m_viewStart = 0.0;
+    double m_viewEnd = 1.0;
+    double m_selectionStartFrac = 0.0;
+    double m_selectionEndFrac = 1.0;
 
     // Recording members
     ks::audio::AudioRecorder* m_recorder;

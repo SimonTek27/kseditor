@@ -1,14 +1,18 @@
 #include "AudioEditorModule.h"
 #include "../../../core/Audio/AudioStudioTypes.h"
 #include "../../../core/Audio/AudioTypes.h"
-#include "../../../core/Audio/FSPROImporter.h"
-#include "../../../core/Audio/BankWriter.h"
+#include "../../../core/FileFormat/FSPROImporter.h"
+#include "../../../core/FileFormat/BankWriter.h"
+#include "../../../core/FileFormat/KSAudioImporter.h"
+#include "../../../core/FileFormat/KSAudioExporter.h"
+#include "../../../core/FileFormat/KSAudioValidator.h"
 
 #include <QFile>
 #include <QJsonDocument>
 #include <QFileDialog>
 #include <QStandardPaths>
 #include <QMessageBox>
+#include <QInputDialog>
 #include <QDir>
 #include <QJsonArray>
 #include <QProcess>
@@ -73,7 +77,7 @@ void AudioEditorModule::onOpenProject() {
     if (path.isEmpty()) return;
 
     if (path.endsWith(".fspro", Qt::CaseInsensitive)) {
-        ks::audio::KSFSPROImporter importer;
+        fileformat::KSFSPROImporter importer;
         QString ksaudioPath = QFileInfo(path).absolutePath()
                              + "/" + QFileInfo(path).completeBaseName() + ".ksaudio";
         if (importer.convertFile(path, ksaudioPath)) {
@@ -112,48 +116,251 @@ void AudioEditorModule::onImportAsset() {
     QStringList paths = QFileDialog::getOpenFileNames(nullptr,
         "Import Audio / FMOD Project",
         QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
-        "All Supported (*.wav *.ogg *.mp3 *.flac *.aiff *.fspro);;"
+        "All Supported (*.wav *.ogg *.mp3 *.flac *.aiff *.fspro *.bank);;"
         "Audio Files (*.wav *.ogg *.mp3 *.flac *.aiff);;"
         "FMOD Studio Projects (*.fspro);;"
+        "FMOD Bank Files (*.bank);;"
         "All Files (*)");
 
     if (paths.isEmpty()) return;
 
+    // Ensure we have a project to import into
+    if (m_impl->projectPath.isEmpty()) {
+        QString savePath = QFileDialog::getSaveFileName(nullptr,
+            "Create Audio Project",
+            QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
+            "Audio Projects (*.ksaudio)");
+        if (savePath.isEmpty()) return;
+
+        fileformat::KSAudioImporter importer;
+        if (!importer.createProject(savePath, QFileInfo(savePath).completeBaseName())) {
+            QMessageBox::warning(nullptr, "Error",
+                "Failed to create project:\n" + importer.lastError());
+            return;
+        }
+        m_impl->projectPath = savePath;
+    }
+
+    fileformat::KSAudioImporter importer;
+    fileformat::KSAudioImporter::ImportOptions opts;
+    opts.copyAssets = true;
+    opts.detectLoopPoints = true;
+
+    int successCount = 0;
     for (const QString& path : paths) {
         if (path.endsWith(".fspro", Qt::CaseInsensitive)) {
-            ks::audio::KSFSPROImporter importer;
+            fileformat::KSFSPROImporter fsproImporter;
             QString ksaudioPath = QFileInfo(path).absolutePath()
                                  + "/" + QFileInfo(path).completeBaseName() + ".ksaudio";
-            if (importer.convertFile(path, ksaudioPath)) {
+            if (fsproImporter.convertFile(path, ksaudioPath)) {
                 qInfo() << "Imported .fspro -> .ksaudio:" << ksaudioPath;
+                successCount++;
             } else {
                 QMessageBox::warning(nullptr, "Import Failed",
-                    "Failed to import FMOD project:\n" + importer.lastError());
+                    "Failed to import FMOD project:\n" + fsproImporter.lastError());
             }
-            continue;
+        } else if (path.endsWith(".bank", Qt::CaseInsensitive)) {
+            if (importer.importBank(m_impl->projectPath, path, opts)) {
+                qInfo() << "Imported .bank:" << path;
+                successCount++;
+            } else {
+                QMessageBox::warning(nullptr, "Import Failed",
+                    "Failed to import bank:\n" + importer.lastError());
+            }
+        } else {
+            if (importer.importAudioFile(m_impl->projectPath, path, opts).guid.isEmpty() == false) {
+                qInfo() << "Imported audio:" << path;
+                successCount++;
+            } else {
+                QMessageBox::warning(nullptr, "Import Failed",
+                    "Failed to import audio file:\n" + importer.lastError());
+            }
         }
-
-        QString destDir = QFileInfo(m_impl->projectPath).absolutePath() + "/audio";
-        QDir().mkpath(destDir);
-
-        audio::AudioManager manager;
-        manager.importAudio(path, destDir);
     }
-    m_impl->modified = true;
-    emit soundChanged();
+
+    if (successCount > 0) {
+        m_impl->modified = true;
+        m_impl->studio->loadProject(m_impl->projectPath);
+        emit soundChanged();
+    }
 }
 
-void AudioEditorModule::onExportAsset() {
-    QString path = QFileDialog::getSaveFileName(nullptr,
-        "Export Audio Project",
+void AudioEditorModule::onImportBank() {
+    QString path = QFileDialog::getOpenFileName(nullptr,
+        "Import FMOD Bank File",
         QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
-        "Audio Files (*.wav);;All Files (*)");
+        "FMOD Bank Files (*.bank);;All Files (*)");
 
     if (path.isEmpty()) return;
 
-    if (m_impl->studio->saveProject(path)) {
-        m_impl->modified = false;
+    // Ensure we have a project
+    if (m_impl->projectPath.isEmpty()) {
+        onNewProject();
+        if (m_impl->projectPath.isEmpty()) return;
     }
+
+    fileformat::KSAudioImporter importer;
+    fileformat::KSAudioImporter::ImportOptions opts;
+    opts.copyAssets = true;
+
+    if (importer.importBank(m_impl->projectPath, path, opts)) {
+        int count = importer.lastImportedEvents().size();
+        qInfo() << "Imported" << count << "events from bank:" << path;
+        m_impl->modified = true;
+        m_impl->studio->loadProject(m_impl->projectPath);
+        emit soundChanged();
+    } else {
+        QMessageBox::warning(nullptr, "Import Failed",
+            "Failed to import bank:\n" + importer.lastError());
+    }
+}
+
+void AudioEditorModule::onExportAsset() {
+    if (m_impl->projectPath.isEmpty()) {
+        QMessageBox::information(nullptr, "No Project",
+            "No project is currently open.");
+        return;
+    }
+
+    QString path = QFileDialog::getSaveFileName(nullptr,
+        "Export Audio Project As",
+        QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
+        "Audio Files (*.wav);;"
+        "Ogg Vorbis (*.ogg);;"
+        "MP3 (*.mp3);;"
+        "FLAC (*.flac);;"
+        "All Files (*)");
+
+    if (path.isEmpty()) return;
+
+    fileformat::KSAudioExporter exporter;
+    fileformat::KSAudioExporter::ExportOptions opts;
+
+    QString ext = QFileInfo(path).suffix().toLower();
+    if (ext == "ogg") opts.format = fileformat::KSAudioExporter::ExportOGG;
+    else if (ext == "mp3") opts.format = fileformat::KSAudioExporter::ExportMP3;
+    else if (ext == "flac") opts.format = fileformat::KSAudioExporter::ExportFLAC;
+    else opts.format = fileformat::KSAudioExporter::ExportWAV;
+
+    // Export all events
+    QString outputDir = QFileInfo(path).absolutePath() + "/" + QFileInfo(path).completeBaseName() + "_stems";
+    auto files = exporter.exportAll(m_impl->projectPath, outputDir, opts);
+
+    if (!files.isEmpty()) {
+        QMessageBox::information(nullptr, "Export Complete",
+            QString("Exported %1 files to:\n%2").arg(files.size()).arg(outputDir));
+    } else {
+        QMessageBox::warning(nullptr, "Export Failed",
+            "No events were exported.\n" + exporter.lastError());
+    }
+}
+
+void AudioEditorModule::onExportStems() {
+    if (m_impl->projectPath.isEmpty()) {
+        QMessageBox::information(nullptr, "No Project",
+            "No project is currently open.");
+        return;
+    }
+
+    QString outputDir = QFileDialog::getExistingDirectory(nullptr,
+        "Select Export Directory",
+        QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation));
+
+    if (outputDir.isEmpty()) return;
+
+    // Ask for format
+    QStringList formats = {"WAV", "OGG", "MP3", "FLAC"};
+    bool ok;
+    QString format = QInputDialog::getItem(nullptr,
+        "Export Format", "Select audio format:", formats, 0, false, &ok);
+
+    if (!ok || format.isEmpty()) return;
+
+    fileformat::KSAudioExporter exporter;
+    fileformat::KSAudioExporter::ExportOptions opts;
+    if (format == "OGG") opts.format = fileformat::KSAudioExporter::ExportOGG;
+    else if (format == "MP3") opts.format = fileformat::KSAudioExporter::ExportMP3;
+    else if (format == "FLAC") opts.format = fileformat::KSAudioExporter::ExportFLAC;
+    else opts.format = fileformat::KSAudioExporter::ExportWAV;
+
+    auto files = exporter.exportAll(m_impl->projectPath, outputDir, opts);
+
+    QMessageBox::information(nullptr, "Export Complete",
+        QString("Exported %1 stem files to:\n%2").arg(files.size()).arg(outputDir));
+}
+
+void AudioEditorModule::onExportSummary() {
+    if (m_impl->projectPath.isEmpty()) {
+        QMessageBox::information(nullptr, "No Project",
+            "No project is currently open.");
+        return;
+    }
+
+    QString path = QFileDialog::getSaveFileName(nullptr,
+        "Export Project Summary",
+        QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
+        "Text Files (*.txt);;JSON Files (*.json);;All Files (*)");
+
+    if (path.isEmpty()) return;
+
+    fileformat::KSAudioExporter exporter;
+    bool success;
+
+    if (path.endsWith(".json", Qt::CaseInsensitive)) {
+        success = exporter.exportMetadata(m_impl->projectPath, path);
+    } else {
+        success = exporter.exportSummary(m_impl->projectPath, path);
+    }
+
+    if (success) {
+        QMessageBox::information(nullptr, "Export Complete",
+            "Project summary exported to:\n" + path);
+    } else {
+        QMessageBox::warning(nullptr, "Export Failed",
+            "Failed to export summary:\n" + exporter.lastError());
+    }
+}
+
+void AudioEditorModule::onValidateProject() {
+    if (m_impl->projectPath.isEmpty()) {
+        QMessageBox::information(nullptr, "No Project",
+            "No project is currently open.");
+        return;
+    }
+
+    fileformat::KSAudioValidator validator;
+    auto result = validator.validate(m_impl->projectPath);
+
+    QString message;
+    message += QString("Validation %1\n\n").arg(result.valid ? "PASSED" : "FAILED");
+    message += QString("Errors: %1\n").arg(result.errorCount);
+    message += QString("Warnings: %1\n").arg(result.warningCount);
+    message += QString("Info: %1\n\n").arg(result.infoCount);
+
+    if (!result.issues.isEmpty()) {
+        message += "Issues:\n";
+        for (const auto& issue : result.issues) {
+            QString severity;
+            switch (issue.severity) {
+            case fileformat::KSAudioValidator::Error:   severity = "[ERROR]"; break;
+            case fileformat::KSAudioValidator::Warning: severity = "[WARN]"; break;
+            case fileformat::KSAudioValidator::Info:    severity = "[INFO]"; break;
+            }
+            message += QString("%1 %2: %3\n").arg(severity, issue.category, issue.message);
+            if (!issue.suggestion.isEmpty())
+                message += QString("  -> %1\n").arg(issue.suggestion);
+        }
+    }
+
+    QMessageBox msgBox;
+    msgBox.setWindowTitle("Project Validation");
+    if (result.valid) {
+        msgBox.setIcon(QMessageBox::Information);
+    } else {
+        msgBox.setIcon(QMessageBox::Warning);
+    }
+    msgBox.setText(message);
+    msgBox.exec();
 }
 
 void AudioEditorModule::onBuildBanks() {
@@ -162,8 +369,8 @@ void AudioEditorModule::onBuildBanks() {
     QString outputDir = QFileInfo(m_impl->projectPath).absolutePath() + "/banks";
     QDir().mkpath(outputDir);
 
-    ks::audio::KSBankWriter writer;
-    QObject::connect(&writer, &ks::audio::KSBankWriter::writeCompleted, this, [&](const QString& dir) {
+    fileformat::KSBankWriter writer;
+    QObject::connect(&writer, &fileformat::KSBankWriter::writeCompleted, this, [&](const QString& dir) {
         qInfo() << "Bank build completed:" << dir;
     });
 

@@ -144,6 +144,17 @@ void WelcomeScreen::setupUI() {
     });
     titleLayout->addWidget(settingsBtn);
 
+    QPushButton* titleHelpBtn = new QPushButton("?");
+    titleHelpBtn->setFixedSize(36, 28);
+    QFont helpFont = titleHelpBtn->font();
+    helpFont.setBold(true);
+    titleHelpBtn->setFont(helpFont);
+    titleHelpBtn->setStyleSheet("QPushButton { background: transparent; border: none; color: #ccc; } QPushButton:hover { background: #3e3e42; border-radius: 4px; }");
+    titleHelpBtn->setToolTip("Help");
+    titleHelpBtn->setObjectName("welcomeHelpBtn");
+    connect(titleHelpBtn, &QPushButton::clicked, this, &WelcomeScreen::onHelpClicked);
+    titleLayout->addWidget(titleHelpBtn);
+
     QPushButton* minBtn = new QPushButton();
     minBtn->setFixedSize(36, 28);
     minBtn->setIcon(makeWhiteIcon(":/icons/window-minimize.svg", 14));

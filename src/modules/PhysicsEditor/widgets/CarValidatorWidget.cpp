@@ -10,8 +10,9 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QMessageBox>
-#include <ks/plugins/simulators/kunos/assettocorsa/ksAssettoCorsaIni.h>
-#include <ks/plugins/simulators/kunos/assettocorsa/ksAssettoCorsaSetup.h>
+#include <QHeaderView>
+#include "../../../plugins/simulators/kunos/assettocorsa/ksAssettoCorsaIni.h"
+#include "../../../plugins/simulators/kunos/assettocorsa/ksAssettoCorsaSetup.h"
 
 namespace ks {
 
@@ -52,7 +53,9 @@ void CarValidatorWidget::buildUI() {
 
     connect(m_runBtn, &QPushButton::clicked, this, &CarValidatorWidget::onRunValidation);
     connect(m_exportBtn, &QPushButton::clicked, this, &CarValidatorWidget::onExportReport);
-    connect(m_issuesList, &QListWidget::itemDoubleClicked, this, &CarValidatorWidget::onFixSuggested);
+    connect(m_issuesList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* item) {
+        onFixSuggested(m_issuesList->row(item));
+    });
 }
 
 void CarValidatorWidget::validateCar(const QString& carFolder) {
@@ -85,7 +88,9 @@ void CarValidatorWidget::validateCar(const QString& carFolder) {
     }
 
     // Load setup
-    KsSetupData setup = KsSetupManager::load(dataDir.absoluteFilePath("setup.ini"));
+    KsSetupManager mgr;
+    KsSetupData setup;
+    mgr.load(dataDir.absoluteFilePath("setup.ini"), setup);
 
     errors << checkSuspensionGeometry(setup);
     errors << checkEngineData(carDoc);
@@ -136,10 +141,12 @@ QString CarValidatorWidget::checkTyrePressures(const KsIniDocument& doc) const {
 }
 
 QString CarValidatorWidget::checkSuspensionGeometry(const KsSetupData& setup) const {
-    if (setup.frontRideHeight < 10 || setup.frontRideHeight > 200) {
+    double frontRideHeight = (setup.rideHeight[0] + setup.rideHeight[1]) / 2.0;
+    double rearRideHeight = (setup.rideHeight[2] + setup.rideHeight[3]) / 2.0;
+    if (frontRideHeight < 10 || frontRideHeight > 200) {
         return "Front ride height out of range";
     }
-    if (setup.rearRideHeight < 10 || setup.rearRideHeight > 200) {
+    if (rearRideHeight < 10 || rearRideHeight > 200) {
         return "Rear ride height out of range";
     }
     return "";

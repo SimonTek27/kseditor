@@ -30,7 +30,8 @@ Rectangle {
         "cspconfig": 16,
         "character": 17,
         "modeler": 18,
-        "livery": 19
+        "livery": 19,
+        "ace": 20
     })
 
     property string currentMode: "home"
@@ -95,7 +96,8 @@ Rectangle {
                         { icon: "qrc:/icons/ppfilters.svg",  mode: "ppfilters" },
                         { icon: "qrc:/icons/assets.svg",     mode: "formattools" },
                         { icon: "qrc:/icons/settings.svg",   mode: "cspconfig" },
-                        { icon: "qrc:/icons/skeleton.svg", mode: "character" }
+                        { icon: "qrc:/icons/skeleton.svg", mode: "character" },
+                        { icon: "qrc:/icons/car-model.svg", mode: "ace" }
                     ]
                     Button {
                         required property var modelData
@@ -422,6 +424,13 @@ Rectangle {
                 active: currentMode === "livery"
                 source: "pages/page_ksLiveryEditor.qml"
                 onStatusChanged: if (status === Loader.Error) console.error("page_ksLiveryEditor.qml failed to load")
+            }
+
+            // ── 20: ACE Content Browser ─────────────────────────────────────
+            Loader {
+                active: currentMode === "ace"
+                source: "modules/ace_ContentBrowser.qml"
+                onStatusChanged: if (status === Loader.Error) console.error("ace_ContentBrowser.qml failed to load")
             }
         }
 

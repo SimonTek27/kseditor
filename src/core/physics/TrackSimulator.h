@@ -202,9 +202,8 @@ public:
     QString vehicleName() const { return m_vehicleName; }
     
     // Session control
-    enum class SessionType { Practice, Qualifying, Race, TimeAttack, Test };
-    void setSessionType(SessionType type);
-    SessionType sessionType() const { return m_sessionState.type; }
+    void setSessionType(TrackSessionState::SessionType type);
+    TrackSessionState::SessionType sessionType() const { return m_sessionState.type; }
     
     void startSession(double durationMinutes = 0.0);  // 0 = untimed
     void stopSession();
@@ -251,16 +250,19 @@ public:
     // Lap history
     QVector<TrackSessionState::LapRecord> lapHistory() const { return m_sessionState.lapHistory; }
     
+    // Main update
+    void update(double dt);
+
     // Analysis
     double estimateLapTime() const;
     double estimateFuelForLaps(int laps) const;
     int estimateLapsRemaining() const;
     
     // Track queries
-    TrackCorner* cornerAtDistance(double distance);
-    TrackSector* sectorAtDistance(double distance);
-    TrackLayout::DrsZone* drsZoneAtDistance(double distance);
-    TrackLayout::SurfaceSection* surfaceAtDistance(double distance);
+    const TrackCorner* cornerAtDistance(double distance) const;
+    const TrackSector* sectorAtDistance(double distance) const;
+    const TrackLayout::DrsZone* drsZoneAtDistance(double distance) const;
+    const TrackLayout::SurfaceSection* surfaceAtDistance(double distance) const;
     double racingLineLateralOffset(const QVector3D& position) const;
     double targetSpeedAtDistance(double distance) const;
     

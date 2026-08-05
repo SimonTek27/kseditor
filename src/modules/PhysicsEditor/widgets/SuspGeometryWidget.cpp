@@ -13,7 +13,8 @@
 #include <QGroupBox>
 #include <QFileDialog>
 #include <QPainter>
-#include <ks/plugins/simulators/kunos/assettocorsa/ksAssettoCorsaSetup.h>
+#include <QHeaderView>
+#include "../../../plugins/simulators/kunos/assettocorsa/ksAssettoCorsaSetup.h"
 
 namespace ks {
 

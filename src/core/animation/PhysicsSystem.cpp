@@ -10,7 +10,6 @@ namespace animation {
 // ============================================================================
 
 PhysicsAnimation::PhysicsAnimation() = default;
-PhysicsAnimation::~PhysicsAnimation() = default;
 
 void PhysicsAnimation::addBody(const Body& body)
 {
@@ -214,8 +213,10 @@ void PhysicsAnimation::solveConstraints(double dt)
 {
     for (int iter = 0; iter < m_solverIterations; ++iter) {
         for (auto& constraint : m_constraints) {
-            Body* bodyA = m_bodies.value(constraint.bodyA, nullptr);
-            Body* bodyB = m_bodies.value(constraint.bodyB, nullptr);
+            auto bodyAIt = m_bodies.find(constraint.bodyA);
+            Body* bodyA = bodyAIt != m_bodies.end() ? &bodyAIt.value() : nullptr;
+            auto bodyBIt = m_bodies.find(constraint.bodyB);
+            Body* bodyB = bodyBIt != m_bodies.end() ? &bodyBIt.value() : nullptr;
             
             if (!bodyA || (!bodyB && constraint.type != Constraint::Fixed)) continue;
             if (bodyA->kinematic && (!bodyB || bodyB->kinematic)) continue;
@@ -244,8 +245,10 @@ void PhysicsAnimation::solveConstraints(double dt)
 void PhysicsAnimation::solveSprings(double dt)
 {
     for (auto& spring : m_springs) {
-        Body* bodyA = m_bodies.value(spring.bodyA, nullptr);
-        Body* bodyB = m_bodies.value(spring.bodyB, nullptr);
+        auto bodyAIt = m_bodies.find(spring.bodyA);
+        Body* bodyA = bodyAIt != m_bodies.end() ? &bodyAIt.value() : nullptr;
+        auto bodyBIt = m_bodies.find(spring.bodyB);
+        Body* bodyB = bodyBIt != m_bodies.end() ? &bodyBIt.value() : nullptr;
         
         if (!bodyA || !bodyB) continue;
         if (bodyA->kinematic && bodyB->kinematic) continue;

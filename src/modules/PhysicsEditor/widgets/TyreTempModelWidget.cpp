@@ -17,6 +17,7 @@
 #include <QTextStream>
 #include <QApplication>
 #include <QPainter>
+#include <QHeaderView>
 #include <algorithm>
 
 namespace ks {

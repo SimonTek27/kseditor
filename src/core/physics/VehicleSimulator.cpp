@@ -6,6 +6,7 @@
 #include <cmath>
 #include <QFile>
 #include <QFileInfo>
+#include <QDir>
 #include <QTextStream>
 
 namespace ks {
@@ -233,10 +234,6 @@ float VehicleSimulator::getBrakeFade(int wheel) const {
 
 void VehicleSimulator::setErsEnabled(bool enabled) {
     m_ersEnabled = enabled;
-}
-
-bool VehicleSimulator::ersEnabled() const {
-    return m_ersEnabled;
 }
 
 void VehicleSimulator::setErsMode(int mode) {

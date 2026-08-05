@@ -8,6 +8,7 @@
 #include <QtMath>
 #include <algorithm>
 #include <cmath>
+#include "../../plugins/simulators/kunos/assettocorsa/physics/BrakeThermalModel.h"
 
 namespace ks {
 

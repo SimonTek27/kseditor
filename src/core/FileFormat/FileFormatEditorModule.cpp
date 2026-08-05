@@ -1,5 +1,5 @@
-#include "FileFormatEditorModule.h"
-#include "FormatConverter.h"
+﻿#include "FileFormatEditorModule.h"
+#include "plugins/simulators/kunos/assettocorsa/FormatConverter.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -458,4 +458,3 @@ void FileFormatEditorModule::onConversionOptionsChanged() {
 
 } // namespace ks
 
-#include "FileFormatEditorModule.moc"

@@ -2,22 +2,11 @@
 
 #include <QObject>
 #include <QVector>
+#include "core/physics/interfaces/IVehicleSimulator.h"
 
 namespace ks {
 
-struct LapTimeEstimate {
-    double totalLapTime;
-    double sector1Time;
-    double sector2Time;
-    double sector3Time;
-    double topSpeed;
-    double avgSpeed;
-    double minCornerSpeed;
-    double maxLateralG;
-    int numGearChanges;
-    double fuelConsumption;
-    double confidenceLevel;
-};
+using LapTimeEstimate = physics::LapTimeEstimate;
 
 class phys_LapTimer : public QObject {
     Q_OBJECT

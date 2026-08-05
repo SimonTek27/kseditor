@@ -4,6 +4,7 @@
 #include <QChart>
 #include <QChartView>
 #include <QLineSeries>
+#include <QValueAxis>
 #include <QTimer>
 #include <QDial>
 #include <QLabel>

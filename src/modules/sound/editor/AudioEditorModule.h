@@ -26,7 +26,11 @@ public slots:
     void onOpenProject();
     void onSaveProject();
     void onImportAsset();
+    void onImportBank();
     void onExportAsset();
+    void onExportStems();
+    void onExportSummary();
+    void onValidateProject();
     void onBuildBanks();
 
 private:

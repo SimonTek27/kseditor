@@ -2,6 +2,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFile>
+#include <QFileInfo>
 #include <QTextStream>
 #include <QValueAxis>
 #include <QPainter>

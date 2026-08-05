@@ -8,9 +8,11 @@
 #include <QTableWidget>
 #include <QTableWidgetItem>
 #include <QHeaderView>
-#include <ks/plugins/simulators/kunos/assettocorsa/ksAssettoCorsaSetup.h>
+#include "../../../plugins/simulators/kunos/assettocorsa/ksAssettoCorsaSetup.h"
 
 namespace ks {
+
+using KsSetupManager = ::ks::kunos::KsSetupManager;
 
 CarSetupCompareWidget::CarSetupCompareWidget(QWidget* parent)
     : QWidget(parent)
@@ -48,16 +50,22 @@ CarSetupCompareWidget::CarSetupCompareWidget(QWidget* parent)
 
 void CarSetupCompareWidget::loadSetupA(const QString& path) {
     m_pathA = path;
-    m_setupA = KsSetupManager::load(path);
-    m_labelA->setText("Setup A: " + QFileInfo(path).fileName());
+    KsSetupManager mgr;
+    if (mgr.load(path, m_setupA))
+        m_labelA->setText("Setup A: " + QFileInfo(path).fileName());
+    else
+        m_labelA->setText("Setup A: (failed to load)");
     populateTable();
     emit setupLoaded("A", path);
 }
 
 void CarSetupCompareWidget::loadSetupB(const QString& path) {
     m_pathB = path;
-    m_setupB = KsSetupManager::load(path);
-    m_labelB->setText("Setup B: " + QFileInfo(path).fileName());
+    KsSetupManager mgr;
+    if (mgr.load(path, m_setupB))
+        m_labelB->setText("Setup B: " + QFileInfo(path).fileName());
+    else
+        m_labelB->setText("Setup B: (failed to load)");
     populateTable();
     emit setupLoaded("B", path);
 }
@@ -74,32 +82,31 @@ void CarSetupCompareWidget::clear() {
 
 QVector<QPair<QString, double>> CarSetupCompareWidget::buildRows(const KsSetupData& s) const {
     QVector<QPair<QString, double>> rows;
-    rows.append({"Front Spring Rate", s.frontSpringRate});
-    rows.append({"Rear Spring Rate", s.rearSpringRate});
-    rows.append({"Front Damper Bump", s.frontDamperBump});
-    rows.append({"Front Damper Rebound", s.frontDamperRebound});
-    rows.append({"Rear Damper Bump", s.rearDamperBump});
-    rows.append({"Rear Damper Rebound", s.rearDamperRebound});
-    rows.append({"Front Ride Height", s.frontRideHeight});
-    rows.append({"Rear Ride Height", s.rearRideHeight});
+    rows.append({"Front Spring Rate", (s.springRate[0] + s.springRate[1]) / 2.0});
+    rows.append({"Rear Spring Rate", (s.springRate[2] + s.springRate[3]) / 2.0});
+    rows.append({"Front Damper Bump", (s.compression[0] + s.compression[1]) / 2.0});
+    rows.append({"Front Damper Rebound", (s.rebound[0] + s.rebound[1]) / 2.0});
+    rows.append({"Rear Damper Bump", (s.compression[2] + s.compression[3]) / 2.0});
+    rows.append({"Rear Damper Rebound", (s.rebound[2] + s.rebound[3]) / 2.0});
+    rows.append({"Front Ride Height", (s.rideHeight[0] + s.rideHeight[1]) / 2.0});
+    rows.append({"Rear Ride Height", (s.rideHeight[2] + s.rideHeight[3]) / 2.0});
     rows.append({"Front ARB", s.frontARB});
     rows.append({"Rear ARB", s.rearARB});
-    rows.append({"Front Camber", s.frontCamber});
-    rows.append({"Rear Camber", s.rearCamber});
-    rows.append({"Front Toe", s.frontToe});
-    rows.append({"Rear Toe", s.rearToe});
-    rows.append({"Front Pressure", s.frontPressure});
-    rows.append({"Rear Pressure", s.rearPressure});
+    rows.append({"Front Camber", (s.frontCamber[0] + s.frontCamber[1]) / 2.0});
+    rows.append({"Rear Camber", (s.rearCamber[0] + s.rearCamber[1]) / 2.0});
+    rows.append({"Front Toe", (s.toeOut[0] + s.toeOut[1]) / 2.0});
+    rows.append({"Rear Toe", (s.toeOut[2] + s.toeOut[3]) / 2.0});
+    rows.append({"Front Pressure", (s.frontTyrePressure[0] + s.frontTyrePressure[1]) / 2.0});
+    rows.append({"Rear Pressure", (s.rearTyrePressure[0] + s.rearTyrePressure[1]) / 2.0});
     rows.append({"Front Wing", s.frontWing});
     rows.append({"Rear Wing", s.rearWing});
     rows.append({"Brake Bias", s.brakeBias});
-    rows.append({"Brake Pressure", s.brakePressure});
-    rows.append({"TC Level", s.tcLevel});
-    rows.append({"ABS Level", s.absLevel});
-    rows.append({"Fuel Load", s.fuelLoad});
-    rows.append({"Differential Preload", s.diffPreload});
+    rows.append({"TC Level", s.parameters.value("ELECTRONICS.TC", 0)});
+    rows.append({"ABS Level", s.parameters.value("ELECTRONICS.ABS", 0)});
+    rows.append({"Fuel Load", s.fuelLevel});
     rows.append({"Differential Power", s.diffPower});
     rows.append({"Differential Coast", s.diffCoast});
+    rows.append({"Differential Drive", s.diffDrive});
     return rows;
 }
 

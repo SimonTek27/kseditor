@@ -10,11 +10,14 @@
 #include <QQuickWidget>
 #include <QMainWindow>
 #include <QVBoxLayout>
+#include <QWindow>
+#include <QPointer>
 #include <QTranslator>
 #include <QLibraryInfo>
 #include <QLocale>
 #include <QProcessEnvironment>
 #include <QDebug>
+#include <QTimer>
 #include <exception>
 
 #ifdef _WIN32
@@ -27,7 +30,9 @@
 #include "core/sys/PluginManager.h"
 #include "core/ui/SplashScreen.h"
 #include "core/ui/WelcomeScreen.h"
+#include "core/sys/HangMonitor.h"
 #include "core/ui/FontEditorDialog.h"
+#include "core/help/HelpSystem.h"
 #include "ribbontheme.h"
 
 // QML Bridge registrations
@@ -36,24 +41,26 @@
 #include "modules/modellingEditor/SymmetryQmlBridge.h"
 #include "modules/PhysicsEditor/PhysicsQmlBridge.h"
 #include "core/Audio/AudioQMLBridge.h"
-#include "core/Audio/AudioEngineQML.h"
+#include "plugins/simulators/kunos/assettocorsa/audio/AudioEngineQML.h"
 #include "core/Audio/AudioModuleBridge.h"
 #include "core/AIEditor/AIEditorQmlBridge.h"
 #include "core/tools/FormatToolsQmlBridge.h"
 #include "core/modmanager/ModManagerQmlBridge.h"
 #include "core/ppfiltersEditor/PPFiltersQmlBridge.h"
 #include "core/3dprint/ThreeDPrintQmlBridge.h"
+#include "core/Audio/KsACSndEventBridge.h"
 #include "core/FfbEditor/FfbEditorQmlBridge.h"
 #include "modules/displayEditor/DisplayEditorQmlBridge.h"
 #include "modules/LicensePlatesEditor/LicensePlatesQmlBridge.h"
 #include "modules/fontEditor/FontCreatorQmlBridge.h"
 #include "modules/sound/editor/AudioEffectsQmlBridge.h"
+#include "modules/sound/editor/AudioEditorModule.h"
 #include "modules/ShowroomEditor/ShowroomEditorQmlBridge.h"
 #include "modules/PhysicsEditor/telemetry/TelemetryQmlBridge.h"
 #include "modules/PhysicsEditor/telemetry/TelemetryFeedbackBridge.h"
 #include "modules/PhysicsEditor/SetupEditor/SetupEditorQmlBridge.h"
 #include "modules/PhysicsEditor/PhysicsProfiler.h"
-#include "modules/PhysicsEditor/LapTimeValidation.h"
+#include "modules/PhysicsEditor/telemetry/LapTimeValidation.h"
 #include "modules/modellingEditor/TrackBuilder/TerrainEditorQmlBridge.h"
 #include "core/assets/AssetsLibraryQmlBridge.h"
 #include "core/mesh/MeshDataBridge.h"
@@ -65,8 +72,9 @@
 #include "modules/modellingEditor/CharacterBuilder/CharacterEditorQmlBridge.h"
 #include "core/network/CollabEditorQmlBridge.h"
 #include "core/Audio/AudioWaveformBridge.h"
-#include "core/Audio/ACEventBridge.h"
+#include "core/Audio/KsACSndEventBridge.h"
 #include "core/Audio/AudioStudioTypes.h"
+#include "resources/ui/qml/modules/ACEContentQMLBridge.h"
 
 
 static int runMainWindow(QApplication& app, const QString& projectPath)
@@ -83,7 +91,7 @@ static int runMainWindow(QApplication& app, const QString& projectPath)
 }
 
 static QMainWindow* createStandaloneWindow(const QString& title, const QString& themeKey,
-    int w, int h, const QString& bgColor)
+    int w, int h, const QString& bgColor, bool includeTitleBar = true)
 {
     QMainWindow* win = new QMainWindow(nullptr, Qt::Window | Qt::FramelessWindowHint);
     win->setWindowTitle(title);
@@ -93,22 +101,55 @@ static QMainWindow* createStandaloneWindow(const QString& title, const QString& 
     auto* layout = new QVBoxLayout(central);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
-    auto* tb = new CustomTitleBar(win);
-    QObject::connect(tb, &CustomTitleBar::minimizeRequested, win, &QWidget::showMinimized);
-    QObject::connect(tb, &CustomTitleBar::maximizeRequested, win, [win]() {
-        win->isMaximized() ? win->showNormal() : win->showMaximized();
-    });
-    QObject::connect(tb, &CustomTitleBar::closeRequested, win, &QWidget::close);
-    tb->setTitle(title);
-    layout->addWidget(tb);
+    if (includeTitleBar) {
+        auto* tb = new CustomTitleBar(win);
+        QObject::connect(tb, &CustomTitleBar::minimizeRequested, win, &QWidget::showMinimized);
+        QObject::connect(tb, &CustomTitleBar::maximizeRequested, win, [win]() {
+            win->isMaximized() ? win->showNormal() : win->showMaximized();
+        });
+        QObject::connect(tb, &CustomTitleBar::closeRequested, win, &QWidget::close);
+        tb->setTitle(title);
+        layout->addWidget(tb);
+        // Apply theme
+        ks::editor::RibbonThemeManager::instance().applyWindowFrame(win, themeKey);
+        ks::editor::RibbonTheme t = ks::editor::RibbonThemeManager::instance().theme(themeKey);
+        tb->applyTheme(t.titleBarBg, t.windowBorder, t.titleBarText,
+                       t.buttonHover, t.buttonPressed, t.windowBorder);
+    }
     win->setCentralWidget(central);
-    // Apply theme
-    ks::editor::RibbonThemeManager::instance().applyWindowFrame(win, themeKey);
-    ks::editor::RibbonTheme t = ks::editor::RibbonThemeManager::instance().theme(themeKey);
-    tb->applyTheme(t.titleBarBg, t.windowBorder, t.titleBarText,
-                   t.buttonHover, t.buttonPressed, t.windowBorder);
     return win;
 }
+
+// Bridge exposing frameless-window controls to the QML modeler UI (ribbon-as-titlebar).
+class ModelerWindowBridge : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(bool maximized READ isMaximized NOTIFY maximizedChanged)
+public:
+    explicit ModelerWindowBridge(QMainWindow* win, QObject* parent = nullptr)
+        : QObject(parent), m_win(win) {}
+
+    bool isMaximized() const { return m_win ? m_win->isMaximized() : false; }
+
+    Q_INVOKABLE void minimize() { if (m_win) m_win->showMinimized(); }
+    Q_INVOKABLE void toggleMaximize() {
+        if (m_win) {
+            if (m_win->isMaximized()) m_win->showNormal(); else m_win->showMaximized();
+            emit maximizedChanged();
+        }
+    }
+    Q_INVOKABLE void closeWindow() { if (m_win) m_win->close(); }
+    Q_INVOKABLE void beginMove() {
+        if (m_win && m_win->windowHandle()) m_win->windowHandle()->startSystemMove();
+    }
+    Q_INVOKABLE void requestFocus() { if (m_win) { m_win->raise(); m_win->activateWindow(); } }
+    Q_INVOKABLE void showHelp() { ks::HelpSystem::instance()->showHelp(); }
+
+signals:
+    void maximizedChanged();
+
+private:
+    QPointer<QMainWindow> m_win;
+};
 
 static int appMain(int argc, char *argv[])
 {
@@ -116,6 +157,17 @@ static int appMain(int argc, char *argv[])
     app.setApplicationName("ksEditor");
     app.setApplicationVersion("1.16.4");
     app.setOrganizationName("ksEditor");
+
+    // Detect when the GUI thread stops responding and offer the user a native
+    // dialog with: Relaunch / Export logs / Keep waiting / Terminate program.
+    // Started once the event loop begins to avoid false positives during
+    // synchronous startup work; stopped automatically when the app quits.
+    QTimer::singleShot(0, []() {
+        HangMonitor::instance().start();
+    });
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, []() {
+        HangMonitor::instance().stop();
+    });
 
     // Ensure Qt bin directory is on PATH so QML plugin DLLs can load
     QString qtBin = QStringLiteral("C:/Qt/6.11.1/msvc2022_64/bin");
@@ -208,7 +260,7 @@ static int appMain(int argc, char *argv[])
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::CspConfigQmlBridge::instance(); });
     qmlRegisterType<ContentQMLBridge>("ksEditor.Content", 1, 0, "Content");
     qmlRegisterType<MeshLoaderQML>("ksEditor.MeshLoader", 1, 0, "MeshLoader");
-    qmlRegisterType<ks::SceneMeshGeometry>("ksEditor.Modeler", 1, 0, "SceneMeshGeometry");
+    qmlRegisterType<ks::QmlSceneMeshGeometry>("ksEditor.Modeler", 1, 0, "SceneMeshGeometry");
     qmlRegisterSingletonType<ks::editor::BoolOpQmlBridge>("ksEditor.BoolOp", 1, 0, "BoolOp",
         [](QQmlEngine*, QJSEngine*) -> QObject* {
             static ks::editor::BoolOpQmlBridge* bridge = new ks::editor::BoolOpQmlBridge();
@@ -225,6 +277,14 @@ static int appMain(int argc, char *argv[])
 
     // Register 3D Printing module
     qmlRegisterType<ks::printing::ThreeDPrintQmlBridge>("ksEditor.Printing", 1, 0, "PrintManager");
+
+    // Register ACE (Assetto Corsa EVO) bridge
+    qmlRegisterSingletonType<ks::ACEContentQMLBridge>("ksEditor.ACEContent", 1, 0, "ACEContent",
+        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::ACEContentQMLBridge::instance(); });
+
+    // Register ACE Protobuf inspector bridge
+    qmlRegisterSingletonType<ks::ACEProtobufQmlBridge>("ksEditor.ACEProtobuf", 1, 0, "ACEProtobuf",
+        [](QQmlEngine*, QJSEngine*) -> QObject* { return new ks::ACEProtobufQmlBridge(); });
 
     // Initialize plugin system
     ks::PluginManager::instance()->scan();
@@ -286,10 +346,12 @@ static int appMain(int argc, char *argv[])
         if (mode == "modeler") {
             qDebug() << "Modeler mode starting...";
             SplashScreen::showSplash(app);
-            QMainWindow* w = createStandaloneWindow("KS Modeler", "car", 1400, 900, "#111111");
+            QMainWindow* w = createStandaloneWindow("KS Modeler", "car", 1652, 1062, "#111111", false);
             auto* qw = new QQuickWidget();
             qw->engine()->addImportPath(QStringLiteral("C:/Qt/6.11.1/msvc2022_64/qml"));
             qw->setResizeMode(QQuickWidget::SizeRootObjectToView);
+            auto* winBridge = new ModelerWindowBridge(w, qw);
+            qw->rootContext()->setContextProperty("winBridge", winBridge);
             QString qmlDir = QCoreApplication::applicationDirPath() + "/../../resources/ui/qml";
             qmlDir = QDir(qmlDir).absolutePath();
             qDebug() << "Modeler qmlDir:" << qmlDir;
@@ -322,10 +384,12 @@ static int appMain(int argc, char *argv[])
         }
         if (mode == "audiostudio") {
             SplashScreen::showSplash(app);
-            QMainWindow* w = createStandaloneWindow("KS Audio Studio", "sound", 1400, 900, "#111111");
+            QMainWindow* w = createStandaloneWindow("KS Audio Studio", "sound", 1652, 1062, "#111111", false);
             auto* qw = new QQuickWidget();
             qw->engine()->addImportPath(QStringLiteral("C:/Qt/6.11.1/msvc2022_64/qml"));
             qw->setResizeMode(QQuickWidget::SizeRootObjectToView);
+            auto* winBridge = new ModelerWindowBridge(w, qw);
+            qw->rootContext()->setContextProperty("winBridge", winBridge);
             qw->setSource(QUrl("qrc:///qml/pages/page_ksAudioStudio.qml"));
             if (qw->status() == QQuickWidget::Error) {
                 QString err = qw->errors().first().toString();
@@ -345,9 +409,9 @@ static int appMain(int argc, char *argv[])
             qw->engine()->addImportPath(QStringLiteral("C:/Qt/6.11.1/msvc2022_64/qml"));
             qw->setResizeMode(QQuickWidget::SizeRootObjectToView);
             auto* waveformBridge = new ks::audio::AudioWaveformBridge(qw);
-            auto* eventBridge = new ks::audio::ACEventBridge(qw);
-            if (!ks::audio::AudioEditorModule::instance())
-                new ks::audio::AudioEditorModule(qw);
+            auto* eventBridge = new ks::audio::KsACSndEventBridge(qw);
+            if (!ks::AudioEditorModule::instance())
+                new ks::AudioEditorModule(qw);
             qw->rootContext()->setContextProperty("waveformBridge", waveformBridge);
             qw->rootContext()->setContextProperty("eventDefs", eventBridge);
             qw->setSource(QUrl("qrc:///qml/pages/page_ksAudioEditor.qml"));
@@ -447,7 +511,7 @@ static int appMain(int argc, char *argv[])
                 "Usage: kseditor.exe [options]\n\n"
                 "Options:\n"
                 "  -font, --font        Open font editor directly\n"
-                "  -paint, --paint      Open LiveryEditor in PhotoGIMP paint mode\n"
+                "  -paint, --paint      Open PaintEditor in PhotoGIMP paint mode\n"
                 "  -modeler, --modeler  Open 3D Modeler Studio directly\n"
                 "  -audiostudio         Open Audio Studio directly\n"
                 "  -audioeditor         Open Audio Editor directly\n"
@@ -544,3 +608,5 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
     return main(__argc, __argv);
 }
 #endif
+
+#include "main.moc"

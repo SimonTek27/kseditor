@@ -1,5 +1,6 @@
 #include "SceneData.h"
 #include "SceneObject.h"
+#include "SceneGraph.h"
 #include "SceneMesh.h"
 #include "RenderGraph.h"
 #include <QDir>
@@ -11,19 +12,19 @@
 
 namespace ks {
 
-// ─── ProjectSerializer Implementation ─────────────────────────────────────
+// ─── SceneProjectSerializer Implementation ─────────────────────────────────────
 
-ProjectSerializer* ProjectSerializer::s_instance = nullptr;
+SceneProjectSerializer* SceneProjectSerializer::s_instance = nullptr;
 
-ProjectSerializer& ProjectSerializer::instance() {
-    if (!s_instance) s_instance = new ProjectSerializer();
+SceneProjectSerializer& SceneProjectSerializer::instance() {
+    if (!s_instance) s_instance = new SceneProjectSerializer();
     return *s_instance;
 }
 
-ProjectSerializer::ProjectSerializer(QObject* parent) : QObject(parent) {}
-ProjectSerializer::~ProjectSerializer() { s_instance = nullptr; }
+SceneProjectSerializer::SceneProjectSerializer(QObject* parent) : QObject(parent) {}
+SceneProjectSerializer::~SceneProjectSerializer() { s_instance = nullptr; }
 
-bool ProjectSerializer::saveProject(const QString& path, const ProjectData& data) {
+bool SceneProjectSerializer::saveProject(const QString& path, const SceneProjectData& data) {
     QJsonObject obj;
     obj["formatVersion"] = data.formatVersion;
     obj["editorVersion"] = data.editorVersion;
@@ -61,7 +62,7 @@ bool ProjectSerializer::saveProject(const QString& path, const ProjectData& data
     return true;
 }
 
-bool ProjectSerializer::loadProject(const QString& path, ProjectData& data) {
+bool SceneProjectSerializer::loadProject(const QString& path, SceneProjectData& data) {
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
         emit projectError("Cannot load project: " + path);
@@ -101,42 +102,42 @@ bool ProjectSerializer::loadProject(const QString& path, ProjectData& data) {
     return true;
 }
 
-bool ProjectSerializer::saveBackup(const QString& path, const ProjectData& data) {
+bool SceneProjectSerializer::saveBackup(const QString& path, const SceneProjectData& data) {
     return saveProject(path, data);
 }
 
-QJsonObject ProjectSerializer::serializeScene(const SceneGraph* scene) {
+QJsonObject SceneProjectSerializer::serializeScene(const SceneGraph* scene) {
     if (!scene) return QJsonObject();
     return scene->serialize();
 }
 
-bool ProjectSerializer::deserializeScene(SceneGraph* scene, const QJsonObject& json) {
+bool SceneProjectSerializer::deserializeScene(SceneGraph* scene, const QJsonObject& json) {
     if (!scene) return false;
     scene->deserialize(json);
     return true;
 }
 
-QJsonObject ProjectSerializer::serializeObject(const SceneObject* object) {
+QJsonObject SceneProjectSerializer::serializeObject(const SceneObject* object) {
     if (!object) return QJsonObject();
     return object->serialize();
 }
 
-SceneObject* ProjectSerializer::deserializeObject(SceneGraph* graph, const QJsonObject& json) {
+SceneObject* SceneProjectSerializer::deserializeObject(SceneGraph* graph, const QJsonObject& json) {
     if (!graph) return nullptr;
     int nextId = 0;
     return SceneObject::fromJson(json, nextId);
 }
 
-QJsonObject ProjectSerializer::serializeMesh(const SceneMesh* mesh) {
+QJsonObject SceneProjectSerializer::serializeMesh(const SceneMesh* mesh) {
     if (!mesh) return QJsonObject();
     return mesh->toJson();
 }
 
-SceneMesh* ProjectSerializer::deserializeMesh(const QJsonObject& json) {
+SceneMesh* SceneProjectSerializer::deserializeMesh(const QJsonObject& json) {
     return SceneMesh::fromJson(json);
 }
 
-QJsonObject ProjectSerializer::serializeMaterial(const PBRMaterial* material) {
+QJsonObject SceneProjectSerializer::serializeMaterial(const PBRMaterial* material) {
     QJsonObject obj;
     if (!material) return obj;
     const auto& p = material->parameters();
@@ -154,7 +155,7 @@ QJsonObject ProjectSerializer::serializeMaterial(const PBRMaterial* material) {
     return obj;
 }
 
-PBRMaterial* ProjectSerializer::deserializeMaterial(const QJsonObject& json) {
+PBRMaterial* SceneProjectSerializer::deserializeMaterial(const QJsonObject& json) {
     PBRMaterial* material = new PBRMaterial();
     auto params = material->parameters();
     QJsonArray bcf = json["baseColorFactor"].toArray();
@@ -174,7 +175,7 @@ PBRMaterial* ProjectSerializer::deserializeMaterial(const QJsonObject& json) {
     return material;
 }
 
-bool ProjectSerializer::migrateProject(ProjectData& data, const QString& fromVersion) {
+bool SceneProjectSerializer::migrateProject(SceneProjectData& data, const QString& fromVersion) {
     if (fromVersion.isEmpty() || fromVersion == data.formatVersion) return true;
 
     QStringList parts = fromVersion.split('.');
@@ -202,11 +203,11 @@ bool ProjectSerializer::migrateProject(ProjectData& data, const QString& fromVer
     return true;
 }
 
-QString ProjectSerializer::generateProjectPath(const QString& baseDir, const QString& name) {
+QString SceneProjectSerializer::generateProjectPath(const QString& baseDir, const QString& name) {
     return QDir(baseDir).filePath(name + ".ksproject");
 }
 
-bool ProjectSerializer::validateProject(const ProjectData& data, QStringList& errors) {
+bool SceneProjectSerializer::validateProject(const SceneProjectData& data, QStringList& errors) {
     errors.clear();
     if (data.name.isEmpty()) errors.append("Project name is empty");
     return errors.isEmpty();

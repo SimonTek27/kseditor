@@ -7,7 +7,6 @@
 #include <cmath>
 
 namespace ks {
-using namespace graphics;
 
 CharacterEditor* CharacterEditor::s_instance = nullptr;
 

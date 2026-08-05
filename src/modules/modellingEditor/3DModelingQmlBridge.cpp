@@ -17,6 +17,8 @@
 #include "core/FileFormat/FBXParser.h"
 #include "core/FileFormat/GLBParser.h"
 #include "core/FileFormat/CADOBJParser.h"
+#include "core/FileFormat/KS3DReader.h"
+#include "core/FileFormat/KS3DWriter.h"
 #include "core/mesh/MeshOperations.h"
 #include "core/mesh/UVUnwrap.h"
 #include "core/mesh/ModifierSystem.h"
@@ -56,7 +58,6 @@ QQuaternion quatSlerp(const QQuaternion &q1, const QQuaternion &q2, float t) {
 } // anonymous namespace
 
 namespace ks {
-using namespace graphics;
 
 static MeshData sceneMeshToMeshData(SceneObject* obj) {
     MeshData md;
@@ -113,6 +114,141 @@ static bool importMeshDataToScene(ks::SceneGraph* scene, const MeshData& meshDat
     return true;
 }
 
+// .ks3d is the proprietary KSEditor native scene format.
+static bool sceneGraphToKS3D(const ks::SceneGraph* scene, KS3DScene& out) {
+    if (!scene) return false;
+
+    KS3DMaterial defaultMat;
+    defaultMat.name = "Default";
+    out.materials.push_back(defaultMat);
+
+    for (SceneObject* obj : scene->allObjects()) {
+        if (obj->type() != SceneObject::Type::Mesh || !obj->mesh()) continue;
+        const auto& geo = obj->mesh()->geometry();
+        if (geo.vertices.isEmpty()) continue;
+
+        KS3DMesh mesh;
+        mesh.name = obj->name().toStdString();
+        mesh.vertexFlags = static_cast<uint32_t>(ks3d::VertexFlags::Position)
+                         | static_cast<uint32_t>(ks3d::VertexFlags::Normal)
+                         | static_cast<uint32_t>(ks3d::VertexFlags::UV0)
+                         | static_cast<uint32_t>(ks3d::VertexFlags::Tangent)
+                         | static_cast<uint32_t>(ks3d::VertexFlags::Bitangent)
+                         | static_cast<uint32_t>(ks3d::VertexFlags::BoneWeight);
+        // Full .ks3d vertex layout: pos(3) nrm(3) uv0(2) tan(3) btan(3) boneW(4) boneIdx(1) = 19 floats
+        mesh.vertices.reserve(geo.vertices.size() * 19);
+        for (const auto& v : geo.vertices) {
+            mesh.vertices.push_back(v.position.x());
+            mesh.vertices.push_back(v.position.y());
+            mesh.vertices.push_back(v.position.z());
+            mesh.vertices.push_back(v.normal.x());
+            mesh.vertices.push_back(v.normal.y());
+            mesh.vertices.push_back(v.normal.z());
+            mesh.vertices.push_back(v.uv.x());
+            mesh.vertices.push_back(v.uv.y());
+            mesh.vertices.push_back(0.0f); // tangent
+            mesh.vertices.push_back(0.0f);
+            mesh.vertices.push_back(0.0f);
+            mesh.vertices.push_back(0.0f); // bitangent
+            mesh.vertices.push_back(0.0f);
+            mesh.vertices.push_back(0.0f);
+            mesh.vertices.push_back(0.0f); // bone weights
+            mesh.vertices.push_back(0.0f);
+            mesh.vertices.push_back(0.0f);
+            mesh.vertices.push_back(0.0f);
+            mesh.vertices.push_back(0.0f); // bone indices
+        }
+        for (uint32_t idx : geo.indices)
+            mesh.indices.push_back(idx);
+
+        KS3DSubmesh sm;
+        sm.materialIndex = 0;
+        sm.indexOffset = 0;
+        sm.indexCount = static_cast<uint32_t>(mesh.indices.size());
+        mesh.submeshes.push_back(sm);
+
+        int meshIndex = static_cast<int>(out.meshes.size());
+        out.meshes.push_back(mesh);
+
+        KS3DNode node;
+        node.name = obj->name().toStdString();
+        node.parentIndex = -1;
+        node.meshIndex = meshIndex;
+        node.materialIndex = 0;
+        const QVector3D pos = obj->position();
+        node.position[0] = pos.x(); node.position[1] = pos.y(); node.position[2] = pos.z();
+        const QQuaternion rot = QQuaternion::fromEulerAngles(obj->rotationEuler());
+        node.rotationQuat[0] = rot.x(); node.rotationQuat[1] = rot.y();
+        node.rotationQuat[2] = rot.z(); node.rotationQuat[3] = rot.scalar();
+        const QVector3D scl = obj->scale();
+        node.scale[0] = scl.x(); node.scale[1] = scl.y(); node.scale[2] = scl.z();
+        node.visible = obj->isVisible();
+        out.nodes.push_back(node);
+    }
+    return true;
+}
+
+static void ks3dToSceneGraph(ks::SceneGraph* scene, const KS3DScene& in) {
+    if (!scene) return;
+    scene->clear();
+    for (const auto& ksMesh : in.meshes) {
+        const std::vector<float> pos = KS3DReader::getVertexPositions(ksMesh);
+        const std::vector<float> nrm = KS3DReader::getVertexNormals(ksMesh);
+        const std::vector<float> uv  = KS3DReader::getVertexUVs(ksMesh);
+        const size_t count = pos.size() / 3;
+        if (count == 0) continue;
+
+        MeshData md;
+        md.vertices.reserve(static_cast<int>(count));
+        for (size_t i = 0; i < count; ++i) {
+            Vertex v;
+            v.position = QVector3D(pos[i*3], pos[i*3+1], pos[i*3+2]);
+            if (nrm.size() >= (i + 1) * 3)
+                v.normal = QVector3D(nrm[i*3], nrm[i*3+1], nrm[i*3+2]);
+            if (uv.size() >= (i + 1) * 2)
+                v.uv = QVector2D(uv[i*2], uv[i*2+1]);
+            v.color = QVector4D(0.8f, 0.8f, 0.8f, 1.0f);
+            md.vertices.append(v);
+        }
+        for (size_t i = 0; i + 2 < ksMesh.indices.size(); i += 3) {
+            Face f;
+            f.indices = { (int)ksMesh.indices[i], (int)ksMesh.indices[i+1], (int)ksMesh.indices[i+2] };
+            md.faces.append(f);
+        }
+        QString name = QString::fromStdString(ksMesh.name);
+        if (name.isEmpty()) name = "KS3D_Mesh";
+        importMeshDataToScene(scene, md, name);
+    }
+}
+
+static bool exportSceneOBJ(const ks::SceneGraph* scene, const QString& path) {
+    if (!scene) return false;
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return false;
+
+    QTextStream out(&file);
+    out << "# Exported by KSEditor\n";
+    for (SceneObject* obj : scene->allObjects()) {
+        if (!obj->mesh() || obj->mesh()->geometry().vertices.isEmpty()) continue;
+        const auto& verts = obj->mesh()->geometry().vertices;
+        const auto& indices = obj->mesh()->geometry().indices;
+        out << "\no " << obj->name() << "\n";
+        for (const auto& v : verts)
+            out << "v " << v.position.x() << " " << v.position.y() << " " << v.position.z() << "\n";
+        for (const auto& v : verts)
+            out << "vn " << v.normal.x() << " " << v.normal.y() << " " << v.normal.z() << "\n";
+        for (const auto& v : verts)
+            out << "vt " << v.uv.x() << " " << v.uv.y() << "\n";
+        for (size_t i = 0; i + 2 < indices.size(); i += 3) {
+            uint32_t i0 = indices[i] + 1, i1 = indices[i+1] + 1, i2 = indices[i+2] + 1;
+            out << "f " << i0 << "/" << i0 << "/" << i0 << " "
+                       << i1 << "/" << i1 << "/" << i1 << " "
+                       << i2 << "/" << i2 << "/" << i2 << "\n";
+        }
+    }
+    return true;
+}
+
 KSModelerQml::KSModelerQml(QObject* parent)
     : QObject(parent)
     , m_scene(nullptr)
@@ -154,6 +290,64 @@ void KSModelerQml::newProject() {
     emit statusMessage("New project created");
 }
 
+void KSModelerQml::newScene() {
+    newProject();
+}
+
+bool KSModelerQml::saveScene(const QString& path) {
+    if (!m_scene) { emit error("No scene to save"); return false; }
+    if (path.isEmpty()) { emit error("No file path specified"); return false; }
+
+    const QString fmt = QFileInfo(path).suffix().toLower();
+    if (fmt == "ks3d") {
+        KS3DScene ksScene;
+        if (!sceneGraphToKS3D(m_scene, ksScene)) { emit error("Failed to build .ks3d scene"); return false; }
+        KS3DWriter writer;
+        if (!writer.writeToFile(path.toStdString(), ksScene)) {
+            emit error(QString("Failed to save .ks3d: %1").arg(QString::fromStdString(writer.lastError())));
+            return false;
+        }
+        m_currentFile = path;
+        emit fileChanged(m_currentFile);
+        emit statusMessage("Scene saved as " + path);
+        return true;
+    }
+    if (fmt == "kn5") return exportKN5(path);
+    if (fmt == "fbx") return exportFBX(path);
+    if (fmt == "obj") return exportOBJ(path);
+    emit error("Unsupported save format: " + fmt + " (use .ks3d to save)");
+    return false;
+}
+
+bool KSModelerQml::loadScene(const QString& path) {
+    if (!QFile::exists(path)) { emit error("File not found: " + path); return false; }
+
+    const QString fmt = QFileInfo(path).suffix().toLower();
+    if (fmt == "ks3d") {
+        if (!m_scene) m_scene = new ks::SceneGraph();
+        KS3DReader reader;
+        if (!reader.readFromFile(path.toStdString())) {
+            emit error(QString("Failed to load .ks3d: %1").arg(QString::fromStdString(reader.lastError())));
+            return false;
+        }
+        ks3dToSceneGraph(m_scene, reader.scene());
+        m_currentFile = path;
+        m_selectedObject = nullptr;
+        m_undoStack.clear();
+        m_redoStack.clear();
+        emit sceneChanged();
+        emit fileChanged(m_currentFile);
+        emit statusMessage("Loaded scene " + path);
+        return true;
+    }
+    if (fmt == "kn5") return importKN5(path);
+    if (fmt == "fbx") return importFBX(path);
+    if (fmt == "gltf" || fmt == "glb") return importGLB(path);
+    if (fmt == "obj") return importOBJ(path);
+    emit error("Unsupported format: " + fmt);
+    return false;
+}
+
 bool KSModelerQml::importFile(const QString& path) {
     QString fmt = QFileInfo(path).suffix().toLower();
     if (fmt == "kn5") return importKN5(path);
@@ -169,6 +363,7 @@ bool KSModelerQml::exportFile(const QString& path) {
     if (fmt == "kn5") return exportKN5(path);
     if (fmt == "fbx") return exportFBX(path);
     if (fmt == "glb") return exportGLB(path);
+    if (fmt == "obj") return exportOBJ(path);
     emit error("Unsupported export format: " + fmt);
     return false;
 }
@@ -481,11 +676,33 @@ bool KSModelerQml::exportGLB(const QString& path) {
     return true;
 }
 
+bool KSModelerQml::exportOBJ(const QString& path) {
+    if (!m_scene) { emit error("No scene to export"); return false; }
+    emit statusMessage("Exporting OBJ: " + path);
+    bool ok = exportSceneOBJ(m_scene, path);
+    if (ok) emit statusMessage("OBJ exported successfully");
+    else emit error("Failed to export OBJ");
+    return ok;
+}
+
 void KSModelerQml::selectObject(int id) {
     if (!m_scene) return;
     SceneObject* obj = m_scene->findObjectById(id);
     if (m_selectedObject) delete m_selectedObject;
     m_selectedObject = obj ? new SceneObjectQml(obj) : nullptr;
+    emit selectionChanged();
+    emit gizmoTransformChanged();
+}
+
+void KSModelerQml::selectAll() {
+    if (!m_scene) return;
+    SceneObject* last = nullptr;
+    for (SceneObject* obj : m_scene->allObjects()) {
+        obj->setSelected(true);
+        last = obj;
+    }
+    if (m_selectedObject) delete m_selectedObject;
+    m_selectedObject = last ? new SceneObjectQml(last) : nullptr;
     emit selectionChanged();
     emit gizmoTransformChanged();
 }
@@ -530,6 +747,89 @@ void KSModelerQml::duplicateSelected() {
         emit selectionChanged();
         emit gizmoTransformChanged();
     }
+}
+
+void KSModelerQml::cutSelected() {
+    copySelected();
+    deleteSelected();
+}
+
+void KSModelerQml::copySelected() {
+    if (!m_selectedObject || !m_selectedObject->object()) return;
+    SceneObject* orig = m_selectedObject->object();
+    m_clipboardType = orig->type();
+    m_clipboardName = orig->name();
+    auto p = orig->position();
+    m_clipboardPosition = QVector3D(p.x(), p.y(), p.z());
+    auto r = orig->rotationEuler();
+    m_clipboardRotation = QVector3D(r.x(), r.y(), r.z());
+    auto s = orig->scale();
+    m_clipboardScale = QVector3D(s.x(), s.y(), s.z());
+    m_clipboardActive = true;
+    emit clipboardChanged();
+}
+
+void KSModelerQml::pasteClipboard() {
+    if (!m_clipboardActive || !m_scene) return;
+    SceneObject* newObj = m_scene->createObject(m_clipboardName + "_paste", m_clipboardType);
+    if (newObj) {
+        newObj->setPosition({m_clipboardPosition.x(), m_clipboardPosition.y(), m_clipboardPosition.z()});
+        newObj->setRotationEuler({m_clipboardRotation.x(), m_clipboardRotation.y(), m_clipboardRotation.z()});
+        newObj->setScale({m_clipboardScale.x(), m_clipboardScale.y(), m_clipboardScale.z()});
+        if (m_selectedObject) delete m_selectedObject;
+        m_selectedObject = new SceneObjectQml(newObj);
+        emit sceneChanged();
+        emit selectionChanged();
+        emit gizmoTransformChanged();
+    }
+}
+
+void KSModelerQml::printScene() {
+    emit printRequested();
+}
+
+void KSModelerQml::checkMesh() {
+    if (!m_scene || !m_selectedObject) {
+        emit meshCheckResult("No object selected");
+        return;
+    }
+    auto* obj = m_selectedObject->object();
+    if (!obj || !obj->hasMesh()) {
+        emit meshCheckResult("Object has no mesh");
+        return;
+    }
+    auto* mesh = obj->mesh();
+    int verts = mesh->vertexCount();
+    int tris = mesh->indexCount() / 3;
+    auto bbMin = obj->boundingBoxMin();
+    auto bbMax = obj->boundingBoxMax();
+    float sizeX = bbMax.x() - bbMin.x();
+    float sizeY = bbMax.y() - bbMin.y();
+    float sizeZ = bbMax.z() - bbMin.z();
+    QString result = QString("Tris: %1 | Verts: %2 | Size: %3x%4x%5")
+        .arg(tris).arg(verts)
+        .arg(sizeX, 0, 'f', 2).arg(sizeY, 0, 'f', 2).arg(sizeZ, 0, 'f', 2);
+    emit meshCheckResult(result);
+}
+
+void KSModelerQml::exportSTL() {
+    emit stlExportRequested();
+}
+
+void KSModelerQml::scaleForPrint() {
+    emit printScaleRequested();
+}
+
+void KSModelerQml::hollowMesh() {
+    emit hollowRequested();
+}
+
+void KSModelerQml::generateSupports() {
+    emit supportsRequested();
+}
+
+void KSModelerQml::sliceModel() {
+    emit sliceRequested();
 }
 
 QVector3D KSModelerQml::gizmoPosition() const {

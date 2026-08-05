@@ -9,7 +9,7 @@
 #include "core/physics/interfaces/IVehicleSimulator.h"
 #include "simulator/phys_TireModel.h"
 #include "simulator/phys_LapTimer.h"
-#include "simulator/phys_Simulator.h"
+#include "plugins/simulators/kunos/assettocorsa/physics/phys_Simulator.h"
 
 namespace ks {
 

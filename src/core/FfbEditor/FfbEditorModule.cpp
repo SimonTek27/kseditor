@@ -1,4 +1,4 @@
-#include "FfbEditorModule.h"
+﻿#include "FfbEditorModule.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -334,4 +334,3 @@ void FfbEditorModule::onResetDefaults() {
 } // namespace ffb
 } // namespace ks
 
-#include "FfbEditorModule.moc"

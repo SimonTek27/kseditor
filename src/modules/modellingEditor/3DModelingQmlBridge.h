@@ -32,8 +32,6 @@
 
 namespace ks {
 
-using graphics::SceneObject;
-
 class SceneObjectQml : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString name READ name WRITE setName)
@@ -142,6 +140,7 @@ class KSModelerQml : public QObject {
     Q_PROPERTY(int gizmoMode READ gizmoMode NOTIFY gizmoModeChanged)
     Q_PROPERTY(int boneVersion READ boneVersion NOTIFY skeletonChanged)
     Q_PROPERTY(SceneObjectListModel* sceneModel READ sceneModel CONSTANT)
+    Q_PROPERTY(bool hasClipboard READ hasClipboard NOTIFY clipboardChanged)
 
     // Animation state for QML timeline
     Q_PROPERTY(qreal animationTime READ animationTime NOTIFY animationTimeChanged)
@@ -174,6 +173,9 @@ public:
     SceneObjectQml* selectedObject() const { return m_selectedObject; }
 
     Q_INVOKABLE void newProject();
+    Q_INVOKABLE void newScene();
+    Q_INVOKABLE bool saveScene(const QString& path);
+    Q_INVOKABLE bool loadScene(const QString& path);
     Q_INVOKABLE bool importFile(const QString& path);
     Q_INVOKABLE bool exportFile(const QString& path);
     Q_INVOKABLE bool importKN5(const QString& path);
@@ -183,11 +185,24 @@ public:
     Q_INVOKABLE bool exportKN5(const QString& path);
     Q_INVOKABLE bool exportFBX(const QString& path);
     Q_INVOKABLE bool exportGLB(const QString& path);
+    Q_INVOKABLE bool exportOBJ(const QString& path);
 
     Q_INVOKABLE void selectObject(int id);
+    Q_INVOKABLE void selectAll();
     Q_INVOKABLE void deselectAll();
     Q_INVOKABLE void deleteSelected();
     Q_INVOKABLE void duplicateSelected();
+    Q_INVOKABLE void cutSelected();
+    Q_INVOKABLE void copySelected();
+    Q_INVOKABLE void pasteClipboard();
+    Q_INVOKABLE void printScene();
+    Q_INVOKABLE void checkMesh();
+    Q_INVOKABLE void exportSTL();
+    Q_INVOKABLE void scaleForPrint();
+    Q_INVOKABLE void hollowMesh();
+    Q_INVOKABLE void generateSupports();
+    Q_INVOKABLE void sliceModel();
+    bool hasClipboard() const { return m_clipboardActive; }
 
     Q_INVOKABLE void setGizmoMode(int mode);
     Q_INVOKABLE void translateSelected(float x, float y, float z);
@@ -474,6 +489,14 @@ signals:
     void animationTimeChanged();
     void playbackStateChanged();
     void animationNameChanged();
+    void clipboardChanged();
+    void printRequested();
+    void meshCheckResult(const QString& result);
+    void stlExportRequested();
+    void printScaleRequested();
+    void hollowRequested();
+    void supportsRequested();
+    void sliceRequested();
     void shapeKeysChanged();
     void lodsGenerated(int count);
     void collisionGenerated(int hullCount);
@@ -524,6 +547,14 @@ private:
     QVariantMap m_currentState;
     CommandHistory* m_commandHistory = nullptr;
     ShortcutManager* m_shortcutManager = nullptr;
+
+    // Clipboard
+    bool m_clipboardActive = false;
+    SceneObject::Type m_clipboardType = SceneObject::Type::Node;
+    QString m_clipboardName;
+    QVector3D m_clipboardPosition;
+    QVector3D m_clipboardRotation;
+    QVector3D m_clipboardScale;
 
     // Skeleton data
     struct Bone {

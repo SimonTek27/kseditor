@@ -470,3 +470,129 @@ QPushButton#toolBtn:checked {
     border-color: #0066cc;
     color: #1e40af;
 }
+
+QPushButton#colorSwatch {
+    border: 1px solid #a1a1aa;
+    border-radius: 3px;
+    min-height: 22px;
+}
+QPushButton#colorSwatch:hover {
+    border-color: #0066cc;
+}
+
+/* ── GIMP Editor (PhotoGIMP-style) ── */
+QWidget#gimpCanvasArea {
+    background: #e8e8ec;
+    border: 1px solid #d4d4d8;
+}
+
+QWidget#gimpCanvas {
+    background: #f4f4f5;
+    border: none;
+}
+
+QStatusBar#gimpStatusBar {
+    background: #e4e4e7;
+    color: #52525b;
+    border-top: 1px solid #d4d4d8;
+    padding: 2px 8px;
+    font-size: 11px;
+}
+
+QLabel#zoomLabel {
+    color: #52525b;
+    padding: 0 6px;
+    background: transparent;
+}
+
+QWidget#gimpDocks {
+    background: #e4e4e7;
+    border-left: 1px solid #d4d4d8;
+}
+
+QWidget#gimpToolbox {
+    background: #e4e4e7;
+    border-right: 1px solid #d4d4d8;
+    border-bottom: 1px solid #d4d4d8;
+}
+
+QToolButton#gimpToolButton {
+    background: transparent;
+    color: #52525b;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    padding: 4px;
+    font-size: 10px;
+    min-width: 36px;
+    min-height: 30px;
+}
+QToolButton#gimpToolButton:hover {
+    background: #d4d4d8;
+    border: 1px solid #a1a1aa;
+}
+QToolButton#gimpToolButton:checked {
+    background: #0066cc;
+    color: #ffffff;
+    border-color: #0066cc;
+}
+QToolButton#gimpToolButton:disabled {
+    color: #a1a1aa;
+}
+
+QWidget#gimpToolOptions {
+    background: #e4e4e7;
+    border-bottom: 1px solid #d4d4d8;
+    padding: 2px 8px;
+}
+QWidget#gimpToolOptions QLabel {
+    color: #52525b;
+    font-size: 11px;
+}
+QWidget#gimpToolOptions QSlider {
+    min-width: 60px;
+}
+QWidget#gimpToolOptions QComboBox {
+    min-width: 80px;
+    max-width: 120px;
+}
+
+QListWidget#gimpLayerList {
+    background: #e4e4e7;
+    color: #18181b;
+    border: none;
+    border-top: 1px solid #d4d4d8;
+    outline: none;
+    font-size: 11px;
+}
+QListWidget#gimpLayerList::item {
+    padding: 4px 8px;
+    border: none;
+}
+QListWidget#gimpLayerList::item:selected {
+    background: #0066cc;
+    color: #ffffff;
+}
+QListWidget#gimpLayerList::item:hover:!selected {
+    background: #d4d4d8;
+}
+
+QWidget#gimpColorsPanel {
+    background: #e4e4e7;
+    border-top: 1px solid #d4d4d8;
+    padding: 6px;
+}
+
+QWidget#gimpSwatchBox {
+    background: #f4f4f5;
+    border: 1px solid #d4d4d8;
+    border-radius: 3px;
+    padding: 4px;
+}
+QWidget#gimpSwatchBox QToolButton {
+    border: 1px solid #a1a1aa;
+    border-radius: 3px;
+    background: #ffffff;
+}
+QWidget#gimpSwatchBox QToolButton:hover {
+    border-color: #0066cc;
+}

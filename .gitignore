@@ -1,0 +1,90 @@
+# Build directories
+build/
+build_*/
+build/Release/
+Release/
+Debug/
+MinSizeRel/
+RelWithDebInfo/
+out/
+lib/
+kseditor_lib.dir/
+kseditor_lib_autogen/
+*.dir/
+*_autogen/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+CPackConfig.cmake
+CPackSourceConfig.cmake
+*.cmake
+!CMakeLists.txt
+
+# Visual Studio / IDE
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+kseditor.slnx
+
+# Qt
+.qt/
+*.moc
+moc_*.cpp
+moc_*.cpp_parameters
+*.moc_parameters
+qrc_*.cpp
+ui_*.h
+*.qmlc
+*.jsc
+*.moch
+
+# Compiled binaries / objects
+*.obj
+*.o
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.dll
+*.exe
+*.so
+*.dylib
+*.a
+!LICENSE.txt
+
+# Generated test artifacts
+test_*.txt
+test_*.out
+test_*.err
+test_*.xml
+test_*.tmp
+test_results/
+anim_test.*
+single_file_errors.txt
+build_output.log
+msbuild.log
+ed*.txt
+*.log
+*.pdb
+
+# Misc generated
+NUL.obj
+vc140.pdb
+help_output.txt
+stderr.txt
+stdout.txt
+test.ksproj
+template/
+
+# External dependencies (submodules/third-party source)
+external/openxr/
+7zip/
+bullet/
+vhacd/
+mikktspace.dir/

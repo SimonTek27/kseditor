@@ -99,12 +99,12 @@ public:
     static bool write(const QString& filePath, const USDStage& stage, QString* error = nullptr);
     
     // Convert to/from internal MeshData
-    static bool usdMeshToMeshData(const USDMesh& mesh, fileformat::MeshData& outData);
-    static bool meshDataToUsdMesh(const fileformat::MeshData& data, USDMesh& outMesh);
+    static bool usdMeshToMeshData(const USDMesh& mesh, ks::fileformat::MeshData& outData);
+    static bool meshDataToUsdMesh(const ks::fileformat::MeshData& data, USDMesh& outMesh);
     
     // Material conversion
-    static bool usdMaterialToPBR(const USDMaterial& mat, fileformat::MaterialData& outMat);
-    static bool pbrToUsdMaterial(const fileformat::MaterialData& mat, USDMaterial& outMat);
+    static bool usdMaterialToPBR(const USDMaterial& mat, ks::MaterialData& outMat);
+    static bool pbrToUsdMaterial(const ks::MaterialData& mat, USDMaterial& outMat);
     
     // Animation sampling
     static QVariant sampleAnimation(const USDAnimation& anim, double time);
@@ -178,11 +178,11 @@ public:
     static bool write(const QString& filePath, const AlembicArchive& archive, QString* error = nullptr);
     
     // Convert to/from internal formats
-    static bool alembicMeshToMeshData(const AlembicMesh& mesh, int frameIndex, fileformat::MeshData& outData);
-    static bool meshDataToAlembicMesh(const fileformat::MeshData& data, AlembicMesh& outMesh);
+    static bool alembicMeshToMeshData(const AlembicMesh& mesh, int frameIndex, ks::fileformat::MeshData& outData);
+    static bool meshDataToAlembicMesh(const ks::fileformat::MeshData& data, AlembicMesh& outMesh);
     
     // Sample at arbitrary time
-    static bool sampleMeshAtTime(const AlembicMesh& mesh, double time, fileformat::MeshData& outData);
+    static bool sampleMeshAtTime(const AlembicMesh& mesh, double time, ks::fileformat::MeshData& outData);
     static bool sampleCameraAtTime(const AlembicCamera& cam, double time, 
                                    QVector3D& pos, QQuaternion& rot, float& fov);
     
@@ -419,12 +419,12 @@ public:
     static bool write(const QString& filePath, const GLTFDocument& doc, bool binary = true, QString* error = nullptr);
     
     // Convert to/from internal formats
-    static bool gltfToMeshData(const GLTFDocument& doc, int meshIndex, fileformat::MeshData& outData);
-    static bool meshDataToGltf(const fileformat::MeshData& data, GLTFDocument& doc, int& meshIndex);
+    static bool gltfToMeshData(const GLTFDocument& doc, int meshIndex, ks::fileformat::MeshData& outData);
+    static bool meshDataToGltf(const ks::fileformat::MeshData& data, GLTFDocument& doc, int& meshIndex);
     
     // Material conversion
-    static bool gltfMaterialToPBR(const GLTFMaterial& mat, fileformat::MaterialData& outMat);
-    static bool pbrToGltfMaterial(const fileformat::MaterialData& mat, GLTFMaterial& outMat);
+    static bool gltfMaterialToPBR(const GLTFMaterial& mat, ks::MaterialData& outMat);
+    static bool pbrToGltfMaterial(const ks::MaterialData& mat, GLTFMaterial& outMat);
     
     // Animation
     static bool sampleAnimation(const GLTFDocument& doc, int animIndex, double time, 

@@ -5,11 +5,11 @@
 #include <QPushButton>
 #include <QTableWidget>
 #include <QString>
-#include <ks/plugins/simulators/kunos/assettocorsa/ksAssettoCorsaSetup.h>
+#include "../../../plugins/simulators/kunos/assettocorsa/ksAssettoCorsaSetup.h"
 
 namespace ks {
 
-class KsSetupData;
+using KsSetupData = ::ks::kunos::KsSetupData;
 
 class CarSetupCompareWidget : public QWidget {
     Q_OBJECT

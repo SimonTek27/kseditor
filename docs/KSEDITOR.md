@@ -534,7 +534,7 @@ Helper scripts: `build.bat`, `compile.bat`, `build.sh`
 
 ### Audio Editor (ksAudioStudio)
 <a id="audio-editor-ksaudiostudio-features"></a>
-- **FMOD Studio 1.08.12 parity** — Import/export .bank projects
+- **FMOD Studio 1.08.12 parity** — Import/export `.fspro` **project files** and `.bank` **runtime banks** (bidirectional, lossless round-trip)
 - **62-file audio engine** — Real-time graph processing with topological sort
 - **36 DSP panels** — EQ, compressor, reverb, delay, chorus, distortion, tape emulation, guitar amp, vocal processor, harmonic generator, transient designer, multiband comp, convolution reverb, stereo enhancer, dither/noise shaping
 - **Analysis** — VU/spectrum/phase scope, EBU R128 loudness (LUFS/True Peak/LRA), oscilloscope, FFT 1/3-octave
