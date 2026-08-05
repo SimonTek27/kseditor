@@ -20,9 +20,9 @@ from pathlib import Path
 
 GUID = {
     # Banks
-    "bank_base":           "711f88d3-a06c-4b7a-a176-428d08a5b41f",  # vrc_pt_2024_ferrenzo
+    "bank_base":           "711f88d3-a06c-4b7a-a176-428d08a5b41f",  # carname
     "bank_common":         "47dcf37a-6a8d-4ef6-9f82-2e0398fa69f9",  # common
-    "bank_csp":            "baeb44f0-b55d-4065-8440-9e2df0177e34",  # vrc_pt_2024_ferrenzo_csp
+    "bank_csp":            "baeb44f0-b55d-4065-8440-9e2df0177e34",  # carname_csp
 
     # VCAs
     "vca_engine_int":      "94f04703-a92c-49cf-a097-734f3e79ec08",
@@ -55,12 +55,12 @@ GUID = {
     "grp_horn":            "{grp_horn}",
     "grp_collisions":      "{grp_collisions}",
     "grp_bodywork":        "{grp_bodywork}",
-    "grp_turbo":           "{grp_turbo}",  # duplicate key fixed below
+    "grp_turbo":           "{grp_turbo}", 
 }
 
 # Generate deterministic GUIDs for buses from their names
 def bus_guid(name: str) -> str:
-    return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"bus.{name}.ferrenzo"))
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"bus.{name}.carname"))
 
 # Override bus GUIDs with deterministic ones
 for k in list(GUID.keys()):
