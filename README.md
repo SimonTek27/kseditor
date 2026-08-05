@@ -3,7 +3,7 @@
 A comprehensive, professional-grade modding toolkit for **Assetto Corsa** and other Kunos/Steam racing games. ksEditor provides a unified environment for editing game audio, 3D models, physics, telemetry, liveries, events, server configs, and more.
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)]()
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.txt)
+[![License](https://img.shields.io/badge/license-GPL3-blue.svg)](LICENSE.txt)
 [![Version](https://img.shields.io/badge/version-1.16.4-orange)]()
 [![Qt](https://img.shields.io/badge/Qt-6.11-green)]()
 [![C++](https://img.shields.io/badge/C++-17-blue)]()
@@ -77,11 +77,11 @@ The **Text Editor** is a **code-aware IDE** for scripting and config files. It p
 
 ### Audio Editor (ksAudioEditor)
 
-The **Audio Editor** is a full-featured digital audio workstation built directly into ksEditor. It provides **35+ specialized panels** covering the entire audio production pipeline: a multi-track **AudioMixerPanel** with channel strips, VU meters, and master bus routing; an **EffectsRackPanel** with parametric EQ, compressor, gate, reverb, delay, and limiter; real-time analysis via **AudioAnalyzerPanel** (spectrum, phase scope), **LoudnessMeterPanel** (EBU R128 LUFS/True Peak/LRA), and **OscilloscopePanel**. Advanced dynamics include **SidechainCompressorPanel**, **MultibandCompressorPanel** (4-band with crossover visualization), and **TransientDesignerPanel**. Creative tools feature **ConvolutionReverbPanel** (impulse responses), **TapeEmulatorPanel** (2"/1"/Cassette/VHS/DAT), **GuitarAmpSimulatorPanel**, **VocalProcessorPanel** (de-esser, pitch correction), **HarmonicGeneratorPanel**, and **StereoEnhancerPanel**. The editor supports **VST2/3 plugin hosting**, a **node-based audio graph** for complex routing, **surround mixing** up to 7.1.4, **automation lanes** for volume/pan/filter, and full **FMOD Studio 1.08.12 `.fspro` project and `.bank` runtime bank import/export** compatibility. Dialogs cover import/export wizards, tone generation, BPM detection, recording, preset management, and metadata editing.
+The **Audio Editor** is a full-featured digital audio workstation built directly into ksEditor. It provides **35+ specialized panels** covering the entire audio production pipeline: a multi-track **AudioMixerPanel** with channel strips, VU meters, and master bus routing; an **EffectsRackPanel** with parametric EQ, compressor, gate, reverb, delay, and limiter; real-time analysis via **AudioAnalyzerPanel** (spectrum, phase scope), **LoudnessMeterPanel** (EBU R128 LUFS/True Peak/LRA), and **OscilloscopePanel**. Advanced dynamics include **SidechainCompressorPanel**, **MultibandCompressorPanel** (4-band with crossover visualization), and **TransientDesignerPanel**. Creative tools feature **ConvolutionReverbPanel** (impulse responses), **TapeEmulatorPanel** (2"/1"/Cassette/VHS/DAT), **GuitarAmpSimulatorPanel**, **VocalProcessorPanel** (de-esser, pitch correction), **HarmonicGeneratorPanel**, and **StereoEnhancerPanel**. The editor supports **VST2/3 plugin hosting**, a **node-based audio graph** for complex routing, **surround mixing** up to 7.1.4, **automation lanes** for volume/pan/filter, and full **FMOD Studio 1.08.12 bank import/export** compatibility. Dialogs cover import/export wizards, tone generation, BPM detection, recording, preset management, and metadata editing.
 
 ### Audio Studio (ksAudioStudio)
 
-**ksAudioStudio** is the **internal audio engine and workstation** powering all audio functionality in ksEditor, serving as a native **replacement for FMOD Studio**. It provides complete **FMOD Studio 1.08.12 project compatibility** with bidirectional **`.fspro` project file** and **`.bank` runtime bank** import/export. The **native "KSaudio" format** stores projects with full signal graph, automation, and plugin state. The **DSP pipeline** supports real-time synthesis (additive, subtractive, FM, granular, wavetable), **35+ built-in effects** (dynamics, EQ, modulation, delay, reverb, distortion, pitch), and **VST2/3 plugin hosting** with parameter automation. **Multi-channel surround** handles up to 7.1.4 with flexible bus routing. The **node-based audio graph editor** enables visual signal flow design with real-time parameter modulation. **Analysis tools** include spectrum analyzer (FFT, 1/3 octave), oscilloscope, phase correlation, loudness metering (EBU R128, ATSC A/85), and true peak detection. **Recording engine** captures multi-channel audio with punch-in/out, loop recording, and take management. **Batch processing** applies effect chains, format conversion, loudness normalization, and dithering across multiple files.
+**ksAudioStudio** is the **internal audio engine and workstation** powering all audio functionality in ksEditor, serving as a native **replacement for FMOD Studio**. It provides complete **FMOD Studio 1.08.12 project compatibility** with bidirectional `.bank` file import/export. The **native "KSaudio" format** stores projects with full signal graph, automation, and plugin state. The **DSP pipeline** supports real-time synthesis (additive, subtractive, FM, granular, wavetable), **35+ built-in effects** (dynamics, EQ, modulation, delay, reverb, distortion, pitch), and **VST2/3 plugin hosting** with parameter automation. **Multi-channel surround** handles up to 7.1.4 with flexible bus routing. The **node-based audio graph editor** enables visual signal flow design with real-time parameter modulation. **Analysis tools** include spectrum analyzer (FFT, 1/3 octave), oscilloscope, phase correlation, loudness metering (EBU R128, ATSC A/85), and true peak detection. **Recording engine** captures multi-channel audio with punch-in/out, loop recording, and take management. **Batch processing** applies effect chains, format conversion, loudness normalization, and dithering across multiple files.
 
 ### Physics Editor (ksPhysicsEditor)
 
@@ -310,7 +310,7 @@ float cornerG = ks::SDKBackend::calculateCornerG(speedMs, radius);
 `KN5` `FBX` `GLB` `OBJ` `STL` `Alembic` `USD` `Collada` `3DS` `PLY` `DXF` `VRML` `3MF` `STEP` `IGES`
 
 ### Audio
-`WAV` `OGG` `FLAC` `MP3` `AIFF` `FMOD .fspro` `FMOD .bank` `KSaudio` (native)
+`WAV` `OGG` `FLAC` `MP3` `AIFF` `FMOD .bank` `KSaudio` (native)
 
 ### Textures
 `DDS` `PNG` `JPG` `TGA` `BMP` `HDR` `EXR` `KTX` `KTX2`
