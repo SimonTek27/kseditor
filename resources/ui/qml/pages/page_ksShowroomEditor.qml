@@ -7,6 +7,10 @@ Rectangle {
     id: root
     color: "#1a1a1a"
 
+    property real baseUiScale: 1.18
+    property real uiZoom: 1.0
+    property real uiScale: baseUiScale * uiZoom
+
     property string statusText: ""
     property int selectedCameraIndex: -1
     property int selectedLightIndex: -1
@@ -32,6 +36,12 @@ Rectangle {
             statusText = "Saved showroom config"
         }
     }
+
+    Item {
+        width: parent.width / uiScale
+        height: parent.height / uiScale
+        scale: uiScale
+        transformOrigin: Item.TopLeft
 
     ColumnLayout {
         anchors.fill: parent
@@ -415,6 +425,7 @@ Rectangle {
         function onShowroomLoaded(name) { statusText = "Loaded: " + name }
         function onShowroomSaved(name) { statusText = "Saved: " + name }
         function onPreviewGenerated(path) { statusText = "Preview saved: " + path }
+    }
     }
 
     Shortcut { sequence: "Ctrl+O"; onActivated: openDialog.open() }

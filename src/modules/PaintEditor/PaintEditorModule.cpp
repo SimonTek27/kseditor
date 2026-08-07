@@ -159,7 +159,7 @@ bool PaintEditor::savePaintTexture(const QImage& texture, const QString& skinPat
     return true;
 }
 
-bool PaintEditor::addLayer(const PaintSystem::SkinLayer& layer)
+bool PaintEditor::addLayer(const PaintSystem::PaintLayer& layer)
 {
     bool ok = PaintSystem::addLayer(m_config, layer);
     if (ok) emit paintModified();
@@ -180,7 +180,7 @@ bool PaintEditor::moveLayer(int fromIndex, int toIndex)
     return ok;
 }
 
-bool PaintEditor::updateLayer(int index, const PaintSystem::SkinLayer& layer)
+bool PaintEditor::updateLayer(int index, const PaintSystem::PaintLayer& layer)
 {
     bool ok = PaintSystem::updateLayer(m_config, index, layer);
     if (ok) emit paintModified();
@@ -196,7 +196,7 @@ bool PaintEditor::generateLicensePlate(const QString& text, const QString& count
 
     bool ok = PaintSystem::generateLicensePlate(text, country, outputPath);
     if (ok) {
-        PaintSystem::SkinLayer layer;
+        PaintSystem::PaintLayer layer;
         layer.name = "license_plate";
         layer.type = "decal";
         layer.opacity = 1.0f;

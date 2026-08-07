@@ -182,6 +182,7 @@ public:
     Q_INVOKABLE bool importFBX(const QString& path);
     Q_INVOKABLE bool importGLB(const QString& path);
     Q_INVOKABLE bool importOBJ(const QString& path);
+    Q_INVOKABLE bool importBlend(const QString& path);
     Q_INVOKABLE bool exportKN5(const QString& path);
     Q_INVOKABLE bool exportFBX(const QString& path);
     Q_INVOKABLE bool exportGLB(const QString& path);

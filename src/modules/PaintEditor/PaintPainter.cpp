@@ -104,7 +104,7 @@ void PaintPainter::setMask(const QImage& mask)
     m_mask = mask.copy();
 }
 
-void PaintPainter::paintAt(const QPoint& screenPos, const PaintBrush& brush)
+void PaintPainter::paintAt(const QPoint& screenPos, const PaintBrushConfig& brush)
 {
     if (m_texture.isNull()) return;
     
@@ -114,40 +114,40 @@ void PaintPainter::paintAt(const QPoint& screenPos, const PaintBrush& brush)
     }
     
     switch (brush.type) {
-    case PaintBrush::Brush:
-    case PaintBrush::SquareBrush:
+    case PaintBrushConfig::Brush:
+    case PaintBrushConfig::SquareBrush:
         applyBrushAtPixel(screenPos, brush);
         break;
-    case PaintBrush::Airbrush:
+    case PaintBrushConfig::Airbrush:
         applyAirbrushAtPixel(screenPos, brush);
         break;
-    case PaintBrush::Eraser:
+    case PaintBrushConfig::Eraser:
         applyBrushAtPixel(screenPos, brush);
         break;
-    case PaintBrush::Smudge:
+    case PaintBrushConfig::Smudge:
         break;
-    case PaintBrush::Blur:
+    case PaintBrushConfig::Blur:
         applyBlurAtPixel(screenPos, brush);
         break;
-    case PaintBrush::Sharpen:
+    case PaintBrushConfig::Sharpen:
         applySharpenAtPixel(screenPos, brush);
         break;
-    case PaintBrush::Clone:
-    case PaintBrush::Healing:
+    case PaintBrushConfig::Clone:
+    case PaintBrushConfig::Healing:
         applyCloneAtPixel(screenPos, brush);
         break;
-    case PaintBrush::Dodge:
+    case PaintBrushConfig::Dodge:
         applyDodgeAtPixel(screenPos, brush);
         break;
-    case PaintBrush::Burn:
+    case PaintBrushConfig::Burn:
         applyBurnAtPixel(screenPos, brush);
         break;
-    case PaintBrush::Fill:
+    case PaintBrushConfig::Fill:
         floodFill(screenPos, brush.color, 0);
         break;
-    case PaintBrush::Gradient:
+    case PaintBrushConfig::Gradient:
         break;
-    case PaintBrush::Stamp:
+    case PaintBrushConfig::Stamp:
         if (!brush.stampTexture.isNull()) {
             applyStamp(screenPos, brush.stampTexture, brush.opacity);
         }
@@ -157,41 +157,41 @@ void PaintPainter::paintAt(const QPoint& screenPos, const PaintBrush& brush)
     emit textureUpdated(m_texture);
 }
 
-void PaintPainter::paintLine(const QPoint& from, const QPoint& to, const PaintBrush& brush)
+void PaintPainter::paintLine(const QPoint& from, const QPoint& to, const PaintBrushConfig& brush)
 {
     QVector<QPoint> line = bresenhamLine(from, to);
     for (const QPoint& p : line) {
         switch (brush.type) {
-        case PaintBrush::Brush:
-        case PaintBrush::SquareBrush:
-        case PaintBrush::Eraser:
+        case PaintBrushConfig::Brush:
+        case PaintBrushConfig::SquareBrush:
+        case PaintBrushConfig::Eraser:
             applyBrushAtPixel(p, brush);
             break;
-        case PaintBrush::Airbrush:
+        case PaintBrushConfig::Airbrush:
             applyAirbrushAtPixel(p, brush);
             break;
-        case PaintBrush::Smudge:
+        case PaintBrushConfig::Smudge:
             applySmudgeAtPixel(from, to, brush);
             break;
-        case PaintBrush::Blur:
+        case PaintBrushConfig::Blur:
             applyBlurAtPixel(p, brush);
             break;
-        case PaintBrush::Sharpen:
+        case PaintBrushConfig::Sharpen:
             applySharpenAtPixel(p, brush);
             break;
-        case PaintBrush::Clone:
-        case PaintBrush::Healing:
+        case PaintBrushConfig::Clone:
+        case PaintBrushConfig::Healing:
             applyCloneAtPixel(p, brush);
             break;
-        case PaintBrush::Dodge:
+        case PaintBrushConfig::Dodge:
             applyDodgeAtPixel(p, brush);
             break;
-        case PaintBrush::Burn:
+        case PaintBrushConfig::Burn:
             applyBurnAtPixel(p, brush);
             break;
-        case PaintBrush::Fill:
-        case PaintBrush::Gradient:
-        case PaintBrush::Stamp:
+        case PaintBrushConfig::Fill:
+        case PaintBrushConfig::Gradient:
+        case PaintBrushConfig::Stamp:
             break;
         }
     }
@@ -215,12 +215,12 @@ QVector<QPoint> PaintPainter::getNeighbors(const QPoint& p)
     return neighbors;
 }
 
-void PaintPainter::applyBrushAtPixel(const QPoint& pixel, const PaintBrush& brush)
+void PaintPainter::applyBrushAtPixel(const QPoint& pixel, const PaintBrushConfig& brush)
 {
     int radius = static_cast<int>(brush.radius);
     int innerRadius = static_cast<int>(brush.radius * brush.hardness);
-    bool isEraser = (brush.type == PaintBrush::Eraser);
-    bool isSquare = (brush.type == PaintBrush::SquareBrush);
+    bool isEraser = (brush.type == PaintBrushConfig::Eraser);
+    bool isSquare = (brush.type == PaintBrushConfig::SquareBrush);
     
     for (int dy = -radius; dy <= radius; ++dy) {
         for (int dx = -radius; dx <= radius; ++dx) {
@@ -301,7 +301,7 @@ QRgb PaintPainter::colorBurn(QRgb base, float strength)
     return qRgba(qBound(0, r, 255), qBound(0, g, 255), qBound(0, b, 255), qAlpha(base));
 }
 
-void PaintPainter::applyAirbrushAtPixel(const QPoint& pixel, const PaintBrush& brush)
+void PaintPainter::applyAirbrushAtPixel(const QPoint& pixel, const PaintBrushConfig& brush)
 {
     int radius = static_cast<int>(brush.radius);
     float flowRate = brush.flow * brush.opacity;
@@ -325,7 +325,7 @@ void PaintPainter::applyAirbrushAtPixel(const QPoint& pixel, const PaintBrush& b
     }
 }
 
-void PaintPainter::applySmudgeAtPixel(const QPoint& from, const QPoint& to, const PaintBrush& brush)
+void PaintPainter::applySmudgeAtPixel(const QPoint& from, const QPoint& to, const PaintBrushConfig& brush)
 {
     int radius = static_cast<int>(brush.radius * 0.5f);
     float strength = brush.strength;
@@ -353,7 +353,7 @@ void PaintPainter::applySmudgeAtPixel(const QPoint& from, const QPoint& to, cons
     }
 }
 
-void PaintPainter::applyBlurAtPixel(const QPoint& pixel, const PaintBrush& brush)
+void PaintPainter::applyBlurAtPixel(const QPoint& pixel, const PaintBrushConfig& brush)
 {
     int radius = static_cast<int>(brush.radius * 0.5f);
     if (radius < 1) radius = 1;
@@ -392,7 +392,7 @@ void PaintPainter::applyBlurAtPixel(const QPoint& pixel, const PaintBrush& brush
     m_texture.setPixel(pixel.x(), pixel.y(), qRgba(r, g, b, qAlpha(center)));
 }
 
-void PaintPainter::applySharpenAtPixel(const QPoint& pixel, const PaintBrush& brush)
+void PaintPainter::applySharpenAtPixel(const QPoint& pixel, const PaintBrushConfig& brush)
 {
     int x = pixel.x(), y = pixel.y();
     if (x < 1 || x >= m_width - 1 || y < 1 || y >= m_height - 1) return;
@@ -421,7 +421,7 @@ void PaintPainter::applySharpenAtPixel(const QPoint& pixel, const PaintBrush& br
     m_texture.setPixel(x, y, qRgba(r, g, b, qAlpha(orig)));
 }
 
-void PaintPainter::applyDodgeAtPixel(const QPoint& pixel, const PaintBrush& brush)
+void PaintPainter::applyDodgeAtPixel(const QPoint& pixel, const PaintBrushConfig& brush)
 {
     int radius = static_cast<int>(brush.radius * 0.5f);
     for (int dy = -radius; dy <= radius; ++dy) {
@@ -442,7 +442,7 @@ void PaintPainter::applyDodgeAtPixel(const QPoint& pixel, const PaintBrush& brus
     }
 }
 
-void PaintPainter::applyBurnAtPixel(const QPoint& pixel, const PaintBrush& brush)
+void PaintPainter::applyBurnAtPixel(const QPoint& pixel, const PaintBrushConfig& brush)
 {
     int radius = static_cast<int>(brush.radius * 0.5f);
     for (int dy = -radius; dy <= radius; ++dy) {
@@ -463,7 +463,7 @@ void PaintPainter::applyBurnAtPixel(const QPoint& pixel, const PaintBrush& brush
     }
 }
 
-void PaintPainter::applyCloneAtPixel(const QPoint& pixel, const PaintBrush& brush)
+void PaintPainter::applyCloneAtPixel(const QPoint& pixel, const PaintBrushConfig& brush)
 {
     if (m_cloneImage.isNull()) return;
 
@@ -493,7 +493,7 @@ void PaintPainter::applyCloneAtPixel(const QPoint& pixel, const PaintBrush& brus
     }
 }
 
-void PaintPainter::applyHealingAtPixel(const QPoint& pixel, const QPoint& source, const PaintBrush& brush)
+void PaintPainter::applyHealingAtPixel(const QPoint& pixel, const QPoint& source, const PaintBrushConfig& brush)
 {
     if (m_cloneImage.isNull()) return;
 
@@ -572,8 +572,8 @@ void PaintPainter::gradientFill(const QPoint& from, const QPoint& to,
 
 void PaintPainter::applyBlurAt(const QPoint& center, int radius, float strength)
 {
-    PaintBrush brush;
-    brush.type = PaintBrush::Blur;
+    PaintBrushConfig brush;
+    brush.type = PaintBrushConfig::Blur;
     brush.radius = radius;
     brush.strength = strength;
     brush.opacity = 1.0f;
@@ -582,8 +582,8 @@ void PaintPainter::applyBlurAt(const QPoint& center, int radius, float strength)
 
 void PaintPainter::applySharpenAt(const QPoint& center, int radius, float strength)
 {
-    PaintBrush brush;
-    brush.type = PaintBrush::Sharpen;
+    PaintBrushConfig brush;
+    brush.type = PaintBrushConfig::Sharpen;
     brush.radius = radius;
     brush.strength = strength;
     brush.opacity = 1.0f;
@@ -592,8 +592,8 @@ void PaintPainter::applySharpenAt(const QPoint& center, int radius, float streng
 
 void PaintPainter::applyDodgeAt(const QPoint& center, int radius, float strength)
 {
-    PaintBrush brush;
-    brush.type = PaintBrush::Dodge;
+    PaintBrushConfig brush;
+    brush.type = PaintBrushConfig::Dodge;
     brush.radius = radius;
     brush.strength = strength;
     brush.opacity = 1.0f;
@@ -602,8 +602,8 @@ void PaintPainter::applyDodgeAt(const QPoint& center, int radius, float strength
 
 void PaintPainter::applyBurnAt(const QPoint& center, int radius, float strength)
 {
-    PaintBrush brush;
-    brush.type = PaintBrush::Burn;
+    PaintBrushConfig brush;
+    brush.type = PaintBrushConfig::Burn;
     brush.radius = radius;
     brush.strength = strength;
     brush.opacity = 1.0f;
@@ -612,8 +612,8 @@ void PaintPainter::applyBurnAt(const QPoint& center, int radius, float strength)
 
 void PaintPainter::smudgeAt(const QPoint& from, const QPoint& to, int radius, float strength)
 {
-    PaintBrush brush;
-    brush.type = PaintBrush::Smudge;
+    PaintBrushConfig brush;
+    brush.type = PaintBrushConfig::Smudge;
     brush.radius = radius;
     brush.strength = strength;
     brush.opacity = 1.0f;
@@ -622,8 +622,8 @@ void PaintPainter::smudgeAt(const QPoint& from, const QPoint& to, int radius, fl
 
 void PaintPainter::applyHealingAt(const QPoint& target, const QPoint& source, int radius)
 {
-    PaintBrush brush;
-    brush.type = PaintBrush::Healing;
+    PaintBrushConfig brush;
+    brush.type = PaintBrushConfig::Healing;
     brush.radius = radius;
     brush.strength = 1.0f;
     brush.opacity = 1.0f;
@@ -713,7 +713,7 @@ void PaintPainterWidget::setTexture(const QImage& texture)
     update();
 }
 
-void PaintPainterWidget::setBrush(const PaintBrush& brush)
+void PaintPainterWidget::setBrush(const PaintBrushConfig& brush)
 {
     m_currentBrush = brush;
     updateBrushPreview();

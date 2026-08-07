@@ -12,6 +12,9 @@
 
 namespace ks {
 
+using paint::PaintManager;
+using paint::PaintSystem;
+
 class PaintEditorWidget;
 
 class PaintEditor : public QObject {
@@ -37,10 +40,10 @@ public:
     bool loadPaintTexture(const QString& skinPath);
     bool savePaintTexture(const QImage& texture, const QString& skinPath);
 
-    bool addLayer(const PaintSystem::SkinLayer& layer);
+    bool addLayer(const PaintSystem::PaintLayer& layer);
     bool removeLayer(int index);
     bool moveLayer(int fromIndex, int toIndex);
-    bool updateLayer(int index, const PaintSystem::SkinLayer& layer);
+    bool updateLayer(int index, const PaintSystem::PaintLayer& layer);
 
     bool generateLicensePlate(const QString& text, const QString& country);
 

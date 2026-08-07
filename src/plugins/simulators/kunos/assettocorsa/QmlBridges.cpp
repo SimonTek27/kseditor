@@ -918,7 +918,7 @@ void LiveryEditorBridge::loadSkins(const QString& carPath)
     if (m_manager) {
         delete m_manager;
     }
-    m_manager = new LiveryManager(carPath);
+    m_manager = new paint::PaintManager(carPath);
     m_manager->loadSkins();
 
     m_skins.clear();
@@ -930,7 +930,7 @@ void LiveryEditorBridge::loadSkins(const QString& carPath)
 
 bool LiveryEditorBridge::createSkin(const QString& carPath, const QString& skinName)
 {
-    bool ok = LiverySystem::createSkin(carPath, skinName);
+    bool ok = paint::PaintSystem::createSkin(carPath, skinName);
     if (ok) {
         loadSkins(carPath);
         emit skinCreated(skinName);
@@ -940,7 +940,7 @@ bool LiveryEditorBridge::createSkin(const QString& carPath, const QString& skinN
 
 bool LiveryEditorBridge::deleteSkin(const QString& carPath, const QString& skinName)
 {
-    bool ok = LiverySystem::deleteSkin(carPath, skinName);
+    bool ok = paint::PaintSystem::deleteSkin(carPath, skinName);
     if (ok) {
         loadSkins(carPath);
         emit skinDeleted(skinName);
@@ -950,7 +950,7 @@ bool LiveryEditorBridge::deleteSkin(const QString& carPath, const QString& skinN
 
 bool LiveryEditorBridge::duplicateSkin(const QString& carPath, const QString& sourceName, const QString& destName)
 {
-    bool ok = LiverySystem::duplicateSkin(carPath, sourceName, destName);
+    bool ok = paint::PaintSystem::duplicateSkin(carPath, sourceName, destName);
     if (ok) {
         loadSkins(carPath);
     }
@@ -960,7 +960,7 @@ bool LiveryEditorBridge::duplicateSkin(const QString& carPath, const QString& so
 bool LiveryEditorBridge::selectSkin(const QString& carPath, const QString& skinName)
 {
     if (!m_manager) {
-        m_manager = new LiveryManager(carPath);
+        m_manager = new paint::PaintManager(carPath);
         m_manager->loadSkins();
     }
 
@@ -974,7 +974,7 @@ bool LiveryEditorBridge::selectSkin(const QString& carPath, const QString& skinN
 
 QVariantMap LiveryEditorBridge::getSkinConfig(const QString& skinPath)
 {
-    LiverySystem::SkinConfig config = LiverySystem::loadSkinConfig(skinPath);
+    paint::PaintSystem::SkinConfig config = paint::PaintSystem::loadSkinConfig(skinPath);
 
     QVariantMap map;
     map["name"] = config.name;
@@ -1008,7 +1008,7 @@ QVariantMap LiveryEditorBridge::getSkinConfig(const QString& skinPath)
 
 bool LiveryEditorBridge::saveSkinConfig(const QString& skinPath, const QVariantMap& config)
 {
-    LiverySystem::SkinConfig sc;
+    paint::PaintSystem::SkinConfig sc;
     sc.name = config["name"].toString();
     sc.baseColor = config["baseColor"].toString();
     sc.licensePlateText = config["licensePlateText"].toString();
@@ -1021,7 +1021,7 @@ bool LiveryEditorBridge::saveSkinConfig(const QString& skinPath, const QVariantM
     QVariantList layersList = config["layers"].toList();
     for (const QVariant& v : layersList) {
         QVariantMap lm = v.toMap();
-        LiverySystem::LiveryLayer layer;
+        paint::PaintSystem::PaintLayer layer;
         layer.name = lm["name"].toString();
         layer.type = lm["type"].toString();
         if (layer.type.isEmpty()) layer.type = "decal";
@@ -1039,7 +1039,7 @@ bool LiveryEditorBridge::saveSkinConfig(const QString& skinPath, const QVariantM
         sc.layers.append(layer);
     }
 
-    bool ok = LiverySystem::saveSkinConfig(sc, skinPath);
+    bool ok = paint::PaintSystem::saveSkinConfig(sc, skinPath);
     if (ok) emit liveryModified();
     return ok;
 }
@@ -1047,9 +1047,9 @@ bool LiveryEditorBridge::saveSkinConfig(const QString& skinPath, const QVariantM
 bool LiveryEditorBridge::addLayer(const QString& skinPath, const QString& name, const QString& type,
                                    float opacity, float posX, float posY, float sizeW, float sizeH)
 {
-    LiverySystem::SkinConfig config = LiverySystem::loadSkinConfig(skinPath);
+    paint::PaintSystem::SkinConfig config = paint::PaintSystem::loadSkinConfig(skinPath);
 
-    LiverySystem::LiveryLayer layer;
+    paint::PaintSystem::PaintLayer layer;
     layer.name = name;
     layer.type = type;
     layer.opacity = opacity;
@@ -1058,9 +1058,9 @@ bool LiveryEditorBridge::addLayer(const QString& skinPath, const QString& name, 
     layer.size[0] = sizeW;
     layer.size[1] = sizeH;
 
-    bool ok = LiverySystem::addLayer(config, layer);
+    bool ok = paint::PaintSystem::addLayer(config, layer);
     if (ok) {
-        ok = LiverySystem::saveSkinConfig(config, skinPath);
+        ok = paint::PaintSystem::saveSkinConfig(config, skinPath);
         if (ok) emit liveryModified();
     }
     return ok;
@@ -1068,10 +1068,10 @@ bool LiveryEditorBridge::addLayer(const QString& skinPath, const QString& name, 
 
 bool LiveryEditorBridge::removeLayer(const QString& skinPath, int index)
 {
-    LiverySystem::SkinConfig config = LiverySystem::loadSkinConfig(skinPath);
-    bool ok = LiverySystem::removeLayer(config, index);
+    paint::PaintSystem::SkinConfig config = paint::PaintSystem::loadSkinConfig(skinPath);
+    bool ok = paint::PaintSystem::removeLayer(config, index);
     if (ok) {
-        ok = LiverySystem::saveSkinConfig(config, skinPath);
+        ok = paint::PaintSystem::saveSkinConfig(config, skinPath);
         if (ok) emit liveryModified();
     }
     return ok;
@@ -1079,10 +1079,10 @@ bool LiveryEditorBridge::removeLayer(const QString& skinPath, int index)
 
 bool LiveryEditorBridge::moveLayer(const QString& skinPath, int fromIndex, int toIndex)
 {
-    LiverySystem::SkinConfig config = LiverySystem::loadSkinConfig(skinPath);
-    bool ok = LiverySystem::moveLayer(config, fromIndex, toIndex);
+    paint::PaintSystem::SkinConfig config = paint::PaintSystem::loadSkinConfig(skinPath);
+    bool ok = paint::PaintSystem::moveLayer(config, fromIndex, toIndex);
     if (ok) {
-        ok = LiverySystem::saveSkinConfig(config, skinPath);
+        ok = paint::PaintSystem::saveSkinConfig(config, skinPath);
         if (ok) emit liveryModified();
     }
     return ok;
@@ -1091,10 +1091,10 @@ bool LiveryEditorBridge::moveLayer(const QString& skinPath, int fromIndex, int t
 bool LiveryEditorBridge::generateLicensePlate(const QString& skinPath, const QString& text, const QString& country)
 {
     QString outputPath = skinPath + "/license_plate.png";
-    bool ok = LiverySystem::generateLicensePlate(text, country, outputPath);
+    bool ok = paint::PaintSystem::generateLicensePlate(text, country, outputPath);
     if (ok) {
-        LiverySystem::SkinConfig config = LiverySystem::loadSkinConfig(skinPath);
-        LiverySystem::LiveryLayer layer;
+        paint::PaintSystem::SkinConfig config = paint::PaintSystem::loadSkinConfig(skinPath);
+        paint::PaintSystem::PaintLayer layer;
         layer.name = "license_plate";
         layer.type = "decal";
         layer.opacity = 1.0f;
@@ -1107,7 +1107,7 @@ bool LiveryEditorBridge::generateLicensePlate(const QString& skinPath, const QSt
         config.layers.append(layer);
         config.licensePlateText = text;
         config.licensePlateCountry = country;
-        ok = LiverySystem::saveSkinConfig(config, skinPath);
+        ok = paint::PaintSystem::saveSkinConfig(config, skinPath);
         if (ok) emit liveryModified();
     }
     return ok;
@@ -1115,25 +1115,25 @@ bool LiveryEditorBridge::generateLicensePlate(const QString& skinPath, const QSt
 
 bool LiveryEditorBridge::generatePreview(const QString& skinPath)
 {
-    return LiverySystem::generatePreview(skinPath);
+    return paint::PaintSystem::generatePreview(skinPath);
 }
 
 bool LiveryEditorBridge::validateSkin(const QString& skinPath)
 {
     QString error;
-    bool valid = LiverySystem::validateSkin(skinPath, &error);
+    bool valid = paint::PaintSystem::validateSkin(skinPath, &error);
     emit validationResult(valid, error);
     return valid;
 }
 
 bool LiveryEditorBridge::exportSkin(const QString& skinPath, const QString& outputPath)
 {
-    return LiverySystem::exportSkin(skinPath, outputPath);
+    return paint::PaintSystem::exportSkin(skinPath, outputPath);
 }
 
 bool LiveryEditorBridge::importSkin(const QString& importPath, const QString& carPath)
 {
-    bool ok = LiverySystem::importSkin(importPath, carPath);
+    bool ok = paint::PaintSystem::importSkin(importPath, carPath);
     if (ok) loadSkins(carPath);
     return ok;
 }

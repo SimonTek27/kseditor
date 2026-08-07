@@ -73,6 +73,14 @@ public:
     void cutSelection();
     void onExportDds();
 
+public slots:
+    void onExportPng();
+    void onSelectNone();
+    void onSelectInvert();
+    void onZoomIn();
+    void onZoomOut();
+    void onZoomFit();
+
 signals:
     void imageEdited();
     void textureChanged(const QImage& texture);
@@ -118,13 +126,7 @@ private slots:
     void onNewImage();
     void onOpenImage();
     void onSaveImage();
-    void onExportPng();
     void onSelectAll();
-    void onSelectNone();
-    void onSelectInvert();
-    void onZoomIn();
-    void onZoomOut();
-    void onZoomFit();
     void onZoom100();
     void onPrimaryColorSwatch();
     void onSecondaryColorSwatch();

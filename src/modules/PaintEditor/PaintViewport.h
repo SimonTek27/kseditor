@@ -33,7 +33,7 @@ private:
     void convertToScene();
     void loadMesh(const QString& filePath);
 
-    ks::paint::PaintEditor* m_paintEditor;
+    ks::PaintEditor* m_paintEditor;
     Viewport3DWidget* m_viewport = nullptr;
     MeshRenderer* m_meshRenderer = nullptr;
     SceneObject* m_sceneRoot = nullptr;

@@ -12,7 +12,7 @@
 #include "core/mesh/AdvancedMeshOps.h"
 #include "acCSP/CspConfigParser.h"
 #include "KsAssettoCorsaContentPath.h"
-#include "../../../../modules/LiveryEditor/LiverySystem.h"
+#include "../../../../modules/PaintEditor/PaintSystem.h"
 
 namespace ks {
 
@@ -294,8 +294,8 @@ public:
 
     QStringList skins() const { return m_skins; }
     QString currentSkin() const { return m_currentSkin; }
-    QStringList layerTypes() const { return LiverySystem::getLayerTypes(); }
-    QStringList supportedCountries() const { return LiverySystem::getSupportedCountries(); }
+    QStringList layerTypes() const { return paint::PaintSystem::getLayerTypes(); }
+    QStringList supportedCountries() const { return paint::PaintSystem::getSupportedCountries(); }
 
     Q_INVOKABLE void loadSkins(const QString& carPath);
     Q_INVOKABLE bool createSkin(const QString& carPath, const QString& skinName);
@@ -331,7 +331,7 @@ signals:
 private:
     QStringList m_skins;
     QString m_currentSkin;
-    LiveryManager* m_manager = nullptr;
+    paint::PaintManager* m_manager = nullptr;
 };
 
 } // namespace ks

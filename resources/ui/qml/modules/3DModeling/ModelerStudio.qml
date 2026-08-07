@@ -396,8 +396,9 @@ ApplicationWindow {
                     brightness: 0.4
                 }
 
-                AmbientLight {
+                DirectionalLight {
                     brightness: 0.3
+                    eulerRotation: Qt.vector3d(0, 0, 0)
                 }
 
                 Model {

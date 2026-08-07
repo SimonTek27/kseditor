@@ -475,15 +475,6 @@ Rectangle {
                 Rectangle { height: 10 }
 
                 Text { text: "AC CAR TOOLS"; color: "#ff6600"; font.pixelSize: 10; font.bold: true }
-                AppButton {
-                    height: 28; text: "Livery Painter";
-                    bgcolor: activeTool === "livery" ? "#E10600" : "#ff6600";
-                    color: "#ffffff";
-                    onClicked: {
-                        activeTool = activeTool === "livery" ? "select" : "livery"
-                        modelerTools.toolSelected(activeTool)
-                    }
-                }
                 AppButton { height: 28; text: "Flip Normals"; bgcolor: "transparent"; color: "#ffffff"
                     onClicked: { if (Modeler.flipNormals) Modeler.flipNormals() } }
                 AppButton { height: 28; text: "Recalc Normals"; bgcolor: "transparent"; color: "#ffffff"

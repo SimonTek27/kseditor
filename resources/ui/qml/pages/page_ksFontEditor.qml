@@ -13,6 +13,10 @@ Rectangle {
     height: 720
     color: "#111111"
 
+    property real baseUiScale: 1.18
+    property real uiZoom: 1.0
+    property real uiScale: baseUiScale * uiZoom
+
     // API base verso backend
     property alias glyphView: glyphGrid
     property alias fontListView: fontList
@@ -31,6 +35,12 @@ Rectangle {
         onPresetLoaded: { statusText.text = "Preset loaded: " + acfPath; }
         onPresetSaved: { statusText.text = "Preset saved: " + acfPath; }
     }
+
+    Item {
+        width: parent.width / uiScale
+        height: parent.height / uiScale
+        scale: uiScale
+        transformOrigin: Item.TopLeft
 
     ColumnLayout {
         anchors.fill: parent
@@ -450,6 +460,7 @@ Rectangle {
                 Text { text: currentFilePath; color: "#777777"; font.pixelSize: 10; elide: Text.ElideLeft }
             }
         }
+    }
     }
 
     FileDialog {

@@ -30,7 +30,7 @@ Rectangle {
         "cspconfig": 16,
         "character": 17,
         "modeler": 18,
-        "livery": 19,
+        "paint": 19,
         "ace": 20
     })
 
@@ -251,7 +251,7 @@ Rectangle {
                         Repeater {
                             model: [
                                 { icon: "qrc:/icons/modeler.svg",     label: "3D\nModeler",        mode: "modeler" },
-                                { icon: "qrc:/icons/livery.svg",      label: "Livery\nLivery",     mode: "livery" },
+                                { icon: "qrc:/icons/livery.svg",      label: "Paint\nEditor",      mode: "paint" },
                                 { icon: "qrc:/icons/font.svg",        label: "Font\nCreator",      mode: "fonts" },
                                 { icon: "qrc:/icons/sound.svg",       label: "Audio\nStudio",      mode: "audio" },
                                 { icon: "qrc:/icons/waveform.svg",    label: "Audio\nEditor",      mode: "audio" },
@@ -419,11 +419,11 @@ Rectangle {
                 onStatusChanged: if (status === Loader.Error) console.error("page_ksModeler.qml failed to load")
             }
 
-            // ── 19: Livery Editor ────────────────────────────────────────────
+            // ── 19: Paint Editor ────────────────────────────────────────────
             Loader {
-                active: currentMode === "livery"
-                source: "pages/page_ksLiveryEditor.qml"
-                onStatusChanged: if (status === Loader.Error) console.error("page_ksLiveryEditor.qml failed to load")
+                active: currentMode === "paint"
+                source: "pages/page_ksPaintEditor.qml"
+                onStatusChanged: if (status === Loader.Error) console.error("page_ksPaintEditor.qml failed to load")
             }
 
             // ── 20: ACE Content Browser ─────────────────────────────────────

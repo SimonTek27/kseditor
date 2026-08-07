@@ -25,6 +25,10 @@ Rectangle {
     property var    openFiles: []
     property int    activeTabIndex: -1
 
+    property real baseUiScale: 1.18
+    property real uiZoom: 1.0
+    property real uiScale: baseUiScale * uiZoom
+
     FileDialog {
         id: openFileDialog
         title: "Open File"
@@ -137,6 +141,12 @@ Rectangle {
     }
 
     // ── Toolbar ──────────────────────────────────────────────────────────
+    Item {
+        width: parent.width / uiScale
+        height: parent.height / uiScale
+        scale: uiScale
+        transformOrigin: Item.TopLeft
+
     Rectangle {
         id: toolbar
         anchors.top: parent.top
@@ -467,5 +477,6 @@ Rectangle {
             font.pixelSize: 11
             font.bold: true
         }
+    }
     }
 }

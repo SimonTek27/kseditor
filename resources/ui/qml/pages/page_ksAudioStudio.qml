@@ -27,7 +27,9 @@ Rectangle {
     color: "#111111"
     focus: true
 
-    property real uiScale: 1.18
+    property real baseUiScale: 1.18
+    property real uiZoom: 1.0
+    property real uiScale: baseUiScale * uiZoom
 
     // ---- KS Modeler design tokens ----
     readonly property color cAccent:   "#569cd6"

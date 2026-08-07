@@ -9,6 +9,10 @@ Rectangle {
     id: root
     color: "#121212"
 
+    property real baseUiScale: 1.18
+    property real uiZoom: 1.0
+    property real uiScale: baseUiScale * uiZoom
+
     property string selectedFilter: PPFilters ? PPFilters.currentFilter : ""
     property string selectedSection: "Exposure"
     property real previewStrength: 1.0
@@ -33,6 +37,12 @@ Rectangle {
         nameFilters: ["Filter files (*.ini)", "JSON files (*.json)", "All files (*)"]
         onAccepted: { if (PPFilters) PPFilters.exportFilter(selectedFile.toString().replace("file:///", "")) }
     }
+
+    Item {
+        width: parent.width / uiScale
+        height: parent.height / uiScale
+        scale: uiScale
+        transformOrigin: Item.TopLeft
 
     ColumnLayout {
         anchors.fill: parent
@@ -541,5 +551,6 @@ Rectangle {
         function onFilterLoaded() { statusText.text = "Filter loaded: " + PPFilters.currentFilter }
         function onFilterSaved() { statusText.text = "Filter saved" }
         function onParameterChanged(name, value) { statusText.text = name + " = " + value.toFixed(2) }
+    }
     }
 }

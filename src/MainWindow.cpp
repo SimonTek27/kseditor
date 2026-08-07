@@ -14,6 +14,7 @@
 #include "../modules/PhysicsEditor/PhysicsEditor.h"
 #include "../modules/sound/editor/AudioEditorModule.h"
 #include "../modules/PaintEditor/PaintEditorModule.h"
+#include "../modules/PaintEditor/PaintEditorWidget.h"
 #include "../modules/modellingEditor/TrackBuilder/TrackBuilderModule.h"
 #include "core/Audio/AudioStudioTypes.h"
 #include "plugins/simulators/kunos/assettocorsa/acFiles/AudioBankParser.h"

@@ -37,25 +37,37 @@ signals:
     void skinSelected(const QString& skinName);
     void paintModified();
 
+public slots:
+    void onBrushTypeChanged(int index);
+    void onColorSelected(bool = false);
+    void onSecondaryColorSelected(bool = false);
+    void onMergeLayerDown(bool);
+    void onFlattenImage(bool);
+    void onSwapColors(bool);
+    void onResetColors(bool);
+    void onSelectNone(bool);
+    void onSelectInvert(bool);
+    void onZoomIn(bool);
+    void onZoomOut(bool);
+    void onZoomFit(bool);
+    void onZoomTool(bool);
+    void onAddLayer();
+    void onDuplicateSkin();
+
 private slots:
     void onSkinSelected(QListWidgetItem* current);
     void onCreateSkin();
     void onDeleteSkin();
-    void onDuplicateSkin();
     void onLayerSelected(QListWidgetItem* current);
-    void onAddLayer();
     void onRemoveLayer();
     void onMoveLayerUp();
     void onMoveLayerDown();
     void onLayerOpacityChanged(int value);
     void onLayerVisibilityChanged(int state);
-    void onBrushTypeChanged(int index);
     void onBrushSizeChanged(int size);
     void onBrushHardnessChanged(int value);
     void onBrushStrengthChanged(int value);
     void onBrushFlowChanged(int value);
-    void onColorSelected(bool = false);
-    void onSecondaryColorSelected(bool = false);
     void onLicensePlateGenerate();
     void onSaveSkin();
     void onRefreshSkins();
@@ -69,16 +81,6 @@ private slots:
     void clearLayerUI();
 
     // Wrapper slots for ribbon button connections (accept bool from clicked signal)
-    void onMergeLayerDown(bool);
-    void onFlattenImage(bool);
-    void onSwapColors(bool);
-    void onResetColors(bool);
-    void onSelectNone(bool);
-    void onSelectInvert(bool);
-    void onZoomIn(bool);
-    void onZoomOut(bool);
-    void onZoomFit(bool);
-    void onZoomTool(bool);
     void refreshSkinList();
     void refreshLayerList();
 
@@ -108,7 +110,7 @@ private:
     PaintPainterWidget* m_painterWidget;
     VectorDesignCanvas* m_vectorCanvas;
     ks::paint::PaintEditor* m_paintEditor;
-    PaintViewport* m_viewport3D;
+    ks::paint::PaintViewport* m_viewport3D;
 
     QGroupBox* m_skinsGroup;
     QListWidget* m_skinList;

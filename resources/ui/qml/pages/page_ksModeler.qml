@@ -14,7 +14,9 @@ Rectangle {
     focus: true
 
     property string currentFile: "untitled.ks3d"
-    property real uiScale: 1.18
+    property real baseUiScale: 1.18
+    property real uiZoom: 1.0
+    property real uiScale: baseUiScale * uiZoom
     property int viewMode: 0
     property string selectedObject: ""
     property int activeViewport: 3
@@ -234,6 +236,12 @@ Rectangle {
 
     Connections {
         target: Modeler
+        function onSceneChanged() {
+            if (sceneModel) {
+                sceneModel.refresh()
+                updateStats()
+            }
+        }
         function onSelectionChanged() {
             selectedObj = Modeler ? Modeler.selectedObject : null
             updateTransformFields()
@@ -695,6 +703,8 @@ Rectangle {
                                 eulerRotation: Qt.vector3d(-90, 0, 0)
                                 scale: Qt.vector3d(camDistance * 0.01, camDistance * 0.01, 1)
                             }
+                            DirectionalLight { eulerRotation: Qt.vector3d(-45, 45, 0); brightness: 1.2 }
+                            DirectionalLight { brightness: 0.35; eulerRotation: Qt.vector3d(0, 0, 0) }
 
                             Repeater {
                                 model: [
@@ -715,7 +725,10 @@ Rectangle {
                             Repeater {
                                 model: sceneModel
                                 delegate: Model {
-                                    source: model.meshSource || "#Cube"
+                                    property int objId: model.objectId
+                                    geometry: SceneMeshGeometry {
+                                        objectId: objId
+                                    }
                                     position: model.objectPosition !== undefined ? model.objectPosition : Qt.vector3d(0, 0, 0)
                                     eulerRotation: model.objectRotation !== undefined ? model.objectRotation : Qt.vector3d(0, 0, 0)
                                     scale: model.objectScale !== undefined ? model.objectScale : Qt.vector3d(1, 1, 1)
@@ -782,6 +795,8 @@ Rectangle {
                                 clipNear: 0.1
                                 clipFar: 1000
                             }
+                            DirectionalLight { eulerRotation: Qt.vector3d(-45, 45, 0); brightness: 1.2 }
+                            DirectionalLight { brightness: 0.35; eulerRotation: Qt.vector3d(0, 0, 0) }
 
                             Repeater {
                                 model: [
@@ -803,7 +818,12 @@ Rectangle {
                             Repeater {
                                 model: sceneModel
                                 delegate: Model {
-                                    source: model.meshSource || "#Cube"
+                                    property int objId: model.objectId
+                                    objectName: "obj" + model.objectId
+                                    pickable: true
+                                    geometry: SceneMeshGeometry {
+                                        objectId: objId
+                                    }
                                     position: model.objectPosition !== undefined ? model.objectPosition : Qt.vector3d(0, 0, 0)
                                     eulerRotation: model.objectRotation !== undefined ? model.objectRotation : Qt.vector3d(0, 0, 0)
                                     scale: model.objectScale !== undefined ? model.objectScale : Qt.vector3d(1, 1, 1)
@@ -823,12 +843,12 @@ Rectangle {
                                     return mode > 0 && hasSel
                                 }
                                 position: Modeler.gizmoPosition || Qt.vector3d(0, 0, 0)
-                                Model { source: "#Cylinder"; position: Qt.vector3d(0.5, 0, 0); scale: dragAxis === 0 ? Qt.vector3d(0.03, 1.2, 0.03) : Qt.vector3d(0.02, 1, 0.02); eulerRotation: Qt.vector3d(0, 0, -90); materials: [DefaultMaterial { diffuseColor: dragAxis === 0 ? "#ff8888" : "#ff4444" }] }
-                                Model { source: "#Cone"; position: Qt.vector3d(1.0, 0, 0); scale: Qt.vector3d(0.06, 0.2, 0.06); eulerRotation: Qt.vector3d(0, 0, -90); materials: [DefaultMaterial { diffuseColor: dragAxis === 0 ? "#ff8888" : "#ff4444" }] }
-                                Model { source: "#Cylinder"; position: Qt.vector3d(0, 0.5, 0); scale: dragAxis === 1 ? Qt.vector3d(0.03, 1.2, 0.03) : Qt.vector3d(0.02, 1, 0.02); materials: [DefaultMaterial { diffuseColor: dragAxis === 1 ? "#88ff88" : "#44ff44" }] }
-                                Model { source: "#Cone"; position: Qt.vector3d(0, 1.0, 0); scale: Qt.vector3d(0.06, 0.2, 0.06); materials: [DefaultMaterial { diffuseColor: dragAxis === 1 ? "#88ff88" : "#44ff44" }] }
-                                Model { source: "#Cylinder"; position: Qt.vector3d(0, 0, 0.5); scale: dragAxis === 2 ? Qt.vector3d(0.03, 1.2, 0.03) : Qt.vector3d(0.02, 1, 0.02); eulerRotation: Qt.vector3d(90, 0, 0); materials: [DefaultMaterial { diffuseColor: dragAxis === 2 ? "#8888ff" : "#4444ff" }] }
-                                Model { source: "#Cone"; position: Qt.vector3d(0, 0, 1.0); scale: Qt.vector3d(0.06, 0.2, 0.06); eulerRotation: Qt.vector3d(90, 0, 0); materials: [DefaultMaterial { diffuseColor: dragAxis === 2 ? "#8888ff" : "#4444ff" }] }
+                                Model { objectName: "gizmoX"; pickable: true; source: "#Cylinder"; position: Qt.vector3d(0.5, 0, 0); scale: dragAxis === 0 ? Qt.vector3d(0.03, 1.2, 0.03) : Qt.vector3d(0.02, 1, 0.02); eulerRotation: Qt.vector3d(0, 0, -90); materials: [DefaultMaterial { diffuseColor: dragAxis === 0 ? "#ff8888" : "#ff4444" }] }
+                                Model { objectName: "gizmoX"; pickable: true; source: "#Cone"; position: Qt.vector3d(1.0, 0, 0); scale: Qt.vector3d(0.06, 0.2, 0.06); eulerRotation: Qt.vector3d(0, 0, -90); materials: [DefaultMaterial { diffuseColor: dragAxis === 0 ? "#ff8888" : "#ff4444" }] }
+                                Model { objectName: "gizmoY"; pickable: true; source: "#Cylinder"; position: Qt.vector3d(0, 0.5, 0); scale: dragAxis === 1 ? Qt.vector3d(0.03, 1.2, 0.03) : Qt.vector3d(0.02, 1, 0.02); materials: [DefaultMaterial { diffuseColor: dragAxis === 1 ? "#88ff88" : "#44ff44" }] }
+                                Model { objectName: "gizmoY"; pickable: true; source: "#Cone"; position: Qt.vector3d(0, 1.0, 0); scale: Qt.vector3d(0.06, 0.2, 0.06); materials: [DefaultMaterial { diffuseColor: dragAxis === 1 ? "#88ff88" : "#44ff44" }] }
+                                Model { objectName: "gizmoZ"; pickable: true; source: "#Cylinder"; position: Qt.vector3d(0, 0, 0.5); scale: dragAxis === 2 ? Qt.vector3d(0.03, 1.2, 0.03) : Qt.vector3d(0.02, 1, 0.02); eulerRotation: Qt.vector3d(90, 0, 0); materials: [DefaultMaterial { diffuseColor: dragAxis === 2 ? "#8888ff" : "#4444ff" }] }
+                                Model { objectName: "gizmoZ"; pickable: true; source: "#Cone"; position: Qt.vector3d(0, 0, 1.0); scale: Qt.vector3d(0.06, 0.2, 0.06); eulerRotation: Qt.vector3d(90, 0, 0); materials: [DefaultMaterial { diffuseColor: dragAxis === 2 ? "#8888ff" : "#4444ff" }] }
                             }
                         }
 
@@ -852,6 +872,10 @@ Rectangle {
                                     if (name.indexOf("gizmoX") >= 0) dragAxis = 0
                                     else if (name.indexOf("gizmoY") >= 0) dragAxis = 1
                                     else if (name.indexOf("gizmoZ") >= 0) dragAxis = 2
+                                    else if (name.indexOf("obj") === 0) {
+                                        var id = parseInt(name.substring(3))
+                                        if (Modeler.selectObject) Modeler.selectObject(id)
+                                    }
                                 }
                             }
                             onPositionChanged: (mouse) => { setupViewportMouse(this, 3) }
@@ -882,6 +906,8 @@ Rectangle {
                                 eulerRotation: Qt.vector3d(0, 0, 0)
                                 scale: Qt.vector3d(camDistance * 0.01, camDistance * 0.01, 1)
                             }
+                            DirectionalLight { eulerRotation: Qt.vector3d(-45, 45, 0); brightness: 1.2 }
+                            DirectionalLight { brightness: 0.35; eulerRotation: Qt.vector3d(0, 0, 0) }
 
                             Repeater {
                                 model: [
@@ -902,7 +928,10 @@ Rectangle {
                             Repeater {
                                 model: sceneModel
                                 delegate: Model {
-                                    source: model.meshSource || "#Cube"
+                                    property int objId: model.objectId
+                                    geometry: SceneMeshGeometry {
+                                        objectId: objId
+                                    }
                                     position: model.objectPosition !== undefined ? model.objectPosition : Qt.vector3d(0, 0, 0)
                                     eulerRotation: model.objectRotation !== undefined ? model.objectRotation : Qt.vector3d(0, 0, 0)
                                     scale: model.objectScale !== undefined ? model.objectScale : Qt.vector3d(1, 1, 1)
@@ -955,6 +984,8 @@ Rectangle {
                                 eulerRotation: Qt.vector3d(0, 90, 0)
                                 scale: Qt.vector3d(camDistance * 0.01, camDistance * 0.01, 1)
                             }
+                            DirectionalLight { eulerRotation: Qt.vector3d(-45, 45, 0); brightness: 1.2 }
+                            DirectionalLight { brightness: 0.35; eulerRotation: Qt.vector3d(0, 0, 0) }
 
                             Repeater {
                                 model: [
@@ -975,7 +1006,10 @@ Rectangle {
                             Repeater {
                                 model: sceneModel
                                 delegate: Model {
-                                    source: model.meshSource || "#Cube"
+                                    property int objId: model.objectId
+                                    geometry: SceneMeshGeometry {
+                                        objectId: objId
+                                    }
                                     position: model.objectPosition !== undefined ? model.objectPosition : Qt.vector3d(0, 0, 0)
                                     eulerRotation: model.objectRotation !== undefined ? model.objectRotation : Qt.vector3d(0, 0, 0)
                                     scale: model.objectScale !== undefined ? model.objectScale : Qt.vector3d(1, 1, 1)
@@ -1218,15 +1252,31 @@ Rectangle {
     FileDialog {
         id: openSceneDialog
         title: "Open Scene"
-        nameFilters: ["KS Scene (*.ks3d)", "KN5 Scene (*.kn5)", "All Files (*)"]
+        nameFilters: ["KS Scene (*.ks3d)", "KN5 Scene (*.kn5)", "FBX Scene (*.fbx)", "Blender Scene (*.blend)", "All Files (*)"]
         onAccepted: {
             var path = fileUrl.toString().replace("file:///", "").replace("file://", "")
-            if (Modeler.loadScene) {
-                var ok = Modeler.loadScene(path)
-                currentFile = ok ? path : currentFile
-                commandEcho = ok ? "Opened: " + path : "Open failed"
+            var lowerPath = path.toLowerCase()
+            var ok = false
+
+            if (lowerPath.endsWith(".fbx") || lowerPath.endsWith(".blend")) {
+                if (Modeler.importFile) {
+                    ok = Modeler.importFile(path)
+                } else if (Modeler.loadScene) {
+                    ok = Modeler.loadScene(path)
+                }
+            } else {
+                if (Modeler.loadScene) {
+                    ok = Modeler.loadScene(path)
+                } else if (Modeler.importFile) {
+                    ok = Modeler.importFile(path)
+                }
             }
-            if (sceneModel) sceneModel.refresh()
+
+            currentFile = ok ? path : currentFile
+            commandEcho = ok ? "Opened: " + path : "Open failed"
+
+            if (sceneModel)
+                sceneModel.refresh()
         }
     }
 

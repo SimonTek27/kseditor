@@ -87,7 +87,7 @@ void PaintEditorWidget::setupUI()
     m_canvasStack->setObjectName("paintCanvas");
 
     // Paint-style core editor (Paint-like, Qt-based)
-    m_paintEditor = new ks::ks::paint::PaintEditor(m_canvasStack);
+    m_paintEditor = new ks::paint::PaintEditor(m_canvasStack);
     m_paintEditor->setObjectName("paintEditor");
     m_paintEditor->setMinimumHeight(200);
     m_canvasStack->addWidget(m_paintEditor);
@@ -103,7 +103,7 @@ void PaintEditorWidget::setupUI()
 
     canvasLayout->addWidget(m_canvasStack, 1);
 
-    m_viewport3D = new PaintViewport(canvasArea);
+    m_viewport3D = new ks::paint::PaintViewport(canvasArea);
     m_viewport3D->setObjectName("paintViewport");
     m_viewport3D->setMinimumHeight(220);
     canvasLayout->addWidget(m_viewport3D);
@@ -805,8 +805,8 @@ void PaintEditorWidget::onBrushTypeChanged(int index)
         m_paintEditor->setCurrentTool(toolMap[index]);
     }
 
-    PaintBrush brush;
-    brush.type = static_cast<PaintTool>(index);
+    PaintBrushConfig brush;
+    brush.type = static_cast<PaintBrushConfig::Type>(index);
     if (m_painterWidget) m_painterWidget->setBrush(brush);
 }
 

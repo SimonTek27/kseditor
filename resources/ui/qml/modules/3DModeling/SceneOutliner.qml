@@ -19,7 +19,7 @@ Rectangle {
         var count = 0
         for (var i = 0; i < sceneModel.count; ++i) {
             var idx = outlinerList.model.index(i, 0)
-            if (sceneModel.data(idx, 256 + 6))
+            if (sceneModel.data(idx, 256 + 7))
                 count++
         }
         selectedCount = count

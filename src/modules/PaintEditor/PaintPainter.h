@@ -15,7 +15,7 @@
 
 namespace ks {
 
-struct PaintBrush {
+struct PaintBrushConfig {
     enum Type {
         Brush,
         Airbrush,
@@ -66,8 +66,8 @@ public:
     bool startPainting(int textureWidth, int textureHeight);
     void stopPainting();
     
-    void paintAt(const QPoint& screenPos, const PaintBrush& brush);
-    void paintLine(const QPoint& from, const QPoint& to, const PaintBrush& brush);
+    void paintAt(const QPoint& screenPos, const PaintBrushConfig& brush);
+    void paintLine(const QPoint& from, const QPoint& to, const PaintBrushConfig& brush);
     void fillArea(const QPoint& screenPos, const QColor& color);
     void gradientFill(const QPoint& from, const QPoint& to,
                       const QColor& startColor, const QColor& endColor, bool radial = false);
@@ -105,15 +105,15 @@ private:
     int m_width = 0;
     int m_height = 0;
     
-    void applyBrushAtPixel(const QPoint& pixel, const PaintBrush& brush);
-    void applyAirbrushAtPixel(const QPoint& pixel, const PaintBrush& brush);
-    void applySmudgeAtPixel(const QPoint& from, const QPoint& to, const PaintBrush& brush);
-    void applyBlurAtPixel(const QPoint& pixel, const PaintBrush& brush);
-    void applySharpenAtPixel(const QPoint& pixel, const PaintBrush& brush);
-    void applyDodgeAtPixel(const QPoint& pixel, const PaintBrush& brush);
-    void applyBurnAtPixel(const QPoint& pixel, const PaintBrush& brush);
-    void applyCloneAtPixel(const QPoint& pixel, const PaintBrush& brush);
-    void applyHealingAtPixel(const QPoint& pixel, const QPoint& source, const PaintBrush& brush);
+    void applyBrushAtPixel(const QPoint& pixel, const PaintBrushConfig& brush);
+    void applyAirbrushAtPixel(const QPoint& pixel, const PaintBrushConfig& brush);
+    void applySmudgeAtPixel(const QPoint& from, const QPoint& to, const PaintBrushConfig& brush);
+    void applyBlurAtPixel(const QPoint& pixel, const PaintBrushConfig& brush);
+    void applySharpenAtPixel(const QPoint& pixel, const PaintBrushConfig& brush);
+    void applyDodgeAtPixel(const QPoint& pixel, const PaintBrushConfig& brush);
+    void applyBurnAtPixel(const QPoint& pixel, const PaintBrushConfig& brush);
+    void applyCloneAtPixel(const QPoint& pixel, const PaintBrushConfig& brush);
+    void applyHealingAtPixel(const QPoint& pixel, const QPoint& source, const PaintBrushConfig& brush);
     QRgb blendPixel(QRgb base, QRgb brush, float alpha);
     QRgb colorDodge(QRgb base, float strength);
     QRgb colorBurn(QRgb base, float strength);
@@ -138,7 +138,7 @@ public:
     ~PaintPainterWidget();
     
     void setTexture(const QImage& texture);
-    void setBrush(const PaintBrush& brush);
+    void setBrush(const PaintBrushConfig& brush);
     void setMask(const QImage& mask);
     QImage getTexture() const { return m_painter.getCurrentTexture(); }
     
@@ -156,7 +156,7 @@ public slots:
 
 signals:
     void textureChanged(const QImage& texture);
-    void brushChanged(const PaintBrush& brush);
+    void brushChanged(const PaintBrushConfig& brush);
 
 protected:
     void mousePressEvent(QMouseEvent* event) override;
@@ -166,7 +166,7 @@ protected:
 
 private:
     PaintPainter m_painter;
-    PaintBrush m_currentBrush;
+    PaintBrushConfig m_currentBrush;
     QPoint m_lastPos;
     QPoint m_cloneSource;
     bool m_isDrawing = false;

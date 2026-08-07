@@ -198,7 +198,7 @@
         <file alias="pages/page_ksLicensePlatesEditor.qml">resources/ui/qml/pages/page_ksLicensePlatesEditor.qml</file>
         <file alias="pages/page_ksPhysicsEditor.qml">resources/ui/qml/pages/page_ksPhysicsEditor.qml</file>
         <file alias="pages/page_ksShowroomEditor.qml">resources/ui/qml/pages/page_ksShowroomEditor.qml</file>
-        <file alias="pages/page_ksLiveryEditor.qml">resources/ui/qml/pages/page_ksLiveryEditor.qml</file>
+        <file alias="pages/page_ksPaintEditor.qml">resources/ui/qml/pages/page_ksPaintEditor.qml</file>
         <file alias="pages/page_ksIDEEditor.qml">resources/ui/qml/pages/page_ksIDEEditor.qml</file>
         <file alias="pages/page_ksPPFiltersEditor.qml">resources/ui/qml/pages/page_ksPPFiltersEditor.qml</file>
         <file alias="widgets/AppButton.qml">resources/ui/qml/widgets/AppButton.qml</file>

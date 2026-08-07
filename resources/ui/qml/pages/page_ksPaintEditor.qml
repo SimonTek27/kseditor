@@ -9,6 +9,10 @@ Rectangle {
     id: root
     color: "#1e1e1e"
 
+    property real baseUiScale: 1.18
+    property real uiZoom: 1.0
+    property real uiScale: baseUiScale * uiZoom
+
     property string currentTool: "brush"
     property string currentSkin: ""
     property string currentCar: ""
@@ -48,6 +52,12 @@ Rectangle {
         }
     }
 
+    Item {
+        width: parent.width / uiScale
+        height: parent.height / uiScale
+        scale: uiScale
+        transformOrigin: Item.TopLeft
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -68,7 +78,7 @@ Rectangle {
                 Action { text: "Import..."; shortcut: "Ctrl+I"; onTriggered: openTextureDialog.open() }
                 Action { text: "Export..."; shortcut: "Ctrl+E"; onTriggered: saveTextureDialog.open() }
                 MenuSeparator {}
-                Action { text: "Close"; shortcut: "Ctrl+W"; onTriggered: statusMsg.text = "Close livery" }
+                Action { text: "Close"; shortcut: "Ctrl+W"; onTriggered: statusMsg.text = "Close paint document" }
             }
 
             Menu {
@@ -131,7 +141,7 @@ Rectangle {
 
             Menu {
                 title: "Help"
-                Action { text: "About Livery Editor"; onTriggered: statusMsg.text = "KSEditor Livery Editor v1.0" }
+                Action { text: "About Paint Editor"; onTriggered: statusMsg.text = "KSEditor Paint Editor v1.0" }
             }
         }
 
@@ -260,8 +270,8 @@ Rectangle {
                             anchors.fill: parent
                             onPaint: {
                                 var ctx = getContext("2d")
-                                if (TexturePainter && TexturePainter.hasTexture()) {
-                                    ctx.drawImage(TexturePainter.canvasImage(), 0, 0, width, height)
+                                if (TexturePainter && TexturePainter.canvasWidth > 0 && TexturePainter.canvasHeight > 0) {
+                                    ctx.drawImage(TexturePainter.compositeAll(), 0, 0, width, height)
                                 } else {
                                     ctx.fillStyle = "#ffffff"
                                     ctx.fillRect(0, 0, width, height)
@@ -281,8 +291,8 @@ Rectangle {
                             }
                             Connections {
                                 target: TexturePainter
-                                function onTextureChanged() { paintCanvas.requestPaint() }
                                 function onCanvasChanged() { paintCanvas.requestPaint() }
+                                function onStrokeCompleted() { paintCanvas.requestPaint() }
                             }
                         }
 
@@ -297,7 +307,7 @@ Rectangle {
                                 if (mouse.button === Qt.LeftButton && currentTool === "brush") {
                                     var texX = mouse.x / zoomLevel
                                     var texY = mouse.y / zoomLevel
-                                    TexturePainter.paintAt(texX, texY)
+                                    TexturePainter.beginStroke(texX, texY)
                                 }
                             }
 
@@ -306,13 +316,19 @@ Rectangle {
                                     if (currentTool === "brush") {
                                         var texX = mouse.x / zoomLevel
                                         var texY = mouse.y / zoomLevel
-                                        TexturePainter.paintTo(texX, texY)
+                                        TexturePainter.addStrokePoint(texX, texY)
                                     } else if (currentTool === "hand") {
                                         canvasOffsetX += mouse.x - lastPos.x
                                         canvasOffsetY += mouse.y - lastPos.y
                                     }
                                 }
                                 lastPos = Qt.point(mouse.x, mouse.y)
+                            }
+
+                            onReleased: (mouse) => {
+                                if (mouse.button === Qt.LeftButton && currentTool === "brush") {
+                                    TexturePainter.endStroke()
+                                }
                             }
 
                             onWheel: (wheel) => {
@@ -492,9 +508,10 @@ Rectangle {
                 Item { Layout.fillWidth: true }
                 Text { text: currentCar ? currentCar + " / " + currentSkin : "No car loaded"; color: "#666"; font.pixelSize: 9 }
                 Rectangle { width: 1; height: 14; color: "#444" }
-                Text { text: "ksEditor Livery v1.0"; color: "#555"; font.pixelSize: 9 }
+                Text { text: "ksEditor Paint v1.0"; color: "#555"; font.pixelSize: 9 }
             }
         }
+    }
     }
 
     ColorDialog {

@@ -8,6 +8,7 @@
 #include "core/editor/EditorConfig.h"
 
 namespace ks {
+using paint::PaintSystem;
 
 LicensePlatesQmlBridge* LicensePlatesQmlBridge::s_instance = nullptr;
 

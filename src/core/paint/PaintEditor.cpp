@@ -1392,3 +1392,6 @@ void PaintEditor::resizeEvent(QResizeEvent* event)
 {
     QWidget::resizeEvent(event);
 }
+
+} // namespace paint
+} // namespace ks

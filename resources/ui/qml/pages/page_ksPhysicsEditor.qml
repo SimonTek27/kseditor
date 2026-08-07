@@ -9,6 +9,10 @@ Rectangle {
     id: root
     color: "#121212"
 
+    property real baseUiScale: 1.18
+    property real uiZoom: 1.0
+    property real uiScale: baseUiScale * uiZoom
+
     property string activePanel: "suspension"
     property bool isValid: Physics ? Physics.isValid : true
     property string currentFile: Physics ? Physics.currentFile : "LOD0.FBX"
@@ -67,6 +71,12 @@ Rectangle {
             }
         }
     }
+
+    Item {
+        width: parent.width / uiScale
+        height: parent.height / uiScale
+        scale: uiScale
+        transformOrigin: Item.TopLeft
 
     ColumnLayout {
         anchors.fill: parent
@@ -1135,5 +1145,6 @@ Rectangle {
                 }
             }
         }
+    }
     }
 }

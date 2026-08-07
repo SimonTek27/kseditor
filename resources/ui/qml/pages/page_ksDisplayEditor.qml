@@ -9,6 +9,10 @@ Rectangle {
     id: root
     color: "#121212"
 
+    property real baseUiScale: 1.18
+    property real uiZoom: 1.0
+    property real uiScale: baseUiScale * uiZoom
+
     readonly property color cBg: "#121212"
     readonly property color cSurface: "#1e1e1e"
     readonly property color cBorder: "#333333"
@@ -64,6 +68,12 @@ Rectangle {
             }
         }
     }
+
+    Item {
+        width: parent.width / uiScale
+        height: parent.height / uiScale
+        scale: uiScale
+        transformOrigin: Item.TopLeft
 
     ColumnLayout {
         anchors.fill: parent
@@ -471,5 +481,6 @@ Rectangle {
                 Text { text: "ksEditor v1.0 - Display"; color: "#666"; font.pixelSize: 10 }
             }
         }
+    }
     }
 }

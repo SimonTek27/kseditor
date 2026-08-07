@@ -30,6 +30,8 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QFile>
+#include <QProcess>
+#include <QTemporaryDir>
 #include <QQuaternion>
 #include <QMatrix4x4>
 #include <QJsonDocument>
@@ -344,6 +346,7 @@ bool KSModelerQml::loadScene(const QString& path) {
     if (fmt == "fbx") return importFBX(path);
     if (fmt == "gltf" || fmt == "glb") return importGLB(path);
     if (fmt == "obj") return importOBJ(path);
+    if (fmt == "blend") return importBlend(path);
     emit error("Unsupported format: " + fmt);
     return false;
 }
@@ -354,6 +357,7 @@ bool KSModelerQml::importFile(const QString& path) {
     if (fmt == "fbx") return importFBX(path);
     if (fmt == "glb" || fmt == "gltf") return importGLB(path);
     if (fmt == "obj") return importOBJ(path);
+    if (fmt == "blend") return importBlend(path);
     emit error("Unsupported format: " + fmt);
     return false;
 }
@@ -519,6 +523,48 @@ bool KSModelerQml::importOBJ(const QString& path) {
     emit sceneChanged();
     emit statusMessage(QString("Imported %1 meshes from OBJ").arg(count));
     return true;
+}
+
+bool KSModelerQml::importBlend(const QString& path) {
+    if (!QFile::exists(path)) { emit error("File not found: " + path); return false; }
+    emit statusMessage("Importing Blender scene via CLI: " + path);
+
+    QString blenderPath = qEnvironmentVariable("BLENDER");
+    if (blenderPath.isEmpty()) {
+        QFileInfo bin(QStringLiteral("blender.exe"));
+        blenderPath = bin.exists() ? bin.absoluteFilePath() : QStringLiteral("blender");
+    }
+
+    QTemporaryDir tmp;
+    if (!tmp.isValid()) { emit error("Failed to create temp dir for .blend import"); return false; }
+    const QString glbPath = tmp.filePath("blend_export.glb");
+
+    QProcess proc;
+    proc.setProgram(blenderPath);
+    proc.setArguments({
+        QStringLiteral("-b"), path,
+        QStringLiteral("--python-expr"),
+        QStringLiteral("import bpy;"
+                       "bpy.ops.export_scene.gltf(filepath='%1', export_format='GLB');"
+                       "print('BLEND_EXPORT_OK')").arg(glbPath)
+    });
+    proc.start();
+    if (!proc.waitForStarted(5000)) {
+        emit error("Blender not found. Set BLENDER env var or add blender.exe to PATH to import .blend files.");
+        return false;
+    }
+    if (!proc.waitForFinished(120000) || proc.exitStatus() != QProcess::NormalExit || proc.exitCode() != 0) {
+        emit error(QString("Blender failed (%1): %2").arg(proc.exitCode()).arg(QString::fromLocal8Bit(proc.readAllStandardError()).trimmed()));
+        return false;
+    }
+    if (!QFile::exists(glbPath)) {
+        emit error("Blender finished but produced no GLB output");
+        return false;
+    }
+
+    const bool ok = importGLB(glbPath);
+    if (ok) m_currentFile = path;
+    return ok;
 }
 
 bool KSModelerQml::exportKN5(const QString& path) {

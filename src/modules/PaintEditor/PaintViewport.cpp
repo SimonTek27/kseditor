@@ -13,7 +13,7 @@ namespace paint {
 
 PaintViewport::PaintViewport(QWidget* parent)
     : QWidget(parent)
-    , m_paintEditor(ks::paint::PaintEditor::instance())
+    , m_paintEditor(ks::PaintEditor::instance())
 {
     setFocusPolicy(Qt::StrongFocus);
 

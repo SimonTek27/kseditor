@@ -11,6 +11,10 @@ Rectangle {
     color: "#111111"
     focus: true
 
+    property real baseUiScale: 1.18
+    property real uiZoom: 1.0
+    property real uiScale: baseUiScale * uiZoom
+
     readonly property color cBg: "#111111"
     readonly property color cPanel: "#1f1f22"
     readonly property color cPanel2: "#2d2d30"
@@ -352,6 +356,12 @@ function refreshTrackModel() {
             if (AudioBridge) AudioBridge.redo(); event.accepted = true
         }
     }
+
+    Item {
+        width: parent.width / uiScale
+        height: parent.height / uiScale
+        scale: uiScale
+        transformOrigin: Item.TopLeft
 
     ColumnLayout {
         anchors.fill: parent
@@ -882,6 +892,7 @@ function refreshTrackModel() {
                 Text { text: currentFileName; color: "#555"; font.pixelSize: 9 }
             }
         }
+    }
     }
 
     function drawTrackWave(trackIndex, color, w, h, ctx) {
