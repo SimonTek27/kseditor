@@ -20,6 +20,7 @@ Rectangle {
     property int viewMode: 0
     property string selectedObject: ""
     property int activeViewport: 3
+    property bool quadView: true
 
     property real camDistance: Modeler.camDistance
     property real camTheta: Modeler.camTheta
@@ -662,6 +663,24 @@ Rectangle {
                                 }
                             }
 
+                            Rectangle {
+                                Layout.preferredWidth: 66; Layout.preferredHeight: 20
+                                radius: 2
+                                color: quadTgl.containsMouse ? "#2d2d30" : "transparent"
+                                border.color: "#3f3f46"
+                                border.width: 1
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: quadView ? "◫ Quad" : "▣ Single"
+                                    color: quadView ? "#569cd6" : "#aaa"
+                                    font.pixelSize: 9; font.bold: true
+                                }
+                                MouseArea { id: quadTgl; anchors.fill: parent; hoverEnabled: true
+                                    onClicked: quadView = !quadView
+                                }
+                                ToolTip { visible: quadTgl.containsMouse; text: quadView ? "Switch to single view" : "Switch to quad view" }
+                            }
+
                             Item { Layout.fillWidth: true }
 
                             Text {
@@ -676,14 +695,15 @@ Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         anchors.margins: 1
-                        columns: 2
-                        rows: 2
+                        columns: quadView ? 2 : 1
+                        rows: quadView ? 2 : 1
                         columnSpacing: 1
                         rowSpacing: 1
 
                     Rectangle {
                         Layout.fillWidth: true; Layout.fillHeight: true
                         color: "#1a1a1e"
+                        visible: quadView || activeViewport === 0
                         border.color: activeViewport === 0 ? "#E10600" : "#2d2d30"
                         border.width: activeViewport === 0 ? 2 : 1
 
@@ -762,6 +782,7 @@ Rectangle {
                     Rectangle {
                         Layout.fillWidth: true; Layout.fillHeight: true
                         color: "#1a1a1e"
+                        visible: quadView || activeViewport === 3
                         border.color: activeViewport === 3 ? "#E10600" : "#2d2d30"
                         border.width: activeViewport === 3 ? 2 : 1
 
@@ -887,6 +908,7 @@ Rectangle {
                     Rectangle {
                         Layout.fillWidth: true; Layout.fillHeight: true
                         color: "#1a1a1e"
+                        visible: quadView || activeViewport === 1
                         border.color: activeViewport === 1 ? "#E10600" : "#2d2d30"
                         border.width: activeViewport === 1 ? 2 : 1
 
@@ -965,6 +987,7 @@ Rectangle {
                     Rectangle {
                         Layout.fillWidth: true; Layout.fillHeight: true
                         color: "#1a1a1e"
+                        visible: quadView || activeViewport === 2
                         border.color: activeViewport === 2 ? "#E10600" : "#2d2d30"
                         border.width: activeViewport === 2 ? 2 : 1
 
