@@ -282,6 +282,8 @@
         <file alias="modules/3DModeling/BoolOpPanel.qml">resources/ui/qml/modules/3DModeling/BoolOpPanel.qml</file>
         <file alias="modules/3DModeling/paint_TexturePanel.qml">resources/ui/qml/modules/3DModeling/paint_TexturePanel.qml</file>
         <file alias="modules/3DModeling/qmldir">resources/ui/qml/modules/3DModeling/qmldir</file>
+        <file alias="modules/3DModeling/GridTexture.qml">resources/ui/qml/modules/3DModeling/GridTexture.qml</file>
+        <file alias="modules/3DModeling/grid_512.png">resources/ui/qml/modules/3DModeling/grid_512.png</file>
         <file alias="modules/3DModeling/TrackBuilder/track_Systems.qml">resources/ui/qml/modules/3DModeling/TrackBuilder/track_Systems.qml</file>
         <file alias="modules/3DModeling/TrackBuilder/track_Editor.qml">resources/ui/qml/modules/3DModeling/TrackBuilder/track_Editor.qml</file>
         <file alias="modules/3DModeling/TrackBuilder/terrain_Sculptor.qml">resources/ui/qml/modules/3DModeling/TrackBuilder/terrain_Sculptor.qml</file>

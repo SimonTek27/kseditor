@@ -721,23 +721,60 @@ Rectangle {
                                 id: camTop
                                 position: Qt.vector3d(0, 20, 0)
                                 eulerRotation: Qt.vector3d(-90, 0, 0)
-                                scale: Qt.vector3d(camDistance * 0.01, camDistance * 0.01, 1)
+                                horizontalMagnification: camDistance * 2
+                                verticalMagnification: camDistance * 2
+                                clipNear: 0.1
+                                clipFar: 1000
                             }
                             DirectionalLight { eulerRotation: Qt.vector3d(-45, 45, 0); brightness: 1.2 }
                             DirectionalLight { brightness: 0.35; eulerRotation: Qt.vector3d(0, 0, 0) }
 
+                            Model {
+                                source: "#Rectangle"
+                                visible: Modeler.gridVisible !== undefined ? Modeler.gridVisible : true
+                                scale: Qt.vector3d(20, 20, 1)
+                                eulerRotation: Qt.vector3d(90, 0, 0)
+                                position: Qt.vector3d(0, -0.01, 0)
+                                materials: [DefaultMaterial {
+                                    lighting: DefaultMaterial.NoLighting
+                                    diffuseColor: "#2a2a30"
+                                }]
+                            }
+
+                            Repeater {
+                                model: 21
+                                delegate: Model {
+                                    source: "#Rectangle"
+                                    visible: Modeler.gridVisible !== undefined ? Modeler.gridVisible : true
+                                    position: Qt.vector3d(0, -0.005, -10 + index)
+                                    scale: Qt.vector3d(20, 0.015, 1)
+                                    eulerRotation: Qt.vector3d(90, 0, 0)
+                                    materials: [DefaultMaterial { lighting: DefaultMaterial.NoLighting; diffuseColor: index === 10 ? "#4a4a52" : "#333338" }]
+                                }
+                            }
+
+                            Repeater {
+                                model: 21
+                                delegate: Model {
+                                    source: "#Rectangle"
+                                    visible: Modeler.gridVisible !== undefined ? Modeler.gridVisible : true
+                                    position: Qt.vector3d(-10 + index, -0.005, 0)
+                                    scale: Qt.vector3d(0.015, 20, 1)
+                                    eulerRotation: Qt.vector3d(90, 0, 0)
+                                    materials: [DefaultMaterial { lighting: DefaultMaterial.NoLighting; diffuseColor: index === 10 ? "#4a4a52" : "#333338" }]
+                                }
+                            }
+
                             Repeater {
                                 model: [
-                                    { x: 0, y: -0.01, z: 0, sx: 20, sy: 20, sz: 1, rx: 90, ry: 0, rz: 0, col: "#2a2a2e" },
-                                    { x: 1, y: 0, z: 0, sx: 0.02, sy: 2, sz: 0.02, rx: 0, ry: 0, rz: 0, col: "#ff4444" },
-                                    { x: 0, y: 0, z: 0.5, sx: 0.02, sy: 1, sz: 0.02, rx: 0, ry: 0, rz: 0, col: "#4444ff" }
+                                    { x: 2, y: 0, z: 0, sx: 0.06, sy: 4, sz: 0.06, rx: 0, ry: 0, rz: -90, col: "#ff4444" },
+                                    { x: 0, y: 0, z: 2, sx: 0.06, sy: 4, sz: 0.06, rx: 90, ry: 0, rz: 0, col: "#4444ff" }
                                 ]
                                 delegate: Model {
-                                    source: index === 0 ? "#Rectangle" : "#Cylinder"
+                                    source: "#Cylinder"
                                     position: Qt.vector3d(modelData.x, modelData.y, modelData.z)
                                     scale: Qt.vector3d(modelData.sx, modelData.sy, modelData.sz)
                                     eulerRotation: Qt.vector3d(modelData.rx, modelData.ry, modelData.rz)
-                                    visible: index === 0 ? (Modeler.gridVisible !== undefined ? Modeler.gridVisible : true) : true
                                     materials: [DefaultMaterial { diffuseColor: modelData.col }]
                                 }
                             }
@@ -819,19 +856,53 @@ Rectangle {
                             DirectionalLight { eulerRotation: Qt.vector3d(-45, 45, 0); brightness: 1.2 }
                             DirectionalLight { brightness: 0.35; eulerRotation: Qt.vector3d(0, 0, 0) }
 
+                            Model {
+                                source: "#Rectangle"
+                                visible: Modeler.gridVisible !== undefined ? Modeler.gridVisible : true
+                                scale: Qt.vector3d(20, 20, 1)
+                                eulerRotation: Qt.vector3d(90, 0, 0)
+                                position: Qt.vector3d(0, -0.01, 0)
+                                materials: [DefaultMaterial {
+                                    lighting: DefaultMaterial.NoLighting
+                                    diffuseColor: "#2a2a30"
+                                }]
+                            }
+
+                            Repeater {
+                                model: 21
+                                delegate: Model {
+                                    source: "#Rectangle"
+                                    visible: Modeler.gridVisible !== undefined ? Modeler.gridVisible : true
+                                    position: Qt.vector3d(0, -0.005, -10 + index)
+                                    scale: Qt.vector3d(20, 0.015, 1)
+                                    eulerRotation: Qt.vector3d(90, 0, 0)
+                                    materials: [DefaultMaterial { lighting: DefaultMaterial.NoLighting; diffuseColor: index === 10 ? "#4a4a52" : "#333338" }]
+                                }
+                            }
+
+                            Repeater {
+                                model: 21
+                                delegate: Model {
+                                    source: "#Rectangle"
+                                    visible: Modeler.gridVisible !== undefined ? Modeler.gridVisible : true
+                                    position: Qt.vector3d(-10 + index, -0.005, 0)
+                                    scale: Qt.vector3d(0.015, 20, 1)
+                                    eulerRotation: Qt.vector3d(90, 0, 0)
+                                    materials: [DefaultMaterial { lighting: DefaultMaterial.NoLighting; diffuseColor: index === 10 ? "#4a4a52" : "#333338" }]
+                                }
+                            }
+
                             Repeater {
                                 model: [
-                                    { x: 0, y: -0.01, z: 0, sx: 20, sy: 20, sz: 1, rx: 90, ry: 0, rz: 0, col: "#2a2a2e" },
-                                    { x: 1, y: 0, z: 0, sx: 0.02, sy: 2, sz: 0.02, rx: 0, ry: 0, rz: 0, col: "#ff4444" },
-                                    { x: 0, y: 1, z: 0, sx: 0.02, sy: 2, sz: 0.02, rx: 0, ry: 0, rz: 0, col: "#44ff44" },
-                                    { x: 0, y: 0, z: 1, sx: 0.02, sy: 2, sz: 0.02, rx: 0, ry: 0, rz: 0, col: "#4444ff" }
+                                    { x: 2, y: 0, z: 0, sx: 0.06, sy: 4, sz: 0.06, rx: 0, ry: 0, rz: -90, col: "#ff4444" },
+                                    { x: 0, y: 2, z: 0, sx: 0.06, sy: 4, sz: 0.06, rx: 0, ry: 0, rz: 0, col: "#44ff44" },
+                                    { x: 0, y: 0, z: 2, sx: 0.06, sy: 4, sz: 0.06, rx: 90, ry: 0, rz: 0, col: "#4444ff" }
                                 ]
                                 delegate: Model {
-                                    source: index === 0 ? "#Rectangle" : "#Cylinder"
+                                    source: "#Cylinder"
                                     position: Qt.vector3d(modelData.x, modelData.y, modelData.z)
                                     scale: Qt.vector3d(modelData.sx, modelData.sy, modelData.sz)
                                     eulerRotation: Qt.vector3d(modelData.rx, modelData.ry, modelData.rz)
-                                    visible: index === 0 ? (Modeler.gridVisible !== undefined ? Modeler.gridVisible : true) : true
                                     materials: [DefaultMaterial { diffuseColor: modelData.col }]
                                 }
                             }
@@ -926,23 +997,60 @@ Rectangle {
                                 id: camFront
                                 position: Qt.vector3d(0, 0, 20)
                                 eulerRotation: Qt.vector3d(0, 0, 0)
-                                scale: Qt.vector3d(camDistance * 0.01, camDistance * 0.01, 1)
+                                horizontalMagnification: camDistance * 2
+                                verticalMagnification: camDistance * 2
+                                clipNear: 0.1
+                                clipFar: 1000
                             }
                             DirectionalLight { eulerRotation: Qt.vector3d(-45, 45, 0); brightness: 1.2 }
                             DirectionalLight { brightness: 0.35; eulerRotation: Qt.vector3d(0, 0, 0) }
 
+                            Model {
+                                source: "#Rectangle"
+                                visible: Modeler.gridVisible !== undefined ? Modeler.gridVisible : true
+                                scale: Qt.vector3d(20, 20, 1)
+                                eulerRotation: Qt.vector3d(90, 0, 0)
+                                position: Qt.vector3d(0, -0.01, 0)
+                                materials: [DefaultMaterial {
+                                    lighting: DefaultMaterial.NoLighting
+                                    diffuseColor: "#2a2a30"
+                                }]
+                            }
+
+                            Repeater {
+                                model: 21
+                                delegate: Model {
+                                    source: "#Rectangle"
+                                    visible: Modeler.gridVisible !== undefined ? Modeler.gridVisible : true
+                                    position: Qt.vector3d(0, -0.005, -10 + index)
+                                    scale: Qt.vector3d(20, 0.015, 1)
+                                    eulerRotation: Qt.vector3d(90, 0, 0)
+                                    materials: [DefaultMaterial { lighting: DefaultMaterial.NoLighting; diffuseColor: index === 10 ? "#4a4a52" : "#333338" }]
+                                }
+                            }
+
+                            Repeater {
+                                model: 21
+                                delegate: Model {
+                                    source: "#Rectangle"
+                                    visible: Modeler.gridVisible !== undefined ? Modeler.gridVisible : true
+                                    position: Qt.vector3d(-10 + index, -0.005, 0)
+                                    scale: Qt.vector3d(0.015, 20, 1)
+                                    eulerRotation: Qt.vector3d(90, 0, 0)
+                                    materials: [DefaultMaterial { lighting: DefaultMaterial.NoLighting; diffuseColor: index === 10 ? "#4a4a52" : "#333338" }]
+                                }
+                            }
+
                             Repeater {
                                 model: [
-                                    { x: 0, y: -0.01, z: 0, sx: 20, sy: 20, sz: 1, rx: 90, ry: 0, rz: 0, col: "#2a2a2e" },
-                                    { x: 1, y: 0, z: 0, sx: 0.02, sy: 2, sz: 0.02, rx: 0, ry: 0, rz: 0, col: "#ff4444" },
-                                    { x: 0, y: 1, z: 0, sx: 0.02, sy: 2, sz: 0.02, rx: 0, ry: 0, rz: 0, col: "#44ff44" }
+                                    { x: 2, y: 0, z: 0, sx: 0.06, sy: 4, sz: 0.06, rx: 0, ry: 0, rz: -90, col: "#ff4444" },
+                                    { x: 0, y: 2, z: 0, sx: 0.06, sy: 4, sz: 0.06, rx: 0, ry: 0, rz: 0, col: "#44ff44" }
                                 ]
                                 delegate: Model {
-                                    source: index === 0 ? "#Rectangle" : "#Cylinder"
+                                    source: "#Cylinder"
                                     position: Qt.vector3d(modelData.x, modelData.y, modelData.z)
                                     scale: Qt.vector3d(modelData.sx, modelData.sy, modelData.sz)
                                     eulerRotation: Qt.vector3d(modelData.rx, modelData.ry, modelData.rz)
-                                    visible: index === 0 ? (Modeler.gridVisible !== undefined ? Modeler.gridVisible : true) : true
                                     materials: [DefaultMaterial { diffuseColor: modelData.col }]
                                 }
                             }
@@ -1005,23 +1113,60 @@ Rectangle {
                                 id: camRight
                                 position: Qt.vector3d(20, 0, 0)
                                 eulerRotation: Qt.vector3d(0, 90, 0)
-                                scale: Qt.vector3d(camDistance * 0.01, camDistance * 0.01, 1)
+                                horizontalMagnification: camDistance * 2
+                                verticalMagnification: camDistance * 2
+                                clipNear: 0.1
+                                clipFar: 1000
                             }
                             DirectionalLight { eulerRotation: Qt.vector3d(-45, 45, 0); brightness: 1.2 }
                             DirectionalLight { brightness: 0.35; eulerRotation: Qt.vector3d(0, 0, 0) }
 
+                            Model {
+                                source: "#Rectangle"
+                                visible: Modeler.gridVisible !== undefined ? Modeler.gridVisible : true
+                                scale: Qt.vector3d(20, 20, 1)
+                                eulerRotation: Qt.vector3d(90, 0, 0)
+                                position: Qt.vector3d(0, -0.01, 0)
+                                materials: [DefaultMaterial {
+                                    lighting: DefaultMaterial.NoLighting
+                                    diffuseColor: "#2a2a30"
+                                }]
+                            }
+
+                            Repeater {
+                                model: 21
+                                delegate: Model {
+                                    source: "#Rectangle"
+                                    visible: Modeler.gridVisible !== undefined ? Modeler.gridVisible : true
+                                    position: Qt.vector3d(0, -0.005, -10 + index)
+                                    scale: Qt.vector3d(20, 0.015, 1)
+                                    eulerRotation: Qt.vector3d(90, 0, 0)
+                                    materials: [DefaultMaterial { lighting: DefaultMaterial.NoLighting; diffuseColor: index === 10 ? "#4a4a52" : "#333338" }]
+                                }
+                            }
+
+                            Repeater {
+                                model: 21
+                                delegate: Model {
+                                    source: "#Rectangle"
+                                    visible: Modeler.gridVisible !== undefined ? Modeler.gridVisible : true
+                                    position: Qt.vector3d(-10 + index, -0.005, 0)
+                                    scale: Qt.vector3d(0.015, 20, 1)
+                                    eulerRotation: Qt.vector3d(90, 0, 0)
+                                    materials: [DefaultMaterial { lighting: DefaultMaterial.NoLighting; diffuseColor: index === 10 ? "#4a4a52" : "#333338" }]
+                                }
+                            }
+
                             Repeater {
                                 model: [
-                                    { x: 0, y: -0.01, z: 0, sx: 20, sy: 20, sz: 1, rx: 90, ry: 0, rz: 0, col: "#2a2a2e" },
-                                    { x: 0, y: 1, z: 0, sx: 0.02, sy: 2, sz: 0.02, rx: 0, ry: 0, rz: 0, col: "#44ff44" },
-                                    { x: 0, y: 0, z: 1, sx: 0.02, sy: 2, sz: 0.02, rx: 0, ry: 0, rz: 0, col: "#4444ff" }
+                                    { x: 0, y: 2, z: 0, sx: 0.06, sy: 4, sz: 0.06, rx: 0, ry: 0, rz: 0, col: "#44ff44" },
+                                    { x: 0, y: 0, z: 2, sx: 0.06, sy: 4, sz: 0.06, rx: 90, ry: 0, rz: 0, col: "#4444ff" }
                                 ]
                                 delegate: Model {
-                                    source: index === 0 ? "#Rectangle" : "#Cylinder"
+                                    source: "#Cylinder"
                                     position: Qt.vector3d(modelData.x, modelData.y, modelData.z)
                                     scale: Qt.vector3d(modelData.sx, modelData.sy, modelData.sz)
                                     eulerRotation: Qt.vector3d(modelData.rx, modelData.ry, modelData.rz)
-                                    visible: index === 0 ? (Modeler.gridVisible !== undefined ? Modeler.gridVisible : true) : true
                                     materials: [DefaultMaterial { diffuseColor: modelData.col }]
                                 }
                             }

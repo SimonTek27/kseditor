@@ -1,4 +1,5 @@
 ModelerStudio 1.0 ModelerStudio.qml
+GridTexture 1.0 GridTexture.qml
 main 1.0 main.qml
 MaterialEditor 1.0 MaterialEditor.qml
 SceneOutliner 1.0 SceneOutliner.qml
