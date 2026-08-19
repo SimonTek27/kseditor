@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuite name="TestLightSystem" timestamp="2026&#x002D;08&#x002D;17T10:46:50" hostname="MS7B45&#x002D;Simon" tests="7" failures="0" errors="0" skipped="0" time="0.134">
+  <properties>
+    <property name="QTestVersion" value="6.11.1"/>
+    <property name="QtVersion" value="6.11.1"/>
+    <property name="QtBuild" value="Qt 6.11.1 (x86_64&#x002D;little_endian&#x002D;llp64 shared (dynamic) release build; by MSVC 2022)"/>
+  </properties>
+  <testcase name="initTestCase" classname="TestLightSystem" time="0.000"/>
+  <testcase name="addRemoveFind" classname="TestLightSystem" time="0.000"/>
+  <testcase name="serializeRoundTrip" classname="TestLightSystem" time="0.000"/>
+  <testcase name="parseIESValid" classname="TestLightSystem" time="0.076"/>
+  <testcase name="parseIESRejectsGarbage" classname="TestLightSystem" time="0.033"/>
+  <testcase name="iesMultiplierInterpolates" classname="TestLightSystem" time="0.000"/>
+  <testcase name="cleanupTestCase" classname="TestLightSystem" time="0.000"/>
+</testsuite>

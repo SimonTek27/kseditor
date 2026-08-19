@@ -4,6 +4,7 @@
 #include <QVector3D>
 #include <QVector>
 #include <QColor>
+#include <functional>
 #include "core/Graphics/SceneGraph.h"
 #include "core/Graphics/SceneObject.h"
 #include "core/Graphics/SceneMesh.h"
@@ -33,7 +34,14 @@ public:
         BaseColorRole,
         MetallicRole,
         RoughnessRole,
-        OpacityRole
+        OpacityRole,
+        WorldPositionRole,
+        WorldRotationRole,
+        WorldScaleRole,
+        DepthRole,
+        ChildCountRole,
+        DiffuseTextureRole,
+        NormalTextureRole
     };
 
     explicit SceneObjectListModel(QObject* parent = nullptr);
@@ -54,6 +62,13 @@ public:
 
     Q_INVOKABLE void refresh();
 
+    // Texture path resolvers (set by the bridge for procedural fabrics).
+    void setTextureResolvers(const std::function<QString(int objectId)>& diffuse,
+                             const std::function<QString(int objectId)>& normal) {
+        m_diffuseResolver = diffuse;
+        m_normalResolver = normal;
+    }
+
 signals:
     void countChanged();
 
@@ -63,6 +78,8 @@ private slots:
 private:
     SceneGraph* m_scene = nullptr;
     QVector<SceneObject*> m_objects;
+    std::function<QString(int)> m_diffuseResolver;
+    std::function<QString(int)> m_normalResolver;
     void syncObjectList();
 };
 

@@ -64,6 +64,89 @@ QVector3D ProceduralTextureGenerator::asphaltPattern(float x, float y, int seed)
     return QVector3D(base + grain, base + grain, base + grain);
 }
 
+// Plain/twill weave shading: returns 0..1 with the crossing "thread" relief.
+static float weaveShading(float u, float v, float density, int twillOffset, int seed) {
+    float cu = u * density;
+    float cv = v * density;
+    int iu = (int)floorf(cu);
+    int iv = (int)floorf(cv);
+    if (twillOffset != 0)
+        iv += ((int)floorf(cu) / twillOffset) & 1;  // twill diagonal steps
+    int parity = (iu + iv) & 1;
+    // Over/under thread cross: lift where the warp is on top.
+    float base = parity ? 0.72f : 0.55f;
+    // Thread roundness within the cell.
+    float fu = cu - iu - 0.5f;
+    float fv = cv - iv - 0.5f;
+    float bump = 0.18f * expf(-(fu * fu + fv * fv) * 6.0f);
+    // Fiber noise along the thread directions.
+    float fiber = 0.05f * (sinf(fu * 40.0f + seed) * 0.5f + 0.5f);
+    return base + bump + fiber;
+}
+
+QVector3D ProceduralTextureGenerator::fabricPattern(float x, float y, int seed,
+                                                    TextureType type, const TextureParams& params) {
+    QVector3D c1 = params.color1;
+    QVector3D c2 = params.color2;
+
+    switch (type) {
+    case Type_Cotton: {
+        float s = weaveShading(x, y, 28.0f * params.scale, 0, seed);
+        QVector3D a(0.92f, 0.90f, 0.86f);
+        QVector3D b(0.66f, 0.64f, 0.60f);
+        return a * s + b * (1.0f - s);
+    }
+    case Type_Silk: {
+        // Very fine weave, high sheen (light runs along a direction).
+        float s = weaveShading(x, y, 44.0f * params.scale, 0, seed);
+        float sheen = sinf((x + y) * 6.0f * params.scale) * 0.5f + 0.5f;
+        QVector3D a(0.85f, 0.83f, 0.78f);
+        QVector3D b(0.45f, 0.42f, 0.38f);
+        return (a * s + b * (1.0f - s)) * (0.8f + sheen * 0.25f);
+    }
+    case Type_Denim: {
+        float s = weaveShading(x, y, 24.0f * params.scale, 2, seed);
+        QVector3D a(0.28f, 0.35f, 0.62f);
+        QVector3D b(0.08f, 0.10f, 0.28f);
+        return a * s + b * (1.0f - s);
+    }
+    case Type_Leather: {
+        // Smooth base + fine grain (no weave).
+        float n = fbm(x * 24.0f * params.scale, y * 24.0f * params.scale, 4, seed);
+        float spec = 0.35f + 0.2f * n;
+        QVector3D base = c1;
+        return base * (0.92f + n * 0.18f) * spec;
+    }
+    case Type_Rubber: {
+        float n = fbm(x * 32.0f, y * 32.0f, 3, seed);
+        QVector3D base(0.10f, 0.10f, 0.11f);
+        return base * (0.9f + n * 0.25f);
+    }
+    case Type_Wool: {
+        // Soft fuzzy weave, low contrast, warm grey.
+        float s = weaveShading(x, y, 16.0f * params.scale, 0, seed);
+        float fuzz = fbm(x * 8.0f * params.scale, y * 8.0f * params.scale, 3, seed);
+        QVector3D a(0.68f, 0.66f, 0.62f);
+        QVector3D b(0.44f, 0.42f, 0.40f);
+        return (a * s + b * (1.0f - s)) * (0.85f + fuzz * 0.3f);
+    }
+    case Type_Satin: {
+        // Long diagonal floats, strong directional gloss.
+        float s = weaveShading(x, y, 20.0f * params.scale, 3, seed);
+        float gloss = sinf((x * 0.5f - y) * 7.0f * params.scale) * 0.5f + 0.5f;
+        QVector3D a(0.88f, 0.86f, 0.82f);
+        QVector3D b(0.38f, 0.36f, 0.33f);
+        return (a * s + b * (1.0f - s)) * (0.75f + gloss * 0.5f);
+    }
+    case Type_Twill: {
+        float s = weaveShading(x, y, 26.0f * params.scale, 2, seed);
+        return c1 * s + c2 * (1.0f - s);
+    }
+    default:
+        return c1;
+    }
+}
+
 QImage ProceduralTextureGenerator::generateTexture(const TextureParams& params) {
     QImage image(params.width, params.height, QImage::Format_RGB32);
     int seed = params.seed != 0 ? params.seed : 12345;
@@ -107,6 +190,16 @@ QImage ProceduralTextureGenerator::generateTexture(const TextureParams& params) 
                     color = QVector3D(n, n, n) * 0.6f;
                     break;
                 }
+                case Type_Cotton:
+                case Type_Silk:
+                case Type_Denim:
+                case Type_Leather:
+                case Type_Rubber:
+                case Type_Wool:
+                case Type_Satin:
+                case Type_Twill:
+                    color = fabricPattern(fx, fy, seed, params.type, params);
+                    break;
             }
 
             color = color * params.contrast + QVector3D(params.brightness, params.brightness, params.brightness);
@@ -166,6 +259,14 @@ QString ProceduralTextureGenerator::textureTypeToString(TextureType type) {
         case Type_Plastic: return "Plastic";
         case Type_Rust: return "Rust";
         case Type_Grunge: return "Grunge";
+        case Type_Cotton: return "Cotton";
+        case Type_Silk: return "Silk";
+        case Type_Denim: return "Denim";
+        case Type_Leather: return "Leather";
+        case Type_Rubber: return "Rubber";
+        case Type_Wool: return "Wool";
+        case Type_Satin: return "Satin";
+        case Type_Twill: return "Twill";
         default: return "Unknown";
     }
 }
@@ -181,6 +282,14 @@ ProceduralTextureGenerator::TextureType ProceduralTextureGenerator::stringToText
     if (str == "Plastic") return Type_Plastic;
     if (str == "Rust") return Type_Rust;
     if (str == "Grunge") return Type_Grunge;
+    if (str == "Cotton") return Type_Cotton;
+    if (str == "Silk") return Type_Silk;
+    if (str == "Denim") return Type_Denim;
+    if (str == "Leather") return Type_Leather;
+    if (str == "Rubber") return Type_Rubber;
+    if (str == "Wool") return Type_Wool;
+    if (str == "Satin") return Type_Satin;
+    if (str == "Twill") return Type_Twill;
     return Type_Marble;
 }
 

@@ -529,6 +529,13 @@ bool KNHConverter::convertFromCameraSpline(const QString& splinePath, const QStr
 bool KNHConverter::generateFromTrackGeometry(const QString& trackPath, const QString& knhPath, float targetSpeed) {
     // TODO: Implement track geometry analysis to generate racing line
     // Would need track mesh, surface data, etc.
+    // Skeleton: parse track JSON/AC format, extract corners, generate waypoints
+    // This would involve:
+    // 1. Loading track mesh/geometry
+    // 2. Detecting corners (changes in direction > threshold)
+    // 3. Computing optimal racing line through corners
+    // 4. Saving waypoints to KNH format
+    // For now, return false to indicate not yet implemented
     return false;
 }
 

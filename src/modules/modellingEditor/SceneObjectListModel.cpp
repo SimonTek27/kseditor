@@ -1,5 +1,6 @@
 #include "SceneObjectListModel.h"
 #include "core/Graphics/SceneMesh.h"
+#include <QUrl>
 
 namespace ks {
 
@@ -21,6 +22,9 @@ void SceneObjectListModel::syncObjectList() {
         auto all = m_scene->allObjects();
         for (SceneObject* obj : all) {
             if (obj->type() == SceneObject::Type::Mesh && obj->hasMesh()) {
+                m_objects.append(obj);
+            } else if (obj->type() == SceneObject::Type::Spline && obj->hasMesh()) {
+                // Curves render through their ribbon mesh preview.
                 m_objects.append(obj);
             }
         }
@@ -49,6 +53,7 @@ QVariant SceneObjectListModel::data(const QModelIndex& index, int role) const {
         switch (obj->type()) {
         case SceneObject::Type::Node: return "Node";
         case SceneObject::Type::Mesh: return "Mesh";
+        case SceneObject::Type::Spline: return "Spline";
         case SceneObject::Type::Light: return "Light";
         case SceneObject::Type::Camera: return "Camera";
         case SceneObject::Type::Bone: return "Bone";
@@ -88,6 +93,32 @@ QVariant SceneObjectListModel::data(const QModelIndex& index, int role) const {
         return obj->roughness();
     case OpacityRole:
         return obj->opacity();
+    case WorldPositionRole:
+        return obj->worldPosition();
+    case WorldRotationRole:
+        return obj->worldRotationEuler();
+    case WorldScaleRole:
+        return obj->worldScale();
+    case DepthRole: {
+        int depth = 0;
+        for (SceneObject* p = obj->parent(); p; p = p->parent())
+            ++depth;
+        return depth;
+    }
+    case ChildCountRole:
+        return (int)obj->children().size();
+    case DiffuseTextureRole:
+        if (m_diffuseResolver) {
+            const QString p = m_diffuseResolver(obj->id());
+            if (!p.isEmpty()) return QUrl::fromLocalFile(p).toString();
+        }
+        return QString();
+    case NormalTextureRole:
+        if (m_normalResolver) {
+            const QString p = m_normalResolver(obj->id());
+            if (!p.isEmpty()) return QUrl::fromLocalFile(p).toString();
+        }
+        return QString();
     }
     return QVariant();
 }
@@ -109,6 +140,13 @@ QHash<int, QByteArray> SceneObjectListModel::roleNames() const {
     roles[MetallicRole] = "metallic";
     roles[RoughnessRole] = "roughness";
     roles[OpacityRole] = "opacity";
+    roles[WorldPositionRole] = "objectWorldPosition";
+    roles[WorldRotationRole] = "objectWorldRotation";
+    roles[WorldScaleRole] = "objectWorldScale";
+    roles[DepthRole] = "objectDepth";
+    roles[ChildCountRole] = "childCount";
+    roles[DiffuseTextureRole] = "diffuseTexture";
+    roles[NormalTextureRole] = "normalTexture";
     return roles;
 }
 

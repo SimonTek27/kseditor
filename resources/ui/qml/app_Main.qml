@@ -338,8 +338,8 @@ Rectangle {
             // ── 7: Display Editor ─────────────────────────────────────────────
             Loader {
                 active: currentMode === "display"
-                source: "modules/car_DisplayEditor.qml"
-                onStatusChanged: if (status === Loader.Error) console.error("car_DisplayEditor.qml failed to load")
+                source: "modules/car_CockpitInstruments.qml"
+                onStatusChanged: if (status === Loader.Error) console.error("car_CockpitInstruments.qml failed to load")
             }
 
             // ── 8: Assets Library ─────────────────────────────────────────────
@@ -436,7 +436,7 @@ Rectangle {
 
         // ── Display Editor request from C++ ribbon ──────────────────────────
         Connections {
-            target: DisplayEditor
+            target: CockpitInstruments
             function onEditorRequested() {
                 switchTo("display")
             }

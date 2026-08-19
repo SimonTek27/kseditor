@@ -430,4 +430,41 @@ QString MeshEditCommand::description() const {
 	}
 }
 
+// ============================================================================
+// ModifierStackCommand Implementation
+// ============================================================================
+
+ModifierStackCommand::ModifierStackCommand(
+	int objectId,
+	const QJsonObject& before,
+	const QJsonObject& after,
+	const QString& description)
+	: m_objectId(objectId)
+	, m_before(before)
+	, m_after(after)
+	, m_description(description.isEmpty() ? "Modify modifier stack" : description)
+{
+}
+
+void ModifierStackCommand::execute() {
+	// The operation has already been applied by the UI.
+}
+
+void ModifierStackCommand::undo() {
+	apply(m_before);
+}
+
+void ModifierStackCommand::redo() {
+	apply(m_after);
+}
+
+QString ModifierStackCommand::description() const {
+	return m_description;
+}
+
+void ModifierStackCommand::apply(const QJsonObject& state) {
+	KSModelerQml& modeler = KSModelerQml::instance();
+	modeler.modifierStackRestore(m_objectId, state);
+}
+
 } // namespace ks

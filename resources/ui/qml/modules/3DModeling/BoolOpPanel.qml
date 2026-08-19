@@ -3,82 +3,142 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "../../widgets"
 import ksEditor.Modeler 1.0
-import ksEditor.BoolOp 1.0
 
 Rectangle {
     id: boolOpPanel
-    visible: false
-    width: 260
-    height: 400
-    color: "#1e1e1e"
-    border.color: "#E10600"
-    border.width: 1
-    radius: 6
-
-    property string activeOperation: "Union"
-    property int selectedTargetId: -1
-    property var meshList: []
+    anchors.fill: parent
+    color: "transparent"
 
     signal closePanel()
 
-    onVisibleChanged: {
-        if (visible) refreshMeshList()
-    }
+    property int objectId: Modeler && Modeler.selectedObject ? Modeler.selectedObject.id : -1
+    property int selectedTargetId: -1
+    property var meshList: []
+    property var stackList: []
+    property int newOpType: 0
+
+    signal stackChanged()
 
     function refreshMeshList() {
-        var objects = Modeler.getMeshObjects()
-        meshList = objects
-        if (objects.length > 0 && selectedTargetId < 0) {
-            selectedTargetId = objects[0].id
+        var objects = Modeler ? Modeler.getMeshObjects() : []
+        meshList = []
+        for (var i = 0; i < objects.length; ++i) {
+            if (objects[i].id !== objectId) meshList.push(objects[i])
         }
+        var stillValid = false
+        for (var j = 0; j < meshList.length; ++j)
+            if (meshList[j].id === selectedTargetId) { stillValid = true; break }
+        if (!stillValid && meshList.length > 0)
+            selectedTargetId = meshList[0].id
+    }
+
+    function refreshStack() {
+        if (objectId >= 0)
+            stackList = Modeler.booleanStack(objectId)
+        else
+            stackList = []
+    }
+
+    function refresh() {
+        refreshMeshList()
+        refreshStack()
+    }
+
+    function addOperation() {
+        if (objectId >= 0 && selectedTargetId >= 0)
+            Modeler.booleanAdd(objectId, newOpType, selectedTargetId)
+    }
+
+    function moveOp(index, delta) {
+        if (objectId < 0) return
+        var to = index + delta
+        if (to < 0 || to >= stackList.length) return
+        Modeler.booleanMove(objectId, index, to)
+    }
+
+    function removeOp(index) {
+        if (objectId >= 0) Modeler.booleanRemove(objectId, index)
+    }
+
+    function cycleOp(index) {
+        if (objectId < 0) return
+        var cur = stackList[index].operation
+        Modeler.booleanSetOperation(objectId, index, (cur + 1) % 4)
+    }
+
+    function toggleOp(index, enabled) {
+        if (objectId >= 0) Modeler.booleanSetEnabled(objectId, index, enabled)
+    }
+
+    onVisibleChanged: {
+        if (visible) refresh()
+    }
+
+    Connections {
+        target: Modeler
+        function onBooleanStackChanged(id) { if (id === boolOpPanel.objectId) boolOpPanel.refreshStack() }
+        function onSelectionChanged() { boolOpPanel.refresh() }
+        function onSceneChanged() { boolOpPanel.refreshMeshList() }
     }
 
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 10
-        spacing: 8
+        spacing: 6
 
-        Text {
-            text: "BOOLEAN OPERATIONS"
-            color: "#E10600"
-            font.pixelSize: 13
-            font.bold: true
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
+
+            Text {
+                text: "BOOLEAN STACK"
+                color: "#E10600"
+                font.pixelSize: 13
+                font.bold: true
+                Layout.fillWidth: true
+            }
+
+            AppButton {
+                text: "X"
+                height: 24
+                width: 26
+                bgcolor: "#3e3e42"
+                color: "#ffffff"
+                font.pixelSize: 10
+                font.bold: true
+                onClicked: closePanel()
+            }
         }
 
         Text {
-            text: "Operation:"
+            text: "Non-destructive boolean (A = selected object, B = operand).\nEditable stack with live viewport preview \u2014 Apply bakes to static mesh."
+            color: "#888"
+            font.pixelSize: 9
+            wrapMode: Text.WordWrap
+            Layout.fillWidth: true
+        }
+
+        Text {
+            text: "New operation:"
             color: "#888"
             font.pixelSize: 10
             font.bold: true
         }
 
-        ButtonGroup { id: opGroup }
-
-        ColumnLayout {
-            spacing: 4
+        GridLayout {
             Layout.fillWidth: true
+            columns: 4
+            columnSpacing: 4
+            rowSpacing: 4
 
-            Repeater {
-                model: ["Union (A ∪ B)", "Difference (A - B)", "Intersection (A ∩ B)", "Symmetric Diff (A △ B)"]
-                AppButton {
-                    height: 26
-                    text: modelData
-                    checkable: true
-                    autoExclusive: true
-                    Layout.fillWidth: true
-                    font.pixelSize: 11
-                    bgcolor: checked ? "#E10600" : "#3e3e42"
-                    color: checked ? "#121212" : "#ffffff"
-                    ButtonGroup.group: opGroup
-                    onClicked: activeOperation = modelData.split(" ")[0]
-                }
-            }
+            AppButton { text: "Union";  height: 26; checkable: true; autoExclusive: true; bgcolor: newOpType === 0 ? "#E10600" : "#3e3e42"; color: newOpType === 0 ? "#121212" : "#fff"; font.pixelSize: 10; checked: newOpType === 0; onClicked: newOpType = 0 }
+            AppButton { text: "Diff";   height: 26; checkable: true; autoExclusive: true; bgcolor: newOpType === 1 ? "#E10600" : "#3e3e42"; color: newOpType === 1 ? "#121212" : "#fff"; font.pixelSize: 10; checked: newOpType === 1; onClicked: newOpType = 1 }
+            AppButton { text: "Inter";  height: 26; checkable: true; autoExclusive: true; bgcolor: newOpType === 2 ? "#E10600" : "#3e3e42"; color: newOpType === 2 ? "#121212" : "#fff"; font.pixelSize: 10; checked: newOpType === 2; onClicked: newOpType = 2 }
+            AppButton { text: "Xor";    height: 26; checkable: true; autoExclusive: true; bgcolor: newOpType === 3 ? "#E10600" : "#3e3e42"; color: newOpType === 3 ? "#121212" : "#fff"; font.pixelSize: 10; checked: newOpType === 3; onClicked: newOpType = 3 }
         }
 
-        Item { height: 4 }
-
         Text {
-            text: "Target Mesh:"
+            text: "Operand B (other mesh):"
             color: "#888"
             font.pixelSize: 10
             font.bold: true
@@ -86,7 +146,7 @@ Rectangle {
 
         Rectangle {
             Layout.fillWidth: true
-            height: Math.min(meshList.length * 26 + 4, 120)
+            height: Math.min(meshList.length * 24 + 4, 90)
             color: "#2a2a2e"
             radius: 4
             clip: true
@@ -97,7 +157,7 @@ Rectangle {
                 model: meshList
                 delegate: Rectangle {
                     width: ListView.view.width
-                    height: 24
+                    height: 22
                     color: modelData.id === selectedTargetId ? "#E10600" : "transparent"
                     radius: 2
 
@@ -107,7 +167,8 @@ Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         text: modelData.name + " (ID: " + modelData.id + ")"
                         color: modelData.id === selectedTargetId ? "#121212" : "#ccc"
-                        font.pixelSize: 11
+                        font.pixelSize: 10
+                        elide: Text.ElideRight
                     }
 
                     MouseArea {
@@ -120,56 +181,174 @@ Rectangle {
             Text {
                 anchors.centerIn: parent
                 visible: meshList.length === 0
-                text: "No other meshes in scene"
+                text: objectId < 0 ? "Select a base object first" : "No other meshes in scene"
                 color: "#666"
                 font.pixelSize: 11
             }
         }
 
-        Item { height: 4 }
-
-        Text {
-            text: "Status: " + (BoolOp.available ? "CGAL Ready" : "CGAL Unavailable")
-            color: BoolOp.available ? "#4CAF50" : "#E10600"
-            font.pixelSize: 10
-        }
-
-        Item { height: 4 }
-
         RowLayout {
-            spacing: 8
             Layout.fillWidth: true
+            spacing: 6
 
             AppButton {
-                height: 32
-                text: "Apply"
+                Layout.fillWidth: true
+                height: 28
+                text: "Add Operation"
                 bgcolor: "#E10600"
                 color: "#121212"
-                Layout.fillWidth: true
                 font.bold: true
-                enabled: selectedTargetId >= 0
+                font.pixelSize: 10
+                enabled: objectId >= 0 && selectedTargetId >= 0
+                onClicked: addOperation()
+            }
+        }
 
-                onClicked: {
-                    var opMap = {
-                        "Union": 0,
-                        "Difference": 1,
-                        "Intersection": 2,
-                        "Symmetric": 3
+        Rectangle {
+            Layout.fillWidth: true
+            height: 2
+            color: "#333"
+        }
+
+        Text {
+            text: "Stack (" + stackList.length + "):"
+            color: "#888"
+            font.pixelSize: 10
+            font.bold: true
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            color: "#2a2a2e"
+            radius: 4
+            clip: true
+
+            ListView {
+                id: stackView
+                anchors.fill: parent
+                anchors.margins: 2
+                clip: true
+                spacing: 2
+                model: stackList
+
+                delegate: Rectangle {
+                    id: row
+                    width: stackView.width
+                    height: 30
+                    radius: 3
+                    color: modelData.enabled ? "#333" : "#28282a"
+                    border.color: "#444"
+                    border.width: 1
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 4
+                        spacing: 4
+
+                        AppButton {
+                            width: 86
+                            height: 22
+                            text: modelData.operation === 0 ? "Union" :
+                                  modelData.operation === 1 ? "Diff" :
+                                  modelData.operation === 2 ? "Inter" : "Xor"
+                            bgcolor: modelData.enabled ? "#E10600" : "#3e3e42"
+                            color: modelData.enabled ? "#121212" : "#888"
+                            font.pixelSize: 9
+                            font.bold: true
+                            onClicked: cycleOp(index)
+                            ToolTip.visible: hovered
+                            ToolTip.text: "Click to cycle operation type"
+                        }
+
+                        Text {
+                            text: modelData.operandName
+                            color: modelData.enabled ? "#ddd" : "#777"
+                            font.pixelSize: 9
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                        }
+
+                        AppButton {
+                            width: 18
+                            height: 20
+                            text: "\u25B2"
+                            bgcolor: "#3e3e42"
+                            color: "#fff"
+                            font.pixelSize: 7
+                            onClicked: moveOp(index, -1)
+                        }
+                        AppButton {
+                            width: 18
+                            height: 20
+                            text: "\u25BC"
+                            bgcolor: "#3e3e42"
+                            color: "#fff"
+                            font.pixelSize: 7
+                            onClicked: moveOp(index, 1)
+                        }
+                        AppButton {
+                            width: 18
+                            height: 20
+                            text: "\u2715"
+                            bgcolor: "#5a2a2a"
+                            color: "#fff"
+                            font.pixelSize: 8
+                            onClicked: removeOp(index)
+                        }
                     }
-                    var opIdx = opMap[activeOperation] || 0
-                    Modeler.booleanOperation(opIdx, selectedTargetId)
-                    closePanel()
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: { }
+                        onDoubleClicked: toggleOp(index, !modelData.enabled)
+                    }
                 }
             }
 
-            AppButton {
-                height: 32
-                text: "Cancel"
-                bgcolor: "transparent"
-                color: "#ffffff"
-                Layout.fillWidth: true
-                onClicked: closePanel()
+            Text {
+                anchors.centerIn: parent
+                visible: stackList.length === 0
+                text: "No boolean operations. Select object + operand and press Add."
+                color: "#666"
+                font.pixelSize: 10
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
             }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
+
+            AppButton {
+                Layout.fillWidth: true
+                height: 28
+                text: "Apply (Bake)"
+                bgcolor: "#ff6600"
+                color: "#121212"
+                font.bold: true
+                font.pixelSize: 10
+                enabled: stackList.length > 0
+                onClicked: { Modeler.booleanApply(objectId); closePanel() }
+            }
+
+            AppButton {
+                Layout.fillWidth: true
+                height: 28
+                text: "Clear"
+                bgcolor: "#3e3e42"
+                color: "#fff"
+                font.pixelSize: 10
+                enabled: stackList.length > 0
+                onClicked: Modeler.booleanClear(objectId)
+            }
+        }
+
+        Text {
+            text: "Hint: double-click a stack row to toggle enable."
+            color: "#666"
+            font.pixelSize: 9
         }
     }
 }

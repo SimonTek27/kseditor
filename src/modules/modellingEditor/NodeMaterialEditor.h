@@ -10,6 +10,9 @@
 #include <QSharedPointer>
 #include <QSize>
 #include <QVector3D>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonValue>
 #include <functional>
 
 namespace ks {
@@ -57,6 +60,7 @@ public:
 
     QString id;
     QString name;
+    QString factoryType;
     MaterialNodeType type;
     QPointF position;
     QSize size;
@@ -384,6 +388,9 @@ public:
 
     QString generateGLSL();
     QString generateHLSL();
+
+    QJsonObject toJson() const;
+    void fromJson(const QJsonObject& obj);
 
     void clear();
     void copyFrom(const MaterialGraph& other);

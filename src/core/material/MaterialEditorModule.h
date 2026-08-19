@@ -38,6 +38,14 @@ private slots:
     void onParameterChanged(const QString& name, const QVariant& value);
     void onSaveMaterial();
     void onLoadMaterial();
+    // Drag-drop operations
+    void startMaterialDrag(const QString& materialId, const QVector3D& worldPos);
+    void finishMaterialDrag();
+    QStringList mimeTypes() const;
+    QMimeData* mimeData(const QString& materialId) const;
+    // Context menu helpers
+    void showMaterialContextMenu(const QVector3D& worldPos);
+private:
     void onExportShader();
     void onPreviewToggle();
 
@@ -115,6 +123,9 @@ private:
     QMap<QString, QImage> m_textureImages;
     QLabel* m_paintPreview = nullptr;
     QString m_currentTexturePaintSlot;
+
+    // Material drag-and-drop state
+    QString m_dragMaterialId;
 };
 
 } // namespace material

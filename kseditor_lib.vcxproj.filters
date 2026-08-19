@@ -196,6 +196,9 @@
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\Audio\WaveformEngine.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\ColorSpace.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\Config\ConfigIntegration.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -326,6 +329,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\FileFormat\Project.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\FileFormat\USDAExporter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\FileFormat\USDParser.cpp">
@@ -571,6 +577,15 @@
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\AdvancedSculpt.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\BrushMaskManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\FaceGroupSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\InstanceReference.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\MeshData.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -589,13 +604,28 @@
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\ModifierSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\MorphTargetEditor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\MultiresLevel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\NormalMapBaker.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\PaintLayersManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\PhysicsCollisionSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\ProjectionPainter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\RenderEngine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\SculptLayersManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\SculptMode.cpp">
@@ -668,6 +698,18 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\network\NetworkEditorModule.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\paint\PaintCanvasWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\paint\PaintDocument.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\paint\PaintEditor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\paint\PaintPainter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\ppfiltersEditor\PPFilterColorGrading.cpp">
@@ -925,37 +967,37 @@
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\LicensePlatesEditor\QRCodeWriter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\GUISkinEditorModule.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\LiveryEditorModule.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\LiveryEditorQmlBridge.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\LiveryEditorWidget.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\LiveryPainter.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\LiverySystem.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\LiveryViewport.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\SkinIniEditorModule.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\VectorDesignCanvas.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\VectorShape.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\MainWindow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\GUISkinEditorModule.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\PaintEditorModule.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\PaintEditorQmlBridge.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\PaintEditorWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\PaintPainter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\PaintSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\PaintViewport.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\SkinIniEditorModule.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\VectorDesignCanvas.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\VectorShape.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\PhysicsEditor\PhysicsEditor.cpp">
@@ -1150,6 +1192,12 @@
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\BooleanOps.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\BooleanStack.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\BvhImporter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\CarBuilder\CarConfigEditor.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -1186,16 +1234,40 @@
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\CharacterBuilder\DriverEditorModule.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\ClothSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\CommandHistory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\CommandPalette.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\ConstraintSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\ControllerSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\CurveSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\FCurveSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\Geometry3D.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\GeometryNodes.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\HairSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\ICEParticleSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\LightSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\MaterialPresetLibrary.cpp">
@@ -1210,7 +1282,16 @@
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\ModelingOps.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\ModifierStack.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\NodeMaterialEditor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\ParticleInstancing.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\ParticlePointsGeometry.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\PhysicsMeshGenerator.cpp">
@@ -1225,10 +1306,16 @@
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\PythonScriptManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\RayTraceRenderer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\RenderOptimizer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\Rendering3D.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\RigidBodySystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\SceneMeshGeometry.cpp">
@@ -1237,10 +1324,19 @@
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\SceneObjectListModel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\SceneParamAccess.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\ShortcutManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\SkinWrapSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\SymmetryQmlBridge.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\TextureBaker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\TrackBuilder\DRSZoneEditorModule.cpp">
@@ -1310,6 +1406,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\VulkanViewportItem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\WireParameterSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\WizardSystem.cpp">
@@ -1569,6 +1668,9 @@
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Audio\WaveformEngine.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\ColorSpace.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Config\ConfigIntegration.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -1708,6 +1810,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\FileFormat\Project.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\FileFormat\USDAExporter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Graphics\GraphicsEditorModule.h">
@@ -1956,7 +2061,16 @@
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\AdvancedSculpt.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\BrushMaskManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\FaceGroupSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\GeometryTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\InstanceReference.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\MeshDataBridge.h">
@@ -1977,7 +2091,16 @@
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\ModifierSystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\MorphTargetEditor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\MultiresLevel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\NormalMapBaker.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\PaintLayersManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\PhysicsCollisionSystem.h">
@@ -1986,7 +2109,13 @@
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\PhysicsMeshGenerator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\ProjectionPainter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\RenderEngine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\SculptLayer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\mesh\SculptMode.h">
@@ -2056,6 +2185,21 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\network\NetworkEditorModule.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\paint\PaintCanvasWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\paint\PaintDocument.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\paint\PaintEditor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\paint\PaintPainter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\paint\PaintTypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\ppfiltersEditor\PPFilterColorGrading.h">
@@ -2307,34 +2451,34 @@
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\LicensePlatesEditor\QRCodeWriter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\GUISkinEditorModule.h">
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\GUISkinEditorModule.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\LiveryEditorModule.h">
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\PaintEditorModule.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\LiveryEditorQmlBridge.h">
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\PaintEditorQmlBridge.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\LiveryEditorWidget.h">
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\PaintEditorWidget.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\LiveryPainter.h">
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\PaintPainter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\LiverySystem.h">
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\PaintSystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\LiveryViewport.h">
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\PaintViewport.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\SkinIniEditorModule.h">
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\SkinIniEditorModule.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\VectorDesignCanvas.h">
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\VectorDesignCanvas.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\LiveryEditor\VectorShape.h">
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\PaintEditor\VectorShape.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\PhysicsEditor\PhysicsEditor.h">
@@ -2523,10 +2667,19 @@
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\AdvancedBatchProcessor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\BakeImageProvider.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\BoolOpQmlBridge.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\BooleanOps.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\BooleanStack.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\BvhImporter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\CarBuilder\CarConfigEditor.h">
@@ -2565,16 +2718,40 @@
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\CharacterBuilder\DriverEditorModule.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\ClothSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\CommandHistory.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\CommandPalette.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\ConstraintSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\ControllerSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\CurveSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\FCurveSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\Geometry3D.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\GeometryNodes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\HairSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\ICEParticleSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\LightSystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\MaterialPresetLibrary.h">
@@ -2592,7 +2769,16 @@
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\ModelingOps.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\ModifierStack.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\NodeMaterialEditor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\ParticleInstancing.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\ParticlePointsGeometry.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\PhysicsMeshGenerator.h">
@@ -2607,10 +2793,19 @@
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\PythonScriptManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\RayTraceImageProvider.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\RayTraceRenderer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\RenderOptimizer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\Rendering3D.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\RigidBodySystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\SceneMeshGeometry.h">
@@ -2619,10 +2814,19 @@
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\SceneObjectListModel.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\SceneParamAccess.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\ShortcutManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\SkinWrapSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\SymmetryQmlBridge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\TextureBaker.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\TrackBuilder\DRSZoneEditorModule.h">
@@ -2695,6 +2899,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\VulkanViewportItem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\WireParameterSystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\WizardSystem.h">

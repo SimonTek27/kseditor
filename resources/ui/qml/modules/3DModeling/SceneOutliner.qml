@@ -114,6 +114,11 @@ Rectangle {
                     anchors.margins: 2
                     spacing: 2
 
+                    Item {
+                        width: model.objectDepth !== undefined ? model.objectDepth * 14 : 0
+                        height: 1
+                    }
+
                     Rectangle {
                         width: 14; height: 14; radius: 2
                         color: model.objectVisible ? "#4CAF50" : "#555"
@@ -173,7 +178,12 @@ Rectangle {
                     anchors.fill: parent
                     hoverEnabled: true
                     onClicked: {
-                        if (Modeler) Modeler.selectObject(model.objectId)
+                        if (Modeler) {
+                            if (mouse.modifiers & Qt.ShiftModifier || mouse.modifiers & Qt.ControlModifier)
+                                Modeler.toggleSelectObject(model.objectId)
+                            else
+                                Modeler.selectObject(model.objectId)
+                        }
                     }
                 }
             }
@@ -198,11 +208,7 @@ Rectangle {
                     bgcolor: "#3e3e42"
                     color: "#ffffff"
                     onClicked: {
-                        for (var i = 0; i < sceneModel.count; ++i) {
-                            var idx = sceneModel.index(i, 0)
-                            var id = sceneModel.data(idx, 258)
-                            if (id > 0) Modeler.selectObject(id)
-                        }
+                        if (Modeler) Modeler.selectAll()
                     }
                 }
                 AppButton {
@@ -212,6 +218,24 @@ Rectangle {
                     bgcolor: "#3e3e42"
                     color: "#ffffff"
                     onClicked: { if (Modeler) Modeler.deselectAll() }
+                }
+                AppButton {
+                    text: "Group"
+                    height: 20
+                    font.pixelSize: 9
+                    bgcolor: "#3e3e42"
+                    color: "#ffffff"
+                    enabled: Modeler && Modeler.hasSelection
+                    onClicked: { if (Modeler) Modeler.groupSelected("Group") }
+                }
+                AppButton {
+                    text: "Ungroup"
+                    height: 20
+                    font.pixelSize: 9
+                    bgcolor: "#3e3e42"
+                    color: "#ffffff"
+                    enabled: Modeler && Modeler.hasSelection
+                    onClicked: { if (Modeler) Modeler.ungroupSelected() }
                 }
                 AppButton {
                     text: "Delete"
@@ -225,6 +249,12 @@ Rectangle {
                 Item { Layout.fillWidth: true }
             }
         }
+    }
+
+    Connections {
+        target: Modeler
+        function onSelectionChanged() { refreshSelection() }
+        function onSceneChanged() { refreshSelection() }
     }
 }
 

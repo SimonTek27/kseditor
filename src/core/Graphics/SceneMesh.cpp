@@ -1,6 +1,7 @@
 #include "SceneMesh.h"
 #include "VulkanFunctions.h"
 #include "VulkanRenderer.h"
+#include "mesh/MultiresLevel.h"
 #include <QJsonObject>
 #include <QJsonArray>
 #include <algorithm>
@@ -182,6 +183,42 @@ void SceneMesh::setMorphWeight(int targetIndex, float weight)
         m_morphWeights.resize(targetIndex + 1);
     m_morphWeights[targetIndex] = qBound(0.0f, weight, 1.0f);
     emit geometryChanged();
+}
+
+MorphTargetEditor* SceneMesh::morphTargetEditor() const { return m_morphTargetEditor; }
+void SceneMesh::setMorphTargetEditor(MorphTargetEditor* editor) { m_morphTargetEditor = editor; }
+
+MultiresManager* SceneMesh::multiresManager() const { return m_multiresManager; }
+void SceneMesh::setMultiresManager(MultiresManager* manager) { m_multiresManager = manager; }
+int SceneMesh::multiresCurrentLevel() const
+{
+    if (m_multiresManager) return m_multiresManager->currentLevel();
+    return 0;
+}
+int SceneMesh::multiresLevelCount() const
+{
+    if (m_multiresManager) return m_multiresManager->allLevels().size();
+    return 0;
+}
+void SceneMesh::multiresSetCurrentLevel(int level)
+{
+    if (m_multiresManager) m_multiresManager->setCurrentLevel(level);
+}
+void SceneMesh::multiresAddLevel()
+{
+    if (m_multiresManager) m_multiresManager->addLevel();
+}
+void SceneMesh::multiresRemoveLevel()
+{
+    if (m_multiresManager) m_multiresManager->removeLevel();
+}
+void SceneMesh::multiresSubdivideCurrent()
+{
+    if (m_multiresManager) m_multiresManager->subdivideCurrentLevel();
+}
+void SceneMesh::multiresBakeCurrent()
+{
+    if (m_multiresManager) m_multiresManager->bakeCurrentLevel();
 }
 
 SceneSubMesh* SceneMesh::getSubMesh(const QString& name)

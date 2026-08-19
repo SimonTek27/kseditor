@@ -7,6 +7,7 @@
 #include <QFlags>
 #include <QEnableSharedFromThis>
 #include "MeshOperations.h"
+#include "SubdivisionSurface.h"
 
 namespace ks {
 
@@ -117,6 +118,8 @@ public:
     bool capLast = false;
 
     MeshData apply(const MeshData& input) override;
+    QMap<QString, QVariant> writeParameters() const override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
 };
 
 class BevelModifier : public DeformModifier {
@@ -137,6 +140,8 @@ public:
     float profileShape = 0.5f;
 
     MeshData apply(const MeshData& input) override;
+    QMap<QString, QVariant> writeParameters() const override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
 };
 
 class SolidifyModifier : public GenerateModifier {
@@ -159,6 +164,8 @@ public:
     float creaseRim = 0.0f;
 
     MeshData apply(const MeshData& input) override;
+    QMap<QString, QVariant> writeParameters() const override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
 };
 
 class SubdivisionModifier : public GenerateModifier {
@@ -175,7 +182,15 @@ public:
     enum class BoundarySmoothing { All, KeepCorners };
     BoundarySmoothing boundarySmooth = BoundarySmoothing::All;
 
+    // Crease edges (TurboSmooth-style) fed to the OpenSubdiv refiner.
+    // An edge weight of 1.0 fully sharpens the edge; 0.0 = smooth.
+    QVector<CreaseEdge> creases;
+    // Pinned vertices: indices held fixed through subdivision.
+    QVector<int> pinnedVertices;
+
     MeshData apply(const MeshData& input) override;
+    QMap<QString, QVariant> writeParameters() const override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
 };
 
 class DecimateModifier : public GenerateModifier {
@@ -197,6 +212,8 @@ public:
     bool triangulate = false;
 
     MeshData apply(const MeshData& input) override;
+    QMap<QString, QVariant> writeParameters() const override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
 };
 
 class DisplaceModifier : public DeformModifier {
@@ -215,6 +232,8 @@ public:
     int uvLayer = 0;
 
     MeshData apply(const MeshData& input) override;
+    QMap<QString, QVariant> writeParameters() const override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
 };
 
 class SmoothModifier : public DeformModifier {
@@ -234,6 +253,8 @@ public:
     float lambdaBorder = 0.5f;
 
     MeshData apply(const MeshData& input) override;
+    QMap<QString, QVariant> writeParameters() const override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
 };
 
 class CastModifier : public DeformModifier {
@@ -256,6 +277,8 @@ public:
     float radiusFactor = 0.0f;
 
     MeshData apply(const MeshData& input) override;
+    QMap<QString, QVariant> writeParameters() const override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
 };
 
 class LatticeModifier : public DeformModifier {
@@ -345,6 +368,8 @@ public:
     TriangleMethod triangleMethod = TriangleMethod::Beauty;
 
     MeshData apply(const MeshData& input) override;
+    QMap<QString, QVariant> writeParameters() const override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
 };
 
 class WireframeModifier : public GenerateModifier {

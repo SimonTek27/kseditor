@@ -37,6 +37,8 @@
 
 // QML Bridge registrations
 #include "modules/modellingEditor/3DModelingQmlBridge.h"
+#include "modules/modellingEditor/RayTraceImageProvider.h"
+#include "modules/modellingEditor/BakeImageProvider.h"
 #include "modules/modellingEditor/BoolOpQmlBridge.h"
 #include "modules/modellingEditor/SymmetryQmlBridge.h"
 #include "modules/PhysicsEditor/PhysicsQmlBridge.h"
@@ -50,7 +52,7 @@
 #include "core/3dprint/ThreeDPrintQmlBridge.h"
 #include "core/Audio/KsACSndEventBridge.h"
 #include "core/FfbEditor/FfbEditorQmlBridge.h"
-#include "modules/displayEditor/DisplayEditorQmlBridge.h"
+#include "modules/displayEditor/CockpitInstrumentsQmlBridge.h"
 #include "modules/LicensePlatesEditor/LicensePlatesQmlBridge.h"
 #include "modules/fontEditor/FontCreatorQmlBridge.h"
 #include "modules/sound/editor/AudioEffectsQmlBridge.h"
@@ -67,6 +69,8 @@
 #include "core/material/TexturePaintQmlBridge.h"
 #include "core/mesh/MeshLoaderQML.h"
 #include "modules/modellingEditor/SceneMeshGeometry.h"
+#include "modules/modellingEditor/ParticlePointsGeometry.h"
+#include "modules/modellingEditor/ParticleInstancing.h"
 #include "qml/modules/CspConfigQmlBridge.h"
 #include "qml/modules/ContentQMLBridge.h"
 #include "modules/modellingEditor/CharacterBuilder/CharacterEditorQmlBridge.h"
@@ -205,7 +209,11 @@ static int appMain(int argc, char *argv[])
 
     // Register QML bridge types
     qmlRegisterSingletonType<ks::KSModelerQml>("ksEditor.Modeler", 1, 0, "Modeler",
-        [](QQmlEngine*, QJSEngine*) -> QObject* { return &ks::KSModelerQml::instance(); });
+        [](QQmlEngine* engine, QJSEngine*) -> QObject* {
+            engine->addImageProvider("raytrace", new ks::RayTraceImageProvider(&ks::KSModelerQml::instance()));
+            engine->addImageProvider("bake", new ks::BakeImageProvider(&ks::KSModelerQml::instance()));
+            return &ks::KSModelerQml::instance();
+        });
     qmlRegisterSingletonType<ks::PhysicsQmlBridge>("ksEditor.Physics", 1, 0, "Physics",
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::PhysicsQmlBridge::instance(); });
     qmlRegisterSingletonType<AudioQMLBridge>("ksEditor.Audio", 1, 0, "AudioBridge",
@@ -231,8 +239,8 @@ static int appMain(int argc, char *argv[])
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::SetupEditorQmlBridge::instance(); });
     qmlRegisterSingletonType<ks::PPFiltersQmlBridge>("ksEditor.PPFilters", 1, 0, "PPFilters",
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::PPFiltersQmlBridge::instance(); });
-    qmlRegisterSingletonType<ks::DisplayEditorQmlBridge>("ksEditor.DisplayEditor", 1, 0, "DisplayEditor",
-        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::DisplayEditorQmlBridge::instance(); });
+    qmlRegisterSingletonType<ks::CockpitInstrumentsQmlBridge>("ksEditor.CockpitInstruments", 1, 0, "CockpitInstruments",
+        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::CockpitInstrumentsQmlBridge::instance(); });
     qmlRegisterSingletonType<ks::LicensePlatesQmlBridge>("ksEditor.LicensePlates", 1, 0, "LicensePlates",
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::LicensePlatesQmlBridge::instance(); });
     qmlRegisterSingletonType<ks::FontCreatorQmlBridge>("ksEditor.FontCreator", 1, 0, "FontCreator",
@@ -261,6 +269,8 @@ static int appMain(int argc, char *argv[])
     qmlRegisterType<ContentQMLBridge>("ksEditor.Content", 1, 0, "Content");
     qmlRegisterType<MeshLoaderQML>("ksEditor.MeshLoader", 1, 0, "MeshLoader");
     qmlRegisterType<ks::QmlSceneMeshGeometry>("ksEditor.Modeler", 1, 0, "SceneMeshGeometry");
+    qmlRegisterType<ks::QmlParticlePointsGeometry>("ksEditor.Modeler", 1, 0, "ParticlePointsGeometry");
+    qmlRegisterType<ks::QmlParticleInstancing>("ksEditor.Modeler", 1, 0, "ParticleInstancing");
     qmlRegisterSingletonType<ks::editor::BoolOpQmlBridge>("ksEditor.BoolOp", 1, 0, "BoolOp",
         [](QQmlEngine*, QJSEngine*) -> QObject* {
             static ks::editor::BoolOpQmlBridge* bridge = new ks::editor::BoolOpQmlBridge();

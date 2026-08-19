@@ -448,9 +448,21 @@ void TrackSimulator::checkStartFinishCrossing() {
             record.sector1 = m_sessionState.sector1Time;
             record.sector2 = m_sessionState.sector2Time;
             record.sector3 = m_sessionState.sector3Time;
-            record.maxSpeed = 0;  // TODO: track max speed
+            // Track max speed during lap
+            const SimulationState& state = m_vehicle->getState();
+            if (state.speed > record.maxSpeed || record.lapNumber == 0) {
+                record.maxSpeed = state.speed;
+            }
+            
             record.avgSpeed = m_trackLayout.length / lapTime;
-            record.fuelUsed = 0;  // TODO
+            
+            // Track fuel usage (simplified: estimate based on RPM and time)
+            // Fuel consumption rate is proportional to RPM above idle
+            double fuelRate = 0.0;
+            if (state.rpm > 2000) {
+                fuelRate = (state.rpm - 2000) * 0.01;  // approximate ml/sec
+            }
+            record.fuelUsed = fuelRate * (lapTime / 60.0);  // convert to ml per lap
             record.valid = true;
             record.timestamp = QDateTime::currentDateTime().toString(Qt::ISODate);
             m_sessionState.lapHistory.append(record);

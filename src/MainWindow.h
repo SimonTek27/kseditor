@@ -207,6 +207,7 @@ private:
     void setupPaintTab();
     void applyWindowFrameTheme(const QString& themeKey);
     QDockWidget* createScriptConsoleDock();
+    QPixmap loadSvgIcon(const QString& path, const QSize& size);
 
     // Actions management
     void createActions();

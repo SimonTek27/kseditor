@@ -22,6 +22,16 @@ Rectangle {
 
     signal closeRequested()
 
+    // Material drag chip: drag this swatch onto an object in the viewport to
+    // apply the current editor material directly to it (no selection needed).
+    property color dragChipColor: albedoColor
+    property real dragChipMetallic: metallicValue
+    property real dragChipRoughness: roughnessValue
+    property real dragChipOpacity: opacityValue
+    signal dragPreset(string preset)
+
+    property string dragPresetName: ""
+
     function selectMaterial(index) {
         currentMaterialIndex = index
         if (Modeler) {
@@ -112,6 +122,61 @@ Rectangle {
                 width: parent.width
                 spacing: 4
 
+                Rectangle {
+                    id: dragChip
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 10
+                    Layout.rightMargin: 10
+                    Layout.topMargin: 4
+                    height: 32
+                    radius: 4
+                    color: dragChipColor
+                    border.color: "#666"
+                    border.width: 1
+
+                    Drag.active: dragChipArea.drag.active
+                    Drag.supportedActions: Qt.CopyAction
+                    Drag.mimeData: {
+                        "application/x-ksmodeler-material":
+                            dragChipColor.r + "|" + dragChipColor.g + "|" + dragChipColor.b + "|" +
+                            dragChipMetallic + "|" + dragChipRoughness + "|" + dragChipOpacity
+                    }
+                    Drag.hotSpot: Qt.point(dragChip.width / 2, dragChip.height / 2)
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 4
+                        spacing: 6
+
+                        Text {
+                            text: "DRAG TO VIEWPORT"
+                            color: "white"
+                            font.pixelSize: 8
+                            font.bold: true
+                            style: Text.Outline
+                            styleColor: "#000000"
+                        }
+
+                        Item { Layout.fillWidth: true }
+
+                        Text {
+                            text: "\u2192"
+                            color: "white"
+                            font.pixelSize: 12
+                            font.bold: true
+                            style: Text.Outline
+                            styleColor: "#000000"
+                        }
+                    }
+
+                    MouseArea {
+                        id: dragChipArea
+                        anchors.fill: parent
+                        drag.target: parent
+                        onReleased: dragChip.Drag.drop()
+                    }
+                }
+
                 Text {
                     text: "MATERIAL LIST"
                     color: "#666"
@@ -182,8 +247,8 @@ Rectangle {
                     Layout.rightMargin: 10
                     spacing: 4
 
-                    AppButton { height: 24; text: "ksPBR"; bgcolor: "#E10600"; color: "#121212"; font.pixelSize: 10
-                        onClicked: applyMaterialPreset("ksPBR") }
+                AppButton { height: 24; text: "ksPBR"; bgcolor: "#E10600"; color: "#121212"; font.pixelSize: 10
+                    onClicked: applyMaterialPreset("ksPBR") }
                     AppButton { height: 24; text: "ksDrude"; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 10
                         onClicked: applyMaterialPreset("ksDrude") }
                     AppButton { height: 24; text: "ksGlass"; bgcolor: "#3e3e42"; color: "#ffffff"; font.pixelSize: 10

@@ -109,6 +109,243 @@ Rectangle {
             }
         }
 
+        // Walk cycle generator (procedural, needs Humanoid skeleton)
+        Rectangle {
+            height: 30
+            color: "#141414"
+            Layout.fillWidth: true
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.margins: 4
+                spacing: 4
+
+                Text {
+                    text: "WALK CYCLE"
+                    color: "#777"
+                    font.pixelSize: 9
+                    font.bold: true
+                    verticalAlignment: Text.AlignVCenter
+                }
+
+                TextField {
+                    id: wcNameField
+                    Layout.preferredWidth: 80
+                    height: 20
+                    text: animName.length > 0 ? animName : "Walk"
+                    font.pixelSize: 9
+                    color: "#fff"
+                    background: Rectangle { color: "#1c1c1c"; radius: 2; border.color: "#333"; border.width: 1 }
+                }
+
+                Text { text: "Dur"; color: "#777"; font.pixelSize: 9; verticalAlignment: Text.AlignVCenter }
+                Slider {
+                    id: wcDurSlider
+                    Layout.preferredWidth: 70
+                    height: 20
+                    from: 0.5; to: 4.0; stepSize: 0.1; value: 1.2
+                    background: Rectangle {
+                        implicitHeight: 3; color: "#333"; radius: 1
+                        Rectangle { width: parent.width * (parent.parent.value - parent.parent.from) / (parent.parent.to - parent.parent.from); height: parent.height; color: "#E10600"; radius: 1 }
+                    }
+                    handle: Rectangle {
+                        implicitWidth: 6; implicitHeight: 10; radius: 1; color: "#ff6666"
+                        x: parent.leftPadding + parent.visualPosition * (parent.availableWidth - width)
+                        y: (parent.height - height) / 2
+                    }
+                }
+                Text {
+                    text: wcDurSlider.value.toFixed(1) + "s"
+                    color: "#888"; font.pixelSize: 9; Layout.preferredWidth: 30
+                }
+
+                Text { text: "Amp"; color: "#777"; font.pixelSize: 9; verticalAlignment: Text.AlignVCenter }
+                Slider {
+                    id: wcAmpSlider
+                    Layout.preferredWidth: 60
+                    height: 20
+                    from: 0.2; to: 1.5; stepSize: 0.05; value: 1.0
+                    background: Rectangle {
+                        implicitHeight: 3; color: "#333"; radius: 1
+                        Rectangle { width: parent.width * (parent.parent.value - parent.parent.from) / (parent.parent.to - parent.parent.from); height: parent.height; color: "#E10600"; radius: 1 }
+                    }
+                    handle: Rectangle {
+                        implicitWidth: 6; implicitHeight: 10; radius: 1; color: "#ff6666"
+                        x: parent.leftPadding + parent.visualPosition * (parent.availableWidth - width)
+                        y: (parent.height - height) / 2
+                    }
+                }
+                Text {
+                    text: wcAmpSlider.value.toFixed(2)
+                    color: "#888"; font.pixelSize: 9; Layout.preferredWidth: 26
+                }
+
+                AppButton {
+                    text: "Generate"
+                    height: 20
+                    font.pixelSize: 9
+                    bgcolor: "#E10600"; color: "#fff"
+                    onClicked: {
+                        if (Modeler) Modeler.generateWalkCycle(wcNameField.text.trim() || "Walk", wcDurSlider.value, wcAmpSlider.value)
+                    }
+                    ToolTip.visible: hovered; ToolTip.text: "Generate a loopable walk cycle into the animation"
+                }
+            }
+        }
+
+        // Animation layers bar (non-destructive blend layers)
+        Rectangle {
+            id: layersBar
+            height: 30
+            color: "#141414"
+            Layout.fillWidth: true
+            visible: animName.length > 0
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.margins: 4
+                spacing: 4
+
+                Text {
+                    text: "LAYERS"
+                    color: "#777"
+                    font.pixelSize: 9
+                    font.bold: true
+                    verticalAlignment: Text.AlignVCenter
+                }
+
+                AppButton {
+                    text: "+"
+                    width: 22; height: 20
+                    font.pixelSize: 12; font.bold: true
+                    bgcolor: "#3e3e42"; color: "#fff"
+                    enabled: animName.length > 0
+                    onClicked: { if (Modeler) Modeler.animationAddLayer(animName, "") }
+                    ToolTip.visible: hovered; ToolTip.text: "Add layer"
+                }
+
+                ListView {
+                    id: layerList
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    orientation: ListView.Horizontal
+                    spacing: 4
+                    clip: true
+                    model: {
+                        if (!Modeler || animName.length === 0) return []
+                        return Modeler.animationLayerList(animName)
+                    }
+
+                    delegate: Rectangle {
+                        height: 20
+                        width: layerRow.width + 8
+                        radius: 3
+                        color: modelData.enabled ? "#2a2f3a" : "#222"
+                        border.color: modelData.enabled ? "#445566" : "#333"
+
+                        RowLayout {
+                            id: layerRow
+                            anchors.fill: parent
+                            anchors.margins: 3
+                            spacing: 4
+
+                            Text {
+                                text: modelData.name
+                                color: modelData.enabled ? "#ddd" : "#666"
+                                font.pixelSize: 10
+                                font.bold: true
+                            }
+
+                            Text {
+                                text: "(" + modelData.keyframeCount + "k)"
+                                color: "#7777cc"
+                                font.pixelSize: 9
+                            }
+
+                            CheckBox {
+                                id: layerOn
+                                implicitWidth: 14; implicitHeight: 14
+                                padding: 0
+                                checked: modelData.enabled
+                                onToggled: {
+                                    if (Modeler)
+                                        Modeler.animationSetLayerEnabled(animName, modelData.index, checked)
+                                }
+                                indicator: Rectangle {
+                                    implicitWidth: 12; implicitHeight: 12
+                                    radius: 2
+                                    border.color: layerOn.checked ? "#7777cc" : "#555"
+                                    color: layerOn.checked ? "#5555cc" : "#1a1a1a"
+                                    Rectangle {
+                                        anchors.centerIn: parent
+                                        width: 6; height: 6
+                                        radius: 1
+                                        color: layerOn.checked ? "#fff" : "transparent"
+                                    }
+                                }
+                            }
+
+                            Slider {
+                                id: weightSlider
+                                implicitWidth: 50; implicitHeight: 14
+                                from: 0; to: 1; stepSize: 0.05
+                                value: modelData.weight
+                                onMoved: {
+                                    if (Modeler)
+                                        Modeler.animationSetLayerWeight(animName, modelData.index, value)
+                                }
+                                background: Rectangle {
+                                    implicitHeight: 3
+                                    color: "#333"; radius: 1
+                                    Rectangle {
+                                        width: parent.width * (parent.parent.value / parent.parent.to)
+                                        height: parent.height
+                                        color: "#7777cc"; radius: 1
+                                    }
+                                }
+                                handle: Rectangle {
+                                    implicitWidth: 6; implicitHeight: 10; radius: 1
+                                    color: "#9999ee"
+                                    x: parent.leftPadding + parent.visualPosition * (parent.availableWidth - width)
+                                    y: (parent.height - height) / 2
+                                }
+                            }
+
+                            Text {
+                                text: Math.round(modelData.weight * 100) + "%"
+                                color: "#888"
+                                font.pixelSize: 9
+                            }
+
+                            AppButton {
+                                text: "\u25CF"
+                                width: 18; height: 18
+                                font.pixelSize: 11
+                                bgcolor: "#3e3e42"; color: "#cc5555"
+                                enabled: Modeler && Modeler.hasSelection
+                                onClicked: {
+                                    if (Modeler)
+                                        Modeler.addKeyframeForSelectedObjectToLayer(animName, modelData.index)
+                                }
+                                ToolTip.visible: hovered; ToolTip.text: "Record pose to layer"
+                            }
+
+                            AppButton {
+                                text: "\u2716"
+                                width: 18; height: 18
+                                font.pixelSize: 10
+                                bgcolor: "transparent"; color: "#ff6666"
+                                onClicked: {
+                                    if (Modeler) Modeler.animationRemoveLayer(animName, modelData.index)
+                                }
+                                ToolTip.visible: hovered; ToolTip.text: "Remove layer"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Timeline ruler area
         Rectangle {
             Layout.fillWidth: true
@@ -439,6 +676,9 @@ Rectangle {
         }
         function onPlaybackStateChanged() {
             isPlaying = Modeler.isAnimating
+        }
+        function onAnimationLayersChanged() {
+            layerList.model = Modeler ? Modeler.animationLayerList(animName) : []
         }
     }
 }

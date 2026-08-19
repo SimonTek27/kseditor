@@ -1,0 +1,17 @@
+********* Start testing of TestModifiers *********
+Config: Using QtTest library 6.11.1, Qt 6.11.1 (x86_64-little_endian-llp64 shared (dynamic) release build; by MSVC 2022), windows 11
+PASS   : TestModifiers::initTestCase()
+PASS   : TestModifiers::testTaper()
+PASS   : TestModifiers::testRipple()
+PASS   : TestModifiers::testNoise()
+PASS   : TestModifiers::testPush()
+PASS   : TestModifiers::testRelax()
+PASS   : TestModifiers::testMelt()
+PASS   : TestModifiers::testLathe()
+QDEBUG : TestModifiers::testSubdivisionCreases() SubdivisionSurface: OpenSubdiv not available, used fallback subdivision
+PASS   : TestModifiers::testSubdivisionCreases()
+QDEBUG : TestModifiers::testSubdivisionPinnedVertices() SubdivisionSurface: OpenSubdiv not available, used fallback subdivision
+PASS   : TestModifiers::testSubdivisionPinnedVertices()
+PASS   : TestModifiers::cleanupTestCase()
+Totals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 7ms
+********* Finished testing of TestModifiers *********

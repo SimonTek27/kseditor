@@ -5,6 +5,8 @@
 #include <cstring>
 #include <cmath>
 #include <cstdint>
+#include <QVector>
+#include <QVector3D>
 
 namespace ks::geometry {
 
@@ -60,6 +62,27 @@ struct UVIsland {
     float stretchRatio;
     bool isOnBoundary;
     UVIsland() : id(0), area(0.0f), stretchRatio(1.0f), isOnBoundary(false) {}
+};
+
+struct NURBSCurve {
+    QVector<QVector3D> controlPoints;
+    QVector<double> knotVectorU;
+    int degreeU;
+    bool periodicU;
+
+    NURBSCurve() : degreeU(3), periodicU(false) {}
+};
+
+struct NURBSSurface {
+    QVector<QVector<QVector3D>> controlPoints; // 2D array of control points
+    QVector<double> knotVectorU;
+    QVector<double> knotVectorV;
+    int degreeU;
+    int degreeV;
+    bool periodicU;
+    bool periodicV;
+
+    NURBSSurface() : degreeU(3), degreeV(3), periodicU(false), periodicV(false) {}
 };
 
 struct UnwrapResult {

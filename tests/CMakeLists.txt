@@ -26,6 +26,9 @@ include(CTest)
 find_library(KSEDITOR_LIB
     NAMES kseditor_lib.lib libkseditor_lib.a
     HINTS
+        # The default top-level build is configured in the repository root.
+        # Keep the legacy build-directory hints below for existing setups.
+        "${CMAKE_CURRENT_SOURCE_DIR}/../Release"
         "${CMAKE_CURRENT_SOURCE_DIR}/../build/Release"
         "${CMAKE_CURRENT_SOURCE_DIR}/../build/lib/Release"
         "${CMAKE_CURRENT_SOURCE_DIR}/../build"
@@ -79,9 +82,13 @@ set(KS_TEST_INCLUDES
     ${MODULES}/ServerConfigEditor
 )
 
-# Bullet Physics 3.25+ - use libraries from main build
-if(HAS_BULLET)
-    message(STATUS "Bullet found for tests (from main build)")
+# Bullet is configured by the top-level project, but this is an independent
+# CMake project. Detect its headers here rather than relying on an unset
+# top-level cache variable.
+set(BULLET_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/../external/bullet/src/btBulletDynamicsCommon.h")
+if(EXISTS "${BULLET_HEADER}")
+    set(HAS_BULLET TRUE)
+    message(STATUS "Bullet headers found for tests")
     add_compile_definitions(HAS_BULLET=1)
 else()
     set(HAS_BULLET FALSE)
@@ -91,7 +98,17 @@ endif()
 
 # VHACD (convex decomposition, from Bullet Extras) - matches main build detection
 set(VHACD_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/../external/bullet/Extras/VHACD/public/VHACD.h")
-set(VHACD_LIB "${CMAKE_CURRENT_SOURCE_DIR}/../build/vhacd/Release/VHACD.lib")
+set(VHACD_LIB_CANDIDATES
+    "${CMAKE_CURRENT_SOURCE_DIR}/../vhacd/Release/VHACD.lib"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../build/vhacd/Release/VHACD.lib"
+)
+set(VHACD_LIB "")
+foreach(_vhacd_lib IN LISTS VHACD_LIB_CANDIDATES)
+    if(EXISTS "${_vhacd_lib}")
+        set(VHACD_LIB "${_vhacd_lib}")
+        break()
+    endif()
+endforeach()
 if(EXISTS "${VHACD_HEADER}" AND EXISTS "${VHACD_LIB}")
     set(HAS_VHACD TRUE)
     add_compile_definitions(HAS_VHACD=1)
@@ -165,9 +182,9 @@ ks_add_test(test_license_plates unit/test_LicensePlates.cpp
     ${PHYSICS}/../LicensePlatesEditor/LicensePlateEditorModule.cpp
     ${PHYSICS}/../LicensePlatesEditor/QRCodeWriter.cpp
 )
-ks_add_test(test_display_editor unit/test_DisplayEditor.cpp
-    ${MODULES}/displayEditor/DisplayEditor.cpp
-    ${MODULES}/displayEditor/DisplayEditorQmlBridge.cpp
+ks_add_test(test_display_editor unit/test_CockpitInstruments.cpp
+    ${MODULES}/displayEditor/CockpitInstruments.cpp
+    ${MODULES}/displayEditor/CockpitInstrumentsQmlBridge.cpp
     ${MODULES}/displayEditor/LuaExpressionEvaluator.cpp
 )
 ks_add_test(test_ppfilter_color_grading unit/test_PPFilterColorGrading.cpp
@@ -177,9 +194,7 @@ ks_add_test(test_modmanager_deps unit/test_ModManagerDeps.cpp)
 ks_add_test(test_modmanager_features unit/test_ModManagerFeatures.cpp
     ${COMMON}/modmanager/ModCollection.cpp
 )
-ks_add_test(test_font_generator unit/test_FontGenerator.cpp
-    ${MODULES}/fontEditor/FontGenerator.cpp
-)
+ks_add_test(test_font_generator unit/test_FontGenerator.cpp)
 ks_add_test(test_audio_effects_advanced unit/test_AudioEffectsAdvanced.cpp)
 ks_add_test(test_content_repair unit/test_ContentRepair.cpp
     ${COMMON}/modmanager/ContentRepair.cpp
@@ -219,14 +234,6 @@ if(HAS_VHACD)
         "${CMAKE_CURRENT_SOURCE_DIR}/../external/bullet/Extras/VHACD/public"
     )
     # VHACD depends on Bullet (LinearMath / ConvexHullComputer)
-    set(BULLET_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../build/bullet/Release")
-    if(EXISTS "${BULLET_LIB_DIR}")
-        target_link_libraries(test_physics_mesh PRIVATE
-            "${BULLET_LIB_DIR}/BulletCollision.lib"
-            "${BULLET_LIB_DIR}/BulletDynamics.lib"
-            "${BULLET_LIB_DIR}/LinearMath.lib"
-        )
-    endif()
 endif()
 # Test subdivision - uses fallback when OpenSubdiv not available
 ks_add_test(test_subdivision unit/test_SubdivisionSurface.cpp
@@ -260,9 +267,53 @@ if(CGAL_FOUND)
     target_sources(test_mesh_operations PRIVATE ${MODULES}/modellingEditor/BooleanOps.cpp)
     target_link_libraries(test_mesh_operations PRIVATE CGAL::CGAL)
 endif()
+ks_add_test(test_modifiers unit/test_Modifiers.cpp
+    ${COMMON}/mesh/MeshOperations.cpp
+    ${COMMON}/mesh/ModifierSystem.cpp
+    ${COMMON}/mesh/SkeletonSystem.cpp
+    ${COMMON}/mesh/SubdivisionSurface.cpp
+    ${MODULES}/modellingEditor/AdditionalModifiers.cpp
+)
+target_include_directories(test_modifiers PRIVATE ${MODULES}/modellingEditor)
+if(CGAL_FOUND)
+    target_sources(test_modifiers PRIVATE ${MODULES}/modellingEditor/BooleanOps.cpp)
+    target_link_libraries(test_modifiers PRIVATE CGAL::CGAL)
+endif()
 ks_add_test(test_advanced_sculpt unit/test_AdvancedSculpt.cpp
     ${COMMON}/mesh/AdvancedSculpt.cpp
     ${COMMON}/mesh/SculptMode.cpp
+)
+ks_add_test(test_constraints unit/test_Constraints.cpp
+    ${MODULES}/modellingEditor/ConstraintSystem.cpp
+    ${COMMON}/Graphics/SceneGraph.cpp
+    ${COMMON}/Graphics/SceneObject.cpp
+)
+ks_add_test(test_controller_system unit/test_ControllerSystem.cpp
+    ${MODULES}/modellingEditor/ControllerSystem.cpp
+    ${MODULES}/modellingEditor/SceneParamAccess.cpp
+    ${COMMON}/Graphics/SceneGraph.cpp
+    ${COMMON}/Graphics/SceneObject.cpp
+)
+ks_add_test(test_wire_parameters unit/test_WireParameterSystem.cpp
+    ${MODULES}/modellingEditor/WireParameterSystem.cpp
+    ${MODULES}/modellingEditor/SceneParamAccess.cpp
+    ${COMMON}/Graphics/SceneGraph.cpp
+    ${COMMON}/Graphics/SceneObject.cpp
+)
+ks_add_test(test_skin_wrap unit/test_SkinWrapSystem.cpp
+    ${MODULES}/modellingEditor/SkinWrapSystem.cpp
+    ${COMMON}/Graphics/SceneGraph.cpp
+    ${COMMON}/Graphics/SceneObject.cpp
+)
+ks_add_test(test_ray_trace unit/test_RayTrace.cpp
+    ${MODULES}/modellingEditor/RayTraceRenderer.cpp
+)
+ks_add_test(test_light_system unit/test_LightSystem.cpp
+    ${MODULES}/modellingEditor/LightSystem.cpp
+)
+ks_add_test(test_bake_texture unit/test_BakeTexture.cpp
+    ${MODULES}/modellingEditor/TextureBaker.cpp
+    ${MODULES}/modellingEditor/Geometry3D.cpp
 )
 ks_add_test(test_animation_system unit/test_AnimationSystem.cpp
     ${COMMON}/animation/AnimationSystem.cpp
@@ -270,6 +321,12 @@ ks_add_test(test_animation_system unit/test_AnimationSystem.cpp
 )
 ks_add_test(test_material_system unit/test_MaterialSystem.cpp
     ${COMMON}/material/MaterialSystem.cpp
+)
+ks_add_test(test_node_material_editor unit/test_NodeMaterialEditor.cpp
+    ${MODULES}/modellingEditor/NodeMaterialEditor.cpp
+)
+ks_add_test(test_usda_exporter unit/test_USDAExporter.cpp
+    ${COMMON}/FileFormat/USDAExporter.cpp
 )
 ks_add_test(test_theme_system unit/test_ThemeSystem.cpp
     ${COMMON}/tools/ThemeSystem.cpp
@@ -316,7 +373,10 @@ ks_add_test(test_showroom_editor unit/test_ShowroomEditor.cpp
 # kseditor_lib is a monolithic static library, so any test executable may pull in
 # CGAL (BooleanOps) or 7-Zip (archive) object files via symbol references. Link
 # those dependencies to every test target to avoid unresolved-external link errors.
-set(SEVENZIP_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../build/lib/Release")
+set(SEVENZIP_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../lib/Release")
+if(NOT EXISTS "${SEVENZIP_LIB_DIR}/7zip_archive.lib")
+    set(SEVENZIP_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../build/lib/Release")
+endif()
 set(SEVENZIP_LIBS
     "${SEVENZIP_LIB_DIR}/7zip_archive.lib"
     "${SEVENZIP_LIB_DIR}/7zip_crypto.lib"
@@ -326,7 +386,10 @@ set(SEVENZIP_LIBS
     "${SEVENZIP_LIB_DIR}/7zip_win.lib"
     "${SEVENZIP_LIB_DIR}/7zip_c.lib"
 )
-set(BULLET_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../build/bullet/Release")
+set(BULLET_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../bullet/Release")
+if(NOT EXISTS "${BULLET_LIB_DIR}/BulletCollision.lib")
+    set(BULLET_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../build/bullet/Release")
+endif()
 get_property(ALL_TEST_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 foreach(_t ${ALL_TEST_TARGETS})
     if(_t MATCHES "^test_")

@@ -173,9 +173,9 @@ Rectangle {
                 AppButton { height: 28; text: "Bevel"; bgcolor: "transparent"; color: "#ffffff"
                     onClicked: { if (Modeler.bevelEdges) Modeler.bevelEdges([], 0.1, 1) } }
                 AppButton { height: 28; text: "Loop Cut"; bgcolor: "transparent"; color: "#ffffff"
-                    onClicked: { if (Modeler.subdivideFaces) Modeler.subdivideFaces([], 2) } }
+                    onClicked: { var id = Modeler.selectedObject ? Modeler.selectedObject.id : -1; if (id >= 0 && Modeler.loopCut) Modeler.loopCut(id, 2, 0.5, 0.0) } }
                 AppButton { height: 28; text: "Knife"; bgcolor: "transparent"; color: "#ffffff"
-                    onClicked: { if (Modeler.knifeCut) Modeler.knifeCut(0, 0, 0, 1, 1, 1) } }
+                    onClicked: { var id = Modeler.selectedObject ? Modeler.selectedObject.id : -1; if (id >= 0 && Modeler.knifeCutSelected) Modeler.knifeCutSelected(id) } }
                 AppButton { height: 28; text: "Weld"; bgcolor: "transparent"; color: "#ffffff"
                     onClicked: { if (Modeler.weldVertices) Modeler.weldVertices(0.01) } }
 

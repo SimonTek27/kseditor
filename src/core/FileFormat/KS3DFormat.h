@@ -221,6 +221,9 @@ struct KS3DScene {
     std::vector<KS3DMesh> meshes;
     std::vector<KS3DTexture> textures;
     std::vector<KS3DNode> nodes;
+    // Optional JSON metadata blob (curves, f-curves, modifier/boolean stacks,
+    // ICE systems, ...). Offset/size recorded in FileHeader::reserved[0/1].
+    std::string auxJson;
 };
 
 } // namespace ks

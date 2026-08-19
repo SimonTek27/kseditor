@@ -19,8 +19,8 @@
 #include "core/Audio/AudioStudioTypes.h"
 #include "plugins/simulators/kunos/assettocorsa/acFiles/AudioBankParser.h"
 #include "../modules/fontEditor/FontCreatorQmlBridge.h"
-#include "../modules/displayEditor/DisplayEditor.h"
-#include "../modules/displayEditor/DisplayEditorQmlBridge.h"
+#include "../modules/displayEditor/CockpitInstruments.h"
+#include "../modules/displayEditor/CockpitInstrumentsQmlBridge.h"
 #include "../modules/modellingEditor/TrackBuilder/TrackSurfaceEditorModule.h"
 #include "../modules/modellingEditor/CharacterBuilder/DriverEditorModule.h"
 #include "../modules/ShowroomEditor/ShowroomEditorModule.h"
@@ -61,6 +61,9 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QFile>
+
+#include <QSvgRenderer>
+#include <QPainter>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -1646,13 +1649,24 @@ void MainWindow::setupStatusBar()
     m_navSpeedLabel->setStyleSheet("color: #888; font-size: 11px; font-family: 'Consolas', monospace; padding: 0 8px;");
     m_statusBar->addPermanentWidget(m_navSpeedLabel);
 
-    m_snapStatusLabel = new QLabel(tr("Snap: Off"), this);
+    // Snap status with SVG icon
+    m_snapStatusLabel = new QLabel(this);
+    m_snapStatusLabel->setTextFormat(Qt::PlainText);
     m_snapStatusLabel->setStyleSheet("color: #888; font-size: 11px; font-family: 'Consolas', monospace; padding: 0 8px;");
     m_statusBar->addPermanentWidget(m_snapStatusLabel);
 
-    m_placementStatusLabel = new QLabel(tr("Place: Off"), this);
+    // Placement status with SVG icon
+    m_placementStatusLabel = new QLabel(this);
+    m_placementStatusLabel->setTextFormat(Qt::PlainText);
     m_placementStatusLabel->setStyleSheet("color: #888; font-size: 11px; font-family: 'Consolas', monospace; padding: 0 8px;");
     m_statusBar->addPermanentWidget(m_placementStatusLabel);
+
+    // Load SVG icons
+    QPixmap snapIcon = loadSvgIcon(":/icons/snap.svg", QSize(16, 16));
+    QPixmap placementIcon = loadSvgIcon(":/icons/placement.svg", QSize(16, 16));
+
+    setStatusSnap(tr("Snap: Off"));
+    setStatusPlacement(tr("Place: Off"));
 
     m_statusLabel = new QLabel(tr("Ready"), this);
     m_statusLabel->setStyleSheet("color: #aaa; padding: 0 4px;");
@@ -1664,6 +1678,17 @@ void MainWindow::setupStatusBar()
     m_statusBar->addPermanentWidget(m_progressBar);
 }
 
+QPixmap MainWindow::loadSvgIcon(const QString& path, const QSize& size)
+{
+    QSvgRenderer renderer(path);
+    QPixmap pixmap(size);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    renderer.render(&painter);
+    return pixmap;
+}
+
 void MainWindow::setStatusNavSpeed(const QString& text)
 {
     if (m_navSpeedLabel) m_navSpeedLabel->setText(text);
@@ -1671,12 +1696,20 @@ void MainWindow::setStatusNavSpeed(const QString& text)
 
 void MainWindow::setStatusSnap(const QString& text)
 {
-    if (m_snapStatusLabel) m_snapStatusLabel->setText(text);
+    if (m_snapStatusLabel) {
+        QPixmap snapIcon = loadSvgIcon(":/icons/snap.svg", QSize(14, 14));
+        m_snapStatusLabel->setPixmap(snapIcon);
+        m_snapStatusLabel->setText(" " + text);
+    }
 }
 
 void MainWindow::setStatusPlacement(const QString& text)
 {
-    if (m_placementStatusLabel) m_placementStatusLabel->setText(text);
+    if (m_placementStatusLabel) {
+        QPixmap placementIcon = loadSvgIcon(":/icons/placement.svg", QSize(14, 14));
+        m_placementStatusLabel->setPixmap(placementIcon);
+        m_placementStatusLabel->setText(" " + text);
+    }
 }
 
 void MainWindow::setupDockWidgets()
@@ -1891,7 +1924,7 @@ void MainWindow::setupConnections()
     help->registerHelp("ShowroomEditor", "viewport", "3D showroom preview with configurable lighting and cameras");
     help->registerHelp("ShowroomEditor", "config", "Showroom configuration: camera, lighting, background");
     help->registerHelp("PaintEditor", "painting", "Car paint editing with DDS export and decal import");
-    help->registerHelp("DisplayEditor", "segments", "7/14/16-segment display editor for AC dashboards");
+    help->registerHelp("CockpitInstruments", "segments", "7/14/16-segment display editor for AC dashboards");
     help->registerHelp("FontCreator", "glyphs", "Bitmap glyph editor for font atlas generation");
     help->registerHelp("ScriptConsole", "console", "JavaScript console with auto-complete and history", "F12");
     help->registerHelp("ModManager", "manager", "Content organization, installation, and conflict resolution");

@@ -87,6 +87,14 @@ void PhysicsQmlBridge::newProject() {
     m_config.damage.engineHealth = 100.0f;
     m_config.damage.bodyHealth = 100.0f;
 
+    // Turbo defaults
+    m_config.turbo.type = 1;          // Single turbo
+    m_config.turbo.boostPressure = 1.5f;
+    m_config.turbo.threshold = 3000;
+    m_config.turbo.lag = 0.5f;
+    m_config.turbo.wastegate = 2.0f;
+    m_config.turbo.count = 1;
+
     // Weather defaults
     m_config.weather.trackWetness = 0.0f;
     m_config.weather.rainIntensity = 0.0f;
@@ -195,6 +203,14 @@ bool PhysicsQmlBridge::openProject(const QString& path) {
     // Damage
     m_config.damage.enabled = obj.value("damageEnabled").toBool(false);
 
+    // Turbo
+    m_config.turbo.type = obj.value("turboType").toInt(1);
+    m_config.turbo.boostPressure = obj.value("turboBoostPressure").toDouble(1.5);
+    m_config.turbo.threshold = obj.value("turboThreshold").toInt(3000);
+    m_config.turbo.lag = obj.value("turboLag").toDouble(0.5);
+    m_config.turbo.wastegate = obj.value("turboWastegate").toDouble(2.0);
+    m_config.turbo.count = obj.value("turboCount").toInt(1);
+
     // Weather
     m_config.weather.trackWetness = obj.value("trackWetness").toDouble(0.0);
     m_config.weather.rainIntensity = obj.value("rainIntensity").toDouble(0.0);
@@ -283,6 +299,14 @@ bool PhysicsQmlBridge::saveProject(const QString& path) {
 
     // Damage
     obj["damageEnabled"] = m_config.damage.enabled;
+
+    // Turbo
+    obj["turboType"] = m_config.turbo.type;
+    obj["turboBoostPressure"] = m_config.turbo.boostPressure;
+    obj["turboThreshold"] = m_config.turbo.threshold;
+    obj["turboLag"] = m_config.turbo.lag;
+    obj["turboWastegate"] = m_config.turbo.wastegate;
+    obj["turboCount"] = m_config.turbo.count;
 
     // Weather
     obj["trackWetness"] = m_config.weather.trackWetness;

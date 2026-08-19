@@ -413,4 +413,100 @@ private:
     int cpIndex(int i, int j, int k) const;
 };
 
+class TaperModifier : public DeformModifier {
+public:
+    TaperModifier();
+
+    enum class Axis { X, Y, Z, AUTO };
+    Axis taperAxis = Axis::AUTO;
+
+    float factor = 1.0f;
+    bool useCurve = false;
+
+    MeshData apply(const MeshData& input) override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
+};
+
+class RippleModifier : public DeformModifier {
+public:
+    RippleModifier();
+
+    enum class Axis { X, Y, Z };
+    Axis rippleAxis = Axis::Y;
+
+    float amplitude = 0.1f;
+    float wavelength = 2.0f;
+    float phase = 0.0f;
+    float decay = 0.0f;
+
+    MeshData apply(const MeshData& input) override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
+};
+
+class NoiseModifier : public DeformModifier {
+public:
+    NoiseModifier();
+
+    float scale = 1.0f;
+    float strength = 1.0f;
+    int seed = 0;
+    float depth = 2.0f;
+
+    MeshData apply(const MeshData& input) override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
+
+private:
+    float noiseValue(float x, float y, float z) const;
+};
+
+class PushModifier : public DeformModifier {
+public:
+    PushModifier();
+
+    float distance = 0.1f;
+
+    MeshData apply(const MeshData& input) override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
+};
+
+class RelaxModifier : public DeformModifier {
+public:
+    RelaxModifier();
+
+    int iterations = 5;
+    float factor = 1.0f;
+    bool preserveVolume = false;
+    bool pinBoundary = true;
+
+    MeshData apply(const MeshData& input) override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
+};
+
+class MeltModifier : public DeformModifier {
+public:
+    MeltModifier();
+
+    enum class MeltAxisType { X, Y, Z };
+    MeltAxisType axis = MeltAxisType::Y;
+
+    float amount = 1.0f;
+    float viscosity = 0.0f;
+
+    MeshData apply(const MeshData& input) override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
+};
+
+class LatheModifier : public GenerateModifier {
+public:
+    LatheModifier();
+
+    int segments = 24;
+    float angle = 360.0f;
+    enum class Axis { X, Y, Z };
+    Axis latheAxis = Axis::Y;
+
+    MeshData apply(const MeshData& input) override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
+};
+
 }

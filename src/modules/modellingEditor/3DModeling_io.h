@@ -87,36 +87,6 @@ private:
     QMap<QString, bool> m_exportOptions;
 };
 
-class TextureBaker : public QObject
-{
-    Q_OBJECT
-public:
-    explicit TextureBaker(QObject* parent = nullptr) : QObject(parent) {}
-    ~TextureBaker() {}
-
-    enum BakeType { Diffuse, Normal, Roughness, Metallic, AO, Height, Emission };
-
-    void setSourceMesh(geometry::Mesh3D* mesh) { m_source = mesh; }
-    void setTargetResolution(int width, int height) { m_width = width; m_height = height; }
-
-    void addBakeTarget(BakeType type, const QString& outputPath);
-    static QString textureTypeName(BakeType type);
-
-    void bake(BakeType type);
-    QImage getBakedTexture(BakeType type) const { return m_bakedTextures.value(type); }
-
- signals:
-    void bakeComplete(BakeType type);
-    void bakeProgress(BakeType type, int percent);
-
-private:
-    geometry::Mesh3D* m_source = nullptr;
-    int m_width = 2048;
-    int m_height = 2048;
-    QMap<BakeType, QString> m_targets;
-    QMap<BakeType, QImage> m_bakedTextures;
-};
-
 } // namespace io
 
 // ============================================================================

@@ -7,10 +7,16 @@
 #include <QString>
 #include <QStringList>
 #include <QMap>
+#include <QImage>
+#include <QSet>
+#include <QPair>
 #include <QtMath>
 #include "GeometryTypes.h"
 
 namespace ks {
+
+using geometry::NURBSCurve;
+using geometry::NURBSSurface;
 
 struct Vertex {
     QVector3D position;
@@ -119,6 +125,27 @@ public:
 
     static MeshData insetFaces(const MeshData& mesh, float distance, float depth = 0.0f);
     static MeshData weldVertices(const MeshData& mesh, float threshold = 0.001f);
+
+    // Shell / solidity: extrudes the mesh along averaged vertex normals by
+    // `thickness` and closes every open boundary with a rim wall. Produces a
+    // watertight result from an open sheet/plane. `direction` is +1 (outside)
+    // or -1 (inside); `flipNormals` optionally reverses the winding of the
+    // outer (extruded) surface so normals point correctly after thickening.
+    static MeshData shell(const MeshData& mesh, float thickness, int direction = 1, bool flipNormals = false);
+
+    // Polygonal bridge: connects two edge loops with a strip of quads.
+    // `loopA`/`loopB` are ordered vertex-index loops (same vertex count).
+    // `segments` inserts that many additional rings interpolated between the
+    // two loops. Returns the new mesh; empty if loops are invalid.
+    static MeshData bridgeEdges(const MeshData& mesh,
+                                const QVector<int>& loopA,
+                                const QVector<int>& loopB,
+                                int segments = 1);
+
+    // Polygonal bridge between two whole faces: connects corresponding pairs
+    // of vertices with quads (the faces keep their original geometry). Useful
+    // to join two holes or duplicate shapes.
+    static MeshData bridgeFaces(const MeshData& mesh, int faceA, int faceB, int segments = 1);
     static MeshData dissolveEdges(const MeshData& mesh, const QVector<int>& edgeIndices);
     static MeshData dissolveFaces(const MeshData& mesh, const QVector<int>& faceIndices);
     static MeshData dissolveVertices(const MeshData& mesh, const QVector<int>& vertexIndices);
@@ -132,27 +159,384 @@ public:
     static MeshData triangulate(const MeshData& mesh);
     static MeshData quadrangulate(const MeshData& mesh);
 
+    // Assigns smoothing groups (0..31, Max-style) to faces based on the
+    // dihedral angle between adjacent faces. Faces whose adjacent angle is
+    // below `angleDeg` (so the surface is locally soft) share a group; a new
+    // group starts when the angle exceeds the threshold. Returns a vector of
+    // group ids with one entry per face. 0 = no group (hard edges).
+    static QVector<int> autoSmooth(const MeshData& mesh, float angleDeg = 30.0f);
+
     static MeshData mirror(const MeshData& mesh, const QVector3D& axis, float offset = 0.0f);
     static MeshData array(const MeshData& mesh, int count, const QVector3D& offset);
     static MeshData radialArray(const MeshData& mesh, int count, const QVector3D& axis, float angle);
 
     static MeshData knifeCut(const MeshData& mesh, const QVector3D& cutStart, const QVector3D& cutEnd);
+    // Applies one sculpt brush stroke on the mesh (in-place).
+    // `center`/`radius` are in local coordinates; `mode` selects the brush:
+    // 0=draw, 1=smooth, 2=grab (moves by `drag`), 3=flatten, 4=crease,
+    // 5=inflate (push along averaged vertex normal), 6=pinch (toward brush
+    // center), 7=smear (copies the position offset of the previous stroke point
+    // so vertices follow the Cursor), 8=negate (opposite of draw, sinks down),
+    // 9=folds (concentric ridges/valleys along the normal), 10=pores (micro
+    // deterministic depressions), 11=bulge (soft outward push), 12=slash
+    // (directional cut along `drag`, else screen-normal projected).
+    // `falloffPower` shapes the falloff curve: the default 2.0 uses the classic
+    // smoothstep; other values use pow(t, falloffPower). `pinned`, when given,
+    // lists vertex indices that must never move (pin/lock during sculpt).
+    // Returns the number of vertices affected.
+    static int sculptBrush(MeshData& mesh, const QVector3D& center, float radius,
+                           float strength, int mode, const QVector3D& drag = QVector3D(),
+                           const QVector3D& previousCenter = QVector3D(),
+                           float falloffPower = 2.0f,
+                           const QSet<int>* pinned = nullptr);
+
+    // Finds the closest vertex to a world-space point (mesh in local space, transformed by world).
+    // Returns vertex index or -1 if mesh empty.
+    static int findClosestVertex(const MeshData& mesh, const QMatrix4x4& worldTransform,
+                                 const QVector3D& worldPoint);
+
+    // Finds the closest edge to a world-space point. Returns edge as pair<vertexA, vertexB> or (-1,-1).
+    static QPair<int, int> findClosestEdge(const MeshData& mesh, const QMatrix4x4& worldTransform,
+                                           const QVector3D& worldPoint);
+
+    // Border detection: returns the edges that are on a mesh boundary (edges
+    // shared by exactly one face). Mode 0 = all borders, 1 = closest to
+    // worldPoint (returns a pair with the two vertex indices or (-1,-1)).
+    static QVector<Edge> borderEdges(const MeshData& mesh);
+    static QPair<int, int> findClosestBorderEdge(const MeshData& mesh, const QMatrix4x4& worldTransform,
+                                                 const QVector3D& worldPoint);
+
+    // Connected-face ("element") structures. Returns the element ids of the
+    // face that contains the closest vertex to worldPoint, and a helper that
+    // tags every face with its connected-component id (-1 when isolated by
+    // non-manifold edges).
+    static QVector<int> faceElements(const MeshData& mesh);
+    static int elementAtWorld(const MeshData& mesh, const QMatrix4x4& worldTransform,
+                              const QVector3D& worldPoint);
+
+    // Push/pull faces - extrude selected faces along their normals. The region
+    // is extruded as a solid: the selected faces move by `distance` and every
+    // boundary edge between the selected region and the rest of the mesh gets a
+    // side wall (quads), so the result stays watertight. `individualFace` moves
+    // each selected face separately (like Blender's individual extrude).
+    static MeshData pushPullFaces(const MeshData& mesh, const QVector<int>& faceIndices, float distance);
+
+    // Offset faces - offset selected faces along the averaged vertex normals by
+    // `distance` and stitch the boundary with side walls (watertight).
+    static MeshData offsetFaces(const MeshData& mesh, const QVector<int>& faceIndices, float distance);
+
+    // Advanced snapping: snaps `worldPoint` against the current mesh geometry
+    // (in `world` space). Priority: Vertex > Midpoint > Edge > Face > Tangent.
+    // Snap modes are the `SnapType` enum bit flags. Returns the snapped point
+    // (or the input point unchanged when nothing matches).
+    static QVector3D snapPointToMesh(const MeshData& mesh, const QMatrix4x4& world,
+                                     const QVector3D& worldPoint, int snapTypes);
+
+    // Hole fill / patch: fills every open boundary loop of the mesh with a
+    // triangulated cap (ear-clipping midpoint fan). `maxHoleEdges` skips holes
+    // larger than the threshold (0 = no limit). Returns the number of holes
+    // filled and mutates `mesh` in place.
+    static int fillHoles(MeshData& mesh, int maxHoleEdges = 16);
+
+    // Mesh extraction: builds a standalone mesh from the selected faces
+    // (vertex-welded copy, recomputed normals/UVs). If `thickness` > 0 the
+    // extracted surface is duplicated along vertex normals and the boundary is
+    // capped (a "solid" extract, Mudbox-style). Returns the extracted mesh or
+    // an empty mesh when `faceIndices` is empty/invalid.
+    static MeshData extractFaces(const MeshData& mesh, const QVector<int>& faceIndices,
+                                 float thickness = 0.0f, bool closeCaps = true);
+
+    // Construction plane operations
+    struct CPlane {
+        static QVector3D origin;
+        static QVector3D normal;
+        static QVector3D up;
+        static QVector3D getOrigin();
+        static QVector3D getNormal();
+        static QVector3D getUp();
+    };
+    static void setCPlane(const QVector3D& origin, const QVector3D& normal, const QVector3D& up);
+    static QVector3D getCPlaneOrigin();
+    static QVector3D getCPlaneNormal();
+    static QVector3D getCPlaneUp();
+    static void snapToCPlane(const QVector3D& point, QVector3D& result);
+
+    // Fillet/Chamfer operations
+    static bool filletEdges(const MeshData& mesh, const QVector<int>& edgeIndices, float radius, MeshData& result);
+    static bool chamferEdges(const MeshData& mesh, const QVector<int>& edgeIndices, float distance, MeshData& result);
+
+    // Curvature analysis
+    static QVector3D computeCurvatureAtVertex(const MeshData& mesh, int vertexIndex);
+    static QVector<int> findHighCurvatureVertices(const MeshData& mesh, float angleThreshold = qDegreesToRadians(30.0f));
+
+    // Live dimensions
+struct DimensionLine {
+    int vertex1;
+    int vertex2;
+    QString label;
+    bool active;
+};
+
+struct DimensionData {
+    int vertex1;
+    int vertex2;
+    int vertex3 = -1; // third vertex (angle dimensions)
+    QString label;
+    bool active;
+    int objectId = -1; // owning scene object (for live, geometry-linked dimensions)
+};
+
+struct RadiusDimension {
+    int vertex;
+    QVector<int> edgeIndices;
+    QString label;
+    bool active;
+    int objectId = -1; // owning scene object (live dimension)
+    bool diameter = false; // report 2x radius
+};
+
+struct CurvatureComb {
+    int vertexIndex;
+    QVector3D direction;
+    float length;
+    int segments = 10;
+    QString label;
+    bool active;
+};
+
+struct RadialMenuItem {
+    QString text;
+    int mode; // 0=select, 1=move, 2=rotate, 3=scale, 4=fillet, 5=chamfer
+    QVector3D param1;
+    QVector3D param2;
+};
+
+struct RadialMenu {
+    QVector<RadialMenuItem> items;
+    int selectedIndex = -1;
+    bool active = false;
+    QVector2D pos; // screen position
+    
+    void addItem(const QString& text, int mode, const QVector3D& p1 = QVector3D(), const QVector3D& p2 = QVector3D()) {
+        items.append({text, mode, p1, p2});
+    }
+    
+    void clear() {
+        items.clear();
+        selectedIndex = -1;
+        active = false;
+    }
+};
+
+
+    static QVector<DimensionLine> dimensions();
+    static void addDistanceDimension(int v1, int v2, const QString& label, int objectId = -1);
+    static float computeDistanceValue(const MeshData& mesh, int v1, int v2);
+    static float computeAngleValue(const MeshData& mesh, int v1, int v2, int v3);
+    static float computeRadiusValue(const MeshData& mesh, int vertex, const QVector<int>& edgeIndices);
+    static void addAngleDimension(int v1, int v2, int v3, const QString& label, int objectId = -1);
+    static void addRadiusDimension(int vertex, const QVector<int>& edgeIndices, const QString& label, int objectId = -1);
+    static void addDiameterDimension(int vertex, const QVector<int>& edgeIndices, const QString& label, int objectId = -1);
+    static float evaluateRadiusDimension(const MeshData& mesh, const RadiusDimension& d);
+    // Returns the live value of a stored dimension (resolved against the
+    // current geometry referenced by the objectId stored in the dimension).
+    static float evaluateDistanceDimension(const MeshData& mesh, const DimensionData& d);
+    static float evaluateAngleDimension(const MeshData& mesh, const DimensionData& d);
+    // Accessors for the dimension registries (used by the bridge to resolve
+    // live values and to clear/remove entries).
+    static const QVector<DimensionData>& distanceDimensions() { return m_distanceDimensions; }
+    static const QVector<DimensionData>& angleDimensions() { return m_angleDimensions; }
+    static const QVector<RadiusDimension>& radiusDimensions() { return m_radiusDimensions; }
+    static void clearDistanceDimensions() { m_distanceDimensions.clear(); }
+    static void clearAngleDimensions() { m_angleDimensions.clear(); }
+    static void clearRadiusDimensions() { m_radiusDimensions.clear(); }
+    static void removeDistanceDimensionAt(int i) { if (i >= 0 && i < m_distanceDimensions.size()) m_distanceDimensions.removeAt(i); }
+    static void removeAngleDimensionAt(int i) { if (i >= 0 && i < m_angleDimensions.size()) m_angleDimensions.removeAt(i); }
+    static void removeRadiusDimensionAt(int i) { if (i >= 0 && i < m_radiusDimensions.size()) m_radiusDimensions.removeAt(i); }
+    // Toggles visibility (active flag) of a stored dimension. type: 0=distance,1=angle,2=radius.
+    static void setDimensionVisible(int type, int index, bool visible);
+
+    // Section analysis
+    static MeshData cutByPlane(const MeshData& mesh, const QVector3D& planePoint, const QVector3D& planeNormal);
+
+    // Bridge curve - create surface between two curves or between curve and surface
+    static MeshData bridgeCurve(const MeshData& mesh, const QVector<int>& curve1Ids,
+                                const QVector<int>& curve2Ids, int segments = 8);
+
+    // Offset curve - offset a curve/profile by a given distance
+    static MeshData offsetCurve(const MeshData& mesh, const QVector<int>& curveIndices,
+                                float distance, bool offsetBothSides = false);
+
+    // STEP export
+    static bool exportSTEP(const MeshData& mesh, const QString& path, bool useBREP = false);
+    // Technical SVG export: orthographic projection with visible edges as
+    // solid lines and hidden edges dashed. viewAxis selects the projection
+    // (0=X,1=Y,2=Z). Returns false on failure.
+    static bool exportHiddenLineSVG(const MeshData& mesh, const QString& path,
+                                    int viewAxis = 2, float lineWidth = 0.3f);
+
+    // Advanced snapping
+    enum class SnapType { None = 0, Vertex = 1, Edge = 2, Face = 4, Midpoint = 8, Grid = 16, Tangent = 32 };
+    static QVector3D snapPoint(const QVector3D& worldPoint, int snapTypes);
+    static SnapType snapTypes();
+    static void setSnapTypes(SnapType types);
+    static SnapType m_snapTypes;
+
+    // NURBS curve operations
+    static NURBSCurve createCurve(const QVector<QVector3D>& controlPoints, int degree = 3, bool periodic = false);
+    static NURBSCurve revolveCurve(const NURBSCurve& profile, float angleDeg, int steps);
+    static NURBSCurve loftCurves(const QVector<NURBSCurve>& profiles);
+
+    // NURBS surface operations
+    static NURBSSurface createSurface(const QVector<QVector<QVector3D>>& controlPoints,
+                                       int uDegree = 3, int vDegree = 3,
+                                       bool periodicU = false, bool periodicV = false);
+    static NURBSSurface loft(const QVector<NURBSSurface>& surfaces, bool close = false);
+    static NURBSSurface sweep(const NURBSSurface& profile, const QVector<QMatrix4x4>& transforms, bool close = false);
+    static NURBSSurface revolve(const NURBSSurface& surface, float angleDeg, int steps);
+    static NURBSSurface pipe(const QVector<NURBSCurve>& profiles, float radius);
+
+    // NURBS evaluation
+    static QVector3D evaluatePointOnCurve(const NURBSCurve& curve, float u);
+    static QVector3D evaluatePointOnSurface(const NURBSSurface& surface, float u, float v);
+
+    // NURBS surface extension: extends the surface in the given U/V direction
+    // by `distance` (in local units), keeping curvature. 0=U-,1=U+,2=V-,3=V+.
+    static NURBSSurface extendSurface(const NURBSSurface& surface, int direction, float distance);
+    // Slides a CV tangentially along its row/column by `factor` in [-1,1].
+    static bool slideCV(NURBSSurface& surface, int row, int col, float factor);
+    // Samples curvature (estimated from the surface normals) along an isoparam
+    // curve; returns a polyline ribbon suitable for visualization.
+    static MeshData curvatureComb(const NURBSSurface& surface, int direction, int combCount, float scale);
+
+    // NURBS tessellation
+    static MeshData tessellateCurve(const NURBSCurve& curve, int segments = 32);
+    static MeshData tessellateSurface(const NURBSSurface& surface, int uSegments = 32, int vSegments = 32);
+    // Finds the edge loop containing the given edge (series of edges whose
+    // consecutive pairs are opposite edges of quads). Returns the loop as a
+    // list of edges including the seed edge. Empty if not a quad loop.
+    static QVector<Edge> findEdgeLoop(const MeshData& mesh, int v1, int v2);
+    // Finds the edge ring of the given edge (series of edges that share a
+    // vertex, marching around the quads adjacent to the seed edge).
+    static QVector<Edge> findEdgeRing(const MeshData& mesh, int v1, int v2);
+
+    // Slides a vertex along its connected edges toward target world position (projected to edge directions).
+    // Returns true if vertex moved.
+    static bool vertexSlide(MeshData& mesh, int vertexIndex, const QVector3D& targetWorld,
+                            const QMatrix4x4& worldTransform);
+
+    // Slides an edge (both vertices) along the edge direction by factor [-1,1].
+    static bool edgeSlide(MeshData& mesh, int edgeV0, int edgeV1, float factor);
+    // Inserts a loop cut through the mesh on a plane perpendicular to the given
+    // local axis (0=X,1=Y,2=Z) at `factor` (0..1) of the bounding box extent.
+    // `slide` (-1..1) additionally slides the inserted loop along its
+    // supporting edges (loop-cut-and-slide).
+    static MeshData loopCut(const MeshData& mesh, int axis, float factor, float slide = 0.0f);
     static MeshData shrinkwrap(const MeshData& mesh, const MeshData& target, const QVector3D& direction);
     static MeshData displace(const MeshData& mesh, const QImage& heightmap, float strength);
+
+    // Advanced array tools
+    struct ArrayOptions {
+        int count = 4;
+        int countY = 1;       // number of rows in gridArray
+        QVector3D constantOffset;
+        QVector3D relativeOffset;
+        QVector3D pivotPoint;
+        bool useCount = true;
+        bool useConstantOffset = true;
+        bool useRelativeOffset = false;
+        float mergeThreshold = 0.0001f;
+    };
+
+    static MeshData linearArray(const MeshData& mesh, int count, const QVector3D& offset, const ArrayOptions& opts);
+    static MeshData radialArray(const MeshData& mesh, int count, const QVector3D& axis, float angle, const ArrayOptions& opts);
+    static MeshData gridArray(const MeshData& mesh, const ArrayOptions& opts);
 
     static void mergeMeshes(MeshData& target, const MeshData& source);
     static void splitMeshes(const MeshData& mesh, QVector<MeshData>& result);
 
-    static QVector<MeshUVIsland> findUVIslands(const MeshData& mesh);
+    enum class SelectionMode {
+    Vertex = 0,
+    Edge = 1,
+    Face = 2,
+    Object = 3,
+    All = 4,
+    Border = 5,
+    Element = 6
+};
+
+class SelectionManager {
+public:
+    static void setMode(SelectionMode mode);
+    static SelectionMode mode() { return m_mode; }
+    static void addSelectedVertex(int vertexIndex);
+    static void removeSelectedVertex(int vertexIndex);
+    static void addSelectedEdge(int edgeIndex);
+    static void removeSelectedEdge(int edgeIndex);
+    static void addSelectedFace(int faceIndex);
+    static void removeSelectedFace(int faceIndex);
+    static void selectAll();
+    static void deselectAll();
+    static bool hasSelection() { return !m_selectedVertices.isEmpty() || !m_selectedEdges.isEmpty() || !m_selectedFaces.isEmpty(); }
+    static QVector<int> selectedVertices() { return m_selectedVertices; }
+    static QVector<int> selectedEdges() { return m_selectedEdges; }
+    static QVector<int> selectedFaces() { return m_selectedFaces; }
+    static void clear();
+
+    static void hideFace(int faceIndex);
+    static void unhideFace(int faceIndex);
+    static void hideSelectedFaces();
+    static void unhideAllFaces();
+    static void showRadialMenu(int mode, const QVector2D& pos);
+    static void hideRadialMenu();
+    static RadialMenu& radialMenu();
+
+    // Border and element selection (Max-style sub-object modes).
+    // `selectedBorderEdges()` holds edges whose faces form a mesh boundary
+    // (edges shared by only one face). `selectedElement` is the id of the
+    // current connected element (a set of faces linked by shared edges).
+    static void addSelectedBorderEdge(int edgeIndex);
+    static void removeSelectedBorderEdge(int edgeIndex);
+    static bool isBorderEdgeSet() { return !m_selectedBorderEdges.isEmpty(); }
+    static QVector<int> selectedBorderEdges() { return m_selectedBorderEdges; }
+    static void setSelectedElement(int elementId) { m_selectedElement = elementId; }
+    static int selectedElement() { return m_selectedElement; }
+    static void clearElement() { m_selectedElement = -1; }
+
+    // Context menu helpers
+    static void showContextMenu(const QVector3D& worldPos);
+    static QSet<int> getSelectedFaceNeighbors(const MeshData& mesh, int faceIndex);
+
+private:
+    static SelectionMode m_mode;
+    static QVector<int> m_selectedVertices;
+    static QVector<int> m_selectedEdges;
+    static QVector<int> m_selectedFaces;
+    static QVector<int> m_hiddenFaces;
+    static QVector<int> m_tempSelection;
+    static QVector<int> m_selectedBorderEdges;
+    static int m_selectedElement;
+};
+
+static QVector<MeshUVIsland> findUVIslands(const MeshData& mesh);
 
     static geometry::GeoMeshData toGeoMesh(const MeshData& mesh);
     static MeshData fromGeoMesh(const geometry::GeoMeshData& geo);
+
+    // Rebuilds mesh.edges from the faces (used by consumers such as the QML
+    // bridge to resolve edge indices during bridge/fillet operations).
+    static void ensureEdgeList(MeshData& mesh);
 
 private:
     static QVector<int> findEdge(const MeshData& mesh, int v1, int v2);
     static bool isEdge(const MeshData& mesh, int v1, int v2);
     static QVector3D computeFaceNormal(const MeshData& mesh, int faceIndex);
-    static void ensureEdgeList(MeshData& mesh);
+
+    // Live dimensions
+    static QVector<DimensionLine> m_dimensions;
+    static QVector<DimensionData> m_distanceDimensions;
+    static QVector<DimensionData> m_angleDimensions;
+    static QVector<RadiusDimension> m_radiusDimensions;
 };
 
 class ExtrudeOptions {

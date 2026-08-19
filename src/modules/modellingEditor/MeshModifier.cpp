@@ -355,6 +355,19 @@ static ModifierPtr createModifierFromType(const QString& type) {
     if (type == "SimpleDeform") return QSharedPointer<SimpleDeformModifier>::create();
     if (type == "Curve")      return QSharedPointer<CurveModifier>::create();
     if (type == "CorrectiveSmooth") return QSharedPointer<CorrectiveSmoothModifier>::create();
+    if (type == "UVProject") return QSharedPointer<UVProjectModifier>::create();
+    if (type == "Weld") return QSharedPointer<WeldModifier>::create();
+    if (type == "LaplacianSmooth") return QSharedPointer<LaplacianSmoothModifier>::create();
+    if (type == "SurfaceSmooth") return QSharedPointer<SurfaceSmoothModifier>::create();
+    if (type == "VolumeSmooth") return QSharedPointer<VolumeSmoothModifier>::create();
+    if (type == "Taper") return QSharedPointer<TaperModifier>::create();
+    if (type == "Ripple") return QSharedPointer<RippleModifier>::create();
+    if (type == "Noise") return QSharedPointer<NoiseModifier>::create();
+    if (type == "Push") return QSharedPointer<PushModifier>::create();
+    if (type == "Relax") return QSharedPointer<RelaxModifier>::create();
+    if (type == "Melt") return QSharedPointer<MeltModifier>::create();
+    if (type == "Lathe") return QSharedPointer<LatheModifier>::create();
+    if (type == "Wave") return QSharedPointer<WaveModifierEx>::create();
     return nullptr;
 }
 } // anonymous namespace

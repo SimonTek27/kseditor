@@ -39,7 +39,7 @@
 #include "../../modules/ideeditor/IdeEditorModule.h"
 #include "../../modules/fontEditor/FontCreatorQmlBridge.h"
 #include "../../modules/fontEditor/FontCreatorEditorModule.h"
-#include "../../modules/displayEditor/DisplayEditorModule.h"
+#include "../../modules/displayEditor/CockpitInstrumentsModule.h"
 #include "../../core/ppfiltersEditor/PPFiltersQmlBridge.h"
 #include "../../core/ServerConfigEditor/ServerConfigEditorModule.h"
 #include "../../core/vcs/VcsEditorModule.h"
@@ -128,7 +128,7 @@ void ModuleManager::loadModules()
     registerModule(new ks::CspConfigEditorModule(this));
     registerModule(new ks::FontCreatorEditorModule(this));
     registerModule(new ks::IdeEditorModule(this));
-    registerModule(new ks::DisplayEditorModule(this));
+    registerModule(new ks::CockpitInstrumentsModule(this));
     registerModule(new ks::PPFiltersEditorModule(this));
     registerModule(new ks::CareerEditorModule(this));
     registerModule(new ks::ServerConfigEditorModule(this));

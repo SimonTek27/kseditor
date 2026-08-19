@@ -1387,4 +1387,417 @@ QVector3D LatticeExModifier::interpolateBSpline(
     return interpolateTrilinear(localPos, cps);
 }
 
+TaperModifier::TaperModifier()
+    : DeformModifier("Taper")
+{
+    type = ModifierType::Deform;
+}
+
+void TaperModifier::readParameters(const QMap<QString, QVariant>& params)
+{
+    if (params.contains("factor")) factor = params["factor"].toFloat();
+    if (params.contains("taperAxis")) taperAxis = (Axis)params["taperAxis"].toInt();
+    if (params.contains("useCurve")) useCurve = params["useCurve"].toBool();
+}
+
+MeshData TaperModifier::apply(const MeshData& input)
+{
+    MeshData output = input;
+    if (output.vertices.isEmpty())
+        return output;
+
+    output.computeBoundingBox();
+    QVector3D center = (output.boundingBoxMin + output.boundingBoxMax) * 0.5f;
+    QVector3D size = output.boundingBoxMax - output.boundingBoxMin;
+    float axisLen = size.z();
+    switch (taperAxis) {
+        case Axis::X: axisLen = size.x(); break;
+        case Axis::Y: axisLen = size.y(); break;
+        case Axis::Z: axisLen = size.z(); break;
+        default: axisLen = size.y(); break;
+    }
+    if (axisLen < 1e-6f)
+        return output;
+
+    for (Vertex& v : output.vertices) {
+        QVector3D p = v.position - center;
+        float t;
+        switch (taperAxis) {
+            case Axis::X: t = p.x() / (axisLen * 0.5f); break;
+            case Axis::Y: t = p.y() / (axisLen * 0.5f); break;
+            case Axis::Z: t = p.z() / (axisLen * 0.5f); break;
+            default: t = p.y() / (axisLen * 0.5f); break;
+        }
+        t = qBound(-1.0f, t, 1.0f);
+        float s = 1.0f + factor * t;
+        switch (taperAxis) {
+            case Axis::X:
+                p.setY(p.y() * s);
+                p.setZ(p.z() * s);
+                break;
+            case Axis::Y:
+                p.setX(p.x() * s);
+                p.setZ(p.z() * s);
+                break;
+            case Axis::Z:
+                p.setX(p.x() * s);
+                p.setY(p.y() * s);
+                break;
+            default:
+                p.setX(p.x() * s);
+                p.setZ(p.z() * s);
+                break;
+        }
+        v.position = p + center;
+    }
+
+    output.computeNormals();
+    output.computeBoundingBox();
+    return output;
+}
+
+RippleModifier::RippleModifier()
+    : DeformModifier("Ripple")
+{
+    type = ModifierType::Deform;
+}
+
+void RippleModifier::readParameters(const QMap<QString, QVariant>& params)
+{
+    if (params.contains("amplitude")) amplitude = params["amplitude"].toFloat();
+    if (params.contains("wavelength")) wavelength = params["wavelength"].toFloat();
+    if (params.contains("phase")) phase = params["phase"].toFloat();
+    if (params.contains("decay")) decay = params["decay"].toFloat();
+    if (params.contains("rippleAxis")) rippleAxis = (Axis)params["rippleAxis"].toInt();
+}
+
+MeshData RippleModifier::apply(const MeshData& input)
+{
+    MeshData output = input;
+    if (output.vertices.isEmpty())
+        return output;
+    if (wavelength < 1e-6f)
+        return output;
+
+    output.computeBoundingBox();
+    QVector3D center = (output.boundingBoxMin + output.boundingBoxMax) * 0.5f;
+
+    for (Vertex& v : output.vertices) {
+        QVector3D p = v.position - center;
+        QVector2D radial;
+        switch (rippleAxis) {
+            case Axis::X: radial = QVector2D(p.y(), p.z()); break;
+            case Axis::Y: radial = QVector2D(p.x(), p.z()); break;
+            default: radial = QVector2D(p.x(), p.y()); break;
+        }
+        float dist = radial.length();
+        float decayFactor = (decay > 0.0f) ? qExp(-decay * dist) : 1.0f;
+        float offset = amplitude * qSin((2.0f * float(M_PI) * dist) / wavelength + phase) * decayFactor;
+
+        switch (rippleAxis) {
+            case Axis::X: p.setX(p.x() + offset); break;
+            case Axis::Y: p.setY(p.y() + offset); break;
+            default: p.setZ(p.z() + offset); break;
+        }
+        v.position = p + center;
+    }
+
+    output.computeNormals();
+    output.computeBoundingBox();
+    return output;
+}
+
+NoiseModifier::NoiseModifier()
+    : DeformModifier("Noise")
+{
+    type = ModifierType::Deform;
+}
+
+void NoiseModifier::readParameters(const QMap<QString, QVariant>& params)
+{
+    if (params.contains("scale")) scale = params["scale"].toFloat();
+    if (params.contains("strength")) strength = params["strength"].toFloat();
+    if (params.contains("seed")) seed = params["seed"].toInt();
+    if (params.contains("depth")) depth = params["depth"].toFloat();
+}
+
+float NoiseModifier::noiseValue(float x, float y, float z) const
+{
+    float n = qSin(x * 12.9898f + seed) * qSin(y * 78.233f + seed) * qSin(z * 37.719f + seed);
+    n = n * 43758.5453f;
+    return n - std::floor(n);
+}
+
+MeshData NoiseModifier::apply(const MeshData& input)
+{
+    MeshData output = input;
+    if (output.vertices.isEmpty())
+        return output;
+
+    output.computeNormals();
+    for (Vertex& v : output.vertices) {
+        QVector3D p = v.position;
+        float nx = (qSin(p.x() * scale * 1.0f + seed) * 0.5f +
+                    qSin(p.y() * scale * 1.7f + seed * 2.0f) * 0.5f +
+                    qSin(p.z() * scale * 2.3f + seed * 3.0f) * 0.5f);
+        float ny = noiseValue(p.x() * scale, p.y() * scale, p.z() * scale);
+        QVector3D offset = v.normal * (nx * 0.5f + ny * 0.5f) * strength;
+        v.position += offset;
+    }
+
+    output.computeNormals();
+    output.computeBoundingBox();
+    return output;
+}
+
+PushModifier::PushModifier()
+    : DeformModifier("Push")
+{
+    type = ModifierType::Deform;
+}
+
+void PushModifier::readParameters(const QMap<QString, QVariant>& params)
+{
+    if (params.contains("distance")) distance = params["distance"].toFloat();
+}
+
+MeshData PushModifier::apply(const MeshData& input)
+{
+    MeshData output = input;
+    if (output.vertices.isEmpty())
+        return output;
+
+    output.computeNormals();
+    for (Vertex& v : output.vertices) {
+        QVector3D n = v.normal;
+        if (n.lengthSquared() < 1e-6f)
+            continue;
+        v.position += n.normalized() * distance;
+    }
+    if (distance != 0.0f) {
+        output.computeNormals();
+        output.computeBoundingBox();
+    }
+    return output;
+}
+
+RelaxModifier::RelaxModifier()
+    : DeformModifier("Relax")
+{
+    type = ModifierType::Deform;
+}
+
+void RelaxModifier::readParameters(const QMap<QString, QVariant>& params)
+{
+    if (params.contains("iterations")) iterations = params["iterations"].toInt();
+    if (params.contains("factor")) factor = params["factor"].toFloat();
+    if (params.contains("preserveVolume")) preserveVolume = params["preserveVolume"].toBool();
+    if (params.contains("pinBoundary")) pinBoundary = params["pinBoundary"].toBool();
+}
+
+MeshData RelaxModifier::apply(const MeshData& input)
+{
+    MeshData output = input;
+    int n = output.vertices.size();
+    if (n == 0)
+        return output;
+
+    output.computeBoundingBox();
+    if (pinBoundary)
+        MeshOperations::ensureEdgeList(output);
+
+    // 1-ring adjacency
+    QVector<QVector<int>> adj(n);
+    for (const Face& f : output.faces) {
+        int fc = f.indices.size();
+        for (int k = 0; k < fc; ++k) {
+            int a = f.indices[k];
+            int b = f.indices[(k + 1) % fc];
+            if (a < 0 || a >= n || b < 0 || b >= n)
+                continue;
+            if (!adj[a].contains(b)) adj[a].append(b);
+            if (!adj[b].contains(a)) adj[b].append(a);
+        }
+    }
+
+    QVector<char> boundary(n, 0);
+    if (pinBoundary && output.edges.isEmpty())
+        MeshOperations::ensureEdgeList(output);
+    if (pinBoundary) {
+        QSet<int> edgeSet;
+        for (const Edge& e : output.edges)
+            edgeSet.insert((e.v1 << 16) ^ (e.v2 & 0xffff));
+        QSet<int> boundaryVerts;
+        for (const Face& f : output.faces) {
+            int fc = f.indices.size();
+            for (int k = 0; k < fc; ++k) {
+                int a = f.indices[k];
+                int b = f.indices[(k + 1) % fc];
+                int key = (a << 16) ^ (b & 0xffff);
+                int revKey = (b << 16) ^ (a & 0xffff);
+                if (!edgeSet.contains(revKey))
+                    boundaryVerts.insert(a);
+            }
+        }
+        for (int v : boundaryVerts)
+            boundary[v] = 1;
+    }
+
+    for (int it = 0; it < qMax(1, iterations); ++it) {
+        QVector<QVector3D> relaxed(n);
+        for (int i = 0; i < n; ++i) {
+            if (boundary[i])
+                continue;
+            if (adj[i].isEmpty()) {
+                relaxed[i] = output.vertices[i].position;
+                continue;
+            }
+            QVector3D acc;
+            for (int j : adj[i])
+                acc += output.vertices[j].position;
+            relaxed[i] = output.vertices[i].position + (acc / adj[i].size() - output.vertices[i].position) * factor;
+        }
+        for (int i = 0; i < n; ++i)
+            if (!boundary[i])
+                output.vertices[i].position = relaxed[i];
+    }
+
+    output.computeNormals();
+    output.computeBoundingBox();
+    return output;
+}
+
+MeltModifier::MeltModifier()
+    : DeformModifier("Melt")
+{
+    type = ModifierType::Deform;
+}
+
+void MeltModifier::readParameters(const QMap<QString, QVariant>& params)
+{
+    if (params.contains("amount")) amount = params["amount"].toFloat();
+    if (params.contains("viscosity")) viscosity = params["viscosity"].toFloat();
+    if (params.contains("axis")) axis = (MeltAxisType)params["axis"].toInt();
+}
+
+MeshData MeltModifier::apply(const MeshData& input)
+{
+    MeshData output = input;
+    if (output.vertices.isEmpty())
+        return output;
+
+    output.computeBoundingBox();
+    QVector3D bbMin = output.boundingBoxMin;
+    QVector3D bbMax = output.boundingBoxMax;
+
+    for (Vertex& v : output.vertices) {
+        float t = 1.0f;
+        switch (axis) {
+            case MeltAxisType::X:
+                t = qBound(0.0f, (v.position.x() - bbMin.x()) / qMax(1e-6f, bbMax.x() - bbMin.x()), 1.0f);
+                break;
+            case MeltAxisType::Y:
+                t = qBound(0.0f, (v.position.y() - bbMin.y()) / qMax(1e-6f, bbMax.y() - bbMin.y()), 1.0f);
+                break;
+            default:
+                t = qBound(0.0f, (v.position.z() - bbMin.z()) / qMax(1e-6f, bbMax.z() - bbMin.z()), 1.0f);
+                break;
+        }
+        float amt = amount * qPow(t, 1.0f + viscosity);
+        switch (axis) {
+            case MeltAxisType::X: v.position.setX(v.position.x() - (v.position.x() - bbMin.x()) * amt); break;
+            case MeltAxisType::Y: v.position.setY(v.position.y() - (v.position.y() - bbMin.y()) * amt); break;
+            default: v.position.setZ(v.position.z() - (v.position.z() - bbMin.z()) * amt); break;
+        }
+    }
+
+    output.computeNormals();
+    output.computeBoundingBox();
+    return output;
+}
+
+LatheModifier::LatheModifier()
+    : GenerateModifier("Lathe")
+{
+    type = ModifierType::Generate;
+}
+
+void LatheModifier::readParameters(const QMap<QString, QVariant>& params)
+{
+    if (params.contains("segments")) segments = params["segments"].toInt();
+    if (params.contains("angle")) angle = params["angle"].toFloat();
+    if (params.contains("latheAxis")) latheAxis = (Axis)params["latheAxis"].toInt();
+}
+
+MeshData LatheModifier::apply(const MeshData& input)
+{
+    MeshData output;
+    output.name = input.name + ".lathe";
+    output.diffuseColor = input.diffuseColor;
+    output.materialName = input.materialName;
+    output.materials = input.materials;
+
+    int vCount = input.vertices.size();
+    if (vCount < 2)
+        return output;
+
+    int seg = qMax(3, segments);
+    float arcRad = angle * float(M_PI) / 180.0f;
+
+    QVector<QVector3D> axisPos;
+    for (int i = 0; i < vCount; ++i)
+        axisPos.append(input.vertices[i].position);
+
+    for (int s = 0; s <= seg; ++s) {
+        float a = arcRad * s / seg;
+        float ca = qCos(a);
+        float sa = qSin(a);
+        for (int i = 0; i < vCount; ++i) {
+            QVector3D p = axisPos[i];
+            QVector3D r;
+            switch (latheAxis) {
+                case Axis::X:
+                    r = QVector3D(p.x(), p.y() * ca - p.z() * sa, p.y() * sa + p.z() * ca);
+                    break;
+                case Axis::Y:
+                    r = QVector3D(p.x() * ca + p.z() * sa, p.y(), -p.x() * sa + p.z() * ca);
+                    break;
+                default:
+                    r = QVector3D(p.x() * ca - p.y() * sa, p.x() * sa + p.y() * ca, p.z());
+                    break;
+            }
+            Vertex v = input.vertices[i];
+            v.position = r;
+            output.vertices.append(v);
+        }
+    }
+
+    int ringStride = vCount;
+    if (arcRad < 6.2830f) {
+        for (int s = 0; s < seg; ++s) {
+            for (int i = 0; i < vCount - 1; ++i) {
+                int a = s * ringStride + i;
+                int b = s * ringStride + i + 1;
+                int c = (s + 1) * ringStride + i + 1;
+                int d = (s + 1) * ringStride + i;
+                output.faces.append(Face({a, b, c, d}));
+            }
+        }
+    } else {
+        for (int s = 0; s < seg; ++s) {
+            for (int i = 0; i < vCount - 1; ++i) {
+                int a = s * ringStride + i;
+                int b = s * ringStride + i + 1;
+                int c = ((s + 1) % seg) * ringStride + i + 1;
+                int d = ((s + 1) % seg) * ringStride + i;
+                output.faces.append(Face({a, b, c, d}));
+            }
+        }
+    }
+
+    output.computeNormals();
+    output.computeBoundingBox();
+    return output;
+}
+
 }

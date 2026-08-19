@@ -56,7 +56,7 @@ endif()
 
 set(QML_IMPORT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/resources/ui/qml CACHE PATH "QML import paths")
 
-find_package(Qt6 COMPONENTS Core Gui Widgets Network Qml Quick Quick3D QuickControls2 QuickWidgets Multimedia OpenGL Sql Charts WebSockets REQUIRED)
+find_package(Qt6 COMPONENTS Core Gui Widgets Network Qml Quick Quick3D QuickControls2 QuickWidgets Multimedia OpenGL Sql Charts WebSockets Svg REQUIRED)
 find_package(Vulkan QUIET)
 find_package(Qt6 COMPONENTS 3DCore 3DRender 3DExtras 3DLogic 3DInput 3DAnimation QUIET)
 
@@ -398,7 +398,7 @@ if(HAS_VHACD)
 endif()
 
 target_link_libraries(kseditor_lib PRIVATE
-    Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Quick3D Qt6::QuickControls2 Qt6::QuickWidgets Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::OpenGL Qt6::Sql Qt6::Charts Qt6::WebSockets
+    Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Quick3D Qt6::QuickControls2 Qt6::QuickWidgets Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::OpenGL Qt6::Sql Qt6::Charts Qt6::WebSockets Qt6::Svg
 )
 
 if(WIN32)
@@ -493,7 +493,7 @@ add_executable(kseditor WIN32
 target_link_libraries(kseditor PRIVATE
     kseditor_lib
     ksacPhysics
-    Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Quick3D Qt6::QuickControls2 Qt6::QuickWidgets Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::OpenGL Qt6::Sql Qt6::Charts Qt6::WebSockets
+    Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Quick3D Qt6::QuickControls2 Qt6::QuickWidgets Qt6::Widgets Qt6::Network Qt6::Multimedia Qt6::OpenGL Qt6::Sql Qt6::Charts Qt6::WebSockets Qt6::Svg
 )
 
 target_include_directories(kseditor PRIVATE

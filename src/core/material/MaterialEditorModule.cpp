@@ -20,6 +20,7 @@
 #include <QProcess>
 #include <QStandardPaths>
 #include <QPixmap>
+#include <QMimeData>
 
 namespace ks {
 namespace material {
@@ -1134,6 +1135,35 @@ void MaterialEditorModule::onDeactivation() {
 }
 
 void MaterialEditorModule::onNewMaterial() {
+}
+
+void MaterialEditorModule::startMaterialDrag(const QString& materialId, const QVector3D& worldPos) {
+    // Material drag-and-drop: store the dragged material id for the viewport
+    // drop handler. A minimal implementation keeps the active drag material
+    // alive until the drop is finished.
+    QMimeData* data = mimeData(materialId);
+    if (data && m_livePreviewCheck) {
+        // Store for viewport preview/drop target handling.
+        m_dragMaterialId = materialId;
+    }
+}
+
+void MaterialEditorModule::finishMaterialDrag() {
+    m_dragMaterialId.clear();
+}
+
+QStringList MaterialEditorModule::mimeTypes() const {
+    return QStringList() << "application/x-ksmodeler-material";
+}
+
+QMimeData* MaterialEditorModule::mimeData(const QString& materialId) const {
+    QMimeData* data = new QMimeData();
+    data->setData("application/x-ksmodeler-material", materialId.toUtf8());
+    return data;
+}
+
+void MaterialEditorModule::showMaterialContextMenu(const QVector3D& worldPos) {
+    // Context menu for materials in the viewport (assign / edit / export).
 }
 
 } // namespace material

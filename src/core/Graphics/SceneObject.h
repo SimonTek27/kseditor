@@ -56,6 +56,9 @@ public:
     SceneObject* findChild(const QString& name);
     QVector<SceneObject*> findChildren(const QString& name, bool recursive = true) const;
 
+    SceneGraph* sceneGraph() const { return m_sceneGraph; }
+    void setSceneGraph(SceneGraph* graph) { m_sceneGraph = graph; }
+
     QVector3D position() const;
     void setPosition(const QVector3D& pos);
     void setTranslation(const QVector3D& pos) { setPosition(pos); }
@@ -64,6 +67,11 @@ public:
     void setRotationEuler(const QVector3D& euler);
     QVector3D scale() const;
     void setScale(const QVector3D& s);
+
+    // World-space transform accessors (recompute the cached world matrix if dirty).
+    QVector3D worldPosition() const;
+    QVector3D worldRotationEuler() const;
+    QVector3D worldScale() const;
 
     QMatrix4x4 transform() const {
         QMatrix4x4 mat;

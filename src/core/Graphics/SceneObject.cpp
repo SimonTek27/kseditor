@@ -67,6 +67,7 @@ void SceneObject::setPosition(const QVector3D& pos) {
     m_transform.m[3][1] = pos.y();
     m_transform.m[3][2] = pos.z();
     m_dirty = true;
+    emit transformChanged();
 }
 
 QVector3D SceneObject::rotationEuler() const {
@@ -102,6 +103,7 @@ void SceneObject::setRotationEuler(const QVector3D& euler) {
     m_transform.m[2][1] = cy * sx;
     m_transform.m[2][2] = cx * cy;
     m_dirty = true;
+    emit transformChanged();
 }
 
 QVector3D SceneObject::scale() const {
@@ -129,6 +131,41 @@ void SceneObject::setScale(const QVector3D& s) {
     m_transform.m[2][1] = cy * sx * s.z();
     m_transform.m[2][2] = cx * cy * s.z();
     m_dirty = true;
+    emit transformChanged();
+}
+
+QVector3D SceneObject::worldPosition() const {
+    updateWorldTransform();
+    return QVector3D(m_worldTransform.m[3][0], m_worldTransform.m[3][1], m_worldTransform.m[3][2]);
+}
+
+QVector3D SceneObject::worldScale() const {
+    updateWorldTransform();
+    const auto& m = m_worldTransform.m;
+    return QVector3D(
+        qSqrt(m[0][0]*m[0][0] + m[0][1]*m[0][1] + m[0][2]*m[0][2]),
+        qSqrt(m[1][0]*m[1][0] + m[1][1]*m[1][1] + m[1][2]*m[1][2]),
+        qSqrt(m[2][0]*m[2][0] + m[2][1]*m[2][1] + m[2][2]*m[2][2])
+    );
+}
+
+QVector3D SceneObject::worldRotationEuler() const {
+    updateWorldTransform();
+    const auto& m = m_worldTransform.m;
+    // Normalize the rotation columns by the world scale so the euler
+    // extraction matches the local ZYX convention used by setRotationEuler.
+    const QVector3D s = worldScale();
+    if (s.x() > 1e-9f && s.y() > 1e-9f && s.z() > 1e-9f) {
+        const float a00 = m[0][0] / s.x(), a01 = m[0][1] / s.x(), a02 = m[0][2] / s.x();
+        const float a10 = m[1][0] / s.y(), a11 = m[1][1] / s.y(), a12 = m[1][2] / s.y();
+        const float a20 = m[2][0] / s.z(), a21 = m[2][1] / s.z(), a22 = m[2][2] / s.z();
+        float sy = qSqrt(a00 * a00 + a10 * a10);
+        if (sy > 1e-6f) {
+            return QVector3D(qAtan2(a21, a22), qAtan2(-a20, sy), qAtan2(a10, a00));
+        }
+        return QVector3D(qAtan2(-a21, a11), qAtan2(-a20, sy), 0.0f);
+    }
+    return rotationEuler();
 }
 
 void SceneObject::updateWorldTransform(bool force) const {
@@ -194,6 +231,7 @@ static const char* typeToString(SceneObject::Type t) {
     switch (t) {
         case SceneObject::Type::Node:    return "Node";
         case SceneObject::Type::Mesh:    return "Mesh";
+        case SceneObject::Type::Spline:  return "Spline";
         case SceneObject::Type::Light:   return "Light";
         case SceneObject::Type::Camera:  return "Camera";
         case SceneObject::Type::Bone:    return "Bone";
@@ -204,6 +242,7 @@ static const char* typeToString(SceneObject::Type t) {
 static SceneObject::Type typeFromString(const QString& s) {
     if (s == "Node")    return SceneObject::Type::Node;
     if (s == "Mesh")    return SceneObject::Type::Mesh;
+    if (s == "Spline")  return SceneObject::Type::Spline;
     if (s == "Light")   return SceneObject::Type::Light;
     if (s == "Camera")  return SceneObject::Type::Camera;
     if (s == "Bone")    return SceneObject::Type::Bone;

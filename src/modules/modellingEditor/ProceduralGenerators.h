@@ -28,7 +28,15 @@ public:
         Type_Carbon,
         Type_Plastic,
         Type_Rust,
-        Type_Grunge
+        Type_Grunge,
+        Type_Cotton,
+        Type_Silk,
+        Type_Denim,
+        Type_Leather,
+        Type_Rubber,
+        Type_Wool,
+        Type_Satin,
+        Type_Twill
     };
 
     struct TextureParams {
@@ -59,6 +67,7 @@ private:
     QVector3D woodPattern(float x, float y, int seed);
     QVector3D concretePattern(float x, float y, int seed);
     QVector3D asphaltPattern(float x, float y, int seed);
+    QVector3D fabricPattern(float x, float y, int seed, TextureType type, const TextureParams& params);
 };
 
 class ProceduralMeshGenerator : public QObject

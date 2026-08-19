@@ -169,7 +169,7 @@ kseditor/
 │   │   ├── PhysicsEditor/      # 36 files — Vehicle dynamics, tire/aero/engine models
 │   │   ├── LiveryEditor/       # 16 files — DDS export, decals, 3D painter
 │   │   ├── ShowroomEditor/     # 10 files — PBR showcase, PP filter slots
-│   │   ├── displayEditor/      # 6 files — 7/14/16-segment + LCD display editor
+│   │   ├── CockpitInstruments/      # 6 files — 7/14/16-segment + LCD display editor
 │   │   ├── LicensePlatesEditor/# 6 files — 22-country generator, batch export
 │   │   ├── fontEditor/         # 4 files — Bitmap glyph editor, atlas export
 │   │   └── VREditor/           # 6 files — VR viewport, input integration
@@ -253,7 +253,7 @@ kseditor/
 
 ---
 
- ### displayEditor — 6 files — **100% Complete**
+ ### CockpitInstruments — 6 files — **100% Complete**
 **Capabilities:** Display/segment editor for Assetto Corsa dashboards: 7-segment/14-segment/dot-matrix editors, LED strip layout, texture atlas packing, animation timelines for warning lights, data binding to telemetry channels (RPM, gear, fuel, temps), and export to AC dash format.
 
 **Alternative Comparison:** Niche tool — no direct alternative. Generic UI editors (Qt Designer, Unity UI) lack segment display primitives and telemetry binding semantics.
@@ -1244,7 +1244,7 @@ test_StateMachine, test_ValidationSystem, test_UndoRedo, test_ThemeSystem,
 test_PhysicsSimulator, test_MeshOperations, test_MaterialSystem,
 test_AnimationSystem, test_BooleanOps, test_SubdivisionSurface,
 test_TexturePaintSystem, test_LODGenerator, test_AdvancedSculpt,
-test_AllAI, test_ShowroomEditor, test_DisplayEditor, test_FontGenerator,
+test_AllAI, test_ShowroomEditor, test_CockpitInstruments, test_FontGenerator,
 test_LicensePlates, test_LODGenerator, test_LapTimeValidation,
 test_CspConfig, test_ContentRepair, test_AssetDedup, test_AudioEffectsAdvanced,
 test_ModManagerFeatures, test_ModManagerDeps, test_Workshop,

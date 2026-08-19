@@ -289,4 +289,32 @@ private:
 	QByteArray m_modifiedMeshData;
 };
 
+/**
+ * @brief Comando per la modifica di un modifier stack (add/remove/move/
+ *        enable/param). Salva l'intero stato dello stack (base mesh + lista
+ *        modificatori) prima e dopo l'operazione.
+ */
+class ModifierStackCommand : public Command {
+public:
+	ModifierStackCommand(
+		int objectId,
+		const QJsonObject& before,
+		const QJsonObject& after,
+		const QString& description
+	);
+
+	void execute() override;
+	void undo() override;
+	void redo() override;
+	QString description() const override;
+
+private:
+	void apply(const QJsonObject& state);
+
+	int m_objectId;
+	QJsonObject m_before;
+	QJsonObject m_after;
+	QString m_description;
+};
+
 } // namespace ks

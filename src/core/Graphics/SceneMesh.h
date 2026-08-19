@@ -11,6 +11,9 @@
 #include <QUuid>
 #include <vulkan/vulkan.h>
 
+class MorphTargetEditor;
+class MultiresManager;
+
 namespace ks {
 
 struct SceneVertex {
@@ -74,6 +77,11 @@ struct SceneMeshGeometry {
     QVector<QVector<QVector3D>> morphPositionDeltas;
     QVector<QVector<QVector3D>> morphNormalDeltas;
     
+    // Multiresolution levels
+    QVector<QVector<QVector3D>> multiresVertices; // vertices per level
+    QVector<QVector<int>> multiresFaces; // face indices per level
+    QVector<int> multiresCurrentLevel; // current level index
+    
     void computeBounds();
     void computeTangents();
     void optimizeVertexCache();
@@ -116,6 +124,21 @@ public:
     const QVector<QVector<QVector3D>>& morphNormalDeltas() const { return m_geometry.morphNormalDeltas; }
     void setMorphWeight(int targetIndex, float weight);
 
+    // Morph target editor
+    MorphTargetEditor* morphTargetEditor() const;
+    void setMorphTargetEditor(MorphTargetEditor* editor);
+
+    // Multiresolution
+    MultiresManager* multiresManager() const;
+    void setMultiresManager(MultiresManager* manager);
+    int multiresCurrentLevel() const;
+    int multiresLevelCount() const;
+    void multiresSetCurrentLevel(int level);
+    void multiresAddLevel();
+    void multiresRemoveLevel();
+    void multiresSubdivideCurrent();
+    void multiresBakeCurrent();
+
     // Bounds
     QVector3D boundsMin() const { return m_geometry.boundsMin; }
     QVector3D boundsMax() const { return m_geometry.boundsMax; }
@@ -137,6 +160,12 @@ signals:
 private:
     SceneMeshGeometry m_geometry;
     
+    // Multiresolution
+    MultiresManager* m_multiresManager = nullptr;
+    
+    // Morph target editor
+    MorphTargetEditor* m_morphTargetEditor = nullptr;
+    
     // Vulkan resources
     VkBuffer m_vertexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory m_vertexMemory = VK_NULL_HANDLE;
@@ -145,7 +174,7 @@ private:
     
     // Morph weights
     QVector<float> m_morphWeights;
-
+    
     // Buffer state
     bool m_buffersValid = false;
 };

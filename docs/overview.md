@@ -43,7 +43,7 @@ src/
 │   ├── PhysicsEditor/     Physics simulation (38 files, ERS/hybrid system)
 │   ├── LiveryEditor/      Car livery painting (20 files, 3D viewport)
 │   ├── ShowroomEditor/    3D showroom/preview (10 files)
-│   ├── displayEditor/     Display/segment editor (6 files)
+│   ├── CockpitInstruments/     Display/segment editor (6 files)
 │   ├── LicensePlatesEditor/ License plate generation (6 files)
 │   ├── fontEditor/        Font atlas generation (4 files)
 │   └── VREditor/          VR viewport editor

@@ -293,7 +293,7 @@ ksEditor is organized into two layers: **core modules** (32 system-level subsyst
 
 ---
 
-### displayEditor — 6 files — **100% Complete**
+### CockpitInstruments — 6 files — **100% Complete**
 **Capabilities:** Display/segment editor for Assetto Corsa dashboards: 7-segment/14-segment/dot-matrix editors, LED strip layout, texture atlas packing, animation timelines for warning lights, data binding to telemetry channels (RPM, gear, fuel, temps), and export to AC dash format.
 
 **Alternative Comparison:** Niche tool — no direct alternative. Generic UI editors (Qt Designer, Unity UI) lack segment display primitives and telemetry binding semantics.
@@ -339,4 +339,4 @@ All 32 core subsystems and 9 application modules are **100% complete** and produ
 | Domain | Status |
 |--------|--------|
 | All Core Subsystems (Audio, Graphics, mesh, FileFormat, material, sys, editor, assets, tools, ui, modmanager, network, Config, AIEditor, animation, workshop, weather, vcs, FfbEditor, ppfiltersEditor, textEditor, help, archive, splitter, formatToolsEditor, Math, eventEditor, ServerConfigEditor, 3dprint, VR, Scripting) | 100% |
-| All Application Modules (modellingEditor, PhysicsEditor, soundEditor, LiveryEditor, ShowroomEditor, displayEditor, LicensePlatesEditor, fontEditor, VREditor) | 100% |
+| All Application Modules (modellingEditor, PhysicsEditor, soundEditor, LiveryEditor, ShowroomEditor, CockpitInstruments, LicensePlatesEditor, fontEditor, VREditor) | 100% |

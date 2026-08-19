@@ -45,7 +45,7 @@ Rectangle {
 
                 Repeater {
                     model: [
-                        { key: "materials", label: "Materials", icon: "M" },
+                        { key: "materials", label: "Materials", icon: "MAT" },
                         { key: "layers", label: "Layers", icon: "L" },
                         { key: "outliner", label: "Outliner", icon: "O" },
                         { key: "properties", label: "Properties", icon: "P" },

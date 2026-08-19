@@ -259,6 +259,14 @@ bool KS3DWriter::writeToFile(const std::string& path, const KS3DScene& scene)
 
     uint32_t nodeOffset = offset;
     uint32_t nodeCount = static_cast<uint32_t>(scene.nodes.size());
+    offset += static_cast<uint32_t>(nodeBuf.size());
+
+    uint32_t auxOffset = 0;
+    uint32_t auxSize = 0;
+    if (!scene.auxJson.empty()) {
+        auxOffset = offset;
+        auxSize = static_cast<uint32_t>(scene.auxJson.size());
+    }
 
     // Patch header
     auto* header = reinterpret_cast<ks3d::FileHeader*>(headerBuf.data());
@@ -272,6 +280,8 @@ bool KS3DWriter::writeToFile(const std::string& path, const KS3DScene& scene)
     header->textureOffset = textureOffset;
     header->nodeCount = nodeCount;
     header->nodeOffset = nodeOffset;
+    header->reserved[0] = auxOffset;
+    header->reserved[1] = auxSize;
 
     // Write file
     std::ofstream file(path, std::ios::binary);
@@ -291,6 +301,8 @@ bool KS3DWriter::writeToFile(const std::string& path, const KS3DScene& scene)
     writeSection(meshBuf);
     writeSection(textureBuf);
     writeSection(nodeBuf);
+    if (auxSize > 0)
+        file.write(scene.auxJson.data(), static_cast<std::streamsize>(auxSize));
 
     if (!file.good()) {
         m_lastError = "Failed to write file: " + path;

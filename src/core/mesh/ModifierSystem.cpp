@@ -1,5 +1,6 @@
 #include "ModifierSystem.h"
 #include "MeshOperations.h"
+#include "SubdivisionSurface.h"
 #include <QJsonDocument>
 #include <QJsonObject>
 
@@ -211,6 +212,36 @@ MeshData SolidifyModifier::apply(const MeshData& input) {
 SubdivisionModifier::SubdivisionModifier() : GenerateModifier("Subdivision") {}
 
 MeshData SubdivisionModifier::apply(const MeshData& input) {
+    if (creases.isEmpty() && pinnedVertices.isEmpty())
+        return MeshOperations::subdivide(input, levels);
+
+    // Merge explicit creases with pins (pinned vertices get fully sharp
+    // edges so they stay in place through subdivision, like TurboSmooth).
+    QVector<CreaseEdge> allCreases = creases;
+    if (!pinnedVertices.isEmpty()) {
+        QSet<QPair<int, int>> seen;
+        for (const auto& c : creases)
+            seen.insert(qMakePair(qMin(c.vertexA, c.vertexB), qMax(c.vertexA, c.vertexB)));
+        MeshData tmp = input;
+        MeshOperations::ensureEdgeList(tmp);
+        QSet<int> pinSet;
+        for (int p : pinnedVertices)
+            pinSet.insert(p);
+        for (const Edge& e : tmp.edges) {
+            if (pinSet.contains(e.v1) || pinSet.contains(e.v2)) {
+                QPair<int, int> key = qMakePair(qMin(e.v1, e.v2), qMax(e.v1, e.v2));
+                if (seen.contains(key))
+                    continue;
+                seen.insert(key);
+                allCreases.append(CreaseEdge{e.v1, e.v2, 1.0f});
+            }
+        }
+    }
+
+    SubdivisionResult res = SubdivisionSurface::subdivideWithCreases(
+        input, allCreases, levels);
+    if (res.success && !res.mesh.vertices.isEmpty())
+        return res.mesh;
     return MeshOperations::subdivide(input, levels);
 }
 
@@ -413,6 +444,30 @@ MeshData CastModifier::apply(const MeshData& input) {
     return result;
 }
 
+QMap<QString, QVariant> CastModifier::writeParameters() const {
+    QMap<QString, QVariant> p;
+    p["radius"] = radius;
+    p["factor"] = factor;
+    p["fromRadius"] = fromRadius;
+    p["toRadius"] = toRadius;
+    p["castType"] = (int)castType;
+    p["useX"] = useX;
+    p["useY"] = useY;
+    p["useZ"] = useZ;
+    return p;
+}
+
+void CastModifier::readParameters(const QMap<QString, QVariant>& params) {
+    if (params.contains("radius")) radius = params["radius"].toFloat();
+    if (params.contains("factor")) factor = params["factor"].toFloat();
+    if (params.contains("fromRadius")) fromRadius = params["fromRadius"].toFloat();
+    if (params.contains("toRadius")) toRadius = params["toRadius"].toFloat();
+    if (params.contains("castType")) castType = (CastType)params["castType"].toInt();
+    if (params.contains("useX")) useX = params["useX"].toBool();
+    if (params.contains("useY")) useY = params["useY"].toBool();
+    if (params.contains("useZ")) useZ = params["useZ"].toBool();
+}
+
 LatticeModifier::LatticeModifier() : DeformModifier("Lattice") {}
 
 MeshData LatticeModifier::apply(const MeshData& input) {
@@ -527,6 +582,24 @@ TriangulateModifier::TriangulateModifier() : GenerateModifier("Triangulate") {}
 
 MeshData TriangulateModifier::apply(const MeshData& input) {
     return MeshOperations::triangulate(input);
+}
+
+QMap<QString, QVariant> TriangulateModifier::writeParameters() const {
+    QMap<QString, QVariant> p;
+    p["minVertices"] = minVertices;
+    p["useBeauty"] = useBeauty;
+    p["useNgonEnabled"] = useNgonEnabled;
+    p["quadMethod"] = (int)quadMethod;
+    p["triangleMethod"] = (int)triangleMethod;
+    return p;
+}
+
+void TriangulateModifier::readParameters(const QMap<QString, QVariant>& params) {
+    if (params.contains("minVertices")) minVertices = params["minVertices"].toInt();
+    if (params.contains("useBeauty")) useBeauty = params["useBeauty"].toBool();
+    if (params.contains("useNgonEnabled")) useNgonEnabled = params["useNgonEnabled"].toBool();
+    if (params.contains("quadMethod")) quadMethod = (QuadMethod)params["quadMethod"].toInt();
+    if (params.contains("triangleMethod")) triangleMethod = (TriangleMethod)params["triangleMethod"].toInt();
 }
 
 WireframeModifier::WireframeModifier() : GenerateModifier("Wireframe") {}
@@ -663,4 +736,139 @@ MeshData RemeshModifier::apply(const MeshData& input) {
     return result;
 }
 
+QMap<QString, QVariant> ArrayModifier::writeParameters() const {
+    QMap<QString, QVariant> p;
+    p["count"] = count;
+    p["length"] = length;
+    p["constantOffset"] = constantOffset;
+    p["relativeOffset"] = relativeOffset;
+    p["useConstantOffset"] = useConstantOffset;
+    p["useRelativeOffset"] = useRelativeOffset;
+    return p;
 }
+
+void ArrayModifier::readParameters(const QMap<QString, QVariant>& params) {
+    if (params.contains("count")) count = params["count"].toInt();
+    if (params.contains("length")) length = params["length"].toFloat();
+    if (params.contains("constantOffset")) constantOffset = params["constantOffset"].value<QVector3D>();
+    if (params.contains("relativeOffset")) relativeOffset = params["relativeOffset"].value<QVector3D>();
+    if (params.contains("useConstantOffset")) useConstantOffset = params["useConstantOffset"].toBool();
+    if (params.contains("useRelativeOffset")) useRelativeOffset = params["useRelativeOffset"].toBool();
+}
+
+QMap<QString, QVariant> BevelModifier::writeParameters() const {
+    QMap<QString, QVariant> p;
+    p["width"] = width;
+    p["segments"] = segments;
+    p["angleLimit"] = angleLimit;
+    p["profileShape"] = profileShape;
+    return p;
+}
+
+void BevelModifier::readParameters(const QMap<QString, QVariant>& params) {
+    if (params.contains("width")) width = params["width"].toFloat();
+    if (params.contains("segments")) segments = params["segments"].toInt();
+    if (params.contains("angleLimit")) angleLimit = params["angleLimit"].toFloat();
+    if (params.contains("profileShape")) profileShape = params["profileShape"].toFloat();
+}
+
+QMap<QString, QVariant> SolidifyModifier::writeParameters() const {
+    QMap<QString, QVariant> p;
+    p["thickness"] = thickness;
+    p["offset"] = offset;
+    p["useFlipNormals"] = useFlipNormals;
+    p["mode"] = (int)mode;
+    return p;
+}
+
+void SolidifyModifier::readParameters(const QMap<QString, QVariant>& params) {
+    if (params.contains("thickness")) thickness = params["thickness"].toFloat();
+    if (params.contains("offset")) offset = params["offset"].toFloat();
+    if (params.contains("useFlipNormals")) useFlipNormals = params["useFlipNormals"].toBool();
+    if (params.contains("mode")) mode = (SolidifyMode)params["mode"].toInt();
+}
+
+QMap<QString, QVariant> SubdivisionModifier::writeParameters() const {
+    QMap<QString, QVariant> p;
+    p["levels"] = levels;
+    p["renderLevels"] = renderLevels;
+    p["subdivisionType"] = (int)subdivisionType;
+    QVariantList creaseList;
+    for (const auto& c : creases)
+        creaseList.append(QVariant(QVariantList{c.vertexA, c.vertexB, c.sharpness}));
+    p["creases"] = creaseList;
+    QVariantList pinList;
+    for (int v : pinnedVertices)
+        pinList.append(v);
+    p["pinnedVertices"] = pinList;
+    return p;
+}
+
+void SubdivisionModifier::readParameters(const QMap<QString, QVariant>& params) {
+    if (params.contains("levels")) levels = params["levels"].toInt();
+    if (params.contains("renderLevels")) renderLevels = params["renderLevels"].toInt();
+    if (params.contains("subdivisionType")) subdivisionType = (SubdivisionType)params["subdivisionType"].toInt();
+    if (params.contains("creases")) {
+        creases.clear();
+        const QVariantList list = params["creases"].toList();
+        for (const QVariant& item : list) {
+            const QVariantList c = item.toList();
+            if (c.size() >= 3)
+                creases.append(CreaseEdge{c[0].toInt(), c[1].toInt(), c[2].toFloat()});
+        }
+    }
+    if (params.contains("pinnedVertices")) {
+        pinnedVertices.clear();
+        const QVariantList list = params["pinnedVertices"].toList();
+        for (const QVariant& v : list)
+            pinnedVertices.append(v.toInt());
+    }
+}
+
+QMap<QString, QVariant> DecimateModifier::writeParameters() const {
+    QMap<QString, QVariant> p;
+    p["ratio"] = ratio;
+    p["vertexCount"] = vertexCount;
+    p["decimateType"] = (int)decimateType;
+    p["angleLimit"] = angleLimit;
+    return p;
+}
+
+void DecimateModifier::readParameters(const QMap<QString, QVariant>& params) {
+    if (params.contains("ratio")) ratio = params["ratio"].toFloat();
+    if (params.contains("vertexCount")) vertexCount = params["vertexCount"].toInt();
+    if (params.contains("decimateType")) decimateType = (DecimateType)params["decimateType"].toInt();
+    if (params.contains("angleLimit")) angleLimit = params["angleLimit"].toFloat();
+}
+
+QMap<QString, QVariant> DisplaceModifier::writeParameters() const {
+    QMap<QString, QVariant> p;
+    p["strength"] = strength;
+    p["midlevel"] = midlevel;
+    p["textureCoordinates"] = (int)textureCoordinates;
+    p["textureName"] = textureName;
+    return p;
+}
+
+void DisplaceModifier::readParameters(const QMap<QString, QVariant>& params) {
+    if (params.contains("strength")) strength = params["strength"].toFloat();
+    if (params.contains("midlevel")) midlevel = params["midlevel"].toFloat();
+    if (params.contains("textureCoordinates")) textureCoordinates = (TextureCoordinates)params["textureCoordinates"].toInt();
+    if (params.contains("textureName")) textureName = params["textureName"].toString();
+}
+
+QMap<QString, QVariant> SmoothModifier::writeParameters() const {
+    QMap<QString, QVariant> p;
+    p["factor"] = factor;
+    p["iterations"] = iterations;
+    p["smoothMode"] = (int)smoothMode;
+    return p;
+}
+
+void SmoothModifier::readParameters(const QMap<QString, QVariant>& params) {
+    if (params.contains("factor")) factor = params["factor"].toFloat();
+    if (params.contains("iterations")) iterations = params["iterations"].toInt();
+    if (params.contains("smoothMode")) smoothMode = (SmoothMode)params["smoothMode"].toInt();
+}
+
+} // namespace ks

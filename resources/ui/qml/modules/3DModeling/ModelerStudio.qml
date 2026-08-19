@@ -59,6 +59,15 @@ ApplicationWindow {
         symmetryPanel.visible = !symmetryPanel.visible
     }
 
+    function openViewportContextMenu(sx, sy) {
+        var hit = Modeler.pickObjectAtScreen(sx, sy, viewport.width, viewport.height)
+        if (hit >= 0 && (!Modeler.hasSelection || Modeler.selectedObject.id !== hit))
+            Modeler.selectObject(hit)
+        viewportContextMenu.x = sx + viewport.x
+        viewportContextMenu.y = sy + viewport.y + 30
+        viewportContextMenu.popup()
+    }
+
     function openPaintPanel() {
         paintPanelOverlay.visible = !paintPanelOverlay.visible
     }
@@ -144,6 +153,7 @@ ApplicationWindow {
             Action { text: "Scale (R)"; onTriggered: Modeler.setGizmoMode(3) }
             MenuSeparator {}
             Action { text: "Boolean Operations"; onTriggered: boolOpPanel.visible = !boolOpPanel.visible }
+            Action { text: "Modeling Tools"; onTriggered: modelingToolsPanel.visible = !modelingToolsPanel.visible }
             Action { text: "Symmetry Editor"; shortcut: "Shift+S"; onTriggered: openSymmetryPanel() }
             Action { text: "Texture Paint"; onTriggered: openPaintPanel() }
         }
@@ -465,7 +475,10 @@ ApplicationWindow {
                                 metalness: model.metallic
                                 roughness: model.roughness
                                 opacity: model.opacity
-                                emissiveFactor: model.objectSelected ? Qt.vector3d(0.12, 0.18, 0.35) : Qt.vector3d(0, 0, 0)
+                                emissiveFactor: {
+                                    if (model.objectId === Modeler.dragTargetObject) return Qt.vector3d(0.25, 0.5, 0.9)
+                                    return model.objectSelected ? Qt.vector3d(0.12, 0.18, 0.35) : Qt.vector3d(0, 0, 0)
+                                }
                             }
 
                             property Material matWire: DefaultMaterial {
@@ -479,7 +492,10 @@ ApplicationWindow {
                                 metalness: model.metallic
                                 roughness: model.roughness
                                 opacity: 0.2
-                                emissiveFactor: model.objectSelected ? Qt.vector3d(0.3, 0.4, 0.6) : Qt.vector3d(0, 0, 0)
+                                emissiveFactor: {
+                                    if (model.objectId === Modeler.dragTargetObject) return Qt.vector3d(0.3, 0.5, 0.9)
+                                    return model.objectSelected ? Qt.vector3d(0.3, 0.4, 0.6) : Qt.vector3d(0, 0, 0)
+                                }
                             }
 
                             materials: Modeler.viewMode === 0 ? [matShaded] : (Modeler.viewMode === 1 ? [matWire] : [matXray])
@@ -496,6 +512,74 @@ ApplicationWindow {
                                 target: Modeler
                                 function onSceneChanged() {
                                     meshGeom.rebuild()
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Node {
+                    id: cvOverlay
+                    visible: Modeler.nurbsCvVisible && Modeler.hasSelection
+
+                    Repeater {
+                        id: cvRepeater
+                        model: {
+                            if (!Modeler.nurbsCvVisible || !Modeler.hasSelection || !Modeler.nurbsSurfaceCvPositions) return 0
+                            Modeler.sceneVersion
+                            var rows = Modeler.nurbsSurfaceCvPositions(Modeler.selectedObject.id)
+                            var total = 0
+                            for (var r = 0; r < rows.length; ++r) total += rows[r].length
+                            return total
+                        }
+
+                        delegate: Model {
+                            id: cvBall
+                            source: "#Sphere"
+                            scale: Qt.vector3d(0.045, 0.045, 0.045)
+                            position: {
+                                if (!Modeler.nurbsSurfaceCvPositions) return Qt.vector3d(0, 0, 0)
+                                var rows = Modeler.nurbsSurfaceCvPositions(Modeler.selectedObject.id)
+                                var rem = index
+                                for (var rr = 0; rr < rows.length; ++rr) {
+                                    if (rem < rows[rr].length) {
+                                        var p = rows[rr][rem]
+                                        return Qt.vector3d(p[0], p[1], p[2])
+                                    }
+                                    rem -= rows[rr].length
+                                }
+                                return Qt.vector3d(0, 0, 0)
+                            }
+                            property int cvR: {
+                                var rows = Modeler.nurbsSurfaceCvPositions(Modeler.selectedObject.id)
+                                var rem = index
+                                for (var rr2 = 0; rr2 < rows.length; ++rr2) {
+                                    if (rem < rows[rr2].length) return rr2
+                                    rem -= rows[rr2].length
+                                }
+                                return -1
+                            }
+                            property int cvC: {
+                                var rows = Modeler.nurbsSurfaceCvPositions(Modeler.selectedObject.id)
+                                var rem = index
+                                for (var rr3 = 0; rr3 < rows.length; ++rr3) {
+                                    if (rem < rows[rr3].length) return rem
+                                    rem -= rows[rr3].length
+                                }
+                                return -1
+                            }
+                            materials: [
+                                DefaultMaterial {
+                                    lighting: DefaultMaterial.NoLighting
+                                    diffuseColor: (cvBall.cvR === Modeler.nurbsSelectedRow && cvBall.cvC === Modeler.nurbsSelectedCol) ? "#ffaa00" : "#8ac8ff"
+                                }
+                            ]
+                            MouseArea {
+                                anchors.fill: parent
+                                acceptedButtons: Qt.LeftButton
+                                onClicked: {
+                                    Modeler.setNurbsSelectedRow(cvBall.cvR)
+                                    Modeler.setNurbsSelectedCol(cvBall.cvC)
                                 }
                             }
                         }
@@ -602,20 +686,28 @@ ApplicationWindow {
                     }
                 }
 
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-                    property point lastPos
+            MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+                property point lastPos
+                property point pressPos
+                property bool rmbMoved: false
 
                     onPressed: (mouse) => {
                         lastPos = Qt.point(mouse.x, mouse.y)
+                        pressPos = Qt.point(mouse.x, mouse.y)
+                        rmbMoved = false
                     }
 
                     onPositionChanged: (mouse) => {
                         var dx = mouse.x - lastPos.x
                         var dy = mouse.y - lastPos.y
                         lastPos = Qt.point(mouse.x, mouse.y)
+                        if (mouse.buttons & Qt.RightButton) {
+                            if (Math.abs(mouse.x - pressPos.x) > 5 || Math.abs(mouse.y - pressPos.y) > 5)
+                                rmbMoved = true
+                        }
 
                         if (dragAxis >= 0 && (mouse.buttons & Qt.LeftButton)) {
                             var gScale = camDistance * 0.005
@@ -649,10 +741,53 @@ ApplicationWindow {
 
                     onReleased: (mouse) => {
                         dragAxis = -1
+                        if (mouse.button === Qt.RightButton && !rmbMoved) {
+                            studio.openViewportContextMenu(mouse.x, mouse.y)
+                        }
                     }
 
                     onWheel: (wheel) => {
                         Modeler.camDistance = Math.max(0.5, Math.min(100, camDistance * (1 + wheel.angleDelta.y * 0.001)))
+                    }
+                }
+
+                DropArea {
+                    id: materialDropArea
+                    anchors.fill: parent
+                    keys: ["application/x-ksmodeler-material"]
+
+                    onEntered: (drag) => {
+                        var id = Modeler.pickObjectAtScreen(drag.x, drag.y, viewport.width, viewport.height)
+                        Modeler.setDragTargetObject(id)
+                    }
+
+                    onPositionChanged: (drag) => {
+                        var id = Modeler.pickObjectAtScreen(drag.x, drag.y, viewport.width, viewport.height)
+                        Modeler.setDragTargetObject(id)
+                    }
+
+                    onExited: Modeler.setDragTargetObject(-1)
+
+                    onDropped: (drag) => {
+                        var id = Modeler.pickObjectAtScreen(drag.x, drag.y, viewport.width, viewport.height)
+                        Modeler.setDragTargetObject(-1)
+                        if (id < 0) {
+                            drag.accept(Qt.IgnoreAction)
+                            return
+                        }
+                        var raw = String(drag.getDataAsString("application/x-ksmodeler-material"))
+                        var parts = raw.split("|")
+                        if (parts.length >= 6) {
+                            Modeler.applyMaterialParamsToObject(
+                                id,
+                                parseFloat(parts[0]),
+                                parseFloat(parts[1]),
+                                parseFloat(parts[2]),
+                                parseFloat(parts[3]),
+                                parseFloat(parts[4]),
+                                parseFloat(parts[5]))
+                        }
+                        drag.accept(Qt.CopyAction)
                     }
                 }
 
@@ -1003,6 +1138,14 @@ ApplicationWindow {
         onClosePanel: boolOpPanel.visible = false
     }
 
+    ModelingToolsPanel {
+        id: modelingToolsPanel
+        visible: false; z: 10
+        anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8
+        width: 320; height: Math.min(parent.height * 0.88, 560)
+        onClosePanel: modelingToolsPanel.visible = false
+    }
+
     Rectangle {
         id: paintPanelOverlay
         visible: false; z: 10
@@ -1104,7 +1247,7 @@ ApplicationWindow {
     FileDialog {
         id: exportDialog
         title: "Export Model"
-        nameFilters: ["KN5 (*.kn5)", "FBX (*.fbx)", "OBJ (*.obj)", "All Files (*)"]
+        nameFilters: ["KN5 (*.kn5)", "FBX (*.fbx)", "OBJ (*.obj)", "GLB (*.glb)", "STL (*.stl)", "All Files (*)"]
         onAccepted: {
             var path = file.toString().replace("file:///", "")
             Modeler.exportFile(path)
@@ -1114,7 +1257,7 @@ ApplicationWindow {
     FileDialog {
         id: importDialog
         title: "Import Model"
-        nameFilters: ["3D Models (*.fbx *.obj *.gltf *.glb *.dae *.3ds)", "All Files (*)"]
+        nameFilters: ["3D Models (*.fbx *.obj *.gltf *.glb *.stl *.dae *.3ds)", "All Files (*)"]
         onAccepted: {
             var path = file.toString().replace("file:///", "")
             Modeler.importModel(path)
@@ -1135,6 +1278,101 @@ ApplicationWindow {
     Shortcut { sequence: "3"; onActivated: Modeler.setCameraView("right") }
     Shortcut { sequence: "5"; onActivated: Modeler.setCameraView("persp") }
     Shortcut { sequence: "7"; onActivated: Modeler.setCameraView("front") }
+
+    Menu {
+        id: viewportContextMenu
+
+        MenuItem {
+            text: "Select Mode: Object"
+            enabled: Modeler.hasSelection || Modeler.subobjectMode() !== 3
+            onTriggered: Modeler.setSubobjectMode(3)
+        }
+        MenuItem {
+            text: "Select Mode: Vertex"
+            onTriggered: Modeler.setSubobjectMode(0)
+        }
+        MenuItem {
+            text: "Select Mode: Edge"
+            onTriggered: Modeler.setSubobjectMode(1)
+        }
+        MenuItem {
+            text: "Select Mode: Face"
+            onTriggered: Modeler.setSubobjectMode(2)
+        }
+        MenuItem {
+            text: "Select Mode: Border"
+            onTriggered: Modeler.setSubobjectMode(5)
+        }
+        MenuItem {
+            text: "Select Mode: Element"
+            onTriggered: Modeler.setSubobjectMode(6)
+        }
+
+        MenuSeparator {}
+
+        MenuItem {
+            text: "Focus Selected"
+            enabled: Modeler.hasSelection
+            onTriggered: Modeler.focusOnSelected()
+        }
+        MenuItem {
+            text: "Duplicate"
+            enabled: Modeler.hasSelection
+            onTriggered: Modeler.duplicateSelected()
+        }
+        MenuItem {
+            text: "Delete"
+            enabled: Modeler.hasSelection
+            onTriggered: Modeler.deleteSelected()
+        }
+
+        MenuSeparator {}
+
+        MenuItem {
+            text: "Push/Pull Faces"
+            enabled: Modeler.subobjectMode() === 2
+            onTriggered: {
+                var sel = Modeler.selectedSubFaces()
+                Modeler.pushPullFaces(sel.length > 0 ? sel : [], 0.5)
+            }
+        }
+        MenuItem {
+            text: "Extrude Faces"
+            enabled: Modeler.subobjectMode() === 2
+            onTriggered: {
+                var sel = Modeler.selectedSubFaces()
+                Modeler.extrudeFaces(sel.length > 0 ? sel : [], 0.5)
+            }
+        }
+        MenuItem {
+            text: "Fillet Edges"
+            enabled: Modeler.subobjectMode() === 1
+            onTriggered: {
+                var sel = Modeler.selectedSubEdges()
+                Modeler.filletEdges(sel.length > 0 ? sel : [], 0.05)
+            }
+        }
+        MenuItem {
+            text: "Chamfer Edges"
+            enabled: Modeler.subobjectMode() === 1
+            onTriggered: {
+                var sel = Modeler.selectedSubEdges()
+                Modeler.chamferEdges(sel.length > 0 ? sel : [], 0.05)
+            }
+        }
+
+        MenuSeparator {}
+
+        MenuItem {
+            text: "Export Hidden-Line SVG..."
+            enabled: Modeler.hasSelection
+            onTriggered: Modeler.exportHiddenLineSVG("ks_export_context.svg", 2, 0.3)
+        }
+        MenuItem {
+            text: "Export Scene..."
+            onTriggered: exportDialog.open()
+        }
+    }
 
     Component.onCompleted: {
         sceneModel.countChanged.connect(updateStats)

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuite name="TestConstraints" timestamp="2026&#x002D;08&#x002D;17T09:46:25" hostname="MS7B45&#x002D;Simon" tests="10" failures="0" errors="0" skipped="0" time="0.008">
+  <properties>
+    <property name="QTestVersion" value="6.11.1"/>
+    <property name="QtVersion" value="6.11.1"/>
+    <property name="QtBuild" value="Qt 6.11.1 (x86_64&#x002D;little_endian&#x002D;llp64 shared (dynamic) release build; by MSVC 2022)"/>
+  </properties>
+  <testcase name="initTestCase" classname="TestConstraints" time="0.000"/>
+  <testcase name="pointConstraint" classname="TestConstraints" time="0.000"/>
+  <testcase name="orientationConstraint" classname="TestConstraints" time="0.000"/>
+  <testcase name="pathConstraint" classname="TestConstraints" time="0.000"/>
+  <testcase name="pathFollowAlignsTangent" classname="TestConstraints" time="0.000"/>
+  <testcase name="attachmentConstraint" classname="TestConstraints" time="0.000"/>
+  <testcase name="linkConstraintMaintainsRelative" classname="TestConstraints" time="0.000"/>
+  <testcase name="springEasesTowardTarget" classname="TestConstraints" time="0.001"/>
+  <testcase name="serializationRoundTrip" classname="TestConstraints" time="0.000"/>
+  <testcase name="cleanupTestCase" classname="TestConstraints" time="0.000"/>
+</testsuite>

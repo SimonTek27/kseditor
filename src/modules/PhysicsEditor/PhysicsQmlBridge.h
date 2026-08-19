@@ -48,6 +48,16 @@ struct CarPhysicsConfig {
     int transmissionType = 0;
     int gearCount = 7;
 
+    // Turbo
+    struct Turbo {
+        int type = 1;               // 0=None, 1=Single, 2=Twin, 3=Electric
+        float boostPressure = 1.5f; // bar
+        int threshold = 3000;       // RPM
+        float lag = 0.5f;           // seconds
+        float wastegate = 2.0f;     // bar
+        int count = 1;              // 1 or 2
+    } turbo;
+
     // ERS/Hybrid
     struct Ers {
         bool enabled = false;
@@ -149,6 +159,14 @@ class PhysicsQmlBridge : public QObject {
     Q_PROPERTY(bool ersAttackAvailable READ ersAttackAvailable NOTIFY ersStateChanged)
     Q_PROPERTY(bool ersAttackActive READ ersAttackActive NOTIFY ersStateChanged)
 
+    // Turbo
+    Q_PROPERTY(int turboType READ turboType WRITE setTurboType NOTIFY turboChanged)
+    Q_PROPERTY(float turboBoostPressure READ turboBoostPressure WRITE setTurboBoostPressure NOTIFY turboChanged)
+    Q_PROPERTY(int turboThreshold READ turboThreshold WRITE setTurboThreshold NOTIFY turboChanged)
+    Q_PROPERTY(float turboLag READ turboLag WRITE setTurboLag NOTIFY turboChanged)
+    Q_PROPERTY(float turboWastegate READ turboWastegate WRITE setTurboWastegate NOTIFY turboChanged)
+    Q_PROPERTY(int turboCount READ turboCount WRITE setTurboCount NOTIFY turboChanged)
+
     // DRS
     Q_PROPERTY(bool drsEnabled READ drsEnabled WRITE setDrsEnabled NOTIFY drsChanged)
     Q_PROPERTY(bool drsAutoActivate READ drsAutoActivate WRITE setDrsAutoActivate NOTIFY drsChanged)
@@ -199,6 +217,7 @@ signals:
     void ersStateChanged();
     void drsChanged();
     void drsStateChanged();
+    void turboChanged();
     void damageChanged();
     void damageStateChanged();
     void weatherChanged();
@@ -363,6 +382,20 @@ public:
     bool drsActive() const;
     float drsDragReduction() const;
     void setDrsDragReduction(float v);
+
+    // Turbo
+    int turboType() const { return m_config.turbo.type; }
+    void setTurboType(int v) { m_config.turbo.type = v; emit turboChanged(); }
+    float turboBoostPressure() const { return m_config.turbo.boostPressure; }
+    void setTurboBoostPressure(float v) { m_config.turbo.boostPressure = v; emit turboChanged(); }
+    int turboThreshold() const { return m_config.turbo.threshold; }
+    void setTurboThreshold(int v) { m_config.turbo.threshold = v; emit turboChanged(); }
+    float turboLag() const { return m_config.turbo.lag; }
+    void setTurboLag(float v) { m_config.turbo.lag = v; emit turboChanged(); }
+    float turboWastegate() const { return m_config.turbo.wastegate; }
+    void setTurboWastegate(float v) { m_config.turbo.wastegate = v; emit turboChanged(); }
+    int turboCount() const { return m_config.turbo.count; }
+    void setTurboCount(int v) { m_config.turbo.count = v; emit turboChanged(); }
 
     // Damage
     bool damageEnabled() const { return m_config.damage.enabled; }

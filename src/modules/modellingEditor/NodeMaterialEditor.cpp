@@ -540,6 +540,7 @@ MaterialNode* MaterialGraph::createNode(const QString& type, const QPointF& posi
 
     if (node) {
         node->position = position;
+        node->factoryType = type;
         nodes.append(node);
 
         if (type == "Output") {
@@ -802,6 +803,82 @@ QString MaterialGraph::generateHLSL() {
     return code;
 }
 
+namespace {
+
+QJsonValue socketValueToJson(const QVariant& v) {
+    switch (v.metaType().id()) {
+    case QMetaType::Int:
+    case QMetaType::Long:
+    case QMetaType::LongLong:
+    case QMetaType::Short:
+    case QMetaType::UInt:
+    case QMetaType::ULong:
+    case QMetaType::ULongLong:
+        return v.toInt();
+    case QMetaType::Float:
+    case QMetaType::Double:
+        return v.toDouble();
+    case QMetaType::QString:
+        return QJsonObject{{"s", v.toString()}};
+    case QMetaType::QColor: {
+        QJsonArray a;
+        const QColor c = v.value<QColor>();
+        a.append(c.redF());
+        a.append(c.greenF());
+        a.append(c.blueF());
+        a.append(c.alphaF());
+        return QJsonObject{{"c", a}};
+    }
+    case QMetaType::QVector3D: {
+        const QVector3D vec = v.value<QVector3D>();
+        return QJsonObject{{"v", QJsonArray{vec.x(), vec.y(), vec.z()}}};
+    }
+    case QMetaType::QJsonArray:
+        return QJsonObject{{"a", v.toJsonArray()}};
+    default:
+        break;
+    }
+    if (v.isNull() || !v.isValid())
+        return QJsonValue(QJsonValue::Null);
+    return QJsonValue(QJsonValue::Null);
+}
+
+QVariant socketValueFromJson(const QJsonValue& val) {
+    if (val.isNull() || val.isUndefined())
+        return QVariant();
+    if (val.isDouble())
+        return val.toDouble();
+    if (val.isBool())
+        return val.toBool();
+    if (val.isString())
+        return val.toString();
+    if (!val.isObject())
+        return QVariant();
+    const QJsonObject o = val.toObject();
+    if (o.contains("s"))
+        return o["s"].toString();
+    if (o.contains("c")) {
+        const QJsonArray a = o["c"].toArray();
+        QColor c;
+        c.setRgbF(a.size() > 0 ? a[0].toDouble() : 0.0,
+                   a.size() > 1 ? a[1].toDouble() : 0.0,
+                   a.size() > 2 ? a[2].toDouble() : 0.0,
+                   a.size() > 3 ? a[3].toDouble() : 1.0);
+        return c;
+    }
+    if (o.contains("v")) {
+        const QJsonArray a = o["v"].toArray();
+        return QVector3D(a.size() > 0 ? float(a[0].toDouble()) : 0.0f,
+                         a.size() > 1 ? float(a[1].toDouble()) : 0.0f,
+                         a.size() > 2 ? float(a[2].toDouble()) : 0.0f);
+    }
+    if (o.contains("a"))
+        return o["a"];
+    return QVariant();
+}
+
+}
+
 void MaterialGraph::clear() {
     for (auto* node : nodes) {
         delete node;
@@ -818,7 +895,7 @@ void MaterialGraph::copyFrom(const MaterialGraph& other) {
     QMap<QString, MaterialNode*> nodeMap;
 
     for (auto* node : other.nodes) {
-        MaterialNode* newNode = createNode(node->name, node->position);
+        MaterialNode* newNode = createNode(node->factoryType.isEmpty() ? node->name : node->factoryType, node->position);
         if (newNode) {
             newNode->id = node->id;
             newNode->size = node->size;
@@ -842,6 +919,121 @@ void MaterialGraph::copyFrom(const MaterialGraph& other) {
                     newNode->linkedNodes[it.key()] = linkedNew;
             }
         }
+    }
+}
+
+QJsonObject MaterialGraph::toJson() const {
+    QJsonObject root;
+    root["name"] = name;
+
+    QJsonArray nodesArr;
+    QJsonArray connArr;
+
+    for (auto* node : nodes) {
+        QJsonObject no;
+        no["id"] = node->id;
+        no["type"] = node->factoryType;
+        no["name"] = node->name;
+        no["x"] = node->position.x();
+        no["y"] = node->position.y();
+
+        if (auto* img = dynamic_cast<ImageNode*>(node)) no["texturePath"] = img->texturePath;
+        else if (auto* tex = dynamic_cast<TextureNode*>(node)) no["texturePath"] = tex->texturePath;
+        else if (auto* nm = dynamic_cast<NormalMapNode*>(node)) no["texturePath"] = nm->texturePath;
+        else if (auto* cube = dynamic_cast<CubeMapNode*>(node)) no["texturePath"] = cube->texturePath;
+
+        QJsonArray inputsArr;
+        for (const auto& s : node->inputs) {
+            QJsonObject so;
+            so["id"] = s.id;
+            so["name"] = s.name;
+            so["type"] = int(s.type);
+            so["value"] = socketValueToJson(s.value);
+            so["connected"] = s.isConnected;
+            inputsArr.append(so);
+        }
+        no["inputs"] = inputsArr;
+
+        QJsonArray outputsArr;
+        for (const auto& s : node->outputs) {
+            QJsonObject so;
+            so["id"] = s.id;
+            so["name"] = s.name;
+            so["type"] = int(s.type);
+            so["value"] = socketValueToJson(s.value);
+            so["connected"] = s.isConnected;
+            outputsArr.append(so);
+        }
+        no["outputs"] = outputsArr;
+        nodesArr.append(no);
+    }
+
+    // Connections: derived from input sockets that are linked. The input's
+    // connectedSocketId references the output socket id on the source node.
+    for (auto* node : nodes) {
+        for (const auto& s : node->inputs) {
+            if (!s.isConnected || s.connectedSocketId.isEmpty()) continue;
+            const MaterialNode* srcNode = nullptr;
+            for (auto* cand : nodes) {
+                for (const auto& os : cand->outputs) {
+                    if (os.id == s.connectedSocketId) { srcNode = cand; break; }
+                }
+                if (srcNode) break;
+            }
+            if (!srcNode) continue;
+            QJsonObject co;
+            co["fromNode"] = srcNode->id;
+            co["fromSocket"] = s.connectedSocketId;
+            co["toNode"] = node->id;
+            co["toSocket"] = s.id;
+            connArr.append(co);
+        }
+    }
+
+    root["nodes"] = nodesArr;
+    root["connections"] = connArr;
+    return root;
+}
+
+void MaterialGraph::fromJson(const QJsonObject& obj) {
+    clear();
+    name = obj["name"].toString("Material");
+
+    const QJsonArray nodesArr = obj["nodes"].toArray();
+    QVector<MaterialNode*> created;
+    for (const auto& nv : nodesArr) {
+        const QJsonObject no = nv.toObject();
+        const QString type = no["type"].toString();
+        if (type.isEmpty()) continue;
+        MaterialNode* node = createNode(type, QPointF(no["x"].toDouble(), no["y"].toDouble()));
+        if (!node) continue;
+        node->id = no["id"].toString(node->id);
+        if (no.contains("texturePath")) {
+            if (auto* img = dynamic_cast<ImageNode*>(node)) img->texturePath = no["texturePath"].toString();
+            else if (auto* tex = dynamic_cast<TextureNode*>(node)) tex->texturePath = no["texturePath"].toString();
+            else if (auto* nm = dynamic_cast<NormalMapNode*>(node)) nm->texturePath = no["texturePath"].toString();
+            else if (auto* cube = dynamic_cast<CubeMapNode*>(node)) cube->texturePath = no["texturePath"].toString();
+        }
+        const QJsonArray inputsArr = no["inputs"].toArray();
+        for (int i = 0; i < node->inputs.size() && i < inputsArr.size(); ++i) {
+            const QJsonObject so = inputsArr[i].toObject();
+            if (so.contains("id")) node->inputs[i].id = so["id"].toString();
+            node->inputs[i].value = socketValueFromJson(so["value"]);
+        }
+        const QJsonArray outputsArr = no["outputs"].toArray();
+        for (int i = 0; i < node->outputs.size() && i < outputsArr.size(); ++i) {
+            const QJsonObject so = outputsArr[i].toObject();
+            if (so.contains("id")) node->outputs[i].id = so["id"].toString();
+            node->outputs[i].value = socketValueFromJson(so["value"]);
+        }
+        created.append(node);
+    }
+
+    const QJsonArray connArr = obj["connections"].toArray();
+    for (const auto& cv : connArr) {
+        const QJsonObject co = cv.toObject();
+        connectNodes(co["fromNode"].toString(), co["fromSocket"].toString(),
+                     co["toNode"].toString(), co["toSocket"].toString());
     }
 }
 
@@ -872,6 +1064,21 @@ void MaterialGraph::updateLinks(const QString& removedNodeId) {
                 if (!linkStillValid) {
                     s.isConnected = false;
                     s.connectedSocketId = "";
+                }
+            }
+        }
+        // Recompute output connection flags: an output is connected only while
+        // some surviving node input still references it.
+        for (auto& os : node->outputs) {
+            os.isConnected = false;
+        }
+    }
+    for (auto* node : nodes) {
+        for (const auto& s : node->inputs) {
+            if (!s.isConnected || s.connectedSocketId.isEmpty()) continue;
+            for (auto* cand : nodes) {
+                for (auto& os : cand->outputs) {
+                    if (os.id == s.connectedSocketId) { os.isConnected = true; break; }
                 }
             }
         }

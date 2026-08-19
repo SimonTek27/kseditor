@@ -26,6 +26,7 @@ SceneObject* SceneGraph::createObject(const QString& name,
         parent = m_root;
 
     SceneObject* obj = new SceneObject(m_nextId++, name, type);
+    obj->setSceneGraph(this);
     parent->addChild(obj);
     return obj;
 }
@@ -91,6 +92,8 @@ void SceneGraph::deserialize(const QJsonObject& json)
     }
     m_root = SceneObject::fromJson(rootJson, nextId);
     m_nextId = nextId;
+    m_root->setSceneGraph(this);
+    m_root->traverse([this](SceneObject* o) { o->setSceneGraph(this); });
 }
 
 bool SceneGraph::saveToFile(const QString& filePath) const

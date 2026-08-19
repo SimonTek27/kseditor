@@ -1,0 +1,526 @@
+Versione di MSBuild 18.8.2+ce25c0108 per .NET Framework
+
+  Checking File Globs
+  Automatic UIC for target LinearMath
+  LinearMath.vcxproj -> E:\Users\Simon\source\repos\kseditor\build\bullet\Release\LinearMath.lib
+  Automatic MOC and UIC for target 7zip_c
+  Automatic UIC for target VHACD
+  Automatic UIC for target BulletCollision
+  Automatic UIC for target mikktspace
+  VHACD.vcxproj -> E:\Users\Simon\source\repos\kseditor\build\vhacd\Release\VHACD.lib
+  7zip_c.vcxproj -> E:\Users\Simon\source\repos\kseditor\build\lib\Release\7zip_c.lib
+  mikktspace.vcxproj -> E:\Users\Simon\source\repos\kseditor\build\Release\mikktspace.lib
+  BulletCollision.vcxproj -> E:\Users\Simon\source\repos\kseditor\build\bullet\Release\BulletCollision.lib
+  Automatic MOC and UIC for target 7zip_cpp_common
+  Automatic UIC for target BulletDynamics
+  BulletDynamics.vcxproj -> E:\Users\Simon\source\repos\kseditor\build\bullet\Release\BulletDynamics.lib
+  7zip_cpp_common.vcxproj -> E:\Users\Simon\source\repos\kseditor\build\lib\Release\7zip_cpp_common.lib
+  Automatic MOC and UIC for target 7zip_win
+  7zip_win.vcxproj -> E:\Users\Simon\source\repos\kseditor\build\lib\Release\7zip_win.lib
+  Automatic MOC and UIC for target 7zip_common
+  7zip_common.vcxproj -> E:\Users\Simon\source\repos\kseditor\build\lib\Release\7zip_common.lib
+  Automatic MOC and UIC for target 7zip_crypto
+  Automatic MOC and UIC for target 7zip_compress
+  7zip_crypto.vcxproj -> E:\Users\Simon\source\repos\kseditor\build\lib\Release\7zip_crypto.lib
+  7zip_compress.vcxproj -> E:\Users\Simon\source\repos\kseditor\build\lib\Release\7zip_compress.lib
+  Automatic MOC and UIC for target 7zip_archive
+  7zip_archive.vcxproj -> E:\Users\Simon\source\repos\kseditor\build\lib\Release\7zip_archive.lib
+  Automatic MOC and UIC for target kseditor_lib
+  EditorUI.cpp
+  RibbonUI.cpp
+  ribbontheme.cpp
+  3DPrintTypes.cpp
+  GCodeGenerator.cpp
+E:\Users\Simon\source\repos\kseditor\src\core\3dprint\GCodeGenerator.cpp(74,19): warning C4858: rimozione del valore restituito: Use QThreadPool::start(Callable&&) if you don't need the returned QFuture [E:\Users\Simon\source\repos\kseditor\build\kseditor_lib.vcxproj]
+  PrintPreview.cpp
+  PrinterProfile.cpp
+  SliceSettings.cpp
+  SlicerEngine.cpp
+E:\Users\Simon\source\repos\kseditor\src\core\3dprint\SlicerEngine.cpp(247,19): warning C4858: rimozione del valore restituito: Use QThreadPool::start(Callable&&) if you don't need the returned QFuture [E:\Users\Simon\source\repos\kseditor\build\kseditor_lib.vcxproj]
+  SupportGenerator.cpp
+  ThreeDPrintEditorModule.cpp
+  ThreeDPrintModule.cpp
+  ThreeDPrintQmlBridge.cpp
+E:\Users\Simon\source\repos\kseditor\src\core\3dprint\ThreeDPrintQmlBridge.cpp(209,19): warning C4858: rimozione del valore restituito: Use QThreadPool::start(Callable&&) if you don't need the returned QFuture [E:\Users\Simon\source\repos\kseditor\build\kseditor_lib.vcxproj]
+E:\Users\Simon\source\repos\kseditor\src\core\3dprint\ThreeDPrintQmlBridge.cpp(223,19): warning C4858: rimozione del valore restituito: Use QThreadPool::start(Callable&&) if you don't need the returned QFuture [E:\Users\Simon\source\repos\kseditor\build\kseditor_lib.vcxproj]
+  AIEditorModule.cpp
+  AIEditorQmlBridge.cpp
+  AITelemetryTrainer.cpp
+  AiBehaviorModel.cpp
+  AiSplineEditor.cpp
+  AiSplineManager.cpp
+  MultiCarAI.cpp
+  Compilazione in corso...
+  AIAudioEngine.cpp
+  AudioAnalysis.cpp
+  AudioBank.cpp
+  AudioBankGenerator.cpp
+  AudioClip.cpp
+  AudioContainers.cpp
+  AudioCore.cpp
+  AudioEffects.cpp
+  AudioEngineSimIntegration.cpp
+  AudioExporter.cpp
+  AudioFormatConverter.cpp
+  AudioGenerator.cpp
+  AudioGraph.cpp
+  AudioManager.cpp
+  AudioMixer.cpp
+  AudioModuleBridge.cpp
+  AudioNodes.cpp
+  AudioProcessing.cpp
+  AudioQMLBridge.cpp
+  AudioRecording.cpp
+  Compilazione in corso...
+  AudioSpatial.cpp
+  AudioStudioTypes.cpp
+  AudioTimeStretch.cpp
+  AudioTools.cpp
+  AudioTypes.cpp
+  AudioUtilities.cpp
+  AudioVST3Host.cpp
+  AudioVSTHost.cpp
+  AudioWaveformBridge.cpp
+  CarAcoustics.cpp
+  DSPLibrary.cpp
+  FFTProcessor.cpp
+  KsACSndEventBridge.cpp
+  LADSPAHost.cpp
+  RPMProfile.cpp
+  RPMRecorder.cpp
+  StbVorbisImpl.cpp
+  Studio.cpp
+  TextToSpeech.cpp
+  VCAMixerSystem.cpp
+  Compilazione in corso...
+  WaveProcessor.cpp
+  WaveformEngine.cpp
+  ConfigIntegration.cpp
+  ConfigLoader.cpp
+  ConfigSchema.cpp
+  CspConfigEditorModule.cpp
+  CspConfigParser.cpp
+  PPFilterPreset.cpp
+  FfbConfigTool.cpp
+  FfbEditorModule.cpp
+  FfbEditorQmlBridge.cpp
+  ACGuidsParser.cpp
+  AiSpline.cpp
+  AlembicParser.cpp
+  Audio.cpp
+  BankParser.cpp
+  BankParserFactory.cpp
+  BankParserFmod1x.cpp
+  BankParserFmod2x.cpp
+  BankParserRegistry.cpp
+  Compilazione in corso...
+  BankVersion.cpp
+  BankWriter.cpp
+  BankWriterFactory.cpp
+  BankWriterFmod1x.cpp
+  BankWriterFmod2x.cpp
+  BankWriterRegistry.cpp
+  CADAdvancedParsers.cpp
+  CADConverter.cpp
+  CADDXFParser.cpp
+  CADFormatDetector.cpp
+  CADOBJParser.cpp
+  CADSTLParser.cpp
+  FBXParser.cpp
+  FSPROExporter.cpp
+  FSPROImporter.cpp
+  FileFormatEditorModule.cpp
+  FormatValidator.cpp
+  GLBParser.cpp
+  INIParser.cpp
+  JSONParser.cpp
+  Compilazione in corso...
+  KS3DReader.cpp
+  KS3DWriter.cpp
+  KSAudioExporter.cpp
+  KSAudioImporter.cpp
+  KSAudioValidator.cpp
+  Project.cpp
+  USDParser.cpp
+  GraphicsEditorModule.cpp
+  PBRUtils.cpp
+  RenderGraph.cpp
+  SceneData.cpp
+  SceneGraph.cpp
+  SceneMesh.cpp
+  SceneObject.cpp
+  ShaderMaterial.cpp
+  ShaderParamRegistry.cpp
+  TextureTools.cpp
+  VulkanIntegration.cpp
+  VulkanRenderer.cpp
+  VulkanShaderLoader.cpp
+  Compilazione in corso...
+  CoroutineManager.cpp
+  HotReloadManager.cpp
+  ScriptDebugger.cpp
+  ScriptDebuggerFrontend.cpp
+  ScriptHost.cpp
+  LuaScriptEditorModule.cpp
+  LuaScriptHost.cpp
+  PythonScriptEngine.cpp
+  PythonScriptHost.cpp
+  CspShaderCompiler.cpp
+  ServerConfigEditor.cpp
+  ServerConfigEditorModule.cpp
+  VREditorModule.cpp
+  XrInput.cpp
+  XrIntegration.cpp
+  XrManager.cpp
+  XrViewportRenderer.cpp
+  AnimationEditorModule.cpp
+  AnimationSystem.cpp
+  PhysicsSystem.cpp
+  Compilazione in corso...
+  ShapeKeyAnimDriver.cpp
+  ArchiveEditorModule.cpp
+  SevenZipLibrary.cpp
+  AssetDependencyGraph.cpp
+  AssetEditorModule.cpp
+  AssetFileWatcher.cpp
+  AssetManager.cpp
+  AssetPreviewWidget.cpp
+  AssetSearchEngine.cpp
+  AssetsLibraryModule.cpp
+  AssetsLibraryQmlBridge.cpp
+  CloudSyncManager.cpp
+  Paths.cpp
+  ProjectBuilder.cpp
+  ProjectManager.cpp
+  ProjectTemplates.cpp
+  RecentFilesManager.cpp
+  BaseEditor.cpp
+  ConsolePanel.cpp
+  CurveWidget.cpp
+  Compilazione in corso...
+  DebuggerCore.cpp
+  EditorConfig.cpp
+  EditorModule.cpp
+  ModuleGuiBase.cpp
+  ScriptConsole.cpp
+  SettingsModule.cpp
+  StartupDialog.cpp
+  TimelineEditor.cpp
+  CareerEditorModule.cpp
+  ChampionshipEditorModule.cpp
+  RaceConfigEditorModule.cpp
+  SpecialEventsEditorModule.cpp
+  HelpBrowser.cpp
+  HelpEditorModule.cpp
+  HelpSystem.cpp
+  MaterialEditorModule.cpp
+  MaterialLibrary.cpp
+  MaterialSystem.cpp
+  ShaderGraph.cpp
+  ShaderGraphWidget.cpp
+  Compilazione in corso...
+  ShaderManager.cpp
+  TextureAtlas.cpp
+  TexturePaint.cpp
+  TexturePaintQmlBridge.cpp
+  TexturePaintSystem.cpp
+  AdvancedMeshOps.cpp
+  AdvancedSculpt.cpp
+  InstanceReference.cpp
+  MeshData.cpp
+  MeshDataBridge.cpp
+  MeshEditorModule.cpp
+  MeshOperations.cpp
+  MeshRenderer.cpp
+  ModifierSystem.cpp
+  NormalMapBaker.cpp
+  PhysicsCollisionSystem.cpp
+  RenderEngine.cpp
+  SculptMode.cpp
+  ShapeKeyModifier.cpp
+  SkeletonSystem.cpp
+  Compilazione in corso...
+  SubdivisionSurface.cpp
+  Viewport3D.cpp
+  Viewport3DWidget.cpp
+  WeightPainting.cpp
+  ConflictResolutionDialog.cpp
+  ContentBrowser.cpp
+  ContentBrowserWidget.cpp
+  ContentRepair.cpp
+  ContentRepairTool.cpp
+  ModCollection.cpp
+  ModManager.cpp
+  ModManagerEditorModule.cpp
+  ModManagerQmlBridge.cpp
+  ModPackager.cpp
+  Package.cpp
+  CloudSyncModule.cpp
+  CollabEditorQmlBridge.cpp
+  CollabWebSocket.cpp
+  Collaboration.cpp
+  NetworkEditorModule.cpp
+  Compilazione in corso...
+  PaintCanvasWidget.cpp
+  PaintDocument.cpp
+  PaintEditor.cpp
+  PPFilterColorGrading.cpp
+  PPFiltersEditor.cpp
+  PPFiltersEditorModule.cpp
+  PPFiltersQmlBridge.cpp
+  WindowSplitter.cpp
+  DatabaseManager.cpp
+  ExternalToolManager.cpp
+  HangMonitor.cpp
+  LogManager.cpp
+  ModuleManager.cpp
+  PluginManager.cpp
+  ProjectSerializer.cpp
+  SettingsManager.cpp
+  StateMachine.cpp
+  SystemEditorModule.cpp
+  TaskSystem.cpp
+  TransactionManager.cpp
+  Compilazione in corso...
+  UndoStack.cpp
+  UserProfile.cpp
+  CodeEditor.cpp
+  FindReplaceDialog.cpp
+  LSPClient.cpp
+  MinimapWidget.cpp
+  SyntaxHighlighter.cpp
+E:\Users\Simon\source\repos\kseditor\src\core\textEditor\SyntaxHighlighter.cpp(361,25): warning C4834: eliminazione in corso del valore restituito della funzione con attributo [[nodiscard]] [E:\Users\Simon\source\repos\kseditor\build\kseditor_lib.vcxproj]
+  TextEditorModule.cpp
+  TreeSitterHighlighter.cpp
+  AutoSave.cpp
+  BackupSystem.cpp
+  BatchProcessor.cpp
+  CacheManager.cpp
+  CollisionMeshGenerator.cpp
+  DependencyScanner.cpp
+  ExportPresets.cpp
+  FileDiffEngine.cpp
+  FormatToolsQmlBridge.cpp
+  HotkeyActionSystem.cpp
+  ImportExportFilters.cpp
+  Compilazione in corso...
+  LODGenerator.cpp
+  MacroSystem.cpp
+  MetadataSystem.cpp
+  NotificationSystem.cpp
+  PerformanceOptimizer.cpp
+  PreviewGenerator.cpp
+  PythonBridge.cpp
+  QualitySystem.cpp
+  SearchFilter.cpp
+  ShortcutProfile.cpp
+  SymmetryManager.cpp
+  TemplateManager.cpp
+  ThemeSystem.cpp
+  ToolsEditorModule.cpp
+  UpdateChecker.cpp
+  VersionControl.cpp
+  AssetListModel.cpp
+  CustomTitleBar.cpp
+  FontEditorDialog.cpp
+  NewProjectDialog.cpp
+  Compilazione in corso...
+  NodeGraphEditor.cpp
+  NodeGraphScene.cpp
+  PackageWizard.cpp
+  ProfileManager.cpp
+  ProjectSearchWidget.cpp
+  ReplaceDialog.cpp
+  SoundWizard.cpp
+  SplashScreen.cpp
+  TerminalWidget.cpp
+  UIEditorModule.cpp
+  WelcomeScreen.cpp
+  GitManager.cpp
+  GitStatusWidget.cpp
+  VcsEditorModule.cpp
+  WeatherConfigParser.cpp
+  WeatherEditor.cpp
+  WeatherEditorModule.cpp
+  WeatherPreviewRenderer.cpp
+  WorkshopEditorModule.cpp
+  WorkshopEditorQmlBridge.cpp
+  Compilazione in corso...
+  WorkshopManager.cpp
+  main.cpp
+  EditorApp.cpp
+  LicensePlateEditorModule.cpp
+  LicensePlateGenerator.cpp
+  LicensePlatesQmlBridge.cpp
+  QRCodeWriter.cpp
+  GUISkinEditorModule.cpp
+  PaintEditorModule.cpp
+  PaintEditorQmlBridge.cpp
+  PaintEditorWidget.cpp
+  PaintSystem.cpp
+  PaintViewport.cpp
+  SkinIniEditorModule.cpp
+  VectorDesignCanvas.cpp
+  VectorShape.cpp
+  PhysicsEditor.cpp
+  PhysicsPanel.cpp
+  PhysicsProfiler.cpp
+  PhysicsQmlBridge.cpp
+  Compilazione in corso...
+  PhysicsSimulator.cpp
+  CarSetupEditor.cpp
+  LapTimeImpactCalculator.cpp
+  SetupComparisonTool.cpp
+  SetupEditorQmlBridge.cpp
+  SetupRecommender.cpp
+  TireTemperaturePredictor.cpp
+  phys_LapTimer.cpp
+  phys_TireModel.cpp
+  LapTimeValidation.cpp
+  TelemetryAnalyzer.cpp
+  TelemetryFeedbackBridge.cpp
+  TelemetryQmlBridge.cpp
+  TelemetryViewerQmlBridge.cpp
+  AcdBrowserWidget.cpp
+  AcdManagerWidget.cpp
+  CarBrowserWidget.cpp
+  CarSetupCompareWidget.cpp
+  CarValidatorWidget.cpp
+  EngineCurveWidget.cpp
+  Compilazione in corso...
+  FfbPreviewWidget.cpp
+  IniEditorWidget.cpp
+  IniSyntaxHighlighter.cpp
+  LutCurveWidget.cpp
+  SuspGeometryWidget.cpp
+  TelemetryWidget.cpp
+  TyreTempModelWidget.cpp
+  TyresTableWidget.cpp
+  ShowroomEditorModule.cpp
+  ShowroomEditorQmlBridge.cpp
+  ShowroomPPEditorModule.cpp
+  ShowroomSystem.cpp
+  ShowroomViewport3D.cpp
+  DisplayEditor.cpp
+  DisplayEditorModule.cpp
+  DisplayEditorQmlBridge.cpp
+  LuaExpressionEvaluator.cpp
+  FontCreatorEditorModule.cpp
+  FontCreatorQmlBridge.cpp
+  fonteditor_acffile.cpp
+  Compilazione in corso...
+  fonteditor_glyphmodel.cpp
+  fonteditor_glyphtilewidget.cpp
+  fonteditorwindow.cpp
+  IdeEditorFileBrowser.cpp
+  IdeEditorModule.cpp
+  IdeEditorSearchPanel.cpp
+  IdeEditorWidget.cpp
+  3DModeling.cpp
+  3DModelingQmlBridge.cpp
+E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\3DModelingQmlBridge.cpp(3972,25): error C2248: 'ks::MeshOperations::ensureEdgeList': impossibile accedere a private membro dichiarato nella classe 'ks::MeshOperations' [E:\Users\Simon\source\repos\kseditor\build\kseditor_lib.vcxproj]
+      E:\Users\Simon\source\repos\kseditor\src\core\mesh\MeshOperations.h(492,17):
+      vedere la dichiarazione di 'ks::MeshOperations::ensureEdgeList'
+      E:\Users\Simon\source\repos\kseditor\src\core\mesh\MeshOperations.h(105,7):
+      vedere la dichiarazione di 'ks::MeshOperations'
+  
+  3DModeling_Module.cpp
+  3DModeling_RigGenerator.cpp
+  3DModeling_Viewport.cpp
+  3DModeling_io.cpp
+  3DModeling_panels.cpp
+  3DModeling_utils.cpp
+  AdditionalModifiers.cpp
+  AdvancedBatchProcessor.cpp
+  BoolOpQmlBridge.cpp
+  BooleanOps.cpp
+  BooleanStack.cpp
+  Compilazione in corso...
+  BvhImporter.cpp
+  CarConfigEditor.cpp
+  CarEditor.cpp
+  CarEditorWidget.cpp
+  CarViewport.cpp
+  EngineRigDialog.cpp
+  TireRigDialog.cpp
+  CameraEditorModule.cpp
+  CharacterEditor.cpp
+  CharacterEditorQmlBridge.cpp
+  CharacterEditorWidget.cpp
+  CharacterViewport.cpp
+  DriverEditorModule.cpp
+  ClothSystem.cpp
+  CommandHistory.cpp
+  CommandPalette.cpp
+  ConstraintSystem.cpp
+  CurveSystem.cpp
+  FCurveSystem.cpp
+  Geometry3D.cpp
+  Compilazione in corso...
+  GeometryNodes.cpp
+  HairSystem.cpp
+  ICEParticleSystem.cpp
+  MaterialPresetLibrary.cpp
+  MeshModifier.cpp
+  ModelerContext.cpp
+  ModelingOps.cpp
+  ModifierStack.cpp
+  NodeMaterialEditor.cpp
+  ParticleInstancing.cpp
+  ParticlePointsGeometry.cpp
+  PhysicsMeshGenerator.cpp
+  PhysicsMeshQmlBridge.cpp
+  ProceduralGenerators.cpp
+  PythonScriptManager.cpp
+  RayTraceRenderer.cpp
+  RenderOptimizer.cpp
+  Rendering3D.cpp
+  RigidBodySystem.cpp
+  SceneMeshGeometry.cpp
+  Compilazione in corso...
+  SceneObjectListModel.cpp
+  ShortcutManager.cpp
+  SymmetryQmlBridge.cpp
+  DRSZoneEditorModule.cpp
+  RoadBuilder.cpp
+  TerrainEditorQmlBridge.cpp
+  TerrainEngine.cpp
+  TrackBuilderModule.cpp
+  TrackBuilderPage.cpp
+  TrackBuilderTools.cpp
+  TrackBuilderTypes.cpp
+  TrackBuilderWidget.cpp
+  TrackEditor.cpp
+  TrackEditorWidget.cpp
+  TrackExporter.cpp
+  TrackLightingEditorModule.cpp
+  TrackMapEditorModule.cpp
+  TrackSurfaceEditor.cpp
+  TrackSurfaceEditorModule.cpp
+  TrackTerrainEditor.cpp
+  Compilazione in corso...
+  TrackTerrainSystem.cpp
+  TrackViewport.cpp
+  TrackViewportWidget.cpp
+  TrackCameraEditorModule.cpp
+  VulkanViewportItem.cpp
+  WizardSystem.cpp
+  CarWizard.cpp
+  CharacterWizard.cpp
+  TrackWizard.cpp
+  AudioEffectsQmlBridge.cpp
+  PrecisionFader.cpp
+  SoundEditorModule.cpp
+  AudioStudioBridge.cpp
+  EngineSimHook.cpp
+  StudioModule.cpp
+  KsPlugin.cpp
+  FBXExporter.cpp
+  KN5Parser.cpp
+  FormatConverter.cpp
+  FormatToolsEditorModule.cpp
+  Compilazione in corso...
+  AudioEngineQML.cpp
+  CarAudioEngine.cpp
+  SDKBackend.cpp
+  mocs_compilation_Release.cpp

@@ -44,6 +44,21 @@ bool KS3DReader::readFromFile(const std::string& path)
     if (!parseNodes(m_fileData, header.nodeOffset, header.nodeCount))
         return false;
 
+    // Optional JSON metadata trailer (offset/size in reserved[0/1]).
+    m_scene.auxJson.clear();
+    if (header.reserved[1] > 0 && header.reserved[0] > 0) {
+        size_t auxStart = header.reserved[0];
+        size_t auxSize = header.reserved[1];
+        if (auxStart + auxSize <= m_fileData.size()) {
+            m_scene.auxJson.assign(
+                reinterpret_cast<const char*>(m_fileData.data() + auxStart),
+                auxSize);
+        } else {
+            m_lastError = "Corrupt auxiliary metadata section";
+            return false;
+        }
+    }
+
     return true;
 }
 
