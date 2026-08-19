@@ -40,6 +40,7 @@ ShowroomSystem::ShowroomConfig ShowroomSystem::loadConfig(const QString& configP
     config.rotateSpeed = static_cast<float>(ini.real("CAMERA", "ROTATE_SPEED", 0.5));
     config.autoRotate = ini.boolean("CAMERA", "AUTO_ROTATE", true);
     config.backgroundPath = ini.string("BACKGROUND", "PATH", "");
+    config.backgroundColor = QColor(ini.string("BACKGROUND", "COLOR", "#000000"));
     config.ambientColor = QColor(ini.string("LIGHTING", "AMBIENT_COLOR", "#C8C8C8"));
     config.sunColor = QColor(ini.string("LIGHTING", "SUN_COLOR", "#FFFAF0"));
     config.sunIntensity = static_cast<float>(ini.real("LIGHTING", "SUN_INTENSITY", 1.0));
@@ -75,6 +76,7 @@ bool ShowroomSystem::saveConfig(const ShowroomConfig& config, const QString& con
     ini.setValue("CAMERA", "ROTATE_SPEED", static_cast<double>(config.rotateSpeed));
     ini.setValue("CAMERA", "AUTO_ROTATE", config.autoRotate);
     ini.setValue("BACKGROUND", "PATH", config.backgroundPath);
+    ini.setValue("BACKGROUND", "COLOR", config.backgroundColor.name());
     ini.setValue("LIGHTING", "AMBIENT_COLOR", config.ambientColor.name());
     ini.setValue("LIGHTING", "SUN_COLOR", config.sunColor.name());
     ini.setValue("LIGHTING", "SUN_INTENSITY", static_cast<double>(config.sunIntensity));

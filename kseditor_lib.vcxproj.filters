@@ -196,7 +196,7 @@
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\Audio\WaveformEngine.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\ColorSpace.cpp">
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\Graphics\ColorSpace.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\Config\ConfigIntegration.cpp">
@@ -1114,16 +1114,16 @@
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\ShowroomEditor\ShowroomViewport3D.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\displayEditor\DisplayEditor.cpp">
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\cockpitInstruments\CockpitInstruments.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\displayEditor\DisplayEditorModule.cpp">
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\cockpitInstruments\CockpitInstrumentsModule.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\displayEditor\DisplayEditorQmlBridge.cpp">
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\cockpitInstruments\CockpitInstrumentsQmlBridge.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\displayEditor\LuaExpressionEvaluator.cpp">
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\cockpitInstruments\LuaExpressionEvaluator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\fontEditor\FontCreatorEditorModule.cpp">
@@ -1668,7 +1668,7 @@
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Audio\WaveformEngine.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\ColorSpace.h">
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Graphics\ColorSpace.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Config\ConfigIntegration.h">
@@ -2595,16 +2595,16 @@
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\ShowroomEditor\ShowroomViewport3D.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\displayEditor\DisplayEditor.h">
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\cockpitInstruments\CockpitInstruments.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\displayEditor\DisplayEditorModule.h">
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\cockpitInstruments\CockpitInstrumentsModule.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\displayEditor\DisplayEditorQmlBridge.h">
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\cockpitInstruments\CockpitInstrumentsQmlBridge.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\displayEditor\LuaExpressionEvaluator.h">
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\cockpitInstruments\LuaExpressionEvaluator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\fontEditor\FontCreatorEditorModule.h">

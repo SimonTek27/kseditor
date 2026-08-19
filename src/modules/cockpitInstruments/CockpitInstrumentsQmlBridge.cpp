@@ -193,6 +193,11 @@ void CockpitInstrumentsQmlBridge::updateElement(const QString& id, const QVarian
     if (data.contains("fontSize")) elem->fontSize = data["fontSize"].toInt();
     if (data.contains("visible")) elem->visible = data["visible"].toBool();
     if (data.contains("fontFamily")) elem->fontFamily = data["fontFamily"].toString();
+    if (data.contains("source")) elem->source = static_cast<DataSource>(data["source"].toInt());
+    if (data.contains("decimalPlaces")) elem->decimalPlaces = data["decimalPlaces"].toInt();
+    if (data.contains("minValue")) elem->minValue = data["minValue"].toInt();
+    if (data.contains("maxValue")) elem->maxValue = data["maxValue"].toInt();
+    if (data.contains("imagePath")) elem->imagePath = data["imagePath"].toString();
 
     emit elementModified(id);
 }

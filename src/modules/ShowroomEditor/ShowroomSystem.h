@@ -93,6 +93,8 @@ public:
         bool useIESProfiles = false;
         QString iesProfilePath;
 
+        QColor backgroundColor = Qt::black;
+
         // Comparison
         bool enableComparison = false;
         QString comparisonCarPath;

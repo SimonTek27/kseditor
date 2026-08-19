@@ -465,7 +465,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\Audio\VCAMixerSystem.cpp" />
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\Audio\WaveProcessor.cpp" />
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\Audio\WaveformEngine.cpp" />
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\ColorSpace.cpp" />
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\Graphics\ColorSpace.cpp" />
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\Config\ConfigIntegration.cpp" />
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\Config\ConfigLoader.cpp" />
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\Config\ConfigSchema.cpp" />
@@ -783,10 +783,10 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\ShowroomEditor\ShowroomPPEditorModule.cpp" />
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\ShowroomEditor\ShowroomSystem.cpp" />
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\ShowroomEditor\ShowroomViewport3D.cpp" />
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\displayEditor\DisplayEditor.cpp" />
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\displayEditor\DisplayEditorModule.cpp" />
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\displayEditor\DisplayEditorQmlBridge.cpp" />
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\displayEditor\LuaExpressionEvaluator.cpp" />
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\cockpitInstruments\CockpitInstruments.cpp" />
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\cockpitInstruments\CockpitInstrumentsModule.cpp" />
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\cockpitInstruments\CockpitInstrumentsQmlBridge.cpp" />
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\cockpitInstruments\LuaExpressionEvaluator.cpp" />
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\fontEditor\FontCreatorEditorModule.cpp" />
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\fontEditor\FontCreatorQmlBridge.cpp" />
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\fontEditor\fonteditor_acffile.cpp" />
@@ -968,7 +968,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Audio\VCAMixerSystem.h" />
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Audio\WaveProcessor.h" />
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Audio\WaveformEngine.h" />
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\ColorSpace.h" />
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Graphics\ColorSpace.h" />
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Config\ConfigIntegration.h" />
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Config\ConfigLoader.h" />
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Config\ConfigSchema.h" />
@@ -1277,10 +1277,10 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\ShowroomEditor\ShowroomPPEditorModule.h" />
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\ShowroomEditor\ShowroomSystem.h" />
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\ShowroomEditor\ShowroomViewport3D.h" />
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\displayEditor\DisplayEditor.h" />
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\displayEditor\DisplayEditorModule.h" />
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\displayEditor\DisplayEditorQmlBridge.h" />
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\displayEditor\LuaExpressionEvaluator.h" />
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\cockpitInstruments\CockpitInstruments.h" />
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\cockpitInstruments\CockpitInstrumentsModule.h" />
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\cockpitInstruments\CockpitInstrumentsQmlBridge.h" />
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\cockpitInstruments\LuaExpressionEvaluator.h" />
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\fontEditor\FontCreatorEditorModule.h" />
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\fontEditor\FontCreatorQmlBridge.h" />
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\fontEditor\fonteditor_acffile.h" />

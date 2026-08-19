@@ -24,6 +24,11 @@ class ShowroomEditorQmlBridge : public QObject {
     Q_PROPERTY(float sunIntensity READ sunIntensity WRITE setSunIntensity NOTIFY configChanged)
     Q_PROPERTY(float ambientIntensity READ ambientIntensity WRITE setAmbientIntensity NOTIFY configChanged)
     Q_PROPERTY(bool hasUnsavedChanges READ hasUnsavedChanges NOTIFY unsavedChangesChanged)
+    Q_PROPERTY(int selectedCameraIndex READ selectedCameraIndex WRITE setSelectedCameraIndex NOTIFY configChanged)
+    Q_PROPERTY(int selectedLightIndex READ selectedLightIndex WRITE setSelectedLightIndex NOTIFY configChanged)
+    Q_PROPERTY(QString backgroundColor READ backgroundColor WRITE setBackgroundColor NOTIFY configChanged)
+    Q_PROPERTY(bool isValid READ isValid NOTIFY configChanged)
+    Q_PROPERTY(bool isPreviewGenerated READ isPreviewGenerated NOTIFY previewGeneratedChanged)
 
 public:
     static ShowroomEditorQmlBridge* instance();
@@ -42,6 +47,11 @@ public:
     float sunIntensity() const { return m_config.sunIntensity; }
     float ambientIntensity() const { return m_config.ambientIntensity; }
     bool hasUnsavedChanges() const { return m_hasUnsavedChanges; }
+    int selectedCameraIndex() const { return m_selectedCameraIndex; }
+    int selectedLightIndex() const { return m_selectedLightIndex; }
+    QString backgroundColor() const { return m_config.backgroundColor.name(); }
+    bool isValid() const { return true; }
+    bool isPreviewGenerated() const { return m_previewGenerated; }
 
     // Setters
     void setCameraDistance(float v);
@@ -55,6 +65,9 @@ public:
     void setSunColor(const QString& v);
     void setSunIntensity(float v);
     void setAmbientIntensity(float v);
+    void setSelectedCameraIndex(int v);
+    void setSelectedLightIndex(int v);
+    void setBackgroundColor(const QString& v);
 
     // Q_INVOKABLE methods
     Q_INVOKABLE bool loadShowroom(const QString& path);
@@ -77,14 +90,18 @@ public:
     Q_INVOKABLE bool generatePreview(const QString& carPath, int width, int height, const QString& outputPath);
     Q_INVOKABLE bool generateThumbnail(const QString& carPath, const QString& outputPath);
     Q_INVOKABLE void resetToDefaults();
+    Q_INVOKABLE void generatePreviewSimple(const QString& path);
 
 signals:
     void showroomChanged();
     void configChanged();
     void unsavedChangesChanged();
+    void previewGeneratedChanged();
+    void statusMessageChanged();
     void showroomLoaded(const QString& name);
     void showroomSaved(const QString& name);
     void previewGenerated(const QString& outputPath);
+    void statusMessage(const QString& message);
 
 private:
     static ShowroomEditorQmlBridge* s_instance;
@@ -96,6 +113,9 @@ private:
     QVector<ShowroomSystem::ShowroomCamera> m_cameras;
     QVector<ShowroomSystem::ShowroomLight> m_lights;
     bool m_hasUnsavedChanges = false;
+    int m_selectedCameraIndex = -1;
+    int m_selectedLightIndex = -1;
+    bool m_previewGenerated = false;
 };
 
 } // namespace ks

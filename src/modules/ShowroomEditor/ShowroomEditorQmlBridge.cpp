@@ -91,6 +91,28 @@ void ShowroomEditorQmlBridge::setAmbientIntensity(float v) {
     emit configChanged();
 }
 
+void ShowroomEditorQmlBridge::setSelectedCameraIndex(int v) {
+    if (m_selectedCameraIndex == v) return;
+    m_selectedCameraIndex = v;
+    emit configChanged();
+}
+
+void ShowroomEditorQmlBridge::setSelectedLightIndex(int v) {
+    if (m_selectedLightIndex == v) return;
+    m_selectedLightIndex = v;
+    emit configChanged();
+}
+
+void ShowroomEditorQmlBridge::setBackgroundColor(const QString& v) {
+    QColor c(v);
+    if (m_config.backgroundColor == c) return;
+    m_config.backgroundColor = c;
+    markUnsaved();
+    emit configChanged();
+}
+
+
+
 bool ShowroomEditorQmlBridge::loadShowroom(const QString& path) {
     m_config = ShowroomSystem::loadConfig(path);
     m_cameras = ShowroomSystem::loadCameras(path);
@@ -332,9 +354,12 @@ bool ShowroomEditorQmlBridge::generatePreview(const QString& carPath, int width,
     config.cameraHeight = m_config.cameraHeight;
     config.cameraAngle = m_config.cameraAngle;
     config.fov = m_config.cameraFov;
+    config.backgroundColor = m_config.backgroundColor;
 
     bool ok = ShowroomSystem::generatePreview(carPath, config);
     if (ok) {
+        m_previewGenerated = true;
+        emit previewGeneratedChanged();
         emit previewGenerated(outputPath);
     }
     return ok;
@@ -343,9 +368,30 @@ bool ShowroomEditorQmlBridge::generatePreview(const QString& carPath, int width,
 bool ShowroomEditorQmlBridge::generateThumbnail(const QString& carPath, const QString& outputPath) {
     bool ok = ShowroomSystem::generateThumbnail(carPath, outputPath);
     if (ok) {
+        m_previewGenerated = true;
+        emit previewGeneratedChanged();
         emit previewGenerated(outputPath);
     }
     return ok;
+}
+
+void ShowroomEditorQmlBridge::generatePreviewSimple(const QString& path) {
+    ShowroomSystem::PreviewConfig config;
+    config.width = 1920;
+    config.height = 1080;
+    config.outputPath = path;
+    config.cameraDistance = m_config.cameraDistance;
+    config.cameraHeight = m_config.cameraHeight;
+    config.cameraAngle = m_config.cameraAngle;
+    config.fov = m_config.cameraFov;
+    config.backgroundColor = m_config.backgroundColor;
+
+    bool ok = ShowroomSystem::generatePreview("", config);
+    if (ok) {
+        m_previewGenerated = true;
+        emit previewGeneratedChanged();
+        emit previewGenerated(path);
+    }
 }
 
 void ShowroomEditorQmlBridge::resetToDefaults() {
@@ -353,6 +399,8 @@ void ShowroomEditorQmlBridge::resetToDefaults() {
     m_cameras.clear();
     m_cameras.append(ShowroomSystem::getDefaultCamera());
     m_lights = ShowroomSystem::getDefaultLights();
+    m_selectedCameraIndex = -1;
+    m_selectedLightIndex = -1;
     markUnsaved();
     emit configChanged();
     emit showroomChanged();

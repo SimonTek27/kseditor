@@ -628,6 +628,10 @@ bool ksCockpitInstruments::parseLuaFile(const QString& content)
         QRegularExpressionMatch typeMatch = typeRe.match(elemBody);
         if (typeMatch.hasMatch()) elem.type = static_cast<ElementType>(typeMatch.captured(1).toInt());
 
+        QRegularExpression sourceRe("source\\s*=\\s*\"?(\\w+)\"?");
+        QRegularExpressionMatch sourceMatch = sourceRe.match(elemBody);
+        if (sourceMatch.hasMatch()) elem.source = stringToDataSource(sourceMatch.captured(1));
+
         QRegularExpression posRe("position\\s*=\\s*\\{(-?\\d+)\\s*,\\s*(-?\\d+)\\}");
         QRegularExpressionMatch posMatch = posRe.match(elemBody);
         if (posMatch.hasMatch()) {
@@ -655,6 +659,30 @@ bool ksCockpitInstruments::parseLuaFile(const QString& content)
         QRegularExpression fontFamRe("fontFamily\\s*=\\s*\"([^\"]*)\"");
         QRegularExpressionMatch fontFamMatch = fontFamRe.match(elemBody);
         if (fontFamMatch.hasMatch()) elem.fontFamily = fontFamMatch.captured(1);
+
+        QRegularExpression decRe("decimalPlaces\\s*=\\s*(\\d+)");
+        QRegularExpressionMatch decMatch = decRe.match(elemBody);
+        if (decMatch.hasMatch()) elem.decimalPlaces = decMatch.captured(1).toInt();
+
+        QRegularExpression visRe("visible\\s*=\\s*(\\w+)");
+        QRegularExpressionMatch visMatch = visRe.match(elemBody);
+        if (visMatch.hasMatch()) elem.visible = (visMatch.captured(1).toUpper() == "TRUE");
+
+        QRegularExpression updRe("updateInterval\\s*=\\s*(\\d+)");
+        QRegularExpressionMatch updMatch = updRe.match(elemBody);
+        if (updMatch.hasMatch()) elem.updateInterval = updMatch.captured(1).toInt();
+
+        QRegularExpression minRe("minValue\\s*=\\s*(\\d+)");
+        QRegularExpressionMatch minMatch = minRe.match(elemBody);
+        if (minMatch.hasMatch()) elem.minValue = minMatch.captured(1).toInt();
+
+        QRegularExpression maxRe("maxValue\\s*=\\s*(\\d+)");
+        QRegularExpressionMatch maxMatch = maxRe.match(elemBody);
+        if (maxMatch.hasMatch()) elem.maxValue = maxMatch.captured(1).toInt();
+
+        QRegularExpression imgRe("imagePath\\s*=\\s*\"([^\"]*)\"");
+        QRegularExpressionMatch imgMatch = imgRe.match(elemBody);
+        if (imgMatch.hasMatch()) elem.imagePath = imgMatch.captured(1);
 
         m_elements.append(elem);
     }
