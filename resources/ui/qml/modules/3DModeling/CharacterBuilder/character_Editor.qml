@@ -525,6 +525,27 @@ Rectangle {
                                             onClicked: CharacterEditor.normalizeWeights()
                                         }
                                         AppButton {
+                                            text: "Mirror X"
+                                            height: 28
+                                            bgcolor: "#3e3e42"
+                                            color: "#ffffff"
+                                            onClicked: CharacterEditor.mirrorWeights(0)
+                                        }
+                                        AppButton {
+                                            text: "Mirror Y"
+                                            height: 28
+                                            bgcolor: "#3e3e42"
+                                            color: "#ffffff"
+                                            onClicked: CharacterEditor.mirrorWeights(1)
+                                        }
+                                        AppButton {
+                                            text: "Mirror Z"
+                                            height: 28
+                                            bgcolor: "#3e3e42"
+                                            color: "#ffffff"
+                                            onClicked: CharacterEditor.mirrorWeights(2)
+                                        }
+                                        AppButton {
                                             text: "Auto-Bind"
                                             height: 28
                                             bgcolor: "#E10600"

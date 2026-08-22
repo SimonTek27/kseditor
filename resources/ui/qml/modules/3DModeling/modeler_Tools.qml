@@ -172,6 +172,15 @@ Rectangle {
                     onClicked: { if (Modeler.insetFaces) Modeler.insetFaces([], 0.5) } }
                 AppButton { height: 28; text: "Bevel"; bgcolor: "transparent"; color: "#ffffff"
                     onClicked: { if (Modeler.bevelEdges) Modeler.bevelEdges([], 0.1, 1) } }
+                AppButton { height: 28; text: "Fillet Chain"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: {
+                        var es = Modeler.selectedSubEdges ? Modeler.selectedSubEdges() : [];
+                        var rs = [];
+                        for (var i = 0; i < Math.max(es.length, 1); ++i)
+                            rs.push(0.06 + 0.015 * (i % 3));
+                        if (Modeler.filletChain) Modeler.filletChain(es.length ? es : [], rs, 1, 40.0)
+                    }
+                    ToolTip.visible: hovered; ToolTip.text: "Bevel selected edges with a tapering chain radius (Plasticity fillet-chain)" }
                 AppButton { height: 28; text: "Loop Cut"; bgcolor: "transparent"; color: "#ffffff"
                     onClicked: { var id = Modeler.selectedObject ? Modeler.selectedObject.id : -1; if (id >= 0 && Modeler.loopCut) Modeler.loopCut(id, 2, 0.5, 0.0) } }
                 AppButton { height: 28; text: "Knife"; bgcolor: "transparent"; color: "#ffffff"
@@ -373,6 +382,96 @@ Rectangle {
                     }
                 }
 
+                Rectangle {
+                    height: actionCenter.height
+                    width: parent.width
+                    color: "#252526"
+                    clip: true
+
+                    ColumnLayout {
+                        id: actionCenter
+                        width: parent.width
+                        spacing: 4
+
+                        Text { text: "ACTION CENTER"; color: "#ff6600"; font.pixelSize: 9; font.bold: true }
+
+                        ComboBox {
+                            id: acMode
+                            Layout.fillWidth: true; height: 22
+                            model: ["Translate", "Rotate", "Uniform Scale", "Axis Scale"]
+                        }
+
+                        ComboBox {
+                            id: acAxis
+                            Layout.fillWidth: true; height: 22
+                            model: ["X", "Y", "Z"]
+                        }
+
+                        GridLayout {
+                            Layout.fillWidth: true
+                            columns: 3
+                            columnSpacing: 4
+                            rowSpacing: 4
+
+                            Text { text: "X"; color: "#888"; font.pixelSize: 9; Layout.alignment: Qt.AlignVCenter }
+                            Text { text: "Y"; color: "#888"; font.pixelSize: 9; Layout.alignment: Qt.AlignVCenter }
+                            Text { text: "Z"; color: "#888"; font.pixelSize: 9; Layout.alignment: Qt.AlignVCenter }
+
+                            SpinBox {
+                                id: acX
+                                Layout.fillWidth: true; height: 22
+                                from: -10000; to: 10000; value: 0; editable: true; stepSize: 10
+                            }
+                            SpinBox {
+                                id: acY
+                                Layout.fillWidth: true; height: 22
+                                from: -10000; to: 10000; value: 0; editable: true; stepSize: 10
+                            }
+                            SpinBox {
+                                id: acZ
+                                Layout.fillWidth: true; height: 22
+                                from: -10000; to: 10000; value: 0; editable: true; stepSize: 10
+                            }
+                        }
+
+                        AppButton {
+                            height: 26; Layout.fillWidth: true
+                            text: "Apply"
+                            bgcolor: "#ff6600"; color: "#121212"
+                            font.pixelSize: 11; font.bold: true
+                            enabled: Modeler.selectedObject !== undefined
+                            onClicked: {
+                                if (!Modeler.transformVerticesAround) return
+                                var pivot = Modeler.hasProportionalCenter()
+                                        ? Modeler.proportionalCenter()
+                                        : Modeler.gizmoPosition
+                                var mode = acMode.currentIndex
+                                var axis = acAxis.currentIndex
+                                var r = Modeler.isProportionalEditing() ? Modeler.proportionalRadius() : 0
+                                var tx = 0, ty = 0, tz = 0
+                                if (mode === 0) { // Translate (mesh units)
+                                    tx = acX.value; ty = acY.value; tz = acZ.value
+                                } else if (mode === 1) { // Rotate (degrees on the chosen axis)
+                                    if (axis === 0) tx = acX.value
+                                    else if (axis === 1) ty = acY.value
+                                    else tz = acZ.value
+                                } else if (mode === 2) { // Uniform scale factor = 1 + v/100
+                                    tx = 1 + acX.value / 100
+                                } else { // Axis scale: factor on the chosen axis, others 1
+                                    tx = ty = tz = 1
+                                    if (axis === 0) tx = 1 + acX.value / 100
+                                    else if (axis === 1) ty = 1 + acY.value / 100
+                                    else tz = 1 + acZ.value / 100
+                                }
+                                Modeler.transformVerticesAround(mode, pivot.x, pivot.y, pivot.z,
+                                                                tx, ty, tz, r)
+                            }
+                        }
+
+                        Rectangle { height: 6; color: "transparent" }
+                    }
+                }
+
                 Rectangle { height: 10 }
 
                 Text { text: "MESH OPS"; color: "#666"; font.pixelSize: 10; font.bold: true }
@@ -432,6 +531,27 @@ Rectangle {
                     onClicked: { if (Modeler.projectUVPlanar) Modeler.projectUVPlanar(0) } }
                 AppButton { height: 28; text: "Mark Seam"; bgcolor: "transparent"; color: "#ffffff"
                     onClicked: { if (Modeler.dissolveEdges) Modeler.dissolveEdges([]) } }
+                AppButton { height: 28; text: "Resolve Overlaps"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.resolveUVOverlaps) Modeler.resolveUVOverlaps() }
+                    ToolTip.visible: hovered; ToolTip.text: "Detect overlapping UV islands and re-pack them (3ds Max-style overlap resolution)" }
+                AppButton { height: 28; text: "Pack"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.packUVs) Modeler.packUVs(0.01, 1024) } }
+
+                Rectangle { height: 10 }
+
+                Text { text: "SKETCH (revolve)"; color: "#ff6600"; font.pixelSize: 10; font.bold: true }
+                AppButton { height: 28; text: "Lathe X"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.revolveSketch) Modeler.revolveSketch(24, 360.0, true, 0) }
+                    ToolTip.visible: hovered; ToolTip.text: "Revolve the selected sketch profile around the X axis" }
+                AppButton { height: 28; text: "Lathe Y"; bgcolor: "#E10600"; color: "#121212"
+                    onClicked: { if (Modeler.revolveSketch) Modeler.revolveSketch(24, 360.0, true, 1) }
+                    ToolTip.visible: hovered; ToolTip.text: "Revolve the selected sketch profile around the Y axis" }
+                AppButton { height: 28; text: "Lathe Z"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.revolveSketch) Modeler.revolveSketch(24, 360.0, true, 2) }
+                    ToolTip.visible: hovered; ToolTip.text: "Revolve the selected sketch profile around the Z axis" }
+                AppButton { height: 28; text: "Tessellate"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { var id = Modeler.selectedObject ? Modeler.selectedObject.id : -1; if (id >= 0 && Modeler.nurbsSurfaceTessellate) Modeler.nurbsSurfaceTessellate(id); }
+                    ToolTip.visible: hovered; ToolTip.text: "Tessellate the selected NURBS surface object" }
 
                 Rectangle { height: 10 }
 
@@ -489,6 +609,9 @@ Rectangle {
                     onClicked: { if (Modeler.exportFBX) Modeler.exportFBX("export.fbx") } }
                 AppButton { height: 28; text: "Export GLB"; bgcolor: "transparent"; color: "#ffffff"
                     onClicked: { if (Modeler.exportGLB) Modeler.exportGLB("export.glb") } }
+                AppButton { height: 28; text: "Import LXO"; bgcolor: "transparent"; color: "#ffffff"
+                    onClicked: { if (Modeler.importLXO) Modeler.importLXO("") }
+                    ToolTip.visible: hovered; ToolTip.text: "Import a Modo .lxo object model" }
 
                 Rectangle { height: 10 }
 

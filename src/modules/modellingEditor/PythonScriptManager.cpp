@@ -169,24 +169,54 @@ void PythonScriptManager::exposePythonAPI() {
 
 bool PythonScriptManager::executeScriptInternal(const QString& scriptCode) {
 	try {
-		// Parse and execute basic Python-like commands
-		// Supports: simple function calls on the API
-		// Format: api.method(args)
+		if (!m_api) {
+			m_lastError = "Python API not initialized";
+			m_console->logError(m_lastError);
+			return false;
+		}
+
 		QStringList lines = scriptCode.split('\n', Qt::SkipEmptyParts);
+		bool inIfBlock = false;
+		bool ifCondition = false;
 
 		for (const QString& line : lines) {
 			QString trimmed = line.trimmed();
 			if (trimmed.startsWith('#') || trimmed.isEmpty()) continue;
 
-			if (!m_api) {
-				m_lastError = "Python API not initialized";
-				m_console->logError(m_lastError);
-				return false;
+			m_console->log(QString("> %1").arg(trimmed));
+
+			if (trimmed.startsWith("if ") && trimmed.endsWith(":")) {
+				QString cond = trimmed.mid(3, trimmed.size() - 4).trimmed();
+				if (cond == "True" || cond == "true") {
+					ifCondition = true;
+				} else if (cond.startsWith("len(") && cond.contains(") > 0")) {
+					ifCondition = (m_api->getObjectCount() > 0);
+				} else if (cond.startsWith("len(") && cond.contains(") == 0")) {
+					ifCondition = (m_api->getObjectCount() == 0);
+				} else {
+					ifCondition = false;
+				}
+				inIfBlock = true;
+				continue;
 			}
 
-			// Parse simple command: function_name(arg1, arg2, ...)
-			// For now, support common operations via command dispatch
-			m_console->log(QString("> %1").arg(trimmed));
+			if (trimmed == "else:" || trimmed == "elif:") {
+				inIfBlock = true;
+				ifCondition = !ifCondition;
+				continue;
+			}
+
+			if (trimmed == "endif" || trimmed.isEmpty()) {
+				inIfBlock = false;
+				ifCondition = false;
+				continue;
+			}
+
+			if (inIfBlock && !ifCondition) continue;
+
+			if (!parseAndExecuteLine(trimmed)) {
+				return false;
+			}
 		}
 
 		return true;
@@ -201,6 +231,216 @@ bool PythonScriptManager::executeScriptInternal(const QString& scriptCode) {
 		emit scriptError(m_lastError);
 		return false;
 	}
+}
+
+bool PythonScriptManager::parseAndExecuteLine(const QString& line) {
+	QString trimmed = line.trimmed();
+	if (trimmed.isEmpty() || trimmed.startsWith('#')) return true;
+
+	// Handle variable assignment: var = method(args)
+	if (trimmed.contains(" = ") && !trimmed.startsWith("print")) {
+		int eqIdx = trimmed.indexOf(" = ");
+		QString varName = trimmed.left(eqIdx).trimmed();
+		QString expr = trimmed.mid(eqIdx + 3).trimmed();
+		QVariant result = evaluateExpression(expr);
+		m_variables[varName] = result;
+		m_console->log(QString("  %1 = %2").arg(varName, result.toString()));
+		return true;
+	}
+
+	// Handle print(var) or print(method(args))
+	if (trimmed.startsWith("print(") && trimmed.endsWith(")")) {
+		QString inner = trimmed.mid(6, trimmed.size() - 7).trimmed();
+		QVariant val = evaluateExpression(inner);
+		m_console->log(QString("[OUTPUT] %1").arg(val.toString()));
+		emit scriptOutput(val.toString());
+		return true;
+	}
+
+	// Handle standalone method call
+	QVariant result = evaluateExpression(trimmed);
+	if (!result.isValid()) {
+		// Method call that returns bool (success/failure)
+		return true;
+	}
+	return result.toBool();
+}
+
+QVariant PythonScriptManager::evaluateExpression(const QString& expr) const {
+	if (!m_api) return QVariant();
+
+	QString e = expr.trimmed();
+
+	if (e == "True" || e == "true") return true;
+	if (e == "False" || e == "false") return false;
+
+	// Simple integer/float literals
+	bool ok;
+	int intVal = e.toInt(&ok);
+	if (ok) return intVal;
+	float floatVal = e.toFloat(&ok);
+	if (ok) return floatVal;
+
+	// String literal
+	if ((e.startsWith('"') && e.endsWith('"')) || (e.startsWith('\'') && e.endsWith('\''))) {
+		return e.mid(1, e.size() - 2);
+	}
+
+	// Variable lookup
+	if (m_variables.contains(e)) {
+		return m_variables[e];
+	}
+
+	// Function call: funcName(args)
+	int parenOpen = e.indexOf('(');
+	if (parenOpen > 0 && e.endsWith(')')) {
+		QString funcName = e.left(parenOpen).trimmed();
+		QString argsStr = e.mid(parenOpen + 1, e.size() - parenOpen - 2).trimmed();
+		return callAPIFunction(funcName, argsStr);
+	}
+
+	// Object.method(args) - e.g. selection.name
+	int dotIdx = e.indexOf('.');
+	if (dotIdx > 0) {
+		QString objName = e.left(dotIdx).trimmed();
+		QString rest = e.mid(dotIdx + 1).trimmed();
+		int pOpen = rest.indexOf('(');
+		if (pOpen > 0 && rest.endsWith(')')) {
+			QString method = rest.left(pOpen).trimmed();
+			QString argsStr = rest.mid(pOpen + 1, rest.size() - pOpen - 2).trimmed();
+			return callAPIFunction(method, argsStr);
+		}
+	}
+
+	return e;
+}
+
+QVariant PythonScriptManager::callAPIFunction(const QString& funcName, const QString& argsStr) const {
+	if (!m_api) return QVariant();
+
+	QStringList args;
+	if (!argsStr.isEmpty()) {
+		args = parseArguments(argsStr);
+	}
+
+	// Selection API
+	if (funcName == "getSelection") return m_api->getSelection();
+	if (funcName == "clearSelection") { const_cast<PythonScriptManager*>(this)->m_api->clearSelection(); return true; }
+
+	// Object API
+	if (funcName == "getObjects") return QVariant(m_api->getObjects());
+	if (funcName == "getObjectCount") return m_api->getObjectCount();
+	if (funcName == "getObject" && args.size() >= 1) {
+		return m_api->getObject(args[0].toInt());
+	}
+	if (funcName == "createObject" && args.size() >= 2) {
+		return m_api->createObject(args[0], args[1]);
+	}
+	if (funcName == "deleteObject" && args.size() >= 1) {
+		return m_api->deleteObject(args[0].toInt());
+	}
+	if (funcName == "duplicateObject" && args.size() >= 1) {
+		return m_api->duplicateObject(args[0].toInt());
+	}
+	if (funcName == "setSelection" && args.size() >= 1) {
+		return m_api->setSelection(args[0].toInt());
+	}
+
+	// Transform API
+	if (funcName == "translate" && args.size() >= 4) {
+		return m_api->translate(args[0].toInt(), args[1].toFloat(), args[2].toFloat(), args[3].toFloat());
+	}
+	if (funcName == "rotate" && args.size() >= 4) {
+		return m_api->rotate(args[0].toInt(), args[1].toFloat(), args[2].toFloat(), args[3].toFloat());
+	}
+	if (funcName == "scale" && args.size() >= 4) {
+		return m_api->scale(args[0].toInt(), args[1].toFloat(), args[2].toFloat(), args[3].toFloat());
+	}
+
+	// Mesh operations
+	if (funcName == "extrude" && args.size() >= 2) {
+		QVariantList faceIndices;
+		for (int i = 0; i < args.size() - 1; i++) {
+			faceIndices.append(args[i].toInt());
+		}
+		return m_api->extrude(faceIndices, args.last().toFloat());
+	}
+	if (funcName == "inset" && args.size() >= 2) {
+		QVariantList faceIndices;
+		for (int i = 0; i < args.size() - 1; i++) {
+			faceIndices.append(args[i].toInt());
+		}
+		return m_api->inset(faceIndices, args.last().toFloat());
+	}
+	if (funcName == "bevel" && args.size() >= 3) {
+		QVariantList edgeIndices;
+		for (int i = 0; i < args.size() - 2; i++) {
+			edgeIndices.append(args[i].toInt());
+		}
+		return m_api->bevel(edgeIndices, args[args.size() - 2].toFloat(), args.last().toInt());
+	}
+	if (funcName == "subdivide" && args.size() >= 2) {
+		QVariantList faceIndices;
+		for (int i = 0; i < args.size() - 1; i++) {
+			faceIndices.append(args[i].toInt());
+		}
+		return m_api->subdivide(faceIndices, args.last().toInt());
+	}
+
+	// Material API
+	if (funcName == "setMaterialColor" && args.size() >= 5) {
+		return m_api->setMaterialColor(args[0].toInt(), args[1].toFloat(), args[2].toFloat(), args[3].toFloat(), args[4].toFloat());
+	}
+	if (funcName == "setMaterialMetallic" && args.size() >= 2) {
+		return m_api->setMaterialMetallic(args[0].toInt(), args[1].toFloat());
+	}
+	if (funcName == "setMaterialRoughness" && args.size() >= 2) {
+		return m_api->setMaterialRoughness(args[0].toInt(), args[1].toFloat());
+	}
+	if (funcName == "getMaterial" && args.size() >= 1) {
+		return m_api->getMaterial(args[0].toInt());
+	}
+
+	// Export API
+	if (funcName == "exportKN5" && args.size() >= 1) {
+		return m_api->exportKN5(args[0]);
+	}
+	if (funcName == "exportFBX" && args.size() >= 1) {
+		return m_api->exportFBX(args[0]);
+	}
+	if (funcName == "exportOBJ" && args.size() >= 1) {
+		return m_api->exportOBJ(args[0]);
+	}
+
+	// Utility
+	if (funcName == "undo") return m_api->undo();
+	if (funcName == "redo") return m_api->redo();
+
+	m_console->logError(QString("Unknown function: %1").arg(funcName));
+	return QVariant();
+}
+
+QStringList PythonScriptManager::parseArguments(const QString& argsStr) const {
+	QStringList result;
+	if (argsStr.trimmed().isEmpty()) return result;
+
+	int depth = 0;
+	QString current;
+	for (int i = 0; i < argsStr.size(); i++) {
+		QChar c = argsStr[i];
+		if (c == '(') depth++;
+		else if (c == ')') depth--;
+		else if (c == ',' && depth == 0) {
+			result.append(current.trimmed());
+			current.clear();
+			continue;
+		}
+		current.append(c);
+	}
+	if (!current.trimmed().isEmpty()) {
+		result.append(current.trimmed());
+	}
+	return result;
 }
 
 // ============================================================================

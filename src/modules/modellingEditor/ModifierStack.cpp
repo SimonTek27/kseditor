@@ -40,7 +40,10 @@ ModifierPtr createModifierFromType(const QString& type) {
     if (type == "Relax")            return ModifierPtr(new RelaxModifier());
     if (type == "Melt")             return ModifierPtr(new MeltModifier());
     if (type == "Lathe")            return ModifierPtr(new LatheModifier());
-    if (type == "Wave")             return ModifierPtr(new WaveModifierEx());
+    if (type == "SmoothingGroups")  return ModifierPtr(new SmoothingGroupsModifier());
+    if (type == "Offset")           return ModifierPtr(new OffsetModifier());
+    if (type == "UVResolveOverlaps") return ModifierPtr(new UVResolveOverlapsModifier());
+    if (type == "Bevel")            return ModifierPtr(new BevelModifierEx());
     return nullptr;
 }
 

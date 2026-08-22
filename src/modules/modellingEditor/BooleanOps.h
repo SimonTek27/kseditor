@@ -15,9 +15,13 @@ public:
     static std::string validateMesh(const GeoMeshData& mesh);
     static GeoMeshData repairMesh(const GeoMeshData& mesh);
     static GeoMeshData computeNormals(const GeoMeshData& mesh);
+    static GeoMeshData bevelOperation(const GeoMeshData& mesh, float bevelAmount, int bevelSegments);
+    static GeoMeshData bridgeOperation(const GeoMeshData& meshA, const GeoMeshData& meshB, float bridgeAmount, int bridgeSegments);
 
     static bool canPerform();
     static const char* operationName(Operation op);
+    static const char* bevelName(float amount, int segments);
+    static const char* bridgeName(float amount, int segments);
 
 private:
     static BoolOpResult performOperationImpl(const GeoMeshData& meshA, const GeoMeshData& meshB, Operation op);

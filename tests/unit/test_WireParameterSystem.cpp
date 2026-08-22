@@ -2,6 +2,7 @@
 
 #include "core/Graphics/SceneGraph.h"
 #include "modules/modellingEditor/WireParameterSystem.h"
+#include "modules/modellingEditor/ExpressionEvaluator.h"
 
 using namespace ks;
 
@@ -40,6 +41,8 @@ private slots:
     void disabledBindingIgnored();
     void wireListAndRemove();
     void serializationRoundTrip();
+    void expressionBinding();
+    void expressionEvaluatesCorrectly();
 };
 
 void TestWireParameterSystem::wiresPositionChannel()
@@ -131,6 +134,47 @@ void TestWireParameterSystem::serializationRoundTrip()
     QVERIFY(qAbs(restored.scale - 3.0f) < 1e-4f);
     QVERIFY(qAbs(restored.offset - 1.25f) < 1e-4f);
     QVERIFY(restored.enabled);
+}
+
+void TestWireParameterSystem::expressionBinding()
+{
+    SceneFixture fx;
+    SceneObject* driver = fx.create("driver");
+    SceneObject* driven = fx.create("driven");
+    fx.graph.updateAllTransforms();
+
+    WireParameterSystem sys;
+    QVERIFY(sys.add(driver->id(), "driver", "position.x",
+                    driven->id(), "driven", "position.y", 1.0f, 0.0f));
+    // Non-linear mapping: driven.y = sin(x) * 2.
+    QVERIFY(sys.setExpression(driven->id(), 0, "sin(x) * 2"));
+    driver->setPosition(QVector3D(1.5707963f, 0, 0));  // pi/2
+    QCOMPARE(sys.evaluate(&fx.graph), 1);
+    QVERIFY(qAbs(driven->position().y() - 2.0f) < 1e-3f);
+
+    // Clearing the expression restores the legacy affine map (x * 3 + 1).
+    QVERIFY(sys.setExpression(driven->id(), 0, QString()));
+    QVERIFY(sys.setParams(driven->id(), 0, 3.0f, 1.0f));
+    driver->setPosition(QVector3D(4, 0, 0));
+    sys.evaluate(&fx.graph);
+    QVERIFY(qAbs(driven->position().y() - 13.0f) < 1e-3f);
+}
+
+void TestWireParameterSystem::expressionEvaluatesCorrectly()
+{
+    using expr::ExpressionEvaluator;
+    bool ok = false;
+    QVERIFY(qFuzzyCompare(ExpressionEvaluator::evaluate("2 + 3 * 4", 0, &ok), 14.0));
+    QVERIFY(ok);
+    ok = false;
+    QVERIFY(qFuzzyCompare(ExpressionEvaluator::evaluate("sqrt(16) + pow(2, 3)", 0, &ok), 12.0));
+    QVERIFY(ok);
+    ok = false;
+    QVERIFY(qFuzzyCompare(ExpressionEvaluator::evaluate("smoothstep(0, 1, x)", 0.5, &ok), 0.5));
+    QVERIFY(ok);
+    ok = true;
+    ExpressionEvaluator::evaluate("2 +", 0, &ok);
+    QVERIFY(!ok);
 }
 
 QTEST_MAIN(TestWireParameterSystem)

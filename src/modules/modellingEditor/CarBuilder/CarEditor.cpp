@@ -6,6 +6,8 @@
 #include <QJsonArray>
 #include <QDir>
 #include <QImage>
+#include <cstring>
+#include "assettocorsa/acFiles/KN5Parser.h"
 
 namespace ks {
 
@@ -146,6 +148,181 @@ bool CarEditor::exportToAC(const QString& outputPath)
     QString kn5Path = outputPath + "/" + carId + ".kn5";
     qDebug() << "Exporting car to AC format:" << kn5Path;
     
+    using namespace KN5Parser;
+    KN5File kn5;
+    kn5.filePath = kn5Path;
+
+    // --- Materials ---
+    Material bodyMat;
+    bodyMat.id = 0;
+    bodyMat.name = "body_material";
+    bodyMat.shaderName = "ksCarPaint";
+    bodyMat.type = Material::Type::Normal;
+    bodyMat.properties["ksDiffuse"] = "0.8, 0.8, 0.8";
+    bodyMat.properties["ksSpecular"] = "0.9";
+    bodyMat.properties["ksRoughness"] = "0.3";
+    bodyMat.properties["ksMetallic"] = "0.8";
+    kn5.materials.append(bodyMat);
+
+    Material wheelMat;
+    wheelMat.id = 1;
+    wheelMat.name = "wheel_material";
+    wheelMat.shaderName = "ksTyre";
+    wheelMat.type = Material::Type::Normal;
+    wheelMat.properties["ksDiffuse"] = "0.1, 0.1, 0.1";
+    wheelMat.properties["ksSpecular"] = "0.5";
+    kn5.materials.append(wheelMat);
+
+    Material glassMat;
+    glassMat.id = 2;
+    glassMat.name = "glass_material";
+    glassMat.shaderName = "ksGlass";
+    glassMat.type = Material::Type::Transparent;
+    glassMat.alphaBlending = true;
+    glassMat.alphaRef = 0.1f;
+    glassMat.properties["ksDiffuse"] = "0.3, 0.3, 0.3";
+    glassMat.properties["ksOpacity"] = "0.3";
+    kn5.materials.append(glassMat);
+
+    Material lightMat;
+    lightMat.id = 3;
+    lightMat.name = "light_material";
+    lightMat.shaderName = "ksEmissive";
+    lightMat.type = Material::Type::Additive;
+    lightMat.properties["ksDiffuse"] = "1.0, 1.0, 1.0";
+    lightMat.properties["ksEmissive"] = "1.0, 0.8, 0.2";
+    kn5.materials.append(lightMat);
+
+    // --- Generate meshes for each part ---
+    quint32 nodeIdx = 0;
+    quint32 vertIdx = 0;
+    quint32 idxOffset = 0;
+
+    // Helper lambda to create a box mesh for a part
+    auto createBoxMesh = [&](const CarPart& part, quint32 matIdx) -> Mesh {
+        Mesh mesh;
+        mesh.name = part.name.toUpper().replace(" ", "_").toStdString().c_str();
+        mesh.name = part.name.toUpper().replace(" ", "_");
+        mesh.nodeIndex = nodeIdx++;
+        mesh.castShadows = true;
+        mesh.isVisible = part.visible;
+        mesh.isTransparent = (matIdx == 2);
+        mesh.materialType = (matIdx == 2) ? Mesh::MaterialType::Transparent : Mesh::MaterialType::Standard;
+
+        auto& vl = mesh.vertexLayout;
+        vl.attributes = {
+            {AttributeType::Position,  0},
+            {AttributeType::Normal,   12},
+            {AttributeType::TexCoord0, 24}
+        };
+        vl.vertexSize = 32;
+
+        // Generate box geometry scaled by part.scale
+        float sx = part.scale.x() * 0.5f;
+        float sy = part.scale.y() * 0.5f;
+        float sz = part.scale.z() * 0.5f;
+
+        // 8 box vertices (corners), 6 faces (2 triangles each)
+        struct BoxVert { float x, y, z; float nx, ny, nz; float u, v; };
+        BoxVert boxVerts[24] = {
+            // Front face (Z+)
+            {-sx,-sy, sz,  0, 0, 1,  0, 0}, { sx,-sy, sz,  0, 0, 1,  1, 0},
+            { sx, sy, sz,  0, 0, 1,  1, 1}, {-sx, sy, sz,  0, 0, 1,  0, 1},
+            // Back face (Z-)
+            { sx,-sy,-sz,  0, 0,-1,  0, 0}, {-sx,-sy,-sz,  0, 0,-1,  1, 0},
+            {-sx, sy,-sz,  0, 0,-1,  1, 1}, { sx, sy,-sz,  0, 0,-1,  0, 1},
+            // Top face (Y+)
+            {-sx, sy, sz,  0, 1, 0,  0, 0}, { sx, sy, sz,  0, 1, 0,  1, 0},
+            { sx, sy,-sz,  0, 1, 0,  1, 1}, {-sx, sy,-sz,  0, 1, 0,  0, 1},
+            // Bottom face (Y-)
+            {-sx,-sy,-sz,  0,-1, 0,  0, 0}, { sx,-sy,-sz,  0,-1, 0,  1, 0},
+            { sx,-sy, sz,  0,-1, 0,  1, 1}, {-sx,-sy, sz,  0,-1, 0,  0, 1},
+            // Right face (X+)
+            { sx,-sy, sz,  1, 0, 0,  0, 0}, { sx,-sy,-sz,  1, 0, 0,  1, 0},
+            { sx, sy,-sz,  1, 0, 0,  1, 1}, { sx, sy, sz,  1, 0, 0,  0, 1},
+            // Left face (X-)
+            {-sx,-sy,-sz, -1, 0, 0,  0, 0}, {-sx,-sy, sz, -1, 0, 0,  1, 0},
+            {-sx, sy, sz, -1, 0, 0,  1, 1}, {-sx, sy,-sz, -1, 0, 0,  0, 1}
+        };
+
+        mesh.vertexData.resize(24 * vl.vertexSize);
+        char* dst = mesh.vertexData.data();
+        for (const auto& bv : boxVerts) {
+            float pos[3] = { bv.x + part.position.x(), bv.y + part.position.y(), bv.z + part.position.z() };
+            float nrm[3] = { bv.nx, bv.ny, bv.nz };
+            float uv[2]  = { bv.u, bv.v };
+            std::memcpy(dst,      pos, 12);
+            std::memcpy(dst + 12, nrm, 12);
+            std::memcpy(dst + 24, uv,   8);
+            dst += vl.vertexSize;
+        }
+
+        // 12 triangles (2 per face)
+        quint16 boxIndices[36] = {
+            0,1,2, 0,2,3,    4,5,6, 4,6,7,
+            8,9,10, 8,10,11, 12,13,14, 12,14,15,
+            16,17,18, 16,18,19, 20,21,22, 20,22,23
+        };
+        mesh.indexData.resize(36 * 2);
+        std::memcpy(mesh.indexData.data(), boxIndices, 36 * 2);
+
+        // Bounding box
+        mesh.boundingMin = { -sx + part.position.x(), -sy + part.position.y(), -sz + part.position.z() };
+        mesh.boundingMax = {  sx + part.position.x(),  sy + part.position.y(),  sz + part.position.z() };
+        float dx = sx * 2, dy = sy * 2, dz = sz * 2;
+        mesh.boundingRadius = std::sqrt(dx*dx + dy*dy + dz*dz) * 0.5f;
+
+        SubMesh sub;
+        sub.materialIndex = matIdx;
+        sub.vertexOffset = vertIdx;
+        sub.vertexCount = 24;
+        sub.indexOffset = idxOffset;
+        sub.indexCount = 36;
+        sub.boundingMin = mesh.boundingMin;
+        sub.boundingMax = mesh.boundingMax;
+        mesh.subMeshes.append(sub);
+
+        vertIdx += 24;
+        idxOffset += 36;
+
+        return mesh;
+    };
+
+    // Generate meshes for each part with appropriate material
+    for (auto it = m_parts.begin(); it != m_parts.end(); ++it) {
+        const CarPart& part = it.value();
+        quint32 matIdx = 0;
+
+        // Assign material based on part ID
+        QString partId = part.id.toLower();
+        if (partId.contains("wheel") || partId.contains("tyre") || partId.contains("tire")) {
+            matIdx = 1;
+        } else if (partId.contains("glass") || partId.contains("window") || partId.contains("windshield")) {
+            matIdx = 2;
+        } else if (partId.contains("light") || partId.contains("headlight") || partId.contains("taillight")) {
+            matIdx = 3;
+        }
+
+        kn5.meshes.append(createBoxMesh(part, matIdx));
+    }
+
+    // Ensure at least body mesh exists
+    if (kn5.meshes.isEmpty()) {
+        CarPart defaultBody;
+        defaultBody.id = "body";
+        defaultBody.name = "Body";
+        defaultBody.position = QVector3D(0, 0.5f, 0);
+        defaultBody.scale = QVector3D(2.0f, 0.8f, 4.0f);
+        kn5.meshes.append(createBoxMesh(defaultBody, 0));
+    }
+
+    // Write KN5 file
+    if (!KN5Parser::writeKN5(kn5Path, kn5)) {
+        qWarning() << "Failed to write KN5 file:" << kn5Path;
+        return false;
+    }
+
+    // Write ui_car.json metadata
     QFile iniFile(outputPath + "/ui_car.json");
     if (iniFile.open(QIODevice::WriteOnly)) {
         QJsonObject ui;
@@ -153,6 +330,8 @@ bool CarEditor::exportToAC(const QString& outputPath)
         ui["class"] = m_config.carClass;
         ui["brand"] = "Custom";
         ui["version"] = "1.0";
+        ui["meshes"] = kn5.meshes.size();
+        ui["materials"] = kn5.materials.size();
         iniFile.write(QJsonDocument(ui).toJson());
         iniFile.close();
     }

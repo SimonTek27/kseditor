@@ -409,7 +409,20 @@ void PaintCanvasWidget::mousePressEvent(QMouseEvent* event)
         m_dragStartImage = imagePos;
         m_lastImage = imagePos;
         m_strokeActive = true;
-        startStroke(imagePos);
+        PaintBrush defaultBrush;
+        defaultBrush.tool = m_tool;
+        defaultBrush.radius = m_brushSize;
+        defaultBrush.hardness = m_brushHardness;
+        defaultBrush.opacity = m_brushOpacity;
+        defaultBrush.flow = m_brushFlow;
+        defaultBrush.strength = m_brushStrength;
+        defaultBrush.pressure = 1.0f;
+        defaultBrush.color = m_primaryColor;
+        defaultBrush.secondaryColor = m_secondaryColor;
+        defaultBrush.cloneSource = m_hasCloneSource ? m_cloneSource : imagePos;
+        defaultBrush.hasCloneSource = m_hasCloneSource;
+        defaultBrush.eraseAlpha = (m_tool == PaintTool::Eraser);
+        startStroke(imagePos, defaultBrush);
     }
 }
 
@@ -460,7 +473,20 @@ void PaintCanvasWidget::mouseMoveEvent(QMouseEvent* event)
         }
 
         if (m_strokeActive && paintToolIsPaint(m_tool)) {
-            updateStroke(imagePos);
+            PaintBrush updateBrush;
+            updateBrush.tool = m_tool;
+            updateBrush.radius = m_brushSize;
+            updateBrush.hardness = m_brushHardness;
+            updateBrush.opacity = m_brushOpacity;
+            updateBrush.flow = m_brushFlow;
+            updateBrush.strength = m_brushStrength;
+            updateBrush.pressure = 1.0f;
+            updateBrush.color = m_primaryColor;
+            updateBrush.secondaryColor = m_secondaryColor;
+            updateBrush.cloneSource = m_hasCloneSource ? m_cloneSource : m_lastImage;
+            updateBrush.hasCloneSource = m_hasCloneSource;
+            updateBrush.eraseAlpha = (m_tool == PaintTool::Eraser);
+            updateStroke(imagePos, updateBrush);
         }
         return;
     }
@@ -515,15 +541,146 @@ void PaintCanvasWidget::mouseReleaseEvent(QMouseEvent* event)
         }
 
         if (m_strokeActive) {
-            updateStroke(imagePos);
-            endStroke();
+        PaintBrush endBrush;
+        endBrush.tool = m_tool;
+        endBrush.radius = m_brushSize;
+        endBrush.hardness = m_brushHardness;
+        endBrush.opacity = m_brushOpacity;
+        endBrush.flow = m_brushFlow;
+        endBrush.strength = m_brushStrength;
+        endBrush.pressure = 1.0f;
+        endBrush.color = m_primaryColor;
+        endBrush.secondaryColor = m_secondaryColor;
+        endBrush.cloneSource = m_hasCloneSource ? m_cloneSource : m_lastImage;
+        endBrush.hasCloneSource = m_hasCloneSource;
+        endBrush.eraseAlpha = (m_tool == PaintTool::Eraser);
+        updateStroke(imagePos, endBrush);
+        endStroke();
         }
         m_dragging = false;
         emit documentInteractionFinished();
     }
 }
 
-void PaintCanvasWidget::wheelEvent(QWheelEvent* event)
+void PaintCanvasWidget::tabletEvent(QTabletEvent* event)
+{
+    if (!m_document || !m_document->hasDocument()) {
+        QWidget::tabletEvent(event);
+        return;
+    }
+
+    QPoint imagePos = imagePosFromView(event->position().toPoint());
+    float pressure = event->pressure();
+
+    switch (event->type()) {
+    case QTabletEvent::TabletPress: {
+        setFocus();
+        m_dragging = true;
+        m_dragStartView = event->pos();
+        m_dragStartImage = imagePos;
+        m_lastImage = imagePos;
+        m_strokeActive = true;
+
+        PaintBrush brush;
+        brush.tool = m_tool;
+        brush.radius = m_brushSize;
+        brush.hardness = m_brushHardness;
+        brush.opacity = m_brushOpacity;
+        brush.flow = m_brushFlow;
+        brush.strength = m_brushStrength;
+        brush.pressure = pressure;
+        brush.color = m_primaryColor;
+        brush.secondaryColor = m_secondaryColor;
+        brush.cloneSource = m_hasCloneSource ? m_cloneSource : imagePos;
+        brush.hasCloneSource = m_hasCloneSource;
+        brush.eraseAlpha = (m_tool == PaintTool::Eraser);
+
+        QImage layer = m_document->currentLayerImage();
+        if (!layer.isNull()) {
+            switch (m_tool) {
+            case PaintTool::Smudge:
+                break;
+            case PaintTool::Blur:
+                PaintPainter::blurAt(layer, m_document->selectionMask(), imagePos, m_brushSize, m_brushStrength);
+                break;
+            case PaintTool::Sharpen:
+                PaintPainter::sharpenAt(layer, m_document->selectionMask(), imagePos, m_brushSize, m_brushStrength);
+                break;
+            case PaintTool::Dodge:
+                PaintPainter::dodgeAt(layer, m_document->selectionMask(), imagePos, m_brushSize, m_brushStrength);
+                break;
+            case PaintTool::Burn:
+                PaintPainter::burnAt(layer, m_document->selectionMask(), imagePos, m_brushSize, m_brushStrength);
+                break;
+            case PaintTool::Clone:
+                if (m_hasCloneSource)
+                    PaintPainter::cloneAt(layer, m_document->selectionMask(), imagePos, m_cloneSource, m_brushSize, m_brushOpacity);
+                break;
+            case PaintTool::Healing:
+                if (m_hasCloneSource)
+                    PaintPainter::healAt(layer, m_document->selectionMask(), imagePos, m_cloneSource, m_brushSize, m_brushOpacity);
+                break;
+            default:
+                PaintPainter::paintAt(layer, m_document->selectionMask(), imagePos, brush);
+                break;
+            }
+            m_document->setCurrentLayerImage(layer);
+            emit imageEdited();
+        }
+        startStroke(imagePos, brush);
+        break;
+    }
+    case QTabletEvent::TabletMove: {
+        if (m_dragging && m_strokeActive && paintToolIsPaint(m_tool)) {
+            PaintBrush updateBrush;
+            updateBrush.tool = m_tool;
+            updateBrush.radius = m_brushSize;
+            updateBrush.hardness = m_brushHardness;
+            updateBrush.opacity = m_brushOpacity;
+            updateBrush.flow = m_brushFlow;
+            updateBrush.strength = m_brushStrength;
+            updateBrush.pressure = pressure;
+            updateBrush.color = m_primaryColor;
+            updateBrush.secondaryColor = m_secondaryColor;
+            updateBrush.cloneSource = m_hasCloneSource ? m_cloneSource : m_lastImage;
+            updateBrush.hasCloneSource = m_hasCloneSource;
+            updateBrush.eraseAlpha = (m_tool == PaintTool::Eraser);
+            updateStroke(imagePos, updateBrush);
+        }
+        if (paintToolIsPaint(m_tool)) {
+            emit statusMessage(tr("%1  |  %2, %3").arg(paintToolDisplayName(m_tool)).arg(imagePosFromView(event->position().toPoint()).x()).arg(imagePosFromView(event->position().toPoint()).y()));
+        }
+        update();
+        break;
+    }
+    case QTabletEvent::TabletRelease: {
+        if (m_strokeActive) {
+            PaintBrush endBrush;
+            endBrush.tool = m_tool;
+            endBrush.radius = m_brushSize;
+            endBrush.hardness = m_brushHardness;
+            endBrush.opacity = m_brushOpacity;
+            endBrush.flow = m_brushFlow;
+            endBrush.strength = m_brushStrength;
+            endBrush.pressure = pressure;
+            endBrush.color = m_primaryColor;
+            endBrush.secondaryColor = m_secondaryColor;
+            endBrush.cloneSource = m_hasCloneSource ? m_cloneSource : m_lastImage;
+            endBrush.hasCloneSource = m_hasCloneSource;
+            endBrush.eraseAlpha = (m_tool == PaintTool::Eraser);
+            updateStroke(imagePos, endBrush);
+            endStroke();
+        }
+        m_dragging = false;
+        m_strokeActive = false;
+        emit documentInteractionFinished();
+        break;
+    }
+    default:
+        break;
+    }
+    QWidget::tabletEvent(event);
+}
 {
     if (!m_document || !m_document->hasDocument()) return;
     QPoint imagePos = imagePosFromView(event->position().toPoint());
@@ -563,23 +720,22 @@ void PaintCanvasWidget::leaveEvent(QEvent* event)
     unsetCursor();
 }
 
-void PaintCanvasWidget::startStroke(const QPoint& imagePos)
+void PaintCanvasWidget::startStroke(const QPoint& imagePos, const PaintBrush& brush)
 {
     if (!m_document || !m_document->currentLayer()) return;
     m_document->pushUndo();
 
-    PaintBrush brush;
-    brush.tool = m_tool;
-    brush.radius = m_brushSize;
-    brush.hardness = m_brushHardness;
-    brush.opacity = m_brushOpacity;
-    brush.flow = m_brushFlow;
-    brush.strength = m_brushStrength;
-    brush.color = m_primaryColor;
-    brush.secondaryColor = m_secondaryColor;
-    brush.cloneSource = m_hasCloneSource ? m_cloneSource : imagePos;
-    brush.hasCloneSource = m_hasCloneSource;
-    brush.eraseAlpha = (m_tool == PaintTool::Eraser);
+    PaintBrush b = brush;
+    if (b.radius <= 0) brush.radius = m_brushSize;
+    if (b.hardness < 0.0f) brush.hardness = m_brushHardness;
+    if (b.opacity < 0.0f) brush.opacity = m_brushOpacity;
+    if (b.flow < 0.0f) brush.flow = m_brushFlow;
+    if (b.strength < 0.0f) brush.strength = m_brushStrength;
+    if (b.tool == PaintTool::None) brush.tool = m_tool;
+    if (!brush.hasCloneSource && m_hasCloneSource) brush.cloneSource = m_cloneSource;
+    brush.hasCloneSource = m_hasCloneSource || brush.hasCloneSource;
+
+    m_brush = brush;  // store for later use
 
     QImage layer = m_document->currentLayerImage();
     if (layer.isNull()) return;
@@ -616,23 +772,20 @@ void PaintCanvasWidget::startStroke(const QPoint& imagePos)
     emit imageEdited();
 }
 
-void PaintCanvasWidget::updateStroke(const QPoint& imagePos)
+void PaintCanvasWidget::updateStroke(const QPoint& imagePos, const PaintBrush& brush)
 {
     if (!m_document || !m_document->currentLayer()) return;
     if (!m_strokeActive) return;
 
-    PaintBrush brush;
-    brush.tool = m_tool;
-    brush.radius = m_brushSize;
-    brush.hardness = m_brushHardness;
-    brush.opacity = m_brushOpacity;
-    brush.flow = m_brushFlow;
-    brush.strength = m_brushStrength;
-    brush.color = m_primaryColor;
-    brush.secondaryColor = m_secondaryColor;
-    brush.cloneSource = m_hasCloneSource ? m_cloneSource : m_lastImage;
-    brush.hasCloneSource = m_hasCloneSource;
-    brush.eraseAlpha = (m_tool == PaintTool::Eraser);
+    PaintBrush b = brush;
+    if (b.radius <= 0) brush.radius = m_brushSize;
+    if (b.hardness < 0.0f) brush.hardness = m_brushHardness;
+    if (b.opacity < 0.0f) brush.opacity = m_brushOpacity;
+    if (b.flow < 0.0f) brush.flow = m_brushFlow;
+    if (b.strength < 0.0f) brush.strength = m_brushStrength;
+    if (b.tool == PaintTool::None) brush.tool = m_tool;
+    if (!brush.hasCloneSource && m_hasCloneSource) brush.cloneSource = m_cloneSource;
+    brush.hasCloneSource = m_hasCloneSource || brush.hasCloneSource;
 
     QImage layer = m_document->currentLayerImage();
     if (layer.isNull()) return;
@@ -658,13 +811,15 @@ void PaintCanvasWidget::updateStroke(const QPoint& imagePos)
         if (m_hasCloneSource)
             PaintPainter::healAt(layer, m_document->selectionMask(), imagePos, m_cloneSource, m_brushSize, m_brushOpacity);
         break;
-    case PaintTool::Smudge:
-        PaintPainter::smudgeAt(layer, m_document->selectionMask(), m_lastImage, imagePos, m_brushSize, m_brushStrength);
-        break;
     default:
         PaintPainter::paintLine(layer, m_document->selectionMask(), m_lastImage, imagePos, brush);
         break;
     }
+
+    m_lastImage = imagePos;
+    m_document->setCurrentLayerImage(layer);
+    emit imageEdited();
+}
 
     m_lastImage = imagePos;
     m_document->setCurrentLayerImage(layer);

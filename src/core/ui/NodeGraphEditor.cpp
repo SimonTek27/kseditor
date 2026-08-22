@@ -244,7 +244,23 @@ void NodeGraphView::handleBoxSelect(const QRectF& rect)
     }
 }
 
-void NodeGraphView::handleConnection(const QPointF& pos) { Q_UNUSED(pos); }
+void NodeGraphView::handleConnection(const QPointF& pos) {
+    if (!m_scene || !m_connecting) return;
+
+    QGraphicsItem* item = m_scene->itemAt(pos, QTransform());
+    if (auto* portItem = qgraphicsitem_cast<GraphPortItem*>(item)) {
+        if (portItem->isOutput()) {
+            m_connectingFromNodeId = portItem->nodeId();
+            m_connectingFromPortId = portItem->portId();
+        } else {
+            if (!m_connectingFromNodeId.isEmpty()) {
+                emit connectionCreated(m_connectingFromNodeId, m_connectingFromPortId,
+                                       portItem->nodeId(), portItem->portId());
+                m_connecting = false;
+            }
+        }
+    }
+}
 
 void NodeGraphView::completeConnection()
 {
@@ -551,7 +567,16 @@ void GraphConnectionItem::mousePressEvent(QGraphicsSceneMouseEvent* event)
     QGraphicsPathItem::mousePressEvent(event);
 }
 
-void GraphConnectionItem::contextMenuEvent(QGraphicsSceneContextMenuEvent* event) { Q_UNUSED(event); }
+void GraphConnectionItem::contextMenuEvent(QGraphicsSceneContextMenuEvent* event) {
+    QMenu menu;
+    QAction* deleteAction = menu.addAction("Delete Connection");
+    QAction* selectedAction = menu.exec(event->screenPos());
+    if (selectedAction == deleteAction) {
+        emit connectionDeleted(m_connectionData);
+        scene()->removeItem(this);
+        delete this;
+    }
+}
 
 void GraphConnectionItem::rebuildPath()
 {
@@ -1021,8 +1046,27 @@ void ColorEditorWidget::mousePressEvent(QMouseEvent* event)
     update();
 }
 
-void ColorEditorWidget::mouseMoveEvent(QMouseEvent* event) { Q_UNUSED(event); }
-void ColorEditorWidget::mouseReleaseEvent(QMouseEvent* event) { Q_UNUSED(event); }
+void ColorEditorWidget::mouseMoveEvent(QMouseEvent* event) {
+    if (event->buttons() & Qt::LeftButton) {
+        QColor newColor = colorFromWheelPos(event->pos());
+        if (newColor.isValid()) {
+            m_color.setHsv(newColor.hue(), newColor.saturation(), m_color.value(), m_color.alpha());
+            emit colorChanged(m_color);
+        }
+        update();
+    }
+}
+
+void ColorEditorWidget::mouseReleaseEvent(QMouseEvent* event) {
+    if (event->button() == Qt::LeftButton) {
+        QColor newColor = colorFromWheelPos(event->pos());
+        if (newColor.isValid()) {
+            m_color.setHsv(newColor.hue(), newColor.saturation(), m_color.value(), m_color.alpha());
+            emit colorChanged(m_color);
+        }
+        update();
+    }
+}
 
 void ColorEditorWidget::drawColorWheel(QPainter* painter, const QRect& rect)
 {
@@ -1450,7 +1494,29 @@ void GradientEditorWidget::mouseDoubleClickEvent(QMouseEvent* event)
     }
 }
 
-void GradientEditorWidget::contextMenuEvent(QContextMenuEvent* event) { Q_UNUSED(event); }
+void GradientEditorWidget::contextMenuEvent(QContextMenuEvent* event) {
+    int idx = hitTestStop(event->pos());
+    QMenu menu;
+    if (idx >= 0) {
+        QAction* removeAction = menu.addAction("Remove Stop");
+        QAction* selected = menu.exec(event->globalPos());
+        if (selected == removeAction) {
+            removeStop(idx);
+            update();
+        }
+    } else {
+        QAction* addStopAction = menu.addAction("Add Stop");
+        QAction* selected = menu.exec(event->globalPos());
+        if (selected == addStopAction) {
+            int barLeft = 10;
+            int barWidth = width() - 20;
+            float pos = static_cast<float>(event->pos().x() - barLeft) / static_cast<float>(barWidth);
+            pos = qBound(0.0f, pos, 1.0f);
+            addStop(pos, m_color);
+            update();
+        }
+    }
+}
 
 int GradientEditorWidget::hitTestStop(const QPoint& pos) const
 {

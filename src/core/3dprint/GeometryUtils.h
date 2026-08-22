@@ -216,9 +216,61 @@ inline Polygons2D generateGridInfill(const Polygons2D& boundaries, double spacin
     return infill;
 }
 
-// Gyroid infill (simplified - uses grid as fallback)
+// Gyroid infill pattern
 inline Polygons2D generateGyroidInfill(const Polygons2D& boundaries, double spacing, double thickness) {
-    return generateGridInfill(boundaries, spacing, 0, 0, 0);
+    Polygons2D infill;
+    if (boundaries.empty() || spacing <= 0) return infill;
+
+    BoundingBox bounds;
+    bool hasBounds = false;
+    for (const auto& poly : boundaries) {
+        for (const auto& v : poly.vertices) {
+            if (!hasBounds) { bounds.min = bounds.max = v; hasBounds = true; }
+            else { bounds.expand(v); }
+        }
+    }
+    if (!hasBounds) return infill;
+
+    double cellSize = spacing;
+    int stepsX = static_cast<int>((bounds.max.x - bounds.min.x) / cellSize) + 2;
+    int stepsY = static_cast<int>((bounds.max.y - bounds.min.y) / cellSize) + 2;
+
+    for (int ix = 0; ix < stepsX; ++ix) {
+        for (int iy = 0; iy < stepsY; ++iy) {
+            double cx = bounds.min.x + ix * cellSize + cellSize * 0.5;
+            double cy = bounds.min.y + iy * cellSize + cellSize * 0.5;
+            double cx2 = bounds.min.x + (ix + 0.5) * cellSize;
+            double cy2 = bounds.min.y + (iy + 0.5) * cellSize;
+
+            double phase1 = std::sin(cx * M_PI / spacing) + std::sin(cy * M_PI / spacing);
+            double phase2 = std::cos(cx2 * M_PI / spacing) + std::cos(cy2 * M_PI / spacing);
+
+            std::vector<geometry::Vector2> pts;
+            const int segs = 6;
+            for (int s = 0; s <= segs; ++s) {
+                double t = static_cast<double>(s) / segs;
+                double angle = t * M_PI * 2.0;
+                double r = cellSize * 0.3 * (0.7 + 0.3 * std::sin(phase1 + phase2));
+                double px = cx + r * std::cos(angle);
+                double py = cy + r * std::sin(angle);
+                pts.push_back({px, py});
+            }
+
+            bool inside = false;
+            for (const auto& poly : boundaries) {
+                if (geometry::pointInPolygon({cx, cy}, poly.vertices)) { inside = true; break; }
+            }
+            if (!inside) continue;
+
+            if (pts.size() >= 3) {
+                geometry::Polygon2D seg;
+                seg.vertices = pts;
+                infill.push_back(std::move(seg));
+            }
+        }
+    }
+
+    return infill;
 }
 
 } // namespace geometry

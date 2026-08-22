@@ -48,6 +48,11 @@ void CommandPalette::setHandler(const QString& id, std::function<void()> handler
     m_handlers.insert(id, std::move(handler));
 }
 
+void CommandPalette::setHandlerWithArgs(const QString& id, std::function<void(const QJsonObject&)> handler)
+{
+    m_handlersWithArgs.insert(id, std::move(handler));
+}
+
 bool CommandPalette::execute(const QString& id)
 {
     if (!m_commands.contains(id)) {
@@ -55,13 +60,19 @@ bool CommandPalette::execute(const QString& id)
         return false;
     }
     auto it = m_handlers.find(id);
-    if (it == m_handlers.end()) {
-        qWarning() << "CommandPalette: no handler for" << id;
-        return false;
+    if (it != m_handlers.end()) {
+        (*it)();
+        emit commandExecuted(id);
+        return true;
     }
-    (*it)();
-    emit commandExecuted(id);
-    return true;
+    auto itArgs = m_handlersWithArgs.find(id);
+    if (itArgs != m_handlersWithArgs.end()) {
+        (*itArgs)(m_lastCommandArgs);
+        emit commandExecuted(id);
+        return true;
+    }
+    qWarning() << "CommandPalette: no handler for" << id;
+    return false;
 }
 
 QVector<CommandPalette::Command> CommandPalette::search(const QString& query) const
@@ -133,9 +144,9 @@ void CommandPalette::executeCommand(const QString& commandId)
 
 void CommandPalette::executeCommandWithArgs(const QString& commandId, const QJsonObject& args)
 {
-    execute(commandId);
-    // Store args for command callback to retrieve via lastExecutedArgs()
     m_lastCommandArgs = args;
+    execute(commandId);
+    emit commandExecutedWithArgs(commandId, args);
 }
 
 QVector<CommandPalette::Command> CommandPalette::searchCommands(const QString& query) const

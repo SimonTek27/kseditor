@@ -1076,7 +1076,136 @@ void PaintEditor::onLayerListCurrentRowChanged(int row)
 
 void PaintEditor::onFilterRequested()
 {
-    // Placeholder (subclass handlers used)
+    if (!m_document || m_document->layerCount() == 0) {
+        return;
+    }
+
+    QStringList filters;
+    filters << "Blur" << "Sharpen" << "Emboss" << "Edge Detect" << "Invert Colors"
+            << "Grayscale" << "Brightness" << "Contrast" << "Sepia" << "Noise";
+
+    bool ok;
+    QString filter = QInputDialog::getItem(this, tr("Apply Filter"), tr("Filter:"), filters, 0, false, &ok);
+    if (!ok || filter.isEmpty()) return;
+
+    QImage img = m_document->currentLayerImage();
+    if (img.isNull()) return;
+
+    int w = img.width(), h = img.height();
+    QImage result = img.copy();
+
+    if (filter == "Blur") {
+        for (int y = 1; y < h - 1; ++y) {
+            for (int x = 1; x < w - 1; ++x) {
+                int r = 0, g = 0, b = 0, a = 0, count = 0;
+                for (int dy = -1; dy <= 1; ++dy) {
+                    for (int dx = -1; dx <= 1; ++dx) {
+                        QColor c = img.pixelColor(x + dx, y + dy);
+                        r += c.red(); g += c.green(); b += c.blue(); a += c.alpha();
+                        count++;
+                    }
+                }
+                result.setPixelColor(x, y, QColor(r/count, g/count, b/count, a/count));
+            }
+        }
+    } else if (filter == "Sharpen") {
+        QImage sharp = img;
+        for (int y = 1; y < h - 1; ++y) {
+            for (int x = 1; x < w - 1; ++x) {
+                QColor c = img.pixelColor(x, y);
+                QColor cUp = img.pixelColor(x, y-1);
+                QColor cDown = img.pixelColor(x, y+1);
+                QColor cLeft = img.pixelColor(x-1, y);
+                QColor cRight = img.pixelColor(x+1, y);
+                int r = qBound(0, c.red() * 5 - cUp.red() - cDown.red() - cLeft.red() - cRight.red(), 255);
+                int g = qBound(0, c.green() * 5 - cUp.green() - cDown.green() - cLeft.green() - cRight.green(), 255);
+                int b = qBound(0, c.blue() * 5 - cUp.blue() - cDown.blue() - cLeft.blue() - cRight.blue(), 255);
+                sharp.setPixelColor(x, y, QColor(r, g, b, c.alpha()));
+            }
+        }
+        result = sharp;
+    } else if (filter == "Emboss") {
+        for (int y = 1; y < h - 1; ++y) {
+            for (int x = 1; x < w - 1; ++x) {
+                QColor tl = img.pixelColor(x-1, y-1);
+                QColor tr = img.pixelColor(x+1, y-1);
+                QColor bl = img.pixelColor(x-1, y+1);
+                QColor br = img.pixelColor(x+1, y+1);
+                int r = qBound(0, (tl.red() - br.red()) + 128, 255);
+                int g = qBound(0, (tl.green() - br.green()) + 128, 255);
+                int b = qBound(0, (tl.blue() - br.blue()) + 128, 255);
+                result.setPixelColor(x, y, QColor(r, g, b, img.pixelColor(x, y).alpha()));
+            }
+        }
+    } else if (filter == "Edge Detect") {
+        for (int y = 1; y < h - 1; ++y) {
+            for (int x = 1; x < w - 1; ++x) {
+                QColor c = img.pixelColor(x, y);
+                QColor cUp = img.pixelColor(x, y-1);
+                QColor cDown = img.pixelColor(x, y+1);
+                QColor cLeft = img.pixelColor(x-1, y);
+                QColor cRight = img.pixelColor(x+1, y);
+                int r = qBound(0, abs(c.red()*4 - cUp.red() - cDown.red() - cLeft.red() - cRight.red()), 255);
+                int g = qBound(0, abs(c.green()*4 - cUp.green() - cDown.green() - cLeft.green() - cRight.green()), 255);
+                int b = qBound(0, abs(c.blue()*4 - cUp.blue() - cDown.blue() - cLeft.blue() - cRight.blue()), 255);
+                result.setPixelColor(x, y, QColor(r, g, b, c.alpha()));
+            }
+        }
+    } else if (filter == "Invert Colors") {
+        for (int y = 0; y < h; ++y) {
+            for (int x = 0; x < w; ++x) {
+                QColor c = img.pixelColor(x, y);
+                result.setPixelColor(x, y, QColor(255 - c.red(), 255 - c.green(), 255 - c.blue(), c.alpha()));
+            }
+        }
+    } else if (filter == "Grayscale") {
+        for (int y = 0; y < h; ++y) {
+            for (int x = 0; x < w; ++x) {
+                QColor c = img.pixelColor(x, y);
+                int gray = qBound(0, static_cast<int>(c.red() * 0.299 + c.green() * 0.587 + c.blue() * 0.114), 255);
+                result.setPixelColor(x, y, QColor(gray, gray, gray, c.alpha()));
+            }
+        }
+    } else if (filter == "Brightness") {
+        for (int y = 0; y < h; ++y) {
+            for (int x = 0; x < w; ++x) {
+                QColor c = img.pixelColor(x, y);
+                result.setPixelColor(x, y, QColor(qBound(0, c.red() + 30, 255), qBound(0, c.green() + 30, 255), qBound(0, c.blue() + 30, 255), c.alpha()));
+            }
+        }
+    } else if (filter == "Contrast") {
+        float factor = 1.3f;
+        for (int y = 0; y < h; ++y) {
+            for (int x = 0; x < w; ++x) {
+                QColor c = img.pixelColor(x, y);
+                int r = qBound(0, static_cast<int>((c.red() - 128) * factor + 128), 255);
+                int g = qBound(0, static_cast<int>((c.green() - 128) * factor + 128), 255);
+                int b = qBound(0, static_cast<int>((c.blue() - 128) * factor + 128), 255);
+                result.setPixelColor(x, y, QColor(r, g, b, c.alpha()));
+            }
+        }
+    } else if (filter == "Sepia") {
+        for (int y = 0; y < h; ++y) {
+            for (int x = 0; x < w; ++x) {
+                QColor c = img.pixelColor(x, y);
+                int r = qBound(0, static_cast<int>(c.red() * 0.393 + c.green() * 0.769 + c.blue() * 0.189), 255);
+                int g = qBound(0, static_cast<int>(c.red() * 0.349 + c.green() * 0.686 + c.blue() * 0.168), 255);
+                int b = qBound(0, static_cast<int>(c.red() * 0.272 + c.green() * 0.534 + c.blue() * 0.131), 255);
+                result.setPixelColor(x, y, QColor(r, g, b, c.alpha()));
+            }
+        }
+    } else if (filter == "Noise") {
+        for (int y = 0; y < h; ++y) {
+            for (int x = 0; x < w; ++x) {
+                QColor c = img.pixelColor(x, y);
+                int noise = (qrand() % 51) - 25;
+                result.setPixelColor(x, y, QColor(qBound(0, c.red() + noise, 255), qBound(0, c.green() + noise, 255), qBound(0, c.blue() + noise, 255), c.alpha()));
+            }
+        }
+    }
+
+    m_document->applyImageToCurrentLayer(result);
+    m_canvas->update();
 }
 
 void PaintEditor::onNewImage()

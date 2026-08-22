@@ -5,6 +5,7 @@
 #include <cstring>
 #include <QtCore>
 #include <QDebug>
+#include <zlib.h>
 
 namespace ks {
 
@@ -136,6 +137,32 @@ bool FBXParser::parseBinary(const std::vector<char>& data)
     size_t offset = 23;
     uint32_t version = *reinterpret_cast<const uint32_t*>(data.data() + 28);
 
+    // Helper: skip one property in the property list, returning bytes consumed
+    auto skipProperty = [&](size_t pos) -> size_t {
+        if (pos >= data.size()) return 0;
+        uint8_t typeByte = static_cast<uint8_t>(data[pos]);
+        switch (typeByte) {
+            case 'Y': return 1 + 2; // int16
+            case 'C': return 1 + 1; // bool
+            case 'I': return 1 + 4; // int32
+            case 'F': return 1 + 4; // float
+            case 'D': return 1 + 8; // double
+            case 'L': return 1 + 8; // int64
+            case 'R': case 'S': {
+                if (pos + 5 > data.size()) return 0;
+                uint32_t len = *reinterpret_cast<const uint32_t*>(data.data() + pos + 1);
+                return 1 + 4 + len;
+            }
+            case 'f': case 'd': case 'l': case 'i': case 'b': {
+                // Array types: count(uint32) + encoding(uint32) + byteLen(uint32) + data
+                if (pos + 13 > data.size()) return 0;
+                uint32_t byteLen = *reinterpret_cast<const uint32_t*>(data.data() + pos + 9);
+                return 1 + 4 + 4 + 4 + byteLen;
+            }
+            default: return 0; // Unknown type, can't skip
+        }
+    };
+
     while (offset < data.size() - 25) {
         uint64_t endOffset = *reinterpret_cast<const uint64_t*>(data.data() + offset);
         uint64_t numProperties = *reinterpret_cast<const uint64_t*>(data.data() + offset + 8);
@@ -143,57 +170,155 @@ bool FBXParser::parseBinary(const std::vector<char>& data)
         uint8_t nameLen = *reinterpret_cast<const uint8_t*>(data.data() + offset + 24);
 
         std::string name(data.data() + offset + 25, nameLen);
-        offset += 25 + nameLen;
+        size_t propDataStart = offset + 25 + nameLen;
 
-        if (name == "Vertices" && offset + numProperties * sizeof(float) * 3 <= data.size()) {
-            if (!m_scene.meshes.empty()) {
-                auto& mesh = m_scene.meshes.back();
-                uint32_t count = static_cast<uint32_t>(numProperties / 3);
-                for (uint32_t i = 0; i < count; i++) {
-                    Vec3 v;
-                    std::memcpy(&v.x, data.data() + offset + i * 12, sizeof(float));
-                    std::memcpy(&v.y, data.data() + offset + i * 12 + 4, sizeof(float));
-                    std::memcpy(&v.z, data.data() + offset + i * 12 + 8, sizeof(float));
-                    mesh.vertices.push_back(v);
-                }
-            }
-        } else if (name == "PolygonVertexIndex" && offset + numProperties * 4 <= data.size()) {
-            if (!m_scene.meshes.empty()) {
-                auto& mesh = m_scene.meshes.back();
-                uint32_t count = static_cast<uint32_t>(numProperties);
-                for (uint32_t i = 0; i < count; i++) {
-                    int32_t idx;
-                    std::memcpy(&idx, data.data() + offset + i * 4, sizeof(int32_t));
-                    if (idx < 0) {
-                        mesh.indices.push_back(static_cast<uint32_t>(~idx));
-                    } else {
-                        mesh.indices.push_back(static_cast<uint32_t>(idx));
+        // For array data nodes, find the array property within the property list
+        // by skipping non-array properties to reach the actual array data
+        if (name == "Vertices" || name == "PolygonVertexIndex" || name == "Normals" || name == "UV" || name == "UVSetData") {
+            size_t propPos = propDataStart;
+            size_t propEnd = propDataStart + static_cast<size_t>(propertyListLen);
+
+            // Walk through properties to find the array
+            for (uint64_t p = 0; p < numProperties && propPos < propEnd; ++p) {
+                if (propPos >= data.size()) break;
+                uint8_t typeByte = static_cast<uint8_t>(data[propPos]);
+
+                if ((name == "Vertices" && (typeByte == 'f' || typeByte == 'd')) ||
+                    (name == "PolygonVertexIndex" && (typeByte == 'i' || typeByte == 'I')) ||
+                    (name == "Normals" && (typeByte == 'f' || typeByte == 'd')) ||
+                    (name == "UV" && (typeByte == 'f' || typeByte == 'd')) ||
+                    (name == "UVSetData" && (typeByte == 'f' || typeByte == 'd'))) {
+
+                    // Array property: type(1) + count(4) + encoding(4) + byteLen(4) + data
+                    if (propPos + 13 > data.size()) break;
+                    uint32_t arrCount = *reinterpret_cast<const uint32_t*>(data.data() + propPos + 1);
+                    uint32_t encoding = *reinterpret_cast<const uint32_t*>(data.data() + propPos + 5);
+                    uint32_t byteLen = *reinterpret_cast<const uint32_t*>(data.data() + propPos + 9);
+                    const char* arrData = data.data() + propPos + 13;
+
+                    if (encoding == 0 && propPos + 13 + byteLen <= data.size()) {
+                        // Raw encoding
+                        if (name == "Vertices") {
+                            if (!m_scene.meshes.empty()) {
+                                auto& mesh = m_scene.meshes.back();
+                                uint32_t vertCount = arrCount / 3;
+                                for (uint32_t i = 0; i < vertCount; i++) {
+                                    Vec3 v;
+                                    std::memcpy(&v.x, arrData + i * 12, sizeof(float));
+                                    std::memcpy(&v.y, arrData + i * 12 + 4, sizeof(float));
+                                    std::memcpy(&v.z, arrData + i * 12 + 8, sizeof(float));
+                                    mesh.vertices.push_back(v);
+                                }
+                            }
+                        } else if (name == "PolygonVertexIndex") {
+                            if (!m_scene.meshes.empty()) {
+                                auto& mesh = m_scene.meshes.back();
+                                for (uint32_t i = 0; i < arrCount; i++) {
+                                    int32_t idx;
+                                    std::memcpy(&idx, arrData + i * 4, sizeof(int32_t));
+                                    if (idx < 0) {
+                                        mesh.indices.push_back(static_cast<uint32_t>(~idx));
+                                    } else {
+                                        mesh.indices.push_back(static_cast<uint32_t>(idx));
+                                    }
+                                }
+                            }
+                        } else if (name == "Normals") {
+                            if (!m_scene.meshes.empty()) {
+                                auto& mesh = m_scene.meshes.back();
+                                uint32_t normCount = arrCount / 3;
+                                for (uint32_t i = 0; i < normCount; i++) {
+                                    Vec3 n;
+                                    std::memcpy(&n.x, arrData + i * 12, sizeof(float));
+                                    std::memcpy(&n.y, arrData + i * 12 + 4, sizeof(float));
+                                    std::memcpy(&n.z, arrData + i * 12 + 8, sizeof(float));
+                                    mesh.normals.push_back(n);
+                                }
+                            }
+                        } else if (name == "UV" || name == "UVSetData") {
+                            if (!m_scene.meshes.empty()) {
+                                auto& mesh = m_scene.meshes.back();
+                                uint32_t uvCount = arrCount / 2;
+                                for (uint32_t i = 0; i < uvCount; i++) {
+                                    Vec2 uv;
+                                    std::memcpy(&uv.x, arrData + i * 8, sizeof(float));
+                                    std::memcpy(&uv.y, arrData + i * 8 + 4, sizeof(float));
+                                    mesh.texCoords.push_back(uv);
+                                }
+                            }
+                        }
+                    } else if (encoding == 1 && propPos + 13 + byteLen <= data.size()) {
+                        std::vector<char> decompressed(arrCount * 4);
+                        uLongf decompressedSize = static_cast<uLongf>(decompressed.size());
+                        int zret = uncompress(reinterpret_cast<Bytef*>(decompressed.data()), &decompressedSize,
+                                              reinterpret_cast<const Bytef*>(arrData), static_cast<uLong>(byteLen));
+                        if (zret != Z_OK) {
+                            qWarning() << "FBX: ZLIB decompression failed for" << name.c_str() << "with error" << zret;
+                            size_t skip = skipProperty(propPos);
+                            if (skip == 0) break;
+                            propPos += skip;
+                            continue;
+                        }
+                        const char* raw = decompressed.data();
+                        if (name == "Vertices") {
+                            if (!m_scene.meshes.empty()) {
+                                auto& mesh = m_scene.meshes.back();
+                                uint32_t vertCount = arrCount / 3;
+                                for (uint32_t i = 0; i < vertCount; i++) {
+                                    Vec3 v;
+                                    std::memcpy(&v.x, raw + i * 12, sizeof(float));
+                                    std::memcpy(&v.y, raw + i * 12 + 4, sizeof(float));
+                                    std::memcpy(&v.z, raw + i * 12 + 8, sizeof(float));
+                                    mesh.vertices.push_back(v);
+                                }
+                            }
+                        } else if (name == "PolygonVertexIndex") {
+                            if (!m_scene.meshes.empty()) {
+                                auto& mesh = m_scene.meshes.back();
+                                for (uint32_t i = 0; i < arrCount; i++) {
+                                    int32_t idx;
+                                    std::memcpy(&idx, raw + i * 4, sizeof(int32_t));
+                                    if (idx < 0) mesh.indices.push_back(static_cast<uint32_t>(~idx));
+                                    else mesh.indices.push_back(static_cast<uint32_t>(idx));
+                                }
+                            }
+                        } else if (name == "Normals") {
+                            if (!m_scene.meshes.empty()) {
+                                auto& mesh = m_scene.meshes.back();
+                                uint32_t normCount = arrCount / 3;
+                                for (uint32_t i = 0; i < normCount; i++) {
+                                    Vec3 n;
+                                    std::memcpy(&n.x, raw + i * 12, sizeof(float));
+                                    std::memcpy(&n.y, raw + i * 12 + 4, sizeof(float));
+                                    std::memcpy(&n.z, raw + i * 12 + 8, sizeof(float));
+                                    mesh.normals.push_back(n);
+                                }
+                            }
+                        } else if (name == "UV" || name == "UVSetData") {
+                            if (!m_scene.meshes.empty()) {
+                                auto& mesh = m_scene.meshes.back();
+                                uint32_t uvCount = arrCount / 2;
+                                for (uint32_t i = 0; i < uvCount; i++) {
+                                    Vec2 uv;
+                                    std::memcpy(&uv.x, raw + i * 8, sizeof(float));
+                                    std::memcpy(&uv.y, raw + i * 8 + 4, sizeof(float));
+                                    mesh.texCoords.push_back(uv);
+                                }
+                            }
+                        }
                     }
+                    break; // Found the array, done with this node
                 }
+
+                size_t skip = skipProperty(propPos);
+                if (skip == 0) break;
+                propPos += skip;
             }
-        } else if (name == "Normals" && offset + numProperties * sizeof(float) * 3 <= data.size()) {
-            if (!m_scene.meshes.empty()) {
-                auto& mesh = m_scene.meshes.back();
-                uint32_t count = static_cast<uint32_t>(numProperties / 3);
-                for (uint32_t i = 0; i < count; i++) {
-                    Vec3 n;
-                    std::memcpy(&n.x, data.data() + offset + i * 12, sizeof(float));
-                    std::memcpy(&n.y, data.data() + offset + i * 12 + 4, sizeof(float));
-                    std::memcpy(&n.z, data.data() + offset + i * 12 + 8, sizeof(float));
-                    mesh.normals.push_back(n);
-                }
-            }
-        } else if (name == "UV" && offset + numProperties * sizeof(float) * 2 <= data.size()) {
-            if (!m_scene.meshes.empty()) {
-                auto& mesh = m_scene.meshes.back();
-                uint32_t count = static_cast<uint32_t>(numProperties / 2);
-                for (uint32_t i = 0; i < count; i++) {
-                    Vec2 uv;
-                    std::memcpy(&uv.x, data.data() + offset + i * 8, sizeof(float));
-                    std::memcpy(&uv.y, data.data() + offset + i * 8 + 4, sizeof(float));
-                    mesh.texCoords.push_back(uv);
-                }
-            }
+        }
+
+        // Also look for Name property inside Geometry nodes for mesh naming
+        if (name == "Vertices" && !m_scene.meshes.empty()) {
+            // Geometry name is typically in the parent node, handled elsewhere
         }
 
         offset = static_cast<size_t>(endOffset);

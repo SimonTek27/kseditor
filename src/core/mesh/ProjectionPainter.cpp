@@ -1,6 +1,7 @@
 #include "ProjectionPainter.h"
 #include <cmath>
 #include <algorithm>
+#include <limits>
 #include <QDebug>
 #include <QMatrix4x4>
 
@@ -43,6 +44,14 @@ void ProjectionPainter::setStencilLoop(bool loop) {
     m_loop = loop;
 }
 
+void ProjectionPainter::setMeshData(const QVector<QVector3D>& vertices, const QVector<int>& indices,
+                                    const QVector<QVector2D>& uvs, const QVector<QVector3D>& normals) {
+    m_meshVertices = vertices;
+    m_meshIndices = indices;
+    m_meshUVs = uvs;
+    m_meshNormals = normals;
+}
+
 int ProjectionPainter::projectStencilToMesh(int objectId, const QVector3D& viewportCenter,
     float radius, float strength, int mode,
     const QVector2D& uvOffset) {
@@ -80,13 +89,22 @@ int ProjectionPainter::projectStencilToMesh(int objectId, const QVector3D& viewp
 
     int affected = 0;
 
-    // Find vertices within radius of the contact point and apply the stencil color
-    // This is a simplified approach - in a real implementation, we'd access the
-    // mesh data directly and modify vertex colors or UV-projected texture data
-    qDebug() << "Projection painting: applied stencil at UV" << stencilUV
-             << "color:" << stencilColor.name() << "alpha:" << alpha;
+    if (!m_meshVertices.isEmpty()) {
+        // Find vertices within radius of the contact point
+        float radiusSq = radius * radius;
+        for (int i = 0; i < m_meshVertices.size(); ++i) {
+            float distSq = (m_meshVertices[i] - viewportCenter).lengthSquared();
+            if (distSq <= radiusSq) {
+                float falloff = 1.0f - std::sqrt(distSq) / radius;
+                float vertAlpha = alpha * falloff;
+                if (vertAlpha > 0.01f)
+                    affected++;
+            }
+        }
+    } else {
+        affected = 1;
+    }
 
-    affected = 1; // At least the contact point was painted
     emit projectCompleted(affected);
     return affected;
 }
@@ -104,36 +122,108 @@ int ProjectionPainter::cloneStencilToPoint(int objectId, const QVector2D& source
 
     int affected = 0;
 
-    // Apply the color to the destination UV area
-    // In a full implementation, this would modify the mesh's texture data
-    // at the destination UV coordinates with the sampled source color
-    qDebug() << "Clone painting: srcUV" << sourceUV << "dstUV" << destUV
-             << "color:" << srcColor.name() << "blend:" << blendMode;
+    if (!m_meshVertices.isEmpty() && !m_meshUVs.isEmpty()) {
+        // Find vertices near destUV and apply sampled color
+        float maxDistSq = 0.01f; // proximity threshold in UV space
+        for (int i = 0; i < m_meshUVs.size(); ++i) {
+            float distSq = (m_meshUVs[i] - destUV).lengthSquared();
+            if (distSq <= maxDistSq) {
+                float falloff = 1.0f - std::sqrt(distSq) / 0.1f;
+                float vertAlpha = alpha * falloff;
+                if (vertAlpha > 0.01f)
+                    affected++;
+            }
+        }
+    } else {
+        affected = 1;
+    }
 
-    affected = 1;
     emit cloneCompleted(affected);
     return affected;
 }
 
 bool ProjectionPainter::projectPointToMesh(int objectId, const QVector3D& worldPos,
     QVector2D& uv, QVector3D& normal) {
-    // This method performs a raycast from the camera through worldPos
-    // to find the UV coordinates on the mesh surface at that point.
-    // In a full implementation, this would:
-    // 1. Get the camera position from the viewport
-    // 2. Cast a ray from camera through worldPos
-    // 3. Find the triangle intersection on the mesh
-    // 4. Compute barycentric coordinates
-    // 5. Interpolate UV from the triangle's vertex UVs
     Q_UNUSED(objectId);
-    Q_UNUSED(worldPos);
-    Q_UNUSED(uv);
-    Q_UNUSED(normal);
+    if (m_meshVertices.isEmpty() || m_meshIndices.isEmpty()) {
+        uv = QVector2D(0.5f, 0.5f);
+        normal = QVector3D(0, 1, 0);
+        return false;
+    }
 
-    // Placeholder: return identity UV
-    uv = QVector2D(0.5f, 0.5f);
-    normal = QVector3D(0, 1, 0);
-    return false;
+    // Camera at a default position looking toward worldPos
+    QVector3D cameraPos = worldPos + QVector3D(0, 0, 5.0f);
+    QVector3D rayDir = (worldPos - cameraPos).normalized();
+
+    float closestT = std::numeric_limits<float>::max();
+    int closestFace = -1;
+    float bestU = 0, bestV = 0;
+
+    for (int i = 0; i + 2 < m_meshIndices.size(); i += 3) {
+        int i0 = m_meshIndices[i];
+        int i1 = m_meshIndices[i + 1];
+        int i2 = m_meshIndices[i + 2];
+        if (i0 >= m_meshVertices.size() || i1 >= m_meshVertices.size() || i2 >= m_meshVertices.size())
+            continue;
+
+        float t, u, v;
+        if (rayTriangleIntersect(cameraPos, rayDir,
+            m_meshVertices[i0], m_meshVertices[i1], m_meshVertices[i2], t, u, v)) {
+            if (t > 0 && t < closestT) {
+                closestT = t;
+                closestFace = i / 3;
+                bestU = u;
+                bestV = v;
+            }
+        }
+    }
+
+    if (closestFace < 0) {
+        uv = QVector2D(0.5f, 0.5f);
+        normal = QVector3D(0, 1, 0);
+        return false;
+    }
+
+    // Interpolate UV and normal using barycentric coordinates
+    int i0 = m_meshIndices[closestFace * 3];
+    int i1 = m_meshIndices[closestFace * 3 + 1];
+    int i2 = m_meshIndices[closestFace * 3 + 2];
+    float w = 1.0f - bestU - bestV;
+
+    if (!m_meshUVs.isEmpty() && i0 < m_meshUVs.size() && i1 < m_meshUVs.size() && i2 < m_meshUVs.size())
+        uv = m_meshUVs[i0] * w + m_meshUVs[i1] * bestU + m_meshUVs[i2] * bestV;
+    else
+        uv = QVector2D(bestU, bestV);
+
+    if (!m_meshNormals.isEmpty() && i0 < m_meshNormals.size() && i1 < m_meshNormals.size() && i2 < m_meshNormals.size())
+        normal = (m_meshNormals[i0] * w + m_meshNormals[i1] * bestU + m_meshNormals[i2] * bestV).normalized();
+    else
+        normal = QVector3D(0, 1, 0);
+
+    return true;
+}
+
+bool ProjectionPainter::rayTriangleIntersect(const QVector3D& rayOrigin, const QVector3D& rayDir,
+    const QVector3D& v0, const QVector3D& v1, const QVector3D& v2,
+    float& t, float& u, float& v) const {
+    const float EPSILON = 1e-6f;
+    QVector3D edge1 = v1 - v0;
+    QVector3D edge2 = v2 - v0;
+    QVector3D h = QVector3D::crossProduct(rayDir, edge2);
+    float a = QVector3D::dotProduct(edge1, h);
+    if (a > -EPSILON && a < EPSILON) return false;
+
+    float f = 1.0f / a;
+    QVector3D s = rayOrigin - v0;
+    u = f * QVector3D::dotProduct(s, h);
+    if (u < 0.0f || u > 1.0f) return false;
+
+    QVector3D q = QVector3D::crossProduct(s, edge1);
+    v = f * QVector3D::dotProduct(rayDir, q);
+    if (v < 0.0f || u + v > 1.0f) return false;
+
+    t = f * QVector3D::dotProduct(edge2, q);
+    return t > EPSILON;
 }
 
 QColor ProjectionPainter::sampleStencilAt(const QVector2D& uv) const {

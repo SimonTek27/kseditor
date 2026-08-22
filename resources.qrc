@@ -336,6 +336,7 @@
         <file alias="modules/physicsEditor/main.qml">resources/ui/qml/modules/physicsEditor/main.qml</file>
         <file alias="modules/physicsEditor/PhysicsStudio.qml">resources/ui/qml/modules/physicsEditor/PhysicsStudio.qml</file>
         <file alias="VR/VRSettingsPage.qml">resources/ui/qml/VR/VRSettingsPage.qml</file>
+        <file alias="pages/page_WelcomeScreen.qml">resources/ui/qml/pages/page_WelcomeScreen.qml</file>
         <file alias="app_Main.qml">resources/ui/qml/app_Main.qml</file>
     </qresource>
     <qresource prefix="/translations">

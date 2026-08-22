@@ -786,10 +786,71 @@ void ToolSettingsWidget::createSculptPanel() {
 void ToolSettingsWidget::createUVPanel() {
     m_uvPanel = new QWidget(this);
     QFormLayout* layout = new QFormLayout(m_uvPanel);
+
     m_uvProjectionCombo = new QComboBox(this);
     m_uvProjectionCombo->addItems({"Planar", "Cylindrical", "Spherical", "Box", "Smart"});
     layout->addRow("Projection:", m_uvProjectionCombo);
+
+    m_uvUnwrapMethodCombo = new QComboBox(this);
+    m_uvUnwrapMethodCombo->addItems({"Angle Based", "Conformal", "Least Squares Conformal", "Planar", "Cylindrical", "Spherical"});
+    layout->addRow("Unwrap Method:", m_uvUnwrapMethodCombo);
+
+    m_seamAngleSpin = new QDoubleSpinBox(this);
+    m_seamAngleSpin->setRange(0, 180);
+    m_seamAngleSpin->setValue(66);
+    m_seamAngleSpin->setSingleStep(1);
+    m_seamAngleSpin->setSuffix(" deg");
+    layout->addRow("Seam Angle:", m_seamAngleSpin);
+
+    m_packMarginSpin = new QDoubleSpinBox(this);
+    m_packMarginSpin->setRange(0.0, 1.0);
+    m_packMarginSpin->setValue(0.02);
+    m_packMarginSpin->setSingleStep(0.01);
+    m_packMarginSpin->setSuffix(" px");
+    layout->addRow("Pack Margin:", m_packMarginSpin);
+
+    m_shareUVCheck = new QCheckBox("Share UV coordinates", this);
+    m_shareUVCheck->setChecked(true);
+    layout->addRow("", m_shareUVCheck);
+
+    m_unwrapBtn = new QPushButton("Unwrap", this);
+    m_packChartsBtn = new QPushButton("Pack Charts", this);
+    connect(m_unwrapBtn, &QPushButton::clicked, this, &ToolSettingsWidget::onUnwrapClicked);
+    connect(m_packChartsBtn, &QPushButton::clicked, this, &ToolSettingsWidget::onPackChartsClicked);
+    layout->addRow("", m_unwrapBtn);
+    layout->addRow("", m_packChartsBtn);
+
+    m_uvPreviewLabel = new QLabel("Load a mesh to preview UV layout", this);
+    m_uvPreviewLabel->setAlignment(Qt::AlignCenter);
+    m_uvPreviewLabel->setMinimumHeight(200);
+    m_uvPreviewLabel->setStyleSheet("QLabel { background-color: #1a1a2e; border: 1px solid #3a3a5e; border-radius: 4px; }");
+    layout->addWidget(m_uvPreviewLabel);
+
     m_settingsStack->addWidget(m_uvPanel);
+}
+
+void ToolSettingsWidget::onUnwrapClicked() {
+    QString methodText;
+    switch (m_uvUnwrapMethodCombo->currentIndex()) {
+        case 0: methodText = "Angle Based"; break;
+        case 1: methodText = "Conformal"; break;
+        case 2: methodText = "Least Squares Conformal"; break;
+        case 3: methodText = "Planar"; break;
+        case 4: methodText = "Cylindrical"; break;
+        case 5: methodText = "Spherical"; break;
+        default: methodText = "Unknown"; break;
+    }
+    QString info = QString("UV %1 method selected (seam angle: %2°, pack margin: %3px)")
+        .arg(methodText)
+        .arg(m_seamAngleSpin->value())
+        .arg(m_packMarginSpin->value());
+    emit uvUnwrapRequested(info);
+}
+
+void ToolSettingsWidget::onPackChartsClicked() {
+    QString marginText = QString::number(m_packMarginSpin->value()) + "px";
+    emit uvPackChartsRequested(m_packMarginSpin->value(), m_shareUVCheck->isChecked());
+}
 }
 
 void ToolSettingsWidget::setToolType(ToolType type) {

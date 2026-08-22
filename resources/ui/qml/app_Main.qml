@@ -373,8 +373,8 @@ Rectangle {
             // ── 12: Telemetry ─────────────────────────────────────────────────
             Loader {
                 active: currentMode === "telemetry"
-                source: "modules/car_telemetry_Viewer.qml"
-                onStatusChanged: if (status === Loader.Error) console.error("car_telemetry_Viewer.qml failed to load")
+source: "modules/TelemetryViewer.qml"
+onStatusChanged: if (status === Loader.Error) console.error("TelemetryViewer.qml failed to load")
             }
 
             // ── 13: Setup Editor ──────────────────────────────────────────────
@@ -394,7 +394,7 @@ Rectangle {
             // ── 15: Format Tools ─────────────────────────────────────────────
             Loader {
                 active: currentMode === "formattools"
-                source: "modules/format_Tools.qml"
+                source: "modules/FormatTools.qml"
                 onStatusChanged: if (status === Loader.Error) console.error("format_Tools.qml failed to load")
             }
 
@@ -429,8 +429,8 @@ Rectangle {
             // ── 20: ACE Content Browser ─────────────────────────────────────
             Loader {
                 active: currentMode === "ace"
-                source: "modules/ace_ContentBrowser.qml"
-                onStatusChanged: if (status === Loader.Error) console.error("ace_ContentBrowser.qml failed to load")
+source: "modules/simulator/ace_ContentBrowser.qml"
+onStatusChanged: if (status === Loader.Error) console.error("ace_ContentBrowser.qml failed to load")
             }
         }
 

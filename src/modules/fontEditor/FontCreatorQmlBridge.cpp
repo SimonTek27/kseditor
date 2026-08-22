@@ -278,7 +278,7 @@ bool FontCreatorQmlBridge::generateAtlas(const QString& path) {
         auto it = m_glyphs.constFind(cp);
         if (it != m_glyphs.constEnd()) {
             model.setPixelWidth(it.value().width);
-            model.setPixelHeight(it.value().vPad + m_atlasHeight);
+            model.setPixelHeight(m_atlasHeight);
             model.setHPadding(it.value().hPad);
             model.setVPadding(it.value().vPad);
         }

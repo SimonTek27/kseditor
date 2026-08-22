@@ -431,12 +431,97 @@ bool ACModelLoader::loadTextures(const QString& folder, QVector<ACTexture>& outT
 }
 
 bool ACModelLoader::loadMaterials(const QString& iniPath, QVector<ACMaterialProperties>& outMaterials) {
-    // Parse materials.ini - simplified
     QFile file(iniPath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return false;
-    
-    // Would parse INI sections for each material
-    // For now, return empty
+
+    QTextStream stream(&file);
+    ACMaterialProperties current;
+    bool inSection = false;
+
+    while (!stream.atEnd()) {
+        QString line = stream.readLine().trimmed();
+        if (line.isEmpty() || line.startsWith(';') || line.startsWith('#')) continue;
+
+        if (line.startsWith('[') && line.endsWith(']')) {
+            if (inSection && !current.shaderName.isEmpty()) {
+                outMaterials.append(current);
+            }
+            current = ACMaterialProperties();
+            current.shaderName = line.mid(1, line.length() - 2).trimmed();
+            inSection = true;
+        } else if (inSection) {
+            int eq = line.indexOf('=');
+            if (eq < 0) continue;
+            QString key = line.left(eq).trimmed().toLower();
+            QString val = line.mid(eq + 1).trimmed();
+
+            if (key == "shader") {
+                current.shaderType = acStringToShaderType(val);
+            } else if (key == "alphablending") {
+                current.alphaBlending = (val.toLower() == "on" || val == "1");
+            } else if (key == "alphatesting") {
+                current.alphaTesting = (val.toLower() == "on" || val == "1");
+            } else if (key == "alpharef") {
+                current.alphaRef = val.toFloat();
+            } else if (key == "depthtest") {
+                current.depthTest = (val.toLower() != "off" && val != "0");
+            } else if (key == "depthwrite") {
+                current.depthWrite = (val.toLower() != "off" && val != "0");
+            } else if (key == "backfacecull") {
+                current.backfaceCull = (val.toLower() != "off" && val != "0");
+            } else if (key == "specularexp") {
+                current.specularExp = val.toFloat();
+            } else if (key == "specularmult") {
+                current.specularMult = val.toFloat();
+            } else if (key == "detailuvmult") {
+                current.detailUVMult = val.toFloat();
+            } else if (key == "emissivecolor") {
+                QStringList parts = val.split(',');
+                if (parts.size() >= 3) {
+                    current.emissiveColor = QVector3D(parts[0].toFloat(), parts[1].toFloat(), parts[2].toFloat());
+                }
+            } else if (key == "emissivemult") {
+                current.emissiveMult = val.toFloat();
+            } else if (key == "reflectivity") {
+                current.reflectivity = val.toFloat();
+            } else if (key == "fresnelbias") {
+                current.fresnelBias = val.toFloat();
+            } else if (key == "fresnelscale") {
+                current.fresnelScale = val.toFloat();
+            } else if (key == "fresnelpower") {
+                current.fresnelPower = val.toFloat();
+            } else if (key == "diffuse") {
+                current.textureSlots[ACTextureSlot::Diffuse] = val;
+            } else if (key == "normal") {
+                current.textureSlots[ACTextureSlot::Normal] = val;
+            } else if (key == "specular") {
+                current.textureSlots[ACTextureSlot::Specular] = val;
+            } else if (key == "detail") {
+                current.textureSlots[ACTextureSlot::Detail] = val;
+            } else if (key == "detailnormal") {
+                current.textureSlots[ACTextureSlot::DetailNormal] = val;
+            } else if (key == "ambient") {
+                current.textureSlots[ACTextureSlot::Ambient] = val;
+            } else if (key == "emissive") {
+                current.textureSlots[ACTextureSlot::Emissive] = val;
+            } else if (key == "reflection") {
+                current.textureSlots[ACTextureSlot::Reflection] = val;
+            } else if (key == "damage") {
+                current.textureSlots[ACTextureSlot::Damage] = val;
+            } else {
+                QStringList parts = val.split(',');
+                QVector4D vecVal;
+                for (int i = 0; i < qMin(4, parts.size()); ++i)
+                    vecVal[i] = parts[i].toFloat();
+                current.customParams[key] = vecVal;
+            }
+        }
+    }
+
+    if (inSection && !current.shaderName.isEmpty()) {
+        outMaterials.append(current);
+    }
+
     return true;
 }
 
@@ -650,66 +735,100 @@ void ACRenderer::resize(uint32_t width, uint32_t height) {
 }
 
 void ACRenderer::shutdown() {
-    // Cleanup resources
-}
-
-void* ACRenderer::createVertexBuffer(const void* data, uint32_t size) {
-    // Create GPU buffer
-    return nullptr;
-}
-
-void* ACRenderer::createIndexBuffer(const void* data, uint32_t size) {
-    return nullptr;
-}
-
-void* ACRenderer::createTexture(const ACTexture& texture) {
-    // Upload texture to GPU
-    return nullptr;
-}
-
-void* ACRenderer::createUniformBuffer(uint32_t size) {
-    return nullptr;
-}
-
-void* ACRenderer::createShader(ACShaderType type, const QStringList& defines) {
-    // Compile shader
-    return nullptr;
-}
-
-void ACRenderer::updateBuffer(void* buffer, const void* data, uint32_t offset, uint32_t size) {
-    // Update GPU buffer
-}
-
-void ACRenderer::updateTexture(void* texture, const ACTexture& data) {
-    // Update GPU texture
-}
-
-void ACRenderer::destroyBuffer(void* buffer) {
-    // Release GPU buffer
-}
-
-void ACRenderer::destroyTexture(void* texture) {
-    // Release GPU texture
-}
-
-void ACRenderer::destroyShader(void* shader) {
-    // Release GPU shader
-}
-
-void ACRenderer::beginFrame() {
+    d->width = 0;
+    d->height = 0;
     d->stats = Stats();
 }
 
-void ACRenderer::endFrame() {
-    // Present frame
-}
+    void* ACRenderer::createVertexBuffer(const void* data, uint32_t size) {
+        if (d->backend == Backend::Null) {
+            QByteArray* buf = new QByteArray(reinterpret_cast<const char*>(data), size);
+            return static_cast<void*>(buf);
+        }
+        return nullptr;
+    }
 
-void ACRenderer::renderScene(const ACScene& scene, const QMatrix4x4& view, const QMatrix4x4& proj,
-                             const QVector3D& cameraPos, const QVector<QVector3D>& lights) {
-    // Render scene with AC shaders
-    // Sort by shader, material, distance
-    // Handle LOD, transparency, shadows
-}
+    void* ACRenderer::createIndexBuffer(const void* data, uint32_t size) {
+        if (d->backend == Backend::Null) {
+            QByteArray* buf = new QByteArray(reinterpret_cast<const char*>(data), size);
+            return static_cast<void*>(buf);
+        }
+        return nullptr;
+    }
+
+    void* ACRenderer::createTexture(const ACTexture& texture) {
+        if (d->backend == Backend::Null) {
+            ACTexture* tex = new ACTexture(texture);
+            return static_cast<void*>(tex);
+        }
+        return nullptr;
+    }
+
+    void* ACRenderer::createUniformBuffer(uint32_t size) {
+        if (d->backend == Backend::Null) {
+            QByteArray* buf = new QByteArray(size, '\0');
+            return static_cast<void*>(buf);
+        }
+        return nullptr;
+    }
+
+    void* ACRenderer::createShader(ACShaderType type, const QStringList& defines) {
+        if (d->backend == Backend::Null) {
+            ACShaderType* shader = new ACShaderType(type);
+            return static_cast<void*>(shader);
+        }
+        return nullptr;
+    }
+
+    void ACRenderer::updateBuffer(void* buffer, const void* data, uint32_t offset, uint32_t size) {
+        if (!buffer) return;
+        auto* buf = static_cast<QByteArray*>(buffer);
+        if (offset + size <= static_cast<uint32_t>(buf->size()))
+            buf->replace(static_cast<int>(offset), static_cast<int>(size), reinterpret_cast<const char*>(data), static_cast<int>(size));
+    }
+
+    void ACRenderer::updateTexture(void* texture, const ACTexture& data) {
+        if (!texture) return;
+        auto* tex = static_cast<ACTexture*>(texture);
+        tex->data = data.data;
+        tex->width = data.width;
+        tex->height = data.height;
+    }
+
+    void ACRenderer::destroyBuffer(void* buffer) {
+        delete static_cast<QByteArray*>(buffer);
+    }
+
+    void ACRenderer::destroyTexture(void* texture) {
+        delete static_cast<ACTexture*>(texture);
+    }
+
+    void ACRenderer::destroyShader(void* shader) {
+        delete static_cast<ACShaderType*>(shader);
+    }
+
+    void ACRenderer::beginFrame() {
+        d->stats = Stats();
+    }
+
+    void ACRenderer::endFrame() {
+        emit frameRendered();
+    }
+
+    void ACRenderer::renderScene(const ACScene& scene, const QMatrix4x4& view, const QMatrix4x4& proj,
+                                 const QVector3D& cameraPos, const QVector<QVector3D>& lights) {
+        if (d->backend == Backend::Null) {
+            for (const auto& node : scene.nodes) {
+                if (!node.visible || node.meshIndex < 0 || node.meshIndex >= scene.meshes.size()) continue;
+                const auto& mesh = scene.meshes[node.meshIndex];
+                for (const auto& sub : mesh.subMeshes) {
+                    d->stats.drawCalls++;
+                    d->stats.triangles += sub.indexCount / 3;
+                    d->stats.vertices += mesh.vertexCount();
+                }
+            }
+        }
+    }
 
 void ACRenderer::setWireframe(bool enabled) { d->wireframe = enabled; }
 void ACRenderer::setShowBounds(bool enabled) { d->showBounds = enabled; }

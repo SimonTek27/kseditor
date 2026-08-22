@@ -375,8 +375,11 @@ bool MeshRenderer::loadFromGLTF(const QString &filePath)
                 }
             }
             
-            if (attributes.contains("NORMAL") || attributes.contains("TEXCOORD_0")) {
-                // Skip tex coords for now
+            if (attributes.contains("TEXCOORD_0")) {
+                QVariantList uvData = readAccessor(gltf["accessors"].toArray()[attributes["TEXCOORD_0"].toInt()].toObject());
+                for (int i = 0; i + 1 < uvData.size(); i += 2) {
+                    texCoords.append(QVector2D(uvData[i].toFloat(), uvData[i+1].toFloat()));
+                }
             }
             
             if (prim.contains("indices")) {

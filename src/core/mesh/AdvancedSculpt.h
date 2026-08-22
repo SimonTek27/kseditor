@@ -94,6 +94,7 @@ private:
         enum class DetailMode { Constant, Brush };
         DetailMode detailMode = DetailMode::Brush;
         bool useConstantDetail = false;
+        bool retopoMode = false;
     } dyntopo;
 
     struct MaskSettings {

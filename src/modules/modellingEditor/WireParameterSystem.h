@@ -8,8 +8,10 @@
 
 namespace ks {
 
-// Wire Parameters (3ds Max): binds a scalar parameter of a driver object to a
-// scalar parameter of a driven object, with an affine map `value = driver * scale + offset`.
+// Wire Parameters (3ds Max / Softimage): binds a scalar parameter of a driver
+// object to a scalar parameter of a driven object, with an affine map
+// `value = driver * scale + offset`, or — when `expression` is non-empty — a
+// full math expression over the driver value `x` (see ExpressionEvaluator.h).
 struct WireBinding {
     int driverId = -1;
     QString driverName;
@@ -20,6 +22,7 @@ struct WireBinding {
     float scale = 1.0f;
     float offset = 0.0f;
     bool enabled = true;
+    QString expression;   // empty → legacy affine map
 
     QVariant toVariant() const;
     void fromVariant(const QVariant& v);
@@ -39,6 +42,9 @@ public:
     bool setEnabled(int drivenId, int index, bool on);
     bool setParams(int drivenId, int index, float scale, float offset);
     bool setProperty(int drivenId, int index, const QString& drivenProp);
+    // Sets a math expression over the driver value (`x`) for a binding.
+    // Passing an empty string restores the legacy affine map (`scale`/`offset`).
+    bool setExpression(int drivenId, int index, const QString& expression);
     void clearDriven(int drivenId);
     void clearDriver(int driverId);
     void clearAll();

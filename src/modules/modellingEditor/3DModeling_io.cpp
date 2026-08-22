@@ -16,6 +16,7 @@
 #include <QFileInfo>
 #include <unordered_map>
 #include "core/FileFormat/FBXParser.h"
+#include "plugins/simulators/kunos/assettocorsa/acFiles/FBXExporter.h"
 #if HAS_QT3D
 #include <Qt3DRender/qgeometryrenderer.h>
 #include <Qt3DCore/qattribute.h>
@@ -448,7 +449,46 @@ bool ImportExport3D::importFBX(const QString& path, geometry::Scene3D* scene)
     if (!scene || !QFileInfo(path).exists()) return false;
 
     FBXParser parser;
-    if (!parser.loadFromFile(path.toStdString())) {
+    bool parsed = parser.loadFromFile(path.toStdString());
+
+    // If parser returned no meshes, try the AC plugin's FBXImporter as fallback
+    if (parsed && parser.scene().meshes.empty()) {
+        MeshData fallbackMesh;
+        auto settings = ks::FBXImporter::getDefaultImportSettings();
+        settings.importMaterials = true;
+        settings.importTextures = false;
+        settings.importAnimations = false;
+        settings.importSkinning = false;
+        if (ks::FBXImporter::importFromFBX(path, fallbackMesh, settings) && !fallbackMesh.vertices.isEmpty()) {
+            auto* mesh3d = new geometry::Mesh3D(scene);
+            QVector<QVector3D> verts;
+            QVector<QVector3D> norms;
+            QVector<QVector2D> uvs;
+            QVector<quint32> idxs;
+            verts.reserve(fallbackMesh.vertices.size());
+            for (const auto& v : fallbackMesh.vertices)
+                verts.append(v.position);
+            norms.reserve(fallbackMesh.normals.size());
+            for (const auto& n : fallbackMesh.normals)
+                norms.append(n);
+            uvs.reserve(fallbackMesh.uvs.size());
+            for (const auto& uv : fallbackMesh.uvs)
+                uvs.append(uv);
+            for (const auto& f : fallbackMesh.faces)
+                for (int idx : f.indices)
+                    idxs.append(static_cast<quint32>(idx));
+            mesh3d->setVertices(verts);
+            mesh3d->setNormals(norms);
+            mesh3d->setUVs(uvs);
+            mesh3d->setIndices(idxs);
+            scene->addObject(QFileInfo(path).baseName(), mesh3d);
+            qDebug() << "[ImportExport3D] Imported FBX via fallback importer:" << verts.size() << "vertices";
+            emit importProgress(100);
+            return true;
+        }
+    }
+
+    if (!parsed) {
         qWarning() << "[ImportExport3D] Failed to parse FBX:" << path;
         return false;
     }

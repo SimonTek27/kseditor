@@ -1065,11 +1065,41 @@ VkPipeline PBRPipelineFactory::createPipeline(VkDevice device, VkRenderPass rend
                                               const QString& vertShader, const QString& fragShader,
                                               const PipelineConfig& config, bool hasDepth)
 {
-    // Load and compile shaders (would use SPIR-V)
-    // This is a simplified version
-    
+    QByteArray vertCode, fragCode;
+    QFile vFile(vertShader);
+    if (vFile.open(QIODevice::ReadOnly)) {
+        vertCode = vFile.readAll();
+        vFile.close();
+    }
+    QFile fFile(fragShader);
+    if (fFile.open(QIODevice::ReadOnly)) {
+        fragCode = fFile.readAll();
+        fFile.close();
+    }
+
+    auto createShaderModule = [&](const QByteArray& code) -> VkShaderModule {
+        if (code.isEmpty() || !g_vk.createShaderModule) return VK_NULL_HANDLE;
+        VkShaderModuleCreateInfo ci{};
+        ci.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        ci.codeSize = code.size();
+        ci.pCode = reinterpret_cast<const uint32_t*>(code.constData());
+        VkShaderModule module = VK_NULL_HANDLE;
+        g_vk.createShaderModule(device, &ci, nullptr, &module);
+        return module;
+    };
+
+    VkShaderModule vertModule = createShaderModule(vertCode);
+    VkShaderModule fragModule = createShaderModule(fragCode);
+
     VkPipelineShaderStageCreateInfo stages[2] = {};
-    // ... shader module creation
+    stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    stages[0].module = vertModule;
+    stages[0].pName = "main";
+    stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    stages[1].module = fragModule;
+    stages[1].pName = "main";
     
     // Vertex input
     VkVertexInputBindingDescription binding{};
@@ -1173,7 +1203,12 @@ VkPipeline PBRPipelineFactory::createPipeline(VkDevice device, VkRenderPass rend
     if (m_renderer && g_vk.createGraphicsPipelines) {
         g_vk.createGraphicsPipelines(device, VK_NULL_HANDLE, 1, &gpCi, nullptr, &pipeline);
     }
-    
+
+    if (g_vk.destroyShaderModule) {
+        if (vertModule) g_vk.destroyShaderModule(device, vertModule, nullptr);
+        if (fragModule) g_vk.destroyShaderModule(device, fragModule, nullptr);
+    }
+
     return pipeline;
 }
 

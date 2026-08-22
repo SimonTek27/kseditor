@@ -47,6 +47,13 @@ public:
     // Returns which vertices should be affected based on current mask
     QSet<int> applyMaskToBrush(int objectId, const QVector3D& center, float radius, 
                                float strength, int brushMode) const;
+
+    // Set vertex positions for real distance calculations
+    void setVertexPositions(const QVector<QVector3D>& positions);
+    void setVertexNormals(const QVector<QVector3D>& normals);
+    void setSculptLayerWeights(const QVector<float>& weights);
+    void setPaintLayerMasks(const QVector<float>& masks);
+    void setSymmetryPlane(const QVector3D& normal, float offset);
     
     // Signals
 signals:
@@ -62,4 +69,10 @@ private:
     QVector3D m_maskCenter;
     float m_maskRadius = 0.0f;
     bool m_symmetryEnabled = false;
+    QVector<QVector3D> m_vertexPositions;
+    QVector<QVector3D> m_vertexNormals;
+    QVector<float> m_sculptLayerWeights;
+    QVector<float> m_paintLayerMasks;
+    QVector3D m_symmetryPlaneNormal = QVector3D(1, 0, 0);
+    float m_symmetryPlaneOffset = 0.0f;
 };

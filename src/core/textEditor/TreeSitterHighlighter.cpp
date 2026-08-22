@@ -712,8 +712,30 @@ void TreeSitterHighlighter::handleMultiLineComment(const QString& text, int& sta
 }
 
 void TreeSitterHighlighter::handleMultiLineString(const QString& text, int state, int& pos) {
-    // Implementation for multi-line strings
-    // Would need to track quote type and handle escaping
+    Q_UNUSED(state);
+    if (pos >= text.length()) return;
+
+    QChar quote = text.at(pos);
+    if (quote != '"' && quote != '\'') return;
+
+    int start = pos;
+    pos++;
+
+    while (pos < text.length()) {
+        QChar c = text.at(pos);
+        if (c == '\\') {
+            pos += 2;
+            continue;
+        }
+        if (c == quote) {
+            pos++;
+            setFormat(start, pos - start, m_stringFormat);
+            return;
+        }
+        pos++;
+    }
+
+    setFormat(start, text.length() - start, m_stringFormat);
 }
 
 QTextCharFormat TreeSitterHighlighter::formatForTokenType(const QString& tokenType) const {

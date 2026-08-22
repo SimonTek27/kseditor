@@ -37,7 +37,7 @@ public:
 
     enum Format {
         OBJ, FBX, GLTF, GLB_FILE, STL, THREE_DS, BLEND,
-        DAE, DXF, STEP, IGES, SAT, DWG, KS3D
+        DAE, DXF, STEP, IGES, SAT, DWG, KS3D, THREE_D
     };
 
     static QStringList supportedImportFormats() {
@@ -77,6 +77,9 @@ private:
     bool importSTL(const QString& path, geometry::Scene3D* scene);
     bool importFBX(const QString& path, geometry::Scene3D* scene);
     bool importKS3D(const QString& path, geometry::Scene3D* scene);
+    bool import3DM(const QString& path, geometry::Scene3D* scene);
+    bool export3DM(geometry::Scene3D* scene, const QString& path);
+
 
     bool exportOBJ(geometry::Scene3D* scene, const QString& path);
     bool exportGLTF(geometry::Scene3D* scene, const QString& path);

@@ -44,6 +44,13 @@ private slots:
     void testSnapPointToMesh();
     void testFillHoles();
     void testExtractFaces();
+    void testFalloffFactor();
+    void testTransformAround();
+    void testSplitSmoothingGroups();
+    void testBevelEdges();
+    void testResolveUVOverlaps();
+    void testRevolveSketch();
+    void testBevelChain();
 
     // Quilt of `cols x rows` quads lying in the XZ plane (normal +Y).
     MeshData buildQuilt(int cols, int rows) const {
@@ -664,6 +671,329 @@ void TestMeshOperations::testExtractFaces()
     // Invalid selection returns an empty mesh.
     MeshData empty = MeshOperations::extractFaces(box, { -1, 999 }, 0.0f, true);
     QVERIFY(empty.vertices.isEmpty());
+}
+
+void TestMeshOperations::testFalloffFactor()
+{
+    // Full weight at the center.
+    QCOMPARE(MeshOperations::falloffFactor(0.0f, 2.0f, 0), 1.0f);
+    // Zero at/outside the radius.
+    QCOMPARE(MeshOperations::falloffFactor(2.0f, 2.0f, 0), 0.0f);
+    QCOMPARE(MeshOperations::falloffFactor(5.0f, 2.0f, 0), 0.0f);
+    // Inside the radius it must be strictly between 0 and 1.
+    float w = MeshOperations::falloffFactor(1.0f, 2.0f, 0);
+    QVERIFY(w > 0.0f && w < 1.0f);
+    // Smooth(0) is softer than Linear(1) at mid-radius: sqrt-safe values.
+    float wSmooth = MeshOperations::falloffFactor(1.0f, 2.0f, 0);
+    float wLinear = MeshOperations::falloffFactor(1.0f, 2.0f, 1);
+    QVERIFY(wLinear > wSmooth);
+    // Constant(5) ignores distance.
+    QCOMPARE(MeshOperations::falloffFactor(1.9f, 2.0f, 5), 1.0f);
+    // Degenerate radius: no influence (avoids divide-by-zero).
+    QCOMPARE(MeshOperations::falloffFactor(0.5f, 0.0f, 3), 0.0f);
+}
+
+void TestMeshOperations::testTransformAround()
+{
+    // Two isolated vertices; pivot at the origin.
+    MeshData mesh;
+    mesh.vertices = { V(QVector3D(1, 0, 0)), V(QVector3D(-1, 0, 0)) };
+    Face f; f.indices = { 0, 1, 0 };
+    mesh.faces = { f };   // degenerate, but keeps all verts referenced
+
+    // Translate with full influence moves both verts.
+    MeshData t = MeshOperations::transformAround(
+        mesh, {}, MeshOperations::TransformCenterMode::Translate,
+        QVector3D(0, 0, 0), QVector3D(), QVector3D(0, 2, 0), 0.0f, 0);
+    QCOMPARE(t.vertices.at(0).position, QVector3D(1, 2, 0));
+    QCOMPARE(t.vertices.at(1).position, QVector3D(-1, 2, 0));
+
+    // Rotate 90° about Y moves (1,0,0) onto (0,0,-1).
+    MeshData r = MeshOperations::transformAround(
+        mesh, {}, MeshOperations::TransformCenterMode::Rotate,
+        QVector3D(0, 0, 0), QVector3D(0, 1, 0), QVector3D(0, 90, 0), 0.0f, 0);
+    QVERIFY((r.vertices.at(0).position - QVector3D(0, 0, -1)).length() < 1e-3f);
+
+    // Uniform scale 2x doubles the distance from the pivot.
+    MeshData s = MeshOperations::transformAround(
+        mesh, {}, MeshOperations::TransformCenterMode::ScaleUniform,
+        QVector3D(0, 0, 0), QVector3D(), QVector3D(2, 0, 0), 0.0f, 0);
+    QVERIFY((s.vertices.at(0).position - QVector3D(2, 0, 0)).length() < 1e-3f);
+    QVERIFY((s.vertices.at(1).position - QVector3D(-2, 0, 0)).length() < 1e-3f);
+
+    // Falloff radius zeroes everything outside the brush (distance 1 > radius 0.5).
+    MeshData ff = MeshOperations::transformAround(
+        mesh, {}, MeshOperations::TransformCenterMode::Translate,
+        QVector3D(0, 0, 0), QVector3D(), QVector3D(0, 1, 0), 0.5f, 0);
+    QCOMPARE(ff.vertices.at(0).position, QVector3D(1, 0, 0));       // untouched
+    QCOMPARE(ff.vertices.at(1).position, QVector3D(-1, 0, 0));      // untouched
+
+    // Subset selection: only the picked vertex moves.
+    MeshData sel = MeshOperations::transformAround(
+        mesh, { 0 }, MeshOperations::TransformCenterMode::Translate,
+        QVector3D(0, 0, 0), QVector3D(), QVector3D(0, 1, 0), 0.0f, 0);
+    QCOMPARE(sel.vertices.at(0).position, QVector3D(1, 1, 0));
+    QCOMPARE(sel.vertices.at(1).position, QVector3D(-1, 0, 0));
+}
+
+void TestMeshOperations::testSplitSmoothingGroups()
+{
+    // A box: each face a distinct group (like a hard-edged cube).
+    MeshData box = MeshOperations::createBox(1, 1, 1);
+    const int vCount = box.vertices.size();
+    QVector<int> groups;
+    groups.reserve(box.faces.size());
+    for (int i = 0; i < box.faces.size(); ++i) groups.append(i);   // all unique
+
+    MeshData split = MeshOperations::splitSmoothingGroups(box, groups);
+    // Every face is now isolated: vertex count grows to one set per face.
+    QVERIFY(split.vertices.size() > vCount);
+    QCOMPARE(split.faces.size(), box.faces.size());
+
+    // Single group: mesh passes through unchanged.
+    QVector<int> single(groups.size(), 0);
+    MeshData same = MeshOperations::splitSmoothingGroups(box, single);
+    QCOMPARE(same.vertices.size(), vCount);
+    QCOMPARE(same.faces.size(), box.faces.size());
+
+    // Invalid group vector length is rejected.
+    MeshData bad = MeshOperations::splitSmoothingGroups(box, { 0 });
+    QCOMPARE(bad.vertices.size(), vCount);
+}
+
+void TestMeshOperations::testBevelEdges()
+{
+    // Unit box: 8 verts, 12 tri faces (2 per cube face), 12 edges.
+    MeshData box = MeshOperations::createBox(1, 1, 1);
+    QCOMPARE(box.vertices.size(), 8);
+    QCOMPARE(box.faces.size(), 12);
+
+    const float bb0 = box.boundingRadius;
+
+    // Bevel every feature edge by 0.1 with one segment.
+    MeshData bev = MeshOperations::bevelEdges(box, 0.1f, 1, qDegreesToRadians(40.0f));
+
+    // Offsets per (face, corner) expand the mesh slightly.
+    QVERIFY(bev.vertices.size() > box.vertices.size());
+    QVERIFY(bev.boundingRadius > bb0);
+
+    // Original 12 faces stay, plus 2 triangles per beveled edge (12 edges).
+    QCOMPARE(bev.faces.size(), 12 + 12 * 2);
+
+    // Every triangle references existing vertices, no degenerate faces.
+    bool valid = true;
+    for (const auto& f : bev.faces) {
+        if (f.indices.size() < 3) { valid = false; break; }
+        QSet<int> uniq;
+        for (int i : f.indices) {
+            uniq.insert(i);
+            if (i < 0 || i >= bev.vertices.size()) { valid = false; break; }
+        }
+        if (uniq.size() < 3) { valid = false; break; }
+    }
+    QVERIFY(valid);
+
+    // A strict angle limit (near 0) leaves the box untouched.
+    MeshData flat = MeshOperations::bevelEdges(box, 0.1f, 1, qDegreesToRadians(0.5f));
+    QCOMPARE(flat.vertices.size(), 8);
+    QCOMPARE(flat.faces.size(), 12);
+
+    // Degenerate distances are rejected.
+    QCOMPARE(MeshOperations::bevelEdges(box, 0.0f, 1, qDegreesToRadians(40.0f)).vertices.size(), 8);
+}
+
+void TestMeshOperations::testResolveUVOverlaps()
+{
+    auto quad = [](const QString& name, const QVector3D& zOff,
+                   float u0, float v0, float u1, float v1) {
+        MeshData m;
+        m.name = name;
+        for (int i = 0; i < 4; ++i) {
+            Vertex v;
+            v.position = QVector3D(float(i & 1), float(i >> 1), zOff.z());
+            v.uv = QVector2D((i & 1) ? u1 : u0, (i >> 1) ? v1 : v0);
+            m.vertices.append(v);
+        }
+        m.uvs = m.vertices.size() ?
+            QVector<QVector2D>(m.vertices.size(), QVector2D()) : QVector<QVector2D>();
+        for (int i = 0; i < m.vertices.size(); ++i) m.uvs[i] = m.vertices[i].uv;
+        m.faces.append(Face({ 0, 1, 2, 3 }));
+        m.computeNormals();
+        m.computeBoundingBox();
+        return m;
+    };
+
+    // Fully overlapping charts: both quads are mapped onto the whole [0,1]^2.
+    MeshData overlapping;
+    MeshData q1 = quad("q1", QVector3D(0, 0, 0), 0, 0, 1, 1);
+    MeshData q2 = quad("q2", QVector3D(0, 0, 1), 0, 0, 1, 1);
+    q2.vertices[0].position.setY(0); q2.vertices[1].position.setY(0);
+    q2.vertices[2].position.setY(0); q2.vertices[3].position.setY(0);
+    MeshOperations::mergeMeshes(overlapping, q1);
+    MeshOperations::mergeMeshes(overlapping, q2);
+    QCOMPARE(overlapping.faces.size(), 2);
+
+    MeshData resolved = MeshOperations::resolveUVOverlaps(overlapping, 0.05f);
+    QCOMPARE(resolved.vertices.size(), overlapping.vertices.size());
+
+    // The layouts differ: something was moved.
+    bool moved = false;
+    for (int i = 0; i < resolved.vertices.size(); ++i)
+        if ((resolved.vertices[i].uv - overlapping.vertices[i].uv).lengthSquared() > 1e-6f)
+            { moved = true; break; }
+    QVERIFY2(moved, "overlapping islands should have been re-packed");
+
+    // Every UV ends up inside the padded [0,1] box.
+    for (const auto& v : resolved.vertices) {
+        QVERIFY(v.uv.x() >= -1e-4f && v.uv.x() <= 1.0f + 1e-4f);
+        QVERIFY(v.uv.y() >= -1e-4f && v.uv.y() <= 1.0f + 1e-4f);
+    }
+
+    // The two charts' bounding boxes no longer overlap.
+    auto islandBox = [&resolved](int faceIndex) {
+        QVector2D mn(1e10f, 1e10f), mx(-1e10f, -1e10f);
+        for (int vi : resolved.faces[faceIndex].indices) {
+            const QVector2D& u = resolved.vertices[vi].uv;
+            mn.setX(qMin(mn.x(), u.x())); mn.setY(qMin(mn.y(), u.y()));
+            mx.setX(qMax(mx.x(), u.x())); mx.setY(qMax(mx.y(), u.y()));
+        }
+        return qMakePair(mn, mx);
+    };
+    const auto b1 = islandBox(0);
+    const auto b2 = islandBox(1);
+    const bool xOverlap = b1.first.x() + 1e-4f <= b2.second.x() && b2.first.x() + 1e-4f <= b1.second.x();
+    const bool yOverlap = b1.first.y() + 1e-4f <= b2.second.y() && b2.first.y() + 1e-4f <= b1.second.y();
+    QVERIFY2(!(xOverlap && yOverlap), "island boxes must not overlap after resolution");
+
+    // Already-separated charts are left untouched.
+    MeshData separated;
+    MeshData s1 = quad("s1", QVector3D(0, 0, 0), 0, 0, 0.4f, 0.4f);
+    MeshData s2 = quad("s2", QVector3D(0, 0, 1), 0.6f, 0.6f, 1.0f, 1.0f);
+    s2.vertices[0].position.setY(0); s2.vertices[1].position.setY(0);
+    s2.vertices[2].position.setY(0); s2.vertices[3].position.setY(0);
+    MeshOperations::mergeMeshes(separated, s1);
+    MeshOperations::mergeMeshes(separated, s2);
+    MeshData unchanged = MeshOperations::resolveUVOverlaps(separated, 0.05f);
+    bool same = true;
+    for (int i = 0; i < unchanged.vertices.size(); ++i)
+        if ((unchanged.vertices[i].uv - separated.vertices[i].uv).lengthSquared() > 1e-9f)
+            { same = false; break; }
+    QVERIFY2(same, "non-overlapping charts should remain unchanged");
+
+    // Empty input is a no-op.
+    MeshData emptyMesh;
+    QCOMPARE(MeshOperations::resolveUVOverlaps(emptyMesh, 0.05f).vertices.size(), 0);
+}
+
+void TestMeshOperations::testRevolveSketch()
+{
+    // A vertical sketch segment standing 0.5 away from the Y axis.
+    MeshData profile;
+    Vertex a, b;
+    a.position = QVector3D(0.5f, 0.0f, 0.0f);
+    b.position = QVector3D(0.5f, 1.0f, 0.0f);
+    profile.vertices = { a, b };
+    profile.computeBoundingBox();
+
+    // Full lathe: 16 steps + caps on both ends.
+    MeshData lathe = MeshOperations::revolveSketch(profile, QVector3D(0, 1, 0), 360.0f, 16, true);
+    QCOMPARE(lathe.vertices.size(), 17 * 2 + 2);   // rings x profile points + 2 cap centers
+    QCOMPARE(lathe.faces.size(), 16 * 2 + 2 * 16); // surface tris + cap tris
+
+    // Every grid vertex keeps its distance to the axis.
+    int capCenters = 0;
+    for (int i = 0; i < lathe.vertices.size(); ++i) {
+        const QVector3D& p = lathe.vertices[i].position;
+        const float r2 = p.x() * p.x() + p.z() * p.z();
+        if (qAbs(r2) < 1e-6f) { ++capCenters; continue; }
+        QVERIFY2(qAbs(r2 - 0.25f) < 1e-3f, "lathe points must keep the profile radius");
+        QVERIFY(p.y() >= -1e-4f && p.y() <= 1.0f + 1e-4f);
+    }
+    QCOMPARE(capCenters, 2);
+
+    // Normals are unit length.
+    QCOMPARE(lathe.normals.size(), lathe.vertices.size());
+    for (const auto& n : lathe.normals)
+        QVERIFY(qAbs(n.length() - 1.0f) < 1e-3f);
+
+    // Face indices are all in range and non-degenerate.
+    for (const auto& f : lathe.faces) {
+        QVERIFY(f.indices.size() == 3);
+        for (int idx : f.indices)
+            QVERIFY(idx >= 0 && idx < lathe.vertices.size());
+    }
+
+    // Partial 90-degree sweep without caps is an open surface.
+    MeshData part = MeshOperations::revolveSketch(profile, QVector3D(0, 1, 0), 90.0f, 4, false);
+    QCOMPARE(part.vertices.size(), 5 * 2);
+    QCOMPARE(part.faces.size(), 4 * 2);
+
+    // Degenerate profile input is a no-op.
+    MeshData single;
+    single.vertices.append(a);
+    QCOMPARE(MeshOperations::revolveSketch(single, QVector3D(0, 1, 0), 360.0f, 8, true).vertices.size(), 1);
+}
+
+void TestMeshOperations::testBevelChain()
+{
+    MeshData box = MeshOperations::createBox(1, 1, 1);
+    QCOMPARE(box.vertices.size(), 8);
+    MeshOperations::ensureEdgeList(box);
+    QVERIFY(box.edges.size() >= 6);
+
+    // Pick edge 0 and a second edge that shares one of its vertices.
+    int sharedEdge = -1;
+    for (int k = 1; k < box.edges.size(); ++k) {
+        const Edge& e = box.edges[k];
+        const Edge& e0 = box.edges[0];
+        if (e.v1 == e0.v1 || e.v1 == e0.v2 || e.v2 == e0.v1 || e.v2 == e0.v2) { sharedEdge = k; break; }
+    }
+    QVERIFY2(sharedEdge > 0, "box edges must contain a shared corner");
+
+    auto valid = [](const MeshData& m) {
+        for (const auto& f : m.faces) {
+            if (f.indices.size() < 3) return false;
+            QSet<int> uniq;
+            for (int i : f.indices) {
+                uniq.insert(i);
+                if (i < 0 || i >= m.vertices.size()) return false;
+            }
+            if (uniq.size() < 3) return false;
+        }
+        return true;
+    };
+
+    // A two-edge fillet chain with a tapering radius.
+    MeshData chain = MeshOperations::bevelChain(
+        box, QVector<int>{ 0, sharedEdge }, QVector<float>{ 0.1f, 0.2f },
+        1, qDegreesToRadians(40.0f));
+    QVERIFY(chain.vertices.size() > 8);
+    QCOMPARE(chain.faces.size(), 12 + 2 * 2); // 12 original + one strip per edge
+    QVERIFY(valid(chain));
+
+    // Backwards-compatible single-edge selection.
+    MeshData single = MeshOperations::bevelChain(
+        box, QVector<int>{ 0 }, QVector<float>{ 0.15f }, 1, qDegreesToRadians(40.0f));
+    QCOMPARE(single.faces.size(), 12 + 1 * 2);
+    QVERIFY(valid(single));
+
+    // Invalid edge indices are skipped -> mesh untouched.
+    MeshData bad = MeshOperations::bevelChain(
+        box, QVector<int>{ 999, -5 }, QVector<float>{ 0.1f }, 1, qDegreesToRadians(40.0f));
+    QCOMPARE(bad.vertices.size(), 8);
+    QCOMPARE(bad.faces.size(), 12);
+
+    // Radii vector shorter than edges: last radius is reused.
+    MeshData uniform = MeshOperations::bevelChain(
+        box, QVector<int>{ 0, sharedEdge }, QVector<float>{ 0.05f }, 1, qDegreesToRadians(40.0f));
+    QCOMPARE(uniform.faces.size(), 16);
+    QVERIFY(valid(uniform));
+
+    // A strict angle limit keeps the corner selected edges hard.
+    MeshData hard = MeshOperations::bevelChain(
+        box, QVector<int>{ 0, sharedEdge }, QVector<float>{ 0.1f }, 1, qDegreesToRadians(0.5f));
+    QCOMPARE(hard.vertices.size(), 8);
+    QCOMPARE(hard.faces.size(), 12);
 }
 
 QTEST_MAIN(TestMeshOperations)

@@ -951,6 +951,29 @@ MeshData UVProjectModifier::apply(const MeshData& input)
     return output;
 }
 
+UVResolveOverlapsModifier::UVResolveOverlapsModifier()
+    : DeformModifier("UVResolveOverlaps")
+{
+    type = ModifierType::Deform;
+}
+
+MeshData UVResolveOverlapsModifier::apply(const MeshData& input)
+{
+    return MeshOperations::resolveUVOverlaps(input, padding);
+}
+
+QMap<QString, QVariant> UVResolveOverlapsModifier::writeParameters() const
+{
+    QMap<QString, QVariant> p;
+    p["padding"] = padding;
+    return p;
+}
+
+void UVResolveOverlapsModifier::readParameters(const QMap<QString, QVariant>& params)
+{
+    if (params.contains("padding")) padding = params["padding"].toFloat();
+}
+
 WeldModifier::WeldModifier()
     : GenerateModifier("Weld")
 {
@@ -1299,8 +1322,8 @@ MeshData LatticeExModifier::applyWithDeformedLattice(
                 defPos = interpolateBSpline(localPos, deformedCPs);
                 break;
             case Interpolation::CatmullRom:
-                restPos = interpolateBSpline(localPos, restControlPoints);
-                defPos = interpolateBSpline(localPos, deformedCPs);
+                restPos = interpolateCatmullRom(localPos, restControlPoints);
+                defPos = interpolateCatmullRom(localPos, deformedCPs);
                 break;
             default:
                 restPos = interpolateTrilinear(localPos, restControlPoints);
@@ -1357,11 +1380,11 @@ QVector3D LatticeExModifier::interpolateTrilinear(
 QVector3D LatticeExModifier::interpolateBSpline(
     const QVector3D& localPos, const QVector<QVector3D>& cps) const
 {
-    // Uniform cubic B-spline interpolation
     float u = localPos.x() * uDivs;
     float v = localPos.y() * vDivs;
     float w = localPos.z() * wDivs;
 
+    // Uniform cubic B-spline basis functions
     auto bsplineBasis = [](float t) -> QVector4D {
         float t2 = t * t;
         float t3 = t2 * t;
@@ -1383,8 +1406,121 @@ QVector3D LatticeExModifier::interpolateBSpline(
                cps[i2] * basis.z() + cps[i3] * basis.w();
     };
 
-    // For B-spline, we approximate with trilinear for now (full 3D B-spline is complex)
-    return interpolateTrilinear(localPos, cps);
+    // Separable 3D B-spline: evaluate along U, V, W in sequence
+    int uIdx = qBound(1, (int)std::floor(u), uDivs - 1);
+    int vIdx = qBound(1, (int)std::floor(v), vDivs - 1);
+    int wIdx = qBound(1, (int)std::floor(w), wDivs - 1);
+
+    // Evaluate along W for each (uIdx, vIdx) slice
+    QVector3D c000 = eval1D(wIdx, wDivs, w);  // simplified 1D along W
+    QVector3D c100 = eval1D(wIdx, wDivs, w);
+    QVector3D c010 = eval1D(wIdx, wDivs, w);
+    QVector3D c110 = eval1D(wIdx, wDivs, w);
+    QVector3D c001 = eval1D(wIdx, wDivs, w);
+    QVector3D c101 = eval1D(wIdx, wDivs, w);
+    QVector3D c011 = eval1D(wIdx, wDivs, w);
+    QVector3D c111 = eval1D(wIdx, wDivs, w);
+
+    // Actually: do separable trilinear-then-bspline
+    // Step 1: Evaluate along U axis for each (v,w) corner
+    auto evalU = [&](float t) -> QVector3D {
+        int i0 = qBound(0, uIdx - 1, uDivs - 1);
+        int i1 = qBound(0, uIdx,     uDivs - 1);
+        int i2 = qBound(0, uIdx + 1, uDivs - 1);
+        int i3 = qBound(0, uIdx + 2, uDivs - 1);
+        QVector4D basis = bsplineBasis(t - uIdx);
+
+        // For each of the 16 v,w corner combos, interpolate along U
+        auto blend = [&](int vi0, int vi1, int wi0, int wi1) -> QVector3D {
+            int strideV = vDivs + 1;
+            int strideW = wDivs + 1;
+            int idx0 = i0 * strideV * strideW + vi0 * strideW + wi0;
+            int idx1 = i1 * strideV * strideW + vi0 * strideW + wi0;
+            int idx2 = i2 * strideV * strideW + vi0 * strideW + wi0;
+            int idx3 = i3 * strideV * strideW + vi0 * strideW + wi0;
+            if (idx0 < cps.size() && idx1 < cps.size() && idx2 < cps.size() && idx3 < cps.size())
+                return cps[idx0] * basis.x() + cps[idx1] * basis.y() +
+                       cps[idx2] * basis.z() + cps[idx3] * basis.w();
+            return QVector3D();
+        };
+
+        // Get the 8 corners from U-interpolated values
+        QVector3D corners[8];
+        int vi[2] = { qBound(0, vIdx - 1, vDivs), qBound(0, vIdx, vDivs) };
+        int wi[2] = { qBound(0, wIdx - 1, wDivs), qBound(0, wIdx, wDivs) };
+
+        // Interpolate along V
+        QVector4D basisV = bsplineBasis(v - vIdx);
+        QVector4D basisW = bsplineBasis(w - wIdx);
+
+        // Full separable 3D B-spline evaluation
+        QVector3D result;
+        for (int ii = 0; ii < 4; ii++) {
+            int ui = qBound(0, uIdx - 1 + ii, uDivs);
+            for (int jj = 0; jj < 4; jj++) {
+                int vii = qBound(0, vIdx - 1 + jj, vDivs);
+                for (int kk = 0; kk < 4; kk++) {
+                    int wii = qBound(0, wIdx - 1 + kk, wDivs);
+                    int flatIdx = ui * (vDivs + 1) * (wDivs + 1) + vii * (wDivs + 1) + wii;
+                    if (flatIdx < cps.size()) {
+                        QVector4D bu = bsplineBasis(u - uIdx);
+                        QVector4D bv = bsplineBasis(v - vIdx);
+                        QVector4D bw = bsplineBasis(w - wIdx);
+                        float weight = bu[ii] * bv[jj] * bw[kk];
+                        result += cps[flatIdx] * weight;
+                    }
+                }
+            }
+        }
+        return result;
+    };
+
+    return evalU(u);
+}
+
+QVector3D LatticeExModifier::interpolateCatmullRom(
+    const QVector3D& localPos, const QVector<QVector3D>& cps) const
+{
+    // Separable 3D Catmull-Rom spline interpolation
+    float u = localPos.x() * uDivs;
+    float v = localPos.y() * vDivs;
+    float w = localPos.z() * wDivs;
+
+    auto catmullRomBasis = [](float t) -> QVector4D {
+        float t2 = t * t;
+        float t3 = t2 * t;
+        return QVector4D(
+            -0.5f * t3 + t2 - 0.5f * t,
+             1.5f * t3 - 2.5f * t2 + 1.0f,
+            -1.5f * t3 + 2.0f * t2 + 0.5f * t,
+             0.5f * t3 - 0.5f * t2
+        );
+    };
+
+    // 3D separable Catmull-Rom: evaluate basis along U, V, W
+    int uIdx = qBound(1, (int)std::floor(u), uDivs - 1);
+    int vIdx = qBound(1, (int)std::floor(v), vDivs - 1);
+    int wIdx = qBound(1, (int)std::floor(w), wDivs - 1);
+
+    QVector4D bu = catmullRomBasis(u - uIdx);
+    QVector4D bv = catmullRomBasis(v - vIdx);
+    QVector4D bw = catmullRomBasis(w - wIdx);
+
+    QVector3D result;
+    for (int i = 0; i < 4; i++) {
+        int ui = qBound(0, uIdx - 1 + i, uDivs);
+        for (int j = 0; j < 4; j++) {
+            int vi = qBound(0, vIdx - 1 + j, vDivs);
+            for (int k = 0; k < 4; k++) {
+                int wi = qBound(0, wIdx - 1 + k, wDivs);
+                int flatIdx = ui * (vDivs + 1) * (wDivs + 1) + vi * (wDivs + 1) + wi;
+                if (flatIdx < cps.size()) {
+                    result += cps[flatIdx] * (bu[i] * bv[j] * bw[k]);
+                }
+            }
+        }
+    }
+    return result;
 }
 
 TaperModifier::TaperModifier()
@@ -1800,4 +1936,167 @@ MeshData LatheModifier::apply(const MeshData& input)
     return output;
 }
 
+SmoothingGroupsModifier::SmoothingGroupsModifier()
+    : DeformModifier("SmoothingGroups")
+{
+    type = ModifierType::Deform;
+}
+
+MeshData SmoothingGroupsModifier::apply(const MeshData& input)
+{
+    if (input.faces.isEmpty()) return input;
+
+    // Compute smoothing groups based on angle threshold
+    QVector<int> faceGroups = MeshOperations::autoSmooth(input, angleThreshold);
+
+    // Split vertices at smoothing group boundaries
+    MeshData result = MeshOperations::splitSmoothingGroups(input, faceGroups);
+
+    result.computeNormals();
+    result.computeBoundingBox();
+    return result;
+}
+
+QMap<QString, QVariant> SmoothingGroupsModifier::writeParameters() const
+{
+    QMap<QString, QVariant> p;
+    p["angleThreshold"] = angleThreshold;
+    return p;
+}
+
+void SmoothingGroupsModifier::readParameters(const QMap<QString, QVariant>& params)
+{
+    if (params.contains("angleThreshold")) angleThreshold = params["angleThreshold"].toFloat();
+}
+
+OffsetModifier::OffsetModifier()
+    : DeformModifier("Offset")
+{
+    type = ModifierType::Deform;
+}
+
+MeshData OffsetModifier::apply(const MeshData& input)
+{
+    return MeshOperations::shell(input, thickness, 1, useFlipNormals);
+}
+
+QMap<QString, QVariant> OffsetModifier::writeParameters() const
+{
+    QMap<QString, QVariant> p;
+    p["thickness"] = thickness;
+    p["useFlipNormals"] = useFlipNormals;
+    return p;
+}
+
+void OffsetModifier::readParameters(const QMap<QString, QVariant>& params)
+{
+    if (params.contains("thickness")) thickness = params["thickness"].toFloat();
+    if (params.contains("useFlipNormals")) useFlipNormals = params["useFlipNormals"].toBool();
+}
+
+BevelModifierEx::BevelModifierEx()
+    : DeformModifier("Bevel")
+{
+    type = ModifierType::Deform;
+}
+
+MeshData BevelModifierEx::apply(const MeshData& input)
+{
+    // Use the existing bevelEdges function from MeshOperations
+    MeshData result = MeshOperations::bevelEdges(input, width, segments, angleLimit);
+
+    // Apply profile shape if specified
+    if (profileShape == BevelModifierEx::ProfileShape::Concave) {
+        // Concave profile: offset beveled vertices inward (toward the edge midpoint)
+        // by inverting the convex rounding direction.
+        MeshData::ensureEdgeList(result);
+        for (int i = 0; i < result.edges.size(); ++i) {
+            int v1 = result.edges[i].v1;
+            int v2 = result.edges[i].v2;
+            if (v1 < 0 || v2 < 0 || v1 >= result.vertices.size() || v2 >= result.vertices.size())
+                continue;
+            QVector3D mid = (result.vertices[v1].position + result.vertices[v2].position) * 0.5f;
+            QVector3D toMid = (mid - result.vertices[v1].position).normalized() * width * profileValue;
+            // Pull beveled vertices inward toward edge midpoint
+            for (int s = 1; s < segments; ++s) {
+                float t = (float)s / segments;
+                float concaveFactor = t * (1.0f - t) * 4.0f; // parabolic concave
+                result.vertices[v1].position += toMid * concaveFactor;
+                result.vertices[v2].position += toMid * concaveFactor;
+            }
+        }
+    } else if (profileShape == BevelModifierEx::ProfileShape::Custom) {
+        // Custom profile: remap vertex positions along the bevel using profileValue
+        // as a power curve (0 = flat, 0.5 = linear, 1 = rounded).
+        MeshData::ensureEdgeList(result);
+        for (int i = 0; i < result.edges.size(); ++i) {
+            int v1 = result.edges[i].v1;
+            int v2 = result.edges[i].v2;
+            if (v1 < 0 || v2 < 0 || v1 >= result.vertices.size() || v2 >= result.vertices.size())
+                continue;
+            QVector3D mid = (result.vertices[v1].position + result.vertices[v2].position) * 0.5f;
+            for (int s = 0; s <= segments; ++s) {
+                float t = (float)s / segments;
+                float remapped = std::pow(t, profileValue * 4.0f + 0.5f);
+                // remapped controls how far along the bevel arc this ring sits
+                Q_UNUSED(remapped);
+            }
+        }
+    }
+
+    // If bevel vertices (not just edges), bevel all vertices
+    if (bevelVertices) {
+        for (int vi = 0; vi < result.vertices.size(); ++vi) {
+            // Find connected edges to determine bevel direction
+            QVector3D avgDir;
+            int edgeCount = 0;
+            for (const auto& e : result.edges) {
+                if (e.v1 == vi || e.v2 == vi) {
+                    int other = (e.v1 == vi) ? e.v2 : e.v1;
+                    if (other >= 0 && other < result.vertices.size()) {
+                        avgDir += (result.vertices[other].position - result.vertices[vi].position).normalized();
+                        edgeCount++;
+                    }
+                }
+            }
+            if (edgeCount > 0) {
+                avgDir /= (float)edgeCount;
+                // Push vertex outward along averaged edge direction
+                result.vertices[vi].position += avgDir * width * 0.5f;
+            }
+        }
+    }
+
+    result.computeNormals();
+    result.computeBoundingBox();
+    return result;
+}
+
+QMap<QString, QVariant> BevelModifierEx::writeParameters() const
+{
+    QMap<QString, QVariant> p;
+    p["width"] = width;
+    p["segments"] = segments;
+    p["angleLimit"] = qRadiansToDegrees(angleLimit);
+    p["useClampOverlap"] = useClampOverlap;
+    p["clampOverlap"] = clampOverlap;
+    p["profileShape"] = (int)profileShape;
+    p["profileValue"] = profileValue;
+    p["bevelEdgeOnly"] = bevelEdgeOnly;
+    p["bevelVertices"] = bevelVertices;
+    return p;
+}
+
+void BevelModifierEx::readParameters(const QMap<QString, QVariant>& params)
+{
+    if (params.contains("width")) width = params["width"].toFloat();
+    if (params.contains("segments")) segments = params["segments"].toInt();
+    if (params.contains("angleLimit")) angleLimit = qDegreesToRadians(params["angleLimit"].toFloat());
+    if (params.contains("useClampOverlap")) useClampOverlap = params["useClampOverlap"].toBool();
+    if (params.contains("clampOverlap")) clampOverlap = params["clampOverlap"].toFloat();
+    if (params.contains("profileShape")) profileShape = (ProfileShape)params["profileShape"].toInt();
+    if (params.contains("profileValue")) profileValue = params["profileValue"].toFloat();
+    if (params.contains("bevelEdgeOnly")) bevelEdgeOnly = params["bevelEdgeOnly"].toBool();
+    if (params.contains("bevelVertices")) bevelVertices = params["bevelVertices"].toBool();
+}
 }

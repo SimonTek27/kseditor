@@ -198,7 +198,7 @@ Rectangle {
             visible: mode === 0 && pickedVertex >= 0
             Layout.fillWidth: true
 
-            Text { text: "Vertex Slide: use Gizmo (Move) or click-drag in viewport (TODO: sub-object gizmo)"; color: "#777"; font.pixelSize: 9; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+            Text { text: "Vertex Slide: use Gizmo (Move) or click-drag in viewport"; color: "#777"; font.pixelSize: 9; wrapMode: Text.WordWrap; Layout.fillWidth: true }
         }
 
         Item { Layout.fillHeight: true }

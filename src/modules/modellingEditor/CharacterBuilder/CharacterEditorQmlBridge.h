@@ -34,6 +34,7 @@ public:
     Q_INVOKABLE void paintWeights(int boneIndex, float cx, float cy, float cz, float radius, float strength);
     Q_INVOKABLE void smoothWeights(int boneIndex, float radius);
     Q_INVOKABLE void normalizeWeights();
+    Q_INVOKABLE void mirrorWeights(int axis);
     Q_INVOKABLE void bindToMesh(const QString& meshId);
     Q_INVOKABLE void savePose(const QString& name);
     Q_INVOKABLE void applyPose(const QString& name);

@@ -18,6 +18,8 @@
 #include <QProcessEnvironment>
 #include <QDebug>
 #include <QTimer>
+#include <QEventLoop>
+#include <QQmlContext>
 #include <exception>
 
 #ifdef _WIN32
@@ -29,7 +31,7 @@
 #include "core/sys/ModuleManager.h"
 #include "core/sys/PluginManager.h"
 #include "core/ui/SplashScreen.h"
-#include "core/ui/WelcomeScreen.h"
+#include "core/ui/WelcomeScreenQmlBridge.h"
 #include "core/sys/HangMonitor.h"
 #include "core/ui/FontEditorDialog.h"
 #include "core/help/HelpSystem.h"
@@ -553,43 +555,97 @@ static int appMain(int argc, char *argv[])
 
     SplashScreen::showSplash(app);
 
-    qDebug() << "Showing WelcomeScreen...";
-    WelcomeScreen welcome;
+    qDebug() << "Showing WelcomeScreen (QML)...";
+
+    auto* welcomeBridge = new WelcomeScreenQmlBridge();
     bool accepted = false;
+
     try {
-        accepted = (welcome.exec() == QDialog::Accepted);
+        QMainWindow* welcomeWin = new QMainWindow(nullptr, Qt::Window | Qt::FramelessWindowHint);
+        welcomeWin->setWindowTitle("ksEditor 1.16");
+        welcomeWin->setWindowIcon(QIcon(":/icons/modeler.svg"));
+        welcomeWin->setMinimumSize(600, 600);
+        welcomeWin->setStyleSheet("background: #252526;");
+
+        auto* welcomeWidget = new QQuickWidget();
+        welcomeWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
+        welcomeWidget->setAttribute(Qt::WA_DeleteOnClose);
+        welcomeWidget->engine()->addImportPath(QStringLiteral("C:/Qt/6.11.1/msvc2022_64/qml"));
+        welcomeWidget->rootContext()->setContextProperty("WelcomeScreenBridge", welcomeBridge);
+        welcomeWidget->rootContext()->setContextProperty("welcomeWindow", welcomeWin);
+        welcomeWidget->setSource(QUrl("qrc:///qml/pages/page_WelcomeScreen.qml"));
+
+        if (welcomeWidget->status() == QQuickWidget::Error) {
+            QString err = welcomeWidget->errors().first().toString();
+            qDebug() << "WelcomeScreen QML error:" << err;
+            QMessageBox::warning(nullptr, "Startup Error",
+                QString("Failed to load welcome screen:\n%1").arg(err));
+            delete welcomeWin;
+            delete welcomeBridge;
+            return 0;
+        }
+
+        auto* layout = qobject_cast<QVBoxLayout*>(welcomeWin->centralWidget()->layout());
+        if (layout) layout->addWidget(welcomeWidget, 1);
+
+        QEventLoop loop;
+        bool completed = false;
+        QObject::connect(welcomeBridge, &WelcomeScreenQmlBridge::completed, &loop, [&]() {
+            completed = true;
+            loop.quit();
+        });
+        QObject::connect(welcomeWin, &QMainWindow::destroyed, &loop, [&]() {
+            loop.quit();
+        });
+        QObject::connect(welcomeWidget, &QQuickWidget::destroyed, &loop, [&]() {
+            loop.quit();
+        });
+
+        welcomeWin->show();
+        loop.exec();
+
+        if (completed) accepted = true;
+        else {
+            qDebug() << "WelcomeScreen closed without selection, exiting";
+            delete welcomeWin;
+            return 0;
+        }
+
+        welcomeWin->close();
+        delete welcomeWin;
     } catch (const std::exception& e) {
-        qDebug() << "Exception during WelcomeScreen::exec():" << e.what();
+        qDebug() << "Exception during WelcomeScreen:" << e.what();
         QMessageBox::warning(nullptr, "Startup Error",
             QString("An error occurred while showing the welcome screen:\n%1").arg(e.what()));
-        accepted = false;
+        delete welcomeBridge;
+        return 0;
     } catch (...) {
-        qDebug() << "Unknown exception during WelcomeScreen::exec()";
+        qDebug() << "Unknown exception during WelcomeScreen";
         QMessageBox::warning(nullptr, "Startup Error",
             "An unknown error occurred while showing the welcome screen.");
-        accepted = false;
-    }
-
-    if (!accepted) {
-        qDebug() << "WelcomeScreen rejected/closed, exiting";
+        delete welcomeBridge;
         return 0;
     }
 
-    if (!welcome.launchMode.isEmpty()) {
-        qDebug() << "Launching suite mode:" << welcome.launchMode;
-        runMode(welcome.launchMode);
+    if (!welcomeBridge->launchMode().isEmpty()) {
+        QString mode = welcomeBridge->launchMode();
+        delete welcomeBridge;
+        qDebug() << "Launching suite mode:" << mode;
+        runMode(mode);
         return 0;
     }
 
-    if (!welcome.recentProjectPath.isEmpty()) {
-        qDebug() << "Opening recent project:" << welcome.recentProjectPath;
+    if (!welcomeBridge->recentProjectPath().isEmpty()) {
+        QString path = welcomeBridge->recentProjectPath();
+        delete welcomeBridge;
+        qDebug() << "Opening recent project:" << path;
         SplashScreen::showSplash(app);
-        MainWindow window(welcome.recentProjectPath);
+        MainWindow window(path);
         window.show();
         return app.exec();
     }
 
-    // No mode selected — exit cleanly
+    delete welcomeBridge;
     return 0;
 }
 

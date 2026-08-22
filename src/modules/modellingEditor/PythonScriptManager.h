@@ -3,6 +3,7 @@
 #include <QString>
 #include <QObject>
 #include <QVector>
+#include <QMap>
 #include <QVariant>
 #include <QTextEdit>
 
@@ -119,6 +120,10 @@ public:
 
 private:
 	bool executeScriptInternal(const QString& scriptCode);
+	bool parseAndExecuteLine(const QString& line);
+	QVariant evaluateExpression(const QString& expr) const;
+	QVariant callAPIFunction(const QString& funcName, const QString& argsStr) const;
+	QStringList parseArguments(const QString& argsStr) const;
 
 signals:
 	/**
@@ -148,6 +153,7 @@ private:
 	QVector<QString> m_history;
 	QString m_lastScriptCode;
 	QString m_lastError;
+	QMap<QString, QVariant> m_variables;
 };
 
 /**

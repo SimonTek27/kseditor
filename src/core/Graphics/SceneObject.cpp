@@ -333,6 +333,7 @@ void SceneObject::setVisible(bool visible) {
 
 void SceneObject::setMesh(SceneMesh* mesh) {
     m_mesh = mesh;
+    emit meshChanged();
 }
 
 void SceneObject::setMaterial(Material* material) {

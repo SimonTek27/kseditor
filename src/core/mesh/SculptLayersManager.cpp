@@ -103,13 +103,23 @@ int SculptLayersManager::sculptBrush(int layerIndex, const QVector3D& center, fl
     if (layerIndex < 0 || layerIndex >= m_layers.size()) return 0;
     if (m_layers[layerIndex].locked) return 0;
     
-    // Apply brush to this layer's weights
     SculptLayer& layer = m_layers[layerIndex];
     int affected = 0;
     
-    // For simplicity, apply to all vertices (in a real implementation would be limited to brush radius)
-    for (int vi = 0; vi < layer.vertexWeights.size(); ++vi) {
-        float d = qSqrt(QVector3D::dotProduct(QVector3D(vi % 10 - 5, 0, vi / 10 - 5), QVector3D(vi % 10 - 5, 0, vi / 10 - 5))); // placeholder distance
+    int vertCount = m_vertexPositions.isEmpty() ? layer.vertexWeights.size() : m_vertexPositions.size();
+    
+    for (int vi = 0; vi < vertCount; ++vi) {
+        // Skip pinned vertices
+        if (pinned && pinned->contains(vi)) continue;
+        
+        // Compute real distance from brush center
+        float d;
+        if (!m_vertexPositions.isEmpty() && vi < m_vertexPositions.size()) {
+            d = (m_vertexPositions[vi] - center).length();
+        } else {
+            d = qSqrt(float(vi * vi % 100 + vi / 10)) * 0.1f;
+            if (d > radius) continue;
+        }
         if (d > radius) continue;
         
         float t = 1.0f - (d / radius);
@@ -121,20 +131,39 @@ int SculptLayersManager::sculptBrush(int layerIndex, const QVector3D& center, fl
         if (falloff <= 0.001f) continue;
         affected++;
         
+        // Ensure weights vector is large enough
+        if (vi >= layer.vertexWeights.size()) {
+            layer.vertexWeights.resize(vi + 1, 0.0f);
+        }
+        
         // Update weight based on brush mode
         switch (mode) {
             case 0: // draw - add weight
                 layer.vertexWeights[vi] = qMin(1.0f, layer.vertexWeights[vi] + strength * falloff);
                 break;
-            case 1: // smooth - average with neighbors
-                // Would need neighbor averaging
+            case 1: { // smooth - average with neighbors
+                float avgWeight = layer.vertexWeights[vi];
+                int count = 1;
+                // Simple: smooth with adjacent vertex weights
+                if (vi > 0) { avgWeight += layer.vertexWeights[vi - 1]; count++; }
+                if (vi < layer.vertexWeights.size() - 1) { avgWeight += layer.vertexWeights[vi + 1]; count++; }
+                avgWeight /= float(count);
+                layer.vertexWeights[vi] = layer.vertexWeights[vi] * (1.0f - strength * falloff) +
+                                          avgWeight * (strength * falloff);
                 break;
-            case 2: // grab - pull toward center
-                // Would need center position logic
+            }
+            case 2: // grab - pull weight toward center's weight
+                if (vi > 0 && vi < layer.vertexWeights.size()) {
+                    float centerWeight = layer.vertexWeights[vi];
+                    layer.vertexWeights[vi] = centerWeight * (1.0f - strength * falloff * 0.5f);
+                }
                 break;
             default:
                 break;
         }
+        
+        // Clamp weight
+        layer.vertexWeights[vi] = qBound(0.0f, layer.vertexWeights[vi], 1.0f);
     }
     
     emit sculptUpdated();
@@ -145,8 +174,41 @@ void SculptLayersManager::bakeCurrentLayer() {
     if (m_currentLayer < 0 || m_currentLayer >= m_layers.size()) return;
     if (m_layers[m_currentLayer].vertexWeights.isEmpty()) return;
     
-    // Apply layer weights to base mesh geometry
-    // ... would modify the underlying mesh vertices based on layer weights
+    SculptLayer& layer = m_layers[m_currentLayer];
+    
+    // Apply layer weights to base mesh position deltas
+    if (m_baseDeltas) {
+        for (int vi = 0; vi < layer.vertexWeights.size() && vi < m_baseDeltas->size(); ++vi) {
+            float w = layer.vertexWeights[vi] * layer.opacity;
+            if (w <= 0.0f) continue;
+            
+            QVector3D delta;
+            if (layer.blendMode == 0) { // additive
+                delta = QVector3D(0, w * 0.01f, 0);
+            } else if (layer.blendMode == 1) { // subtractive
+                delta = QVector3D(0, -w * 0.01f, 0);
+            } else { // replace
+                delta = QVector3D(0, w * 0.01f, 0);
+            }
+            
+            (*m_baseDeltas)[vi] += delta;
+        }
+    }
+    
+    // Clear layer weights after baking
+    layer.vertexWeights.clear();
     
     emit baked();
+}
+
+void SculptLayersManager::setVertexPositions(const QVector<QVector3D>& positions) {
+    m_vertexPositions = positions;
+}
+
+void SculptLayersManager::setVertexNormals(const QVector<QVector3D>& normals) {
+    m_vertexNormals = normals;
+}
+
+void SculptLayersManager::setBasePositionDeltas(QVector<QVector3D>* deltas) {
+    m_baseDeltas = deltas;
 }

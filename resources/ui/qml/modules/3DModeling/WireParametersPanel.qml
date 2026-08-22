@@ -169,7 +169,7 @@ Rectangle {
 
                 delegate: Rectangle {
                     Layout.fillWidth: true
-                    height: 46
+                    height: 70
                     color: "#2a2a2e"
                     border.color: "#333"
                     border.width: 1
@@ -178,54 +178,80 @@ Rectangle {
                     property variant data: modelData
                     property int index: index
 
-                    RowLayout {
+                    ColumnLayout {
                         anchors.fill: parent
                         anchors.margins: 6
                         spacing: 4
 
-                        CheckBox {
-                            checked: data.enabled
-                            onCheckedChanged: {
-                                if (objectId >= 0) Modeler.wireSetEnabled(objectId, index, checked)
-                            }
-                            Layout.alignment: Qt.AlignVCenter
-                        }
-
-                        Text {
-                            text: data.driverName + "." + data.driverProp
-                            color: "#fff"
-                            font.pixelSize: 9
-                            elide: Text.ElideRight
-                            Layout.preferredWidth: 130
-                            Layout.alignment: Qt.AlignVCenter
-                        }
-
-                        Text {
-                            text: "→ " + data.drivenProp
-                            color: "#aaa"
-                            font.pixelSize: 9
-                            elide: Text.ElideRight
+                        RowLayout {
                             Layout.fillWidth: true
-                            Layout.alignment: Qt.AlignVCenter
+                            spacing: 4
+
+                            CheckBox {
+                                checked: data.enabled
+                                onCheckedChanged: {
+                                    if (objectId >= 0) Modeler.wireSetEnabled(objectId, index, checked)
+                                }
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+
+                            Text {
+                                text: data.driverName + "." + data.driverProp
+                                color: "#fff"
+                                font.pixelSize: 9
+                                elide: Text.ElideRight
+                                Layout.preferredWidth: 110
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+
+                            Text {
+                                text: "→ " + data.drivenProp
+                                color: "#aaa"
+                                font.pixelSize: 9
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+
+                            Text {
+                                text: data.expression && data.expression.length > 0 ? "fx: " + data.expression : data.scale.toFixed(2) + "x"
+                                color: data.expression && data.expression.length > 0 ? "#a58aff" : "#888"
+                                font.pixelSize: 9
+                                elide: Text.ElideRight
+                                Layout.preferredWidth: 90
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+
+                            AppButton {
+                                text: "✕"
+                                height: 22
+                                width: 24
+                                bgcolor: "#5a1a1a"
+                                color: "#ff8888"
+                                font.pixelSize: 10
+                                font.bold: true
+                                onClicked: {
+                                    Modeler.wireRemove(objectId, index)
+                                }
+                            }
                         }
 
-                        Text {
-                            text: data.scale.toFixed(2) + "x"
-                            color: "#888"
-                            font.pixelSize: 9
-                            Layout.alignment: Qt.AlignVCenter
-                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 4
 
-                        AppButton {
-                            text: "✕"
-                            height: 22
-                            width: 24
-                            bgcolor: "#5a1a1a"
-                            color: "#ff8888"
-                            font.pixelSize: 10
-                            font.bold: true
-                            onClicked: {
-                                Modeler.wireRemove(objectId, index)
+                            TextField {
+                                id: exprField
+                                Layout.fillWidth: true
+                                height: 22
+                                font.pixelSize: 9
+                                color: "#e8e8ff"
+                                placeholderText: "expression, e.g. sin(x) * 2 (empty = scale/offset)"
+                                text: data.expression || ""
+                                onEditingFinished: {
+                                    if (objectId >= 0)
+                                        Modeler.wireSetExpression(objectId, index, text)
+                                }
                             }
                         }
                     }

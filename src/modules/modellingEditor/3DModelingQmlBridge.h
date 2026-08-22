@@ -245,6 +245,7 @@ public:
     Q_INVOKABLE bool importFBX(const QString& path);
     Q_INVOKABLE bool importGLB(const QString& path);
     Q_INVOKABLE bool importOBJ(const QString& path);
+    Q_INVOKABLE bool importLXO(const QString& path);
     Q_INVOKABLE bool importSTL(const QString& path);
     Q_INVOKABLE bool importBlend(const QString& path);
     Q_INVOKABLE bool importSTEP(const QString& path);
@@ -343,6 +344,17 @@ public:
     Q_INVOKABLE void rotateProportional(float x, float y, float z);
     Q_INVOKABLE void scaleProportional(float x, float y, float z);
 
+    // Action-center transforms (Modo / 3ds Max): transform the selected mesh
+    // vertices around an explicit pivot instead of the object origin.
+    // `mode`: 0 = translate (tx,ty,tz delta), 1 = rotate (tx,ty,tz Euler deg),
+    // 2 = uniform scale (factor = tx), 3 = per-axis scale (tx,ty,tz factors).
+    // `falloffRadius` > 0 applies a spatial falloff from the pivot using the
+    // current proportional-editing profile. Returns true on success.
+    Q_INVOKABLE bool transformVerticesAround(int mode,
+                                             float pivotX, float pivotY, float pivotZ,
+                                             float tx, float ty, float tz,
+                                             float falloffRadius = 0.0f);
+
     Q_INVOKABLE void extrudeFaces(const QList<int>& faceIndices, float distance);
     Q_INVOKABLE void bevelEdges(const QList<int>& edgeIndices, float amount, int segments);
     Q_INVOKABLE void subdivideFaces(const QList<int>& faceIndices, int cuts);
@@ -355,12 +367,23 @@ public:
     Q_INVOKABLE void booleanOperation(int operation, int targetObjectId = -1);
     Q_INVOKABLE QVariantList getMeshObjects() const;
     Q_INVOKABLE void insetFaces(const QList<int>& faceIndices, float amount);
+    // Sketch-to-solid (Plasticity P1): revolves the selected object's geometry
+    // (treated as a 2D sketch profile) around `axis` (0=X,1=Y,2=Z) through
+    // `angle` degrees with `steps` rings, optionally capping the open ends.
+    Q_INVOKABLE bool revolveSketch(int steps = 24, float angle = 360.0f,
+                                   bool closeCaps = true, int axis = 1);
     Q_INVOKABLE void knifeCut(float startX, float startY, float startZ, float endX, float endY, float endZ);
     Q_INVOKABLE bool knifeCutSelected(int objectId);
     Q_INVOKABLE bool knifeCutWorld(int objectId, float sx, float sy, float sz, float ex, float ey, float ez);
 
     // Fillet / chamfer (rounded/beveled edges)
     Q_INVOKABLE bool filletEdges(const QList<int>& edgeIndices, float radius);
+    // Fillet chain (Plasticity P2): bevels the selected edges each at its own
+    // radius so a chain tapers. `radii` is a JS array with one radius per
+    // selected edge + a uniform `vrn`-style fallback is not needed - supply
+    // per-edge radii or one shared value.
+    Q_INVOKABLE bool filletChain(const QList<int>& edgeIndices, const QVariantList& radii,
+                                 int segments = 1, float angleLimitDeg = 40.0f);
     Q_INVOKABLE bool chamferEdges(const QList<int>& edgeIndices, float distance);
 
     // Push/pull and offset selected faces
@@ -581,6 +604,9 @@ public:
     Q_INVOKABLE int smoothGroupForFace(int objectId, int faceIndex) const;
     Q_INVOKABLE int smoothGroupAssignSelected(int groupId);
     Q_INVOKABLE void smoothGroupClear(int objectId);
+    // Splits vertices at smoothing-group boundaries so group seams become real
+    // geometric edges on the selected object. Returns the new vertex count.
+    Q_INVOKABLE int splitSmoothingGroupsMesh();
 
     // ---- Face Groups (Mudbox-style named/colored/masked face regions) ----
     Q_INVOKABLE int faceGroupCreate(const QString& name, int color = 0);
@@ -729,6 +755,10 @@ public:
     Q_INVOKABLE bool booleanClear(int objectId);
     Q_INVOKABLE bool booleanApply(int objectId);
     Q_INVOKABLE bool booleanEvaluate(int objectId);
+    // CAGE re-edit: switches the selection to the operand of stack row `index`
+    // so it can be edited directly. Editing the operand geometry re-evaluates
+    // the parent boolean stack live. Returns the operand object id, or -1.
+    Q_INVOKABLE int booleanSelectOperand(int objectId, int index);
     Q_INVOKABLE bool booleanHasStack(int objectId) const;
     Q_INVOKABLE QVariantList booleanStack(int objectId) const;
 
@@ -774,6 +804,7 @@ public:
     Q_INVOKABLE bool wireSetEnabled(int drivenId, int index, bool enabled);
     Q_INVOKABLE bool wireSetParams(int drivenId, int index, float scale, float offset);
     Q_INVOKABLE bool wireSetProperty(int drivenId, int index, const QString& drivenProp);
+    Q_INVOKABLE bool wireSetExpression(int drivenId, int index, const QString& expression);
     Q_INVOKABLE bool wireEvaluateAll();
     Q_INVOKABLE QVariantList wireList(int objectId) const;
 
@@ -848,6 +879,10 @@ public:
     Q_INVOKABLE void projectUVBox(float size);
     Q_INVOKABLE void unwrapUVs(const QString& method);
     Q_INVOKABLE void packUVs(float margin, int resolution);
+    // Detects UV-island overlaps in texture space and re-packs the islands into a
+    // non-overlapping, normalized layout (3ds Max "overlap resolution"). Returns
+    // true when the UVs had to be fixed.
+    Q_INVOKABLE bool resolveUVOverlaps();
     Q_INVOKABLE void translateUVs(float u, float v);
     Q_INVOKABLE void rotateUVs(float angle);
     Q_INVOKABLE void scaleUVs(float u, float v);
@@ -1642,6 +1677,15 @@ private:
     // Non-destructive boolean stacks per scene object id.
     QMap<int, BooleanStack*> m_booleanStacks;
     QMap<int, QVector<QMetaObject::Connection>> m_booleanSubscriptions;
+    // Re-entrancy guards: boolean/modifier evaluation writes the result back
+    // through SceneObject::setMesh, which emits meshChanged and would otherwise
+    // re-trigger the subscription slot into infinite recursion.
+    QSet<int> m_booleanBusy;
+    QSet<int> m_modifierBusy;
+    QMap<int, QVector<QMetaObject::Connection>> m_modifierSubscriptions;
+    void modifierSubscribe(int objectId);
+    void modifierUnsubscribe(int objectId);
+    void onSceneObjectMeshChanged(int objectId);
     MeshData booleanEvaluateStack(SceneObject* obj, const BooleanStack* stack) const;
     void booleanSubscribe(int objectId);
     void booleanUnsubscribe(int objectId);

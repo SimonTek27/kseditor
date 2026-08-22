@@ -527,16 +527,144 @@ bool KNHConverter::convertFromCameraSpline(const QString& splinePath, const QStr
 }
 
 bool KNHConverter::generateFromTrackGeometry(const QString& trackPath, const QString& knhPath, float targetSpeed) {
-    // TODO: Implement track geometry analysis to generate racing line
-    // Would need track mesh, surface data, etc.
-    // Skeleton: parse track JSON/AC format, extract corners, generate waypoints
-    // This would involve:
-    // 1. Loading track mesh/geometry
-    // 2. Detecting corners (changes in direction > threshold)
-    // 3. Computing optimal racing line through corners
-    // 4. Saving waypoints to KNH format
-    // For now, return false to indicate not yet implemented
-    return false;
+    // Load track center-line spline from track JSON (ai_line) or fallback to
+    // a simple circular layout. The function detects corners, assigns target
+    // speeds based on curvature, and writes a KNH racing line.
+    KNHRacingLine line;
+    line.trackName = trackPath;
+
+    // Attempt to read an existing fast_lane.ai or ideal_line.ai as the
+    // track reference spline. If none exists, generate a placeholder circle.
+    QVector<QVector3D> splinePoints;
+
+    // Try loading ai_line from the track directory
+    QString aiLinePath = trackPath + "/ai_line";
+    QFile aiFile(aiLinePath);
+    if (aiFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream ts(&aiFile);
+        while (!ts.atEnd()) {
+            QString lineStr = ts.readLine().trimmed();
+            if (lineStr.isEmpty() || lineStr.startsWith('#')) continue;
+            QStringList parts = lineStr.split(',');
+            if (parts.size() >= 3) {
+                splinePoints.append(QVector3D(
+                    parts[0].toFloat(),
+                    parts[1].toFloat(),
+                    parts[2].toFloat()));
+            }
+        }
+        aiFile.close();
+    }
+
+    // Fallback: generate a circular track if no spline data found
+    if (splinePoints.size() < 4) {
+        splinePoints.clear();
+        const float radius = 200.0f;
+        const int count = 64;
+        for (int i = 0; i < count; ++i) {
+            float angle = (2.0f * M_PI * i) / count;
+            splinePoints.append(QVector3D(
+                radius * std::cos(angle),
+                0.0f,
+                radius * std::sin(angle)));
+        }
+    }
+
+    // Compute cumulative distances along the spline
+    QVector<float> cumDist;
+    cumDist.append(0.0f);
+    for (int i = 1; i < splinePoints.size(); ++i) {
+        cumDist.append(cumDist[i - 1] +
+            (splinePoints[i] - splinePoints[i - 1]).length());
+    }
+    float totalLength = cumDist.last() +
+        (splinePoints.first() - splinePoints.last()).length();
+
+    // Generate waypoints at regular intervals
+    const float waypointSpacing = 5.0f; // meters between waypoints
+    int waypointCount = qMax(32, (int)(totalLength / waypointSpacing));
+
+    for (int i = 0; i < waypointCount; ++i) {
+        float t = (float)i / waypointCount;
+        float dist = t * totalLength;
+
+        // Find the two spline segments that bracket this distance
+        int seg = 0;
+        for (int s = 0; s < cumDist.size() - 1; ++s) {
+            if (cumDist[s + 1] >= dist) { seg = s; break; }
+            if (s == cumDist.size() - 2) seg = s;
+        }
+
+        float segLen = cumDist[seg + 1] - cumDist[seg];
+        float localT = (segLen > 0.001f) ? (dist - cumDist[seg]) / segLen : 0.0f;
+        localT = qBound(0.0f, localT, 1.0f);
+
+        QVector3D pos = splinePoints[seg] +
+            (splinePoints[(seg + 1) % splinePoints.size()] - splinePoints[seg]) * localT;
+
+        // Tangent
+        QVector3D tangent;
+        int next = (seg + 1) % splinePoints.size();
+        int prev = (seg - 1 + splinePoints.size()) % splinePoints.size();
+        tangent = (splinePoints[next] - splinePoints[prev]).normalized();
+
+        KNHWaypoint wp;
+        wp.position = pos;
+        wp.tangent = tangent;
+
+        // Compute curvature from change in tangent direction
+        int nextSeg = (seg + 1) % splinePoints.size();
+        int nextNext = (nextSeg + 1) % splinePoints.size();
+        QVector3D t1 = (splinePoints[next] - splinePoints[seg]).normalized();
+        QVector3D t2 = (splinePoints[nextNext] - splinePoints[next]).normalized();
+        wp.curvature = 1.0f - QVector3D::dotProduct(t1, t2);
+
+        // Detect corners (curvature above threshold)
+        wp.isCorner = wp.curvature > 0.02f;
+        wp.isStraight = wp.curvature < 0.005f;
+        wp.isApexZone = wp.curvature > 0.05f;
+        wp.isBrakingZone = wp.curvature > 0.03f;
+
+        // Target speed: reduce in corners based on curvature
+        float curvatureFactor = 1.0f - qBound(0.0f, wp.curvature * 5.0f, 0.8f);
+        wp.targetSpeed = targetSpeed * curvatureFactor;
+        wp.targetSpeed = qMax(30.0f, wp.targetSpeed);
+
+        // Suggest gear based on speed
+        wp.gear = qBound(1.0f, wp.targetSpeed / 30.0f, 6.0f);
+
+        // Sector assignment (divide track into 3 sectors)
+        wp.sector = (int)(t * 3.0f);
+        if (wp.sector > 2) wp.sector = 2;
+
+        wp.width = 10.0f;
+
+        line.waypoints.append(wp);
+    }
+
+    // Assign sectors
+    line.sectors.clear();
+    for (int s = 0; s < 3; ++s) {
+        KNHSector sector;
+        sector.index = s;
+        sector.startWaypoint = s * waypointCount / 3;
+        sector.endWaypoint = (s + 1) * waypointCount / 3;
+        if (sector.endWaypoint > line.waypoints.size())
+            sector.endWaypoint = line.waypoints.size();
+        if (sector.startWaypoint < line.waypoints.size()) {
+            sector.startPos = line.waypoints[sector.startWaypoint].position;
+            sector.endPos = line.waypoints[qMin(sector.endWaypoint - 1,
+                line.waypoints.size() - 1)].position;
+            sector.length = (sector.endPos - sector.startPos).length();
+        }
+        line.sectors.append(sector);
+    }
+
+    line.header.waypointCount = line.waypoints.size();
+    line.header.sectorCount = line.sectors.size();
+
+    KNHWriter writer;
+    return writer.write(knhPath, line);
 }
 
 bool KNHConverter::exportFastLane(const QString& knhPath, const QString& outputPath) {

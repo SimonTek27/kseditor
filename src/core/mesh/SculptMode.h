@@ -24,7 +24,8 @@ public:
         ToolMask,
         ToolTrim,
         ToolKnife,
-        ToolEdgeSlide
+        ToolEdgeSlide,
+        ToolRetopo
     };
 
     enum BrushType {
@@ -34,7 +35,10 @@ public:
         BrushCrease,
         BrushFlatten,
         BrushInflate,
-        BrushSmooth
+        BrushSmooth,
+        BrushMask,
+        BrushUnmask,
+        BrushInvertMask
     };
 
     struct BrushSettings {
@@ -64,7 +68,9 @@ public:
     void addPoint(const QVector3D& point, const QVector3D& normal);
     void endStroke();
 
-    QVector<QVector3D> getVertices() const { return m_vertices; }
+    void quadDrawSplitEdge(int edgeIndex);
+
+QVector<QVector3D> getVertices() const { return m_vertices; }
     QVector<int> getFaces() const { return m_faceIndices; }
 
 signals:
@@ -88,6 +94,7 @@ private:
 
     bool m_isStroking;
     QVector<StrokePoint> m_currentStroke;
+    bool m_retopoMode;
 
     void sculptPoint(QVector3D& vertex, const QVector3D& normal, float strength);
     void drawVertex(QVector3D& vertex, const QVector3D& direction, float strength);
@@ -97,6 +104,7 @@ private:
     void grabVertex(QVector3D& vertex, const QVector3D& delta, float strength);
     void inflateVertex(QVector3D& vertex, float strength);
     void snakeHookVertex(QVector3D& vertex, const QVector3D& direction, float strength);
+    bool isRetopoMode() const { return m_retopoMode; }
 
     int findNearestVertex(const QVector3D& point) const;
     QVector3D computeVertexNormal(int index) const;

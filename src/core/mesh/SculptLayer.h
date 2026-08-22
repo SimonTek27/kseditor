@@ -77,6 +77,11 @@ public:
     
     // Bake layers to base mesh
     void bakeCurrentLayer();
+
+    // Set base mesh data for real calculations
+    void setVertexPositions(const QVector<QVector3D>& positions);
+    void setVertexNormals(const QVector<QVector3D>& normals);
+    void setBasePositionDeltas(QVector<QVector3D>* deltas);
     
     // Signals
 signals:
@@ -95,4 +100,7 @@ signals:
 private:
     QVector<SculptLayer> m_layers;
     int m_currentLayer = -1;
+    QVector<QVector3D> m_vertexPositions;
+    QVector<QVector3D> m_vertexNormals;
+    QVector<QVector3D>* m_baseDeltas = nullptr;
 };

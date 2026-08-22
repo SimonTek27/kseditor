@@ -60,4 +60,38 @@ void BooleanStack::clear()
     emit changed();
 }
 
+MeshData BooleanStack::evaluate() const
+{
+    if (m_base.vertices.isEmpty())
+        return MeshData();
+
+    // If no ops or no resolver, return the base mesh
+    if (m_ops.isEmpty() || !m_resolver)
+        return m_base;
+
+    MeshData result = m_base;
+
+    for (const BooleanOp& op : m_ops) {
+        if (!op.enabled) continue;
+        if (op.operandId < 0) continue;
+
+        MeshData operand = m_resolver(op.operandId);
+        if (operand.vertices.isEmpty()) continue;
+
+        // Convert to GeoMeshData for the BooleanOperations API
+        geometry::GeoMeshData geoA = result.toGeoMesh();
+        geometry::GeoMeshData geoB = operand.toGeoMesh();
+
+        geometry::BooleanOperations::Operation boolOp = booleanOpIndexToEnum(op.operation);
+        geometry::BoolOpResult boolResult = geometry::BooleanOperations::performOperation(geoA, geoB, boolOp);
+
+        if (boolResult.isSuccess()) {
+            result = MeshData::fromGeoMesh(boolResult.result);
+        }
+        // On failure, keep the result so far (graceful degradation)
+    }
+
+    return result;
+}
+
 } // namespace ks

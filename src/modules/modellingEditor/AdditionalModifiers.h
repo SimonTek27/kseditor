@@ -410,6 +410,7 @@ public:
 private:
     QVector3D interpolateTrilinear(const QVector3D& localPos, const QVector<QVector3D>& cps) const;
     QVector3D interpolateBSpline(const QVector3D& localPos, const QVector<QVector3D>& cps) const;
+    QVector3D interpolateCatmullRom(const QVector3D& localPos, const QVector<QVector3D>& cps) const;
     int cpIndex(int i, int j, int k) const;
 };
 
@@ -479,6 +480,64 @@ public:
     bool pinBoundary = true;
 
     MeshData apply(const MeshData& input) override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
+};
+
+class OffsetModifier : public DeformModifier {
+public:
+    OffsetModifier();
+
+    float thickness = 0.1f;
+    bool useFlipNormals = false;
+    bool useEvenOffset = true;
+
+    MeshData apply(const MeshData& input) override;
+    QMap<QString, QVariant> writeParameters() const override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
+};
+
+class SmoothingGroupsModifier : public DeformModifier {
+public:
+    SmoothingGroupsModifier();
+
+    float angleThreshold = 30.0f;  // degrees; edges below this share a group
+
+    MeshData apply(const MeshData& input) override;
+    QMap<QString, QVariant> writeParameters() const override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
+};
+
+class UVResolveOverlapsModifier : public DeformModifier {
+public:
+    UVResolveOverlapsModifier();
+
+    float padding = 0.01f;
+
+    MeshData apply(const MeshData& input) override;
+    QMap<QString, QVariant> writeParameters() const override;
+    void readParameters(const QMap<QString, QVariant>& params) override;
+};
+
+class BevelModifierEx : public DeformModifier {
+public:
+    BevelModifierEx();
+
+    float width = 0.01f;
+    int segments = 1;
+    float angleLimit = qDegreesToRadians(30.0f);
+    bool useClampOverlap = true;
+    float clampOverlap = 0.01f;
+
+    enum class ProfileShape { None, Convex, Concave, Custom };
+    ProfileShape profileShape = ProfileShape::None;
+
+    float profileValue = 0.5f; // Custom profile value (0..1)
+
+    bool bevelEdgeOnly = true;
+    bool bevelVertices = false;
+
+    MeshData apply(const MeshData& input) override;
+    QMap<QString, QVariant> writeParameters() const override;
     void readParameters(const QMap<QString, QVariant>& params) override;
 };
 

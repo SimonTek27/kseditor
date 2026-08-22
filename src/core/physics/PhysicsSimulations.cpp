@@ -37,7 +37,7 @@ void SoftBodySimulator::addForce(const QVector3D& force) {
 }
 
 void SoftBodySimulator::setGravity(const QVector3D& gravity) {
-    m_config.mass; // placeholder
+    m_gravity = gravity;
 }
 
 void SoftBodySimulator::setWind(const QVector3D& wind, float noise) {
@@ -111,7 +111,7 @@ void SoftBodySimulator::applyForces(float deltaTime) {
         if (m_pinnedVertices.contains(i)) continue;
 
         QVector3D force = m_externalForce + m_wind;
-        force.setY(force.y() - 9.81f * m_config.mass);
+        force += m_gravity * m_config.mass;
 
         m_velocities[i] += force * (deltaTime / m_config.mass);
         m_velocities[i] *= (1.0f - m_config.damping * deltaTime);
@@ -175,13 +175,18 @@ void ClothSimulator::simulate(float deltaTime) {
 void ClothSimulator::integrateVerlet(float deltaTime) {
     if (!m_cloth) return;
 
+    QVector3D gravityVec(m_cloth->gravity[0], m_cloth->gravity[1], m_cloth->gravity[2]);
+    QVector3D windVec = m_cloth->wind;
+
     for (int i = 0; i < m_cloth->vertices.size(); ++i) {
         if (m_cloth->vertices[i].pinned) continue;
 
         QVector3D vel = m_positions[i] - m_previousPositions[i];
         QVector3D accel = m_cloth->vertices[i].acceleration;
 
-        accel.setY(accel.y() - 9.81f);
+        accel += gravityVec;
+        if (m_cloth->useDynamicMesh && windVec.lengthSquared() > 0.0001f)
+            accel += windVec * (1.0f + m_cloth->windNoise * ((float)qrand() / RAND_MAX - 0.5f));
 
         m_previousPositions[i] = m_positions[i];
         m_positions[i] += vel * m_cloth->velocitySmooth + accel * deltaTime * deltaTime;
@@ -215,8 +220,40 @@ void ClothSimulator::satisfyCollisionConstraints() {
     for (int i = 0; i < m_positions.size(); ++i) {
         if (m_cloth && m_cloth->vertices[i].pinned) continue;
 
+        // Ground collision
         if (m_positions[i].y() < 0.0f) {
             m_positions[i].setY(0.0f);
+        }
+
+        // Sphere collisions
+        for (const auto& sphere : m_collisionSpheres) {
+            QVector3D delta = m_positions[i] - sphere.center;
+            float dist = delta.length();
+            if (dist < sphere.radius && dist > 0.0001f) {
+                m_positions[i] = sphere.center + delta / dist * sphere.radius;
+            }
+        }
+
+        // Box collisions (AABB)
+        for (const auto& box : m_collisionBoxes) {
+            if (m_positions[i].x() >= box.min.x() && m_positions[i].x() <= box.max.x() &&
+                m_positions[i].y() >= box.min.y() && m_positions[i].y() <= box.max.y() &&
+                m_positions[i].z() >= box.min.z() && m_positions[i].z() <= box.max.z()) {
+                // Push out to nearest face
+                float dx = qMin(m_positions[i].x() - box.min.x(), box.max.x() - m_positions[i].x());
+                float dy = qMin(m_positions[i].y() - box.min.y(), box.max.y() - m_positions[i].y());
+                float dz = qMin(m_positions[i].z() - box.min.z(), box.max.z() - m_positions[i].z());
+                if (dx <= dy && dx <= dz) {
+                    m_positions[i].setX(m_positions[i].x() < (box.min.x() + box.max.x()) * 0.5f
+                        ? box.min.x() : box.max.x());
+                } else if (dy <= dz) {
+                    m_positions[i].setY(m_positions[i].y() < (box.min.y() + box.max.y()) * 0.5f
+                        ? box.min.y() : box.max.y());
+                } else {
+                    m_positions[i].setZ(m_positions[i].z() < (box.min.z() + box.max.z()) * 0.5f
+                        ? box.min.z() : box.max.z());
+                }
+            }
         }
     }
 }

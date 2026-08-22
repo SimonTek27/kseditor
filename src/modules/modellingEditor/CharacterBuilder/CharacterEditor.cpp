@@ -405,6 +405,39 @@ void CharacterEditor::normalizeWeights()
     emit weightsModified();
 }
 
+void CharacterEditor::mirrorWeights(int axis, float tolerance)
+{
+    for (auto& weights : m_meshWeights) {
+        // Find the mirror vertex for each vertex (reflection across the plane
+        // perpendicular to the given axis, flipping the axis coordinate).
+        QVector<int> mirrorOf(weights.size(), -1);
+        for (int i = 0; i < weights.size() && i < m_meshPositions.size(); ++i) {
+            if (mirrorOf[i] >= 0) continue;
+            QVector3D pi = m_meshPositions[i];
+            for (int j = i + 1; j < weights.size() && j < m_meshPositions.size(); ++j) {
+                const QVector3D pj = m_meshPositions[j];
+                const float ref = qAbs(pj[axis] + pi[axis]);
+                const bool sameOthers = qAbs(pj[(axis + 1) % 3] - pi[(axis + 1) % 3]) < tolerance
+                                         && qAbs(pj[(axis + 2) % 3] - pi[(axis + 2) % 3]) < tolerance;
+                if (sameOthers && ref < tolerance) {
+                    mirrorOf[i] = j;
+                    mirrorOf[j] = i;
+                    break;
+                }
+            }
+        }
+        for (int i = 0; i < weights.size(); ++i) {
+            const int j = mirrorOf[i];
+            if (j < 0) continue;
+            if (weights[j].isEmpty()) continue;
+            // Symmetric copy: both vertices end up with mirrored weights.
+            weights[i] = weights[j];
+            weights[j] = weights[i];
+        }
+    }
+    emit weightsModified();
+}
+
 QVector<VertexWeight> CharacterEditor::getVertexWeights(int vertexIndex) const
 {
     for (const auto& weights : m_meshWeights) {

@@ -205,6 +205,13 @@ QString MixNode::getExpression() const {
         case MixType::Multiply: return "a * b";
         case MixType::Divide: return "a / b";
         case MixType::Power: return "pow(a, b)";
+        case MixType::Log: return "log(a) / log(b)";
+        case MixType::SQRT: return "sqrt(a)";
+        case MixType::Min: return "min(a, b)";
+        case MixType::Max: return "max(a, b)";
+        case MixType::Mod: return "mod(a, b)";
+        case MixType::Atan2: return "atan(a, b)";
+        case MixType::Compare: return "step(a, b)";
         default: return "mix(a, b, factor)";
     }
 }
@@ -223,10 +230,23 @@ QString MathNode::getExpression() const {
         case MathType::Multiply: return "a * b";
         case MathType::Divide: return "a / b";
         case MathType::Power: return "pow(a, b)";
+        case MathType::Log: return "log(a) / log(b)";
         case MathType::Abs: return "abs(a)";
+        case MathType::Clamp: return "clamp(a, 0.0, 1.0)";
+        case MathType::Floor: return "floor(a)";
+        case MathType::Ceil: return "ceil(a)";
+        case MathType::Fract: return "fract(a)";
+        case MathType::Mod: return "mod(a, b)";
+        case MathType::Min: return "min(a, b)";
+        case MathType::Max: return "max(a, b)";
+        case MathType::Round: return "round(a)";
         case MathType::Sin: return "sin(a)";
         case MathType::Cos: return "cos(a)";
         case MathType::Tan: return "tan(a)";
+        case MathType::Asin: return "asin(a)";
+        case MathType::Acos: return "acos(a)";
+        case MathType::Atan: return "atan(a)";
+        case MathType::Atan2: return "atan(a, b)";
         default: return "a";
     }
 }
@@ -244,7 +264,12 @@ QString VectorMathNode::getExpression() const {
         case VectorType::Add: return "a + b";
         case VectorType::Subtract: return "a - b";
         case VectorType::Multiply: return "a * b";
+        case VectorType::Divide: return "a / b";
+        case VectorType::Cross: return "cross(a, b)";
+        case VectorType::Dot: return "dot(a, b)";
         case VectorType::Normalize: return "normalize(a)";
+        case VectorType::Length: return "length(a)";
+        case VectorType::Distance: return "distance(a, b)";
         default: return "a";
     }
 }
@@ -342,9 +367,13 @@ BSDFPrincipledNode::BSDFPrincipledNode() : MaterialNode("Principled BSDF", Mater
     addOutput("BSDF", NodeInputType::Shader);
 
     subsurface = 0.0f;
+    subsurfaceScale = 0.0f;
     metallic = 0.0f;
     specular = 0.5f;
+    specularTint = 0.0f;
     roughness = 0.5f;
+    anisotropic = 0.0f;
+    anisotropicRotation = 0.0f;
     clearcoat = 0.0f;
     clearcoatRoughness = 0.0f;
     ior = 1.45f;
@@ -354,7 +383,10 @@ BSDFPrincipledNode::BSDFPrincipledNode() : MaterialNode("Principled BSDF", Mater
 }
 
 QString BSDFPrincipledNode::getExpression() const {
-    return "principled_bsdf";
+    // Principled BSDF: full material model with all parameters
+    return "principled_bsdf(base_color, metallic, specular, roughness, subsurface, subsurface_scale, subsurface_color, "
+           "anisotropic, anisotropic_rotation, clearcoat, clearcoat_roughness, ior, transmission, thickness, "
+           "emission, emission_strength)";
 }
 
 ShaderToRGBNode::ShaderToRGBNode() : MaterialNode("Shader To RGB", MaterialNodeType::Utility) {
@@ -385,7 +417,8 @@ NoiseTextureNode::NoiseTextureNode() : MaterialNode("Noise Texture", MaterialNod
 }
 
 QString NoiseTextureNode::getExpression() const {
-    return "noise(uv * scale)";
+    // Perlin-style noise: hash-based gradient noise with octaves
+    return "perlin_noise(uv * scale, detail, distortion)";
 }
 
 VoronoiNode::VoronoiNode() : MaterialNode("Voronoi Texture", MaterialNodeType::Texture) {
@@ -399,7 +432,8 @@ VoronoiNode::VoronoiNode() : MaterialNode("Voronoi Texture", MaterialNodeType::T
 }
 
 QString VoronoiNode::getExpression() const {
-    return "voronoi(uv * scale)";
+    // Voronoi texture: cellular noise with distance metrics
+    return "voronoi(uv * scale, feature, metric)";
 }
 
 WaveTextureNode::WaveTextureNode() : MaterialNode("Wave Texture", MaterialNodeType::Texture) {

@@ -244,6 +244,8 @@ private:
     static void evalPropLifetime(const QUuid&, const ui::GraphNode&, ICEParticleState&, float, const QMap<QUuid, QVariant>&);
     static void evalPropMass(const QUuid&, const ui::GraphNode&, ICEParticleState&, float, const QMap<QUuid, QVariant>&);
     static void evalOutputPoints(const QUuid&, const ui::GraphNode&, ICEParticleState&, float, const QMap<QUuid, QVariant>&);
+    static void evalOutputRibbons(const QUuid&, const ui::GraphNode&, ICEParticleState&, float, const QMap<QUuid, QVariant>&);
+    static void evalOutputMesh(const QUuid&, const ui::GraphNode&, ICEParticleState&, float, const QMap<QUuid, QVariant>&);
 };
 
 } // namespace ks

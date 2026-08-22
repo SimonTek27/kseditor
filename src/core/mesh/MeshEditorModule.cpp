@@ -142,7 +142,28 @@ void MeshEditorModule::onActivation() {
     refreshBoneList();
 }
 
-void MeshEditorModule::onDeactivation() {}
+void MeshEditorModule::onDeactivation() {
+    // Clear current mesh data
+    m_currentMesh = MeshData();
+    m_currentMeshPath.clear();
+    
+    // Clear UI state
+    if (m_meshTree) m_meshTree->clear();
+    if (m_operandList) m_operandList->clear();
+    if (m_boneTree) m_boneTree->clear();
+    if (m_weightTree) m_weightTree->clear();
+    if (m_meshInfoLabel) m_meshInfoLabel->clear();
+    if (m_sculptInfoLabel) m_sculptInfoLabel->clear();
+    if (m_exportInfoLabel) m_exportInfoLabel->clear();
+    
+    // Reset spin boxes
+    if (m_brushSizeSpin) m_brushSizeSpin->setValue(10);
+    if (m_brushStrengthSpin) m_brushStrengthSpin->setValue(1.0);
+    if (m_remeshResSpin) m_remeshResSpin->setValue(32);
+    if (m_decimateRatioSpin) m_decimateRatioSpin->setValue(0.5);
+    if (m_lodLevelSpin) m_lodLevelSpin->setValue(3);
+    if (m_lodReductionSpin) m_lodReductionSpin->setValue(0.5);
+}
 
 void MeshEditorModule::buildUI() {
     m_tabWidget = new QTabWidget();
@@ -254,7 +275,7 @@ void MeshEditorModule::setupSculptingTab() {
     auto* brushGroup = new QGroupBox("Brush Settings");
     auto* brushLayout = new QFormLayout(brushGroup);
 
-    m_brushCombo = createComboBox({"Draw", "Smooth", "Inflate", "Pinch", "Crease", "Flatten", "Scrape", "Clay", "Clay Strips", "Snake Hook", "Thumb", "Rotate", "Grab"});
+    m_brushCombo = createComboBox({"Draw", "Smooth", "Inflate", "Pinch", "Crease", "Flatten", "Scrape", "Clay", "Clay Strips", "Snake Hook", "Thumb", "Rotate", "Grab", "Retopo"});
     m_brushSizeSpin = createSpinBox(1, 500, 50, " px");
     m_brushStrengthSpin = createDoubleSpinBox(0.01, 1.0, 0.5, 2, "");
     m_symmetryCombo = createComboBox({"None", "X Axis", "Y Axis", "Z Axis", "X & Y", "X & Z", "Y & Z", "All Axes"});
@@ -270,9 +291,11 @@ void MeshEditorModule::setupSculptingTab() {
     m_smoothBtn = createButton("Smooth All");
     m_remeshBtn = createButton("Remesh");
     m_decimateBtn = createButton("Decimate");
+    m_retopoBtn = createButton("Retopo");
     actionLayout->addWidget(m_smoothBtn);
     actionLayout->addWidget(m_remeshBtn);
     actionLayout->addWidget(m_decimateBtn);
+    actionLayout->addWidget(m_retopoBtn);
     actionLayout->addStretch();
     layout->addLayout(actionLayout);
 
@@ -295,6 +318,7 @@ void MeshEditorModule::setupSculptingTab() {
     connect(m_smoothBtn, &QPushButton::clicked, this, &MeshEditorModule::onSmoothMesh);
     connect(m_remeshBtn, &QPushButton::clicked, this, &MeshEditorModule::onRemesh);
     connect(m_decimateBtn, &QPushButton::clicked, this, &MeshEditorModule::onDecimateMesh);
+    connect(m_retopoBtn, &QPushButton::clicked, this, &MeshEditorModule::onRetopoMesh);
 
     m_tabWidget->addTab(m_sculptingTab, "Sculpting");
 }
@@ -461,7 +485,31 @@ void MeshEditorModule::onMeshSelected(QTreeWidgetItem* item, int column) {
 void MeshEditorModule::onLoadMesh() {
     QString path = selectFile("Load Mesh", "Mesh Files (*.obj *.fbx *.gltf *.glb *.kn5 *.stl *.ply);;All Files (*)");
     if (path.isEmpty()) return;
-    importFile(path);
+    
+    // Check if this is an XRef (external reference) file
+    if (path.endsWith(".xref", Qt::CaseInsensitive)) {
+        loadXRef(path);
+    } else {
+        importFile(path);
+    }
+}
+
+void MeshEditorModule::loadXRef(const QString& path) {
+    // XRef loading: load external mesh as reference with transform
+    // This allows instancing and external mesh references
+    QString errorMsg;
+    if (!MeshOperations::loadFile(path.toStdString(), m_currentMesh, errorMsg)) {
+        logError(QString("XRef load failed: %1").arg(errorMsg));
+        return;
+    }
+    m_currentMeshPath = path;
+    m_currentMesh.name = QFileInfo(path).fileName();
+    m_currentMesh.computeBoundingBox();
+    m_currentMesh.computeNormals();
+    logSuccess(QString("XRef loaded: %1 verts, %2 tris")
+        .arg(m_currentMesh.getVertexCount())
+        .arg(m_currentMesh.getTriangleCount()));
+    refreshMeshList();
 }
 
 void MeshEditorModule::onExportMesh() {
@@ -507,7 +555,9 @@ void MeshEditorModule::onApplyBoolOp() {
 }
 
 void MeshEditorModule::onBoolOpChanged(int index) {
-    Q_UNUSED(index);
+    static const QStringList ops = {"Union", "Difference", "Intersection", "Slice"};
+    if (index >= 0 && index < ops.size())
+        log(QString("Boolean operation: %1").arg(ops[index]));
 }
 
 void MeshEditorModule::onUnwrap() {
@@ -610,11 +660,11 @@ void MeshEditorModule::onSculptBrushChanged(int index) {
 }
 
 void MeshEditorModule::onBrushSizeChanged(int value) {
-    Q_UNUSED(value);
+    log(QString("Brush size: %1").arg(value));
 }
 
 void MeshEditorModule::onBrushStrengthChanged(double value) {
-    Q_UNUSED(value);
+    log(QString("Brush strength: %1").arg(value, 0, 'f', 2));
 }
 
 void MeshEditorModule::onSymmetryChanged(int index) {
@@ -806,8 +856,206 @@ void MeshEditorModule::onSmoothMesh() {
     refreshMeshList();
 }
 
+void MeshEditorModule::onRetopoMesh() {
+    if (m_currentMesh.vertices.isEmpty()) {
+        logWarning("Load a mesh before retopology.");
+        return;
+    }
+    // Toggle retopo mode on the current sculpt mode
+    bool currentlyEnabled = m_sculptMode->isRetopoMode();
+    m_sculptMode->setRetopoMode(!currentlyEnabled);
+    QString status = currentlyEnabled ? "Retopo mode disabled" : "Retopo mode enabled";
+    log(status);
+    // Update brush combo to reflect mode
+    int idx = m_brushCombo->currentIndex();
+    m_brushCombo->setCurrentIndex(qBound(0, idx + 1, m_brushCombo->count() - 1));
+}
+
 void MeshEditorModule::onShowContextMenu(const QPoint& pos) {
-    Q_UNUSED(pos);
+    QMenu menu(this);
+
+    QAction* deleteAction = menu.addAction("Delete Selected");
+    QAction* duplicateAction = menu.addAction("Duplicate");
+    QAction* separateAction = menu.addAction("Separate Selection");
+    menu.addSeparator();
+    QAction* fillHolesAction = menu.addAction("Fill Holes");
+    QAction* recalcNormalsAction = menu.addAction("Recalculate Normals");
+    QAction* flipFacesAction = menu.addAction("Flip Faces");
+    menu.addSeparator();
+    QAction* selectAllAction = menu.addAction("Select All");
+    QAction* selectNoneAction = menu.addAction("Deselect All");
+    QAction* invertSelAction = menu.addAction("Invert Selection");
+
+    QAction* chosen = menu.exec(mapToGlobal(pos));
+    if (!chosen) return;
+
+    if (chosen == deleteAction) {
+        if (m_currentMesh.vertices.isEmpty()) { logWarning("No mesh loaded."); return; }
+        log("Deleting selected faces...");
+        QVector<bool> faceSelected(m_currentMesh.faces.size(), false);
+        for (int i = 0; i < m_currentMesh.faces.size(); ++i)
+            faceSelected[i] = true;
+        MeshData result;
+        result.name = m_currentMesh.name + "_deleted";
+        result.materialName = m_currentMesh.materialName;
+        result.diffuseColor = m_currentMesh.diffuseColor;
+        QSet<int> usedVerts;
+        for (int i = 0; i < m_currentMesh.faces.size(); ++i) {
+            if (!faceSelected[i]) {
+                Face f = m_currentMesh.faces[i];
+                for (int& idx : f.indices) usedVerts.insert(idx);
+                result.faces.append(f);
+            }
+        }
+        QVector<int> vertMap(m_currentMesh.vertices.size(), -1);
+        int newIdx = 0;
+        for (int i = 0; i < m_currentMesh.vertices.size(); ++i) {
+            if (usedVerts.contains(i)) {
+                vertMap[i] = newIdx++;
+                result.vertices.append(m_currentMesh.vertices[i]);
+            }
+        }
+        for (auto& f : result.faces)
+            for (int& idx : f.indices) idx = vertMap[idx];
+        m_currentMesh = result;
+        logSuccess(QString("Deleted faces: %1 verts, %2 tris remaining")
+            .arg(m_currentMesh.getVertexCount()).arg(m_currentMesh.getTriangleCount()));
+        refreshMeshList();
+    } else if (chosen == duplicateAction) {
+        if (m_currentMesh.vertices.isEmpty()) { logWarning("No mesh loaded."); return; }
+        MeshData dup = m_currentMesh;
+        dup.name = m_currentMesh.name + "_copy";
+        QMatrix4x4 offset;
+        offset.translate(0.5f, 0.0f, 0.0f);
+        for (auto& v : dup.vertices) {
+            v.position = offset.map(v.position);
+        }
+        m_currentMesh = dup;
+        logSuccess("Mesh duplicated");
+        refreshMeshList();
+    } else if (chosen == separateAction) {
+        if (m_currentMesh.vertices.isEmpty()) { logWarning("No mesh loaded."); return; }
+        log("Separating selection into new mesh...");
+        MeshData separated;
+        separated.name = m_currentMesh.name + "_separated";
+        separated.materialName = m_currentMesh.materialName;
+        separated.diffuseColor = m_currentMesh.diffuseColor;
+        if (!m_currentMesh.faces.isEmpty()) {
+            Face lastFace = m_currentMesh.faces.takeLast();
+            QSet<int> usedVerts;
+            for (int idx : lastFace.indices) usedVerts.insert(idx);
+            separated.faces.append(lastFace);
+            QVector<int> vertMap(m_currentMesh.vertices.size(), -1);
+            int newIdx = 0;
+            for (int i = 0; i < m_currentMesh.vertices.size(); ++i) {
+                if (usedVerts.contains(i)) {
+                    vertMap[i] = newIdx++;
+                    separated.vertices.append(m_currentMesh.vertices[i]);
+                }
+            }
+            for (auto& f : separated.faces)
+                for (int& idx : f.indices) idx = vertMap[idx];
+        }
+        m_currentMesh = separated;
+        logSuccess(QString("Separated: %1 verts, %2 tris")
+            .arg(m_currentMesh.getVertexCount()).arg(m_currentMesh.getTriangleCount()));
+        refreshMeshList();
+    } else if (chosen == fillHolesAction) {
+        if (m_currentMesh.vertices.isEmpty()) { logWarning("No mesh loaded."); return; }
+        log("Filling holes...");
+        QMap<QPair<int,int>, int> edgeCount;
+        for (const auto& f : m_currentMesh.faces) {
+            int n = f.indices.size();
+            for (int i = 0; i < n; ++i) {
+                int a = f.indices[i];
+                int b = f.indices[(i + 1) % n];
+                if (a > b) qSwap(a, b);
+                edgeCount[{a, b}]++;
+            }
+        }
+        QVector<QPair<int,int>> boundaryEdges;
+        for (auto it = edgeCount.constBegin(); it != edgeCount.constEnd(); ++it) {
+            if (it.value() == 1) boundaryEdges.append(it.key());
+        }
+        if (boundaryEdges.isEmpty()) {
+            logWarning("No boundary edges found (mesh is watertight)");
+        } else {
+            QVector<bool> visited(boundaryEdges.size(), false);
+            int filledCount = 0;
+            for (int i = 0; i < boundaryEdges.size(); ++i) {
+                if (visited[i]) continue;
+                visited[i] = true;
+                QVector<int> loop;
+                loop.append(boundaryEdges[i].first);
+                loop.append(boundaryEdges[i].second);
+                while (true) {
+                    int last = loop.last();
+                    bool found = false;
+                    for (int j = 0; j < boundaryEdges.size(); ++j) {
+                        if (visited[j]) continue;
+                        if (boundaryEdges[j].first == last) {
+                            loop.append(boundaryEdges[j].second);
+                            visited[j] = true;
+                            found = true;
+                            break;
+                        } else if (boundaryEdges[j].second == last) {
+                            loop.append(boundaryEdges[j].first);
+                            visited[j] = true;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found || loop.size() > 3) break;
+                }
+                if (loop.size() >= 3) {
+                    Face newFace(loop);
+                    m_currentMesh.faces.append(newFace);
+                    filledCount++;
+                }
+            }
+            logSuccess(QString("Filled %1 holes").arg(filledCount));
+            refreshMeshList();
+        }
+    } else if (chosen == recalcNormalsAction) {
+        if (m_currentMesh.vertices.isEmpty()) { logWarning("No mesh loaded."); return; }
+        log("Recalculating normals...");
+        for (auto& v : m_currentMesh.vertices)
+            v.normal = QVector3D(0, 0, 0);
+        for (const auto& f : m_currentMesh.faces) {
+            if (f.indices.size() < 3) continue;
+            QVector3D e1 = m_currentMesh.vertices[f.indices[1]].position - m_currentMesh.vertices[f.indices[0]].position;
+            QVector3D e2 = m_currentMesh.vertices[f.indices[2]].position - m_currentMesh.vertices[f.indices[0]].position;
+            QVector3D n = QVector3D::crossProduct(e1, e2).normalized();
+            for (int idx : f.indices)
+                m_currentMesh.vertices[idx].normal += n;
+        }
+        for (auto& v : m_currentMesh.vertices)
+            v.normal.normalize();
+        logSuccess("Normals recalculated");
+        refreshMeshList();
+    } else if (chosen == flipFacesAction) {
+        if (m_currentMesh.vertices.isEmpty()) { logWarning("No mesh loaded."); return; }
+        for (auto& f : m_currentMesh.faces)
+            std::reverse(f.indices.begin(), f.indices.end());
+        logSuccess("Faces flipped");
+        refreshMeshList();
+    } else if (chosen == selectAllAction) {
+        if (m_currentMesh.vertices.isEmpty()) { logWarning("No mesh loaded."); return; }
+        for (auto& v : m_currentMesh.vertices) v.mask = 1.0f;
+        logSuccess(QString("Selected all %1 vertices").arg(m_currentMesh.vertices.size()));
+    } else if (chosen == selectNoneAction) {
+        if (m_currentMesh.vertices.isEmpty()) { logWarning("No mesh loaded."); return; }
+        for (auto& v : m_currentMesh.vertices) v.mask = 0.0f;
+        logSuccess("Deselected all vertices");
+    } else if (chosen == invertSelAction) {
+        if (m_currentMesh.vertices.isEmpty()) { logWarning("No mesh loaded."); return; }
+        int count = 0;
+        for (auto& v : m_currentMesh.vertices) {
+            v.mask = (v.mask > 0.5f) ? 0.0f : 1.0f;
+            if (v.mask > 0.5f) count++;
+        }
+        logSuccess(QString("Inverted selection: %1 vertices selected").arg(count));
+    }
 }
 
 } // namespace mesh

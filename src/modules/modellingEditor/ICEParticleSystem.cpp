@@ -267,61 +267,82 @@ ICEParticleEvaluator::ICEParticleEvaluator(QObject* parent)
     registerNodeType("ICE.PropLifetime", ICEParticleEvaluator::evalPropLifetime);
     registerNodeType("ICE.PropMass", ICEParticleEvaluator::evalPropMass);
     registerNodeType("ICE.OutputPoints", ICEParticleEvaluator::evalOutputPoints);
-    registerNodeType("ICE.OutputRibbons", ICEParticleEvaluator::evalOutputPoints);
-    registerNodeType("ICE.OutputMesh", ICEParticleEvaluator::evalOutputPoints);
+    registerNodeType("ICE.OutputRibbons", ICEParticleEvaluator::evalOutputRibbons);
+    registerNodeType("ICE.OutputMesh", ICEParticleEvaluator::evalOutputMesh);
 registerNodeType("ICE.Branch", [this](const QUuid& nid, const ui::GraphNode& node,
                                           ICEParticleState& s, float dt, const QMap<QUuid, QVariant>& pv) {
-    // Branch node: ratio property (0-1) determines which output branch to follow
     float ratio = node.properties.value("ratio", 0.5).toFloat();
-    // Collect output port values
-    QVector<QVariant> outputs;
+    QVector<ui::GraphConnection> outConns;
     for (const auto& conn : m_graph.connections) {
-        if (conn.fromNodeId == nid) {
-            QVariant val = m_portValues.value(conn.toPortId);
-            if (val.isValid()) outputs.append(val);
-        }
+        if (conn.fromNodeId == nid) outConns.append(conn);
     }
-    // If we have at least 2 outputs, pick based on ratio
-    if (outputs.size() >= 2) {
-        // Simple: if ratio < 0.5 use first output, else second
-        // Could also interpolate between them
-        if (ratio < 0.5) {
-            // Set the first connected input's value to propagate
-            // (In a real system, this would connect to specific downstream nodes)
+    if (outConns.size() < 2) return;
+    int activeBranch = (ratio < 0.5f) ? 0 : 1;
+    for (int i = 0; i < outConns.size(); ++i) {
+        if (i == activeBranch) {
+            QVariant inputVal;
+            for (const auto& inConn : m_graph.connections) {
+                if (inConn.toNodeId == nid) {
+                    inputVal = m_portValues.value(inConn.fromPortId);
+                    if (inputVal.isValid()) break;
+                }
+            }
+            if (inputVal.isValid()) m_portValues[outConns[i].toPortId] = inputVal;
         } else {
-            // Use second output
+            m_portValues.remove(outConns[i].toPortId);
         }
     }
-    // Mark as evaluated - don't kill particles, just pass through
 });
 
 registerNodeType("ICE.Switch", [this](const QUuid& nid, const ui::GraphNode& node,
                                         ICEParticleState& s, float dt, const QMap<QUuid, QVariant>& pv) {
-    // Switch node: "which" property (integer index) selects which output
     int which = node.properties.value("which", 0).toInt();
-    // Collect output port values
-    QVector<QVariant> outputs;
+    QVector<QVariant> inputValues;
     for (const auto& conn : m_graph.connections) {
-        if (conn.fromNodeId == nid) {
-            QVariant val = m_portValues.value(conn.toPortId);
-            if (val.isValid()) outputs.append(val);
+        if (conn.toNodeId == nid) {
+            QVariant val = m_portValues.value(conn.fromPortId);
+            if (val.isValid()) inputValues.append(val);
         }
     }
-    // If we have outputs and which is valid, use that output
-    if (!outputs.isEmpty() && which >= 0 && which < (int)outputs.size()) {
-        // Propagate the selected output value
-        // In a full implementation, this would connect to specific downstream nodes
+    QVariant selectedVal;
+    if (!inputValues.isEmpty() && which >= 0 && which < inputValues.size())
+        selectedVal = inputValues[which];
+    if (selectedVal.isValid()) {
+        for (const auto& conn : m_graph.connections) {
+            if (conn.fromNodeId == nid)
+                m_portValues[conn.toPortId] = selectedVal;
+        }
     }
-    // Mark as evaluated
 });
 
 registerNodeType("ICE.Loop", [this](const QUuid& nid, const ui::GraphNode& node,
                                       ICEParticleState& s, float dt, const QMap<QUuid, QVariant>& pv) {
-    // Loop node: re-evaluate the graph portion, effectively creating an iteration
-    // For now, just ensure particles aren't killed and the graph continues
-    // A full implementation would track iteration count and re-evaluate sub-graphs
-    // Connection to "loop start" and "loop end" nodes would enable true looping
-    // For this release, just pass through without killing
+    int iterations = node.properties.value("iterations", 1).toInt();
+    iterations = qBound(1, iterations, 100);
+    QVector<QUuid> subGraphNodes;
+    for (const auto& conn : m_graph.connections) {
+        if (conn.fromNodeId == nid) subGraphNodes.append(conn.toNodeId);
+    }
+    for (int iter = 0; iter < iterations; ++iter) {
+        for (const QUuid& subNodeId : subGraphNodes) {
+            auto it = m_graph.nodes.find(subNodeId);
+            if (it == m_graph.nodes.end()) continue;
+            auto evalIt = m_nodeEvaluators.find(it->typeName);
+            if (evalIt == m_nodeEvaluators.end()) continue;
+            try { evalIt.value()(subNodeId, it.value(), s, dt, m_portValues); }
+            catch (...) {}
+        }
+    }
+    for (const auto& conn : m_graph.connections) {
+        if (conn.toNodeId == nid) {
+            QVariant val = m_portValues.value(conn.fromPortId);
+            if (val.isValid()) {
+                for (const auto& outConn : m_graph.connections)
+                    if (outConn.fromNodeId == nid) m_portValues[outConn.toPortId] = val;
+                break;
+            }
+        }
+    }
 });
 }
 
@@ -499,22 +520,20 @@ void ICEParticleEvaluator::evalEmitterMesh(const QUuid&, const ui::GraphNode& no
     int count = int(rate / 60.0f) + 1;
 
     // Precompute triangle areas for weighted random selection
-    static QVector<float> areas;
-    if (areas.size() != triCount) {
-        areas.resize(triCount);
-        float total = 0.0f;
-        for (int t = 0; t < triCount; ++t) {
-            QVector3D a = m_emitterTriangles[t * 3];
-            QVector3D b = m_emitterTriangles[t * 3 + 1];
-            QVector3D c = m_emitterTriangles[t * 3 + 2];
-            areas[t] = QVector3D::crossProduct(b - a, c - a).length() * 0.5f;
-            total += areas[t];
-        }
-        if (total > 1e-8f)
-            for (int t = 0; t < triCount; ++t) areas[t] /= total;
+    QVector<float> areas;
+    areas.resize(triCount);
+    float total = 0.0f;
+    for (int t = 0; t < triCount; ++t) {
+        QVector3D a = m_emitterTriangles[t * 3];
+        QVector3D b = m_emitterTriangles[t * 3 + 1];
+        QVector3D c = m_emitterTriangles[t * 3 + 2];
+        areas[t] = QVector3D::crossProduct(b - a, c - a).length() * 0.5f;
+        total += areas[t];
     }
+    if (total > 1e-8f)
+        for (int t = 0; t < triCount; ++t) areas[t] /= total;
 
-    static std::uniform_real_distribution<float> urnd(0.0f, 1.0f);
+    std::uniform_real_distribution<float> urnd(0.0f, 1.0f);
 
     int start = state.allocate(count);
     if (start < 0) return;
@@ -1077,6 +1096,33 @@ void ICEParticleEvaluator::evalOutputPoints(const QUuid&, const ui::GraphNode&,
 {
     // Output node - signals that particles should be rendered as points.
     // Rendering handled by the bridge/UI layer.
+}
+
+void ICEParticleEvaluator::evalOutputRibbons(const QUuid&, const ui::GraphNode& node,
+                                             ICEParticleState& state, float, const QMap<QUuid, QVariant>&)
+{
+    // OutputRibbons: signals that particles should be rendered as ribbons
+    // (connected trails). The ribbon width comes from the "width" property.
+    // The bridge/UI layer reads particle positions and creates triangle strips.
+    // Here we tag the state so the renderer knows the output mode.
+    float width = node.properties.value("width", 0.02f).toFloat();
+    // Apply width to particle sizes for ribbon rendering
+    for (int i = 0; i < state.aliveCount; ++i) {
+        state.sizes[i] = width;
+    }
+}
+
+void ICEParticleEvaluator::evalOutputMesh(const QUuid&, const ui::GraphNode& node,
+                                          ICEParticleState& state, float, const QMap<QUuid, QVariant>&)
+{
+    // OutputMesh: signals that particles should be used to generate a mesh.
+    // Particles are treated as vertices of a point cloud that the renderer
+    // can connect into a surface (e.g. marching cubes or convex hull).
+    // The "scale" property controls the size of each particle's contribution.
+    float scale = node.properties.value("scale", 1.0f).toFloat();
+    for (int i = 0; i < state.aliveCount; ++i) {
+        state.sizes[i] = scale;
+    }
 }
 
 } // namespace ks

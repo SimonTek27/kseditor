@@ -55,6 +55,7 @@ private:
     SoftBody m_config;
     QVector3D m_externalForce;
     QVector3D m_wind;
+    QVector3D m_gravity = QVector3D(0, -9.81f, 0);
 };
 
 // ============================================================================

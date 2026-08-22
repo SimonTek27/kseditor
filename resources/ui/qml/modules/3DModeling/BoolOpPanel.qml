@@ -288,6 +288,18 @@ Rectangle {
                             onClicked: moveOp(index, 1)
                         }
                         AppButton {
+                            width: 40
+                            height: 20
+                            text: "CAGE"
+                            bgcolor: modelData.operandId === (Modeler && Modeler.selectedObject ? Modeler.selectedObject.id : -1) ? "#2aa8ff" : "#3e3e42"
+                            color: "#fff"
+                            font.pixelSize: 7
+                            font.bold: true
+                            onClicked: Modeler.booleanSelectOperand(objectId, index)
+                            ToolTip.visible: hovered
+                            ToolTip.text: "Edit this operand (cage). Geometry edits re-run the boolean stack live."
+                        }
+                        AppButton {
                             width: 18
                             height: 20
                             text: "\u2715"
@@ -336,6 +348,18 @@ Rectangle {
             AppButton {
                 Layout.fillWidth: true
                 height: 28
+                text: "Re-eval"
+                bgcolor: "#3e3e42"
+                color: "#fff"
+                font.pixelSize: 10
+                enabled: stackList.length > 0
+                onClicked: { Modeler.booleanEvaluate(objectId) }
+                ToolTip.visible: hovered; ToolTip.text: "Manually re-run the boolean stack (auto re-runs on edits)"
+            }
+
+            AppButton {
+                Layout.fillWidth: true
+                height: 28
                 text: "Clear"
                 bgcolor: "#3e3e42"
                 color: "#fff"
@@ -346,9 +370,11 @@ Rectangle {
         }
 
         Text {
-            text: "Hint: double-click a stack row to toggle enable."
+            text: "Hint: double-click a row to toggle enable. Press CAGE to edit an operand; its edits re-run the stack live."
             color: "#666"
             font.pixelSize: 9
+            wrapMode: Text.WordWrap
+            Layout.fillWidth: true
         }
     }
 }

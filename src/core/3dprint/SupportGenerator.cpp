@@ -220,9 +220,45 @@ std::vector<SupportGenerator::TreeBranch> SupportGenerator::Impl::generateTreeSt
 
 Polygons2D SupportGenerator::generateTreeSupports(const LayerSlice& layer, const LayerSlices& allLayers,
                                                   const SliceSettings& settings, const PrinterProfile& printer) {
-    // This would use the pre-generated tree structure
-    // For now, return grid supports as fallback
-    return generateGridSupports(layer, settings);
+    Polygons2D supportArea = calculateSupportArea(layer, allLayers, settings, 0);
+    if (supportArea.empty()) return Polygons2D();
+
+    double branchWidth = settings.lineWidth * 2.0;
+    Polygons2D support;
+
+    for (const auto& poly : supportArea) {
+        BoundingBox bounds;
+        bool hasBounds = false;
+        for (const auto& v : poly.vertices) {
+            if (!hasBounds) { bounds.min = bounds.max = v; hasBounds = true; }
+            else { bounds.expand(v); }
+        }
+        if (!hasBounds) continue;
+
+        double cx = (bounds.min.x + bounds.max.x) * 0.5;
+        double cy = (bounds.min.y + bounds.max.y) * 0.5;
+
+        geometry::Polygon2D branch;
+        double angleStep = M_PI * 2.0 / 8;
+        for (int i = 0; i < 8; ++i) {
+            double a = i * angleStep;
+            double r = branchWidth * 0.5 * (0.6 + 0.4 * std::cos(a * 3));
+            branch.vertices.push_back({cx + r * std::cos(a), cy + r * std::sin(a)});
+        }
+        support.push_back(std::move(branch));
+
+        if (bounds.max.x - bounds.min.x > branchWidth * 2) {
+            geometry::Polygon2D conn;
+            double y = cy;
+            conn.vertices.push_back({bounds.min.x, y - branchWidth * 0.25});
+            conn.vertices.push_back({bounds.max.x, y - branchWidth * 0.25});
+            conn.vertices.push_back({bounds.max.x, y + branchWidth * 0.25});
+            conn.vertices.push_back({bounds.min.x, y + branchWidth * 0.25});
+            support.push_back(std::move(conn));
+        }
+    }
+
+    return support;
 }
 
 // ============================================================================
@@ -493,19 +529,39 @@ bool SupportGenerator::needsSupport(const Vector2& point, const LayerSlice& laye
     if (isInEnforcer(point)) return true;
 
     // Check if point is in an overhang area
-    // For now, simplified: check if directly below is empty
     if (layerIndex > 0 && !allLayers.empty()) {
         const auto& belowLayer = allLayers[layerIndex - 1];
         for (const auto& poly : belowLayer.perimeters) {
             if (geometry::pointInPolygon(point, poly.vertices)) {
-                return false; // Supported
+                return false;
+            }
+        }
+
+        if (layerIndex > 1) {
+            const auto& twoBelow = allLayers[layerIndex - 2];
+            for (const auto& poly : twoBelow.perimeters) {
+                if (geometry::pointInPolygon(point, poly.vertices)) {
+                    return true;
+                }
+            }
+        }
+
+        bool coveredByBelow = false;
+        for (const auto& poly : belowLayer.perimeters) {
+            if (geometry::pointInPolygon(point, poly.vertices)) {
+                coveredByBelow = true;
+                break;
+            }
+        }
+
+        const auto& currentLayer = allLayers[layerIndex];
+        for (const auto& poly : currentLayer.perimeters) {
+            if (geometry::pointInPolygon(point, poly.vertices)) {
+                if (!coveredByBelow) return true;
+                break;
             }
         }
     }
-
-    // Check angle - would need 3D normal information
-    // Simplified: assume any area not supported needs support
-    return true;
 }
 
 double SupportGenerator::overhangAngle(const Vector3& normal) const {

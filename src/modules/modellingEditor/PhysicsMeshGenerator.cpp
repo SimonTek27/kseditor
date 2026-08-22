@@ -954,15 +954,93 @@ PhysicsMeshGenerator::PhysicsMesh PhysicsMeshGenerator::generateConvexDecomposit
     }
 #endif
 
-#if HAS_BULLET
-    // Fallback to single convex hull
+    // Fallback: axis-aligned decomposition into convex parts
+    // Split along longest axis at bounding box midpoint
+    if (vertices.size() < 8) {
+        return computeConvexHull(vertices, faces);
+    }
+
+    // Compute bounding box
+    QVector3D bboxMin = vertices[0].position;
+    QVector3D bboxMax = vertices[0].position;
+    for (const auto& v : vertices) {
+        bboxMin = QVector3D(qMin(bboxMin.x(), v.position.x()),
+                            qMin(bboxMin.y(), v.position.y()),
+                            qMin(bboxMin.z(), v.position.z()));
+        bboxMax = QVector3D(qMax(bboxMax.x(), v.position.x()),
+                            qMax(bboxMax.y(), v.position.y()),
+                            qMax(bboxMax.z(), v.position.z()));
+    }
+
+    QVector3D bboxSize = bboxMax - bboxMin;
+    float maxDim = qMax(bboxSize.x(), qMax(bboxSize.y(), bboxSize.z()));
+    
+    if (maxDim < 0.001f) {
+        return computeConvexHull(vertices, faces);
+    }
+
+    // Find split axis
+    int axis = 0; // 0=x, 1=y, 2=z
+    if (bboxSize.y() >= bboxSize.x() && bboxSize.y() >= bboxSize.z()) axis = 1;
+    else if (bboxSize.z() >= bboxSize.x() && bboxSize.z() >= bboxSize.y()) axis = 2;
+
+    float splitPos;
+    if (axis == 0) splitPos = (bboxMin.x() + bboxMax.x()) * 0.5f;
+    else if (axis == 1) splitPos = (bboxMin.y() + bboxMax.y()) * 0.5f;
+    else splitPos = (bboxMin.z() + bboxMax.z()) * 0.5f;
+
+    // Split vertices into two halves
+    QVector<PhysicsVertex> leftVerts, rightVerts;
+    for (const auto& v : vertices) {
+        float coord;
+        if (axis == 0) coord = v.position.x();
+        else if (axis == 1) coord = v.position.y();
+        else coord = v.position.z();
+        
+        if (coord <= splitPos) leftVerts.append(v);
+        else rightVerts.append(v);
+    }
+
+    // Split faces based on vertex positions
+    QVector<PhysicsFace> leftFaces, rightFaces;
+    for (const auto& f : faces) {
+        if (f.v0 >= vertices.size() || f.v1 >= vertices.size() || f.v2 >= vertices.size()) continue;
+        
+        float avgCoord = 0.0f;
+        for (int vi : {f.v0, f.v1, f.v2}) {
+            if (axis == 0) avgCoord += vertices[vi].position.x();
+            else if (axis == 1) avgCoord += vertices[vi].position.y();
+            else avgCoord += vertices[vi].position.z();
+        }
+        avgCoord /= 3.0f;
+        
+        if (avgCoord <= splitPos) leftFaces.append(f);
+        else rightFaces.append(f);
+    }
+
+    // Recursively decompose each half
+    PhysicsMesh leftMesh;
+    leftMesh.vertices = leftVerts;
+    leftMesh.faces = leftFaces;
+    
+    PhysicsMesh rightMesh;
+    rightMesh.vertices = rightVerts;
+    rightMesh.faces = rightFaces;
+
+    // Use convex hull for each half
+    PhysicsMesh leftHull = computeConvexHull(leftVerts, leftFaces);
+    PhysicsMesh rightHull = computeConvexHull(rightVerts, rightFaces);
+
+    // Merge the two convex parts
+    QVector<PhysicsMesh> parts;
+    if (!leftHull.vertices.isEmpty()) parts.append(leftHull);
+    if (!rightHull.vertices.isEmpty()) parts.append(rightHull);
+    
+    if (!parts.isEmpty()) {
+        return mergeMeshes(parts);
+    }
+
     return computeConvexHull(vertices, faces);
-#else
-    // Fallback to simplified mesh
-    result.vertices = vertices;
-    result.faces = faces;
-    return simplifyMesh(result, m_config.simplificationRatio);
-#endif
 }
 
 PhysicsMeshGenerator::PhysicsMesh PhysicsMeshGenerator::generateSimplifiedChassis(

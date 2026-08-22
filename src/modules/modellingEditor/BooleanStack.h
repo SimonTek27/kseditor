@@ -4,7 +4,9 @@
 #include <QString>
 #include <QVector>
 #include <QMap>
+#include <functional>
 #include "core/mesh/MeshOperations.h"
+#include "BooleanOps.h"
 
 namespace ks {
 
@@ -18,6 +20,16 @@ inline QString booleanOpTypeToString(int op) {
     case 3: return "Xor";
     }
     return "Union";
+}
+
+inline geometry::BooleanOperations::Operation booleanOpIndexToEnum(int op) {
+    switch (qBound(0, op, 3)) {
+    case 0: return geometry::BooleanOperations::Union;
+    case 1: return geometry::BooleanOperations::Difference;
+    case 2: return geometry::BooleanOperations::Intersection;
+    case 3: return geometry::BooleanOperations::SymmetricDiff;
+    }
+    return geometry::BooleanOperations::Union;
 }
 
 // One non-destructive boolean operation in a BooleanStack.
@@ -57,12 +69,22 @@ public:
     bool setOperation(int index, int operation);
     void clear();
 
+    // Operand resolver: caller provides a function that maps operandId -> MeshData.
+    using OperandResolver = std::function<MeshData(int operandId)>;
+    void setOperandResolver(OperandResolver resolver) { m_resolver = resolver; }
+
+    // Evaluate the boolean stack: applies all enabled operations sequentially
+    // to the base mesh and returns the result. If no operations are enabled,
+    // returns the base mesh unchanged. Returns empty MeshData on failure.
+    MeshData evaluate() const;
+
 signals:
     void changed();
 
 private:
     MeshData m_base;
     QVector<BooleanOp> m_ops;
+    OperandResolver m_resolver;
 };
 
 } // namespace ks

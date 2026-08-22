@@ -614,9 +614,49 @@ bool SlicerEngine::checkBuildVolume(const BoundingBox& bounds, const PrinterProf
 }
 
 QMatrix4x4 SlicerEngine::suggestOrientation(const MeshTriangles& triangles) {
-    // Simple heuristic: orient to minimize Z-height and maximize flat surfaces on bed
-    // For now, return identity
-    return QMatrix4x4();
+    if (triangles.isEmpty()) return QMatrix4x4();
+
+    QVector3D centroid;
+    QVector3D avgNormal;
+    float totalArea = 0.0f;
+
+    for (const auto& tri : triangles) {
+        QVector3D v0(tri.v[0].x, tri.v[0].y, tri.v[0].z);
+        QVector3D v1(tri.v[1].x, tri.v[1].y, tri.v[1].z);
+        QVector3D v2(tri.v[2].x, tri.v[2].y, tri.v[2].z);
+
+        QVector3D e1 = v1 - v0;
+        QVector3D e2 = v2 - v0;
+        QVector3D n = QVector3D::crossProduct(e1, e2);
+        float area = n.length() * 0.5f;
+        avgNormal += n.normalized() * area;
+        totalArea += area;
+        centroid += (v0 + v1 + v2) / 3.0f;
+    }
+
+    if (totalArea > 0.0f) {
+        centroid /= static_cast<float>(triangles.size());
+        avgNormal.normalize();
+    }
+
+    QVector3D up(0, 1, 0);
+    QVector3D axis = QVector3D::crossProduct(avgNormal, up);
+    float sinA = axis.length();
+    float cosA = QVector3D::dotProduct(avgNormal, up);
+
+    QMatrix4x4 rotation;
+    if (sinA > 0.001f) {
+        axis.normalize();
+        float angle = std::atan2(sinA, cosA);
+        rotation.rotate(static_cast<float>(qRadiansToDegrees(angle)), axis);
+    }
+
+    QMatrix4x4 result;
+    result.translate(-centroid);
+    result = rotation * result;
+    result.translate(0, 0, 0);
+
+    return result;
 }
 
 double SlicerEngine::estimatePrintTimeQuick(const MeshTriangles& triangles, const SliceSettings& settings, const PrinterProfile& printer) {

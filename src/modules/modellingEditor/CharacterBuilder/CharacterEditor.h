@@ -120,6 +120,11 @@ public:
     void paintWeights(int boneIndex, const QVector3D& center, float radius, float strength);
     void smoothWeights(int boneIndex, float radius);
     void normalizeWeights();
+    // Weight-station mirror (Maya P1): mirrors every vertex's weight to the
+    // vertex mirrored across the `flipX` plane (default X-Z plane, i.e. X
+    // reflection) within `tolerance`. Matched pairs become symmetric; unmatched
+    // vertices keep their weights.
+    void mirrorWeights(int axis, float tolerance = 0.01f);
     
     QVector<VertexWeight> getVertexWeights(int vertexIndex) const;
     void setVertexWeights(int vertexIndex, const QVector<VertexWeight>& weights);

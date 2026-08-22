@@ -384,6 +384,7 @@ void Debugger::evaluate(const QString& expression)
     // For now, log the expression being evaluated
     // A full implementation would parse the expression and read process memory
     qDebug() << "[Debugger] Evaluating expression:" << expression;
+    qDebug() << "[Debugger] Expression evaluation is not yet implemented - use watch() for variable inspection";
     CloseHandle(hProcess);
 #else
     qDebug() << "[Debugger] Evaluating expression (platform not supported):" << expression;

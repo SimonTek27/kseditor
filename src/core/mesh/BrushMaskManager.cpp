@@ -42,9 +42,14 @@ QSet<int> BrushMaskManager::applyMaskToBrush(int objectId, const QVector3D& cent
     
     switch (m_maskMode) {
         case MaskVertex: {
-            // Only affect selected vertices
+            // Only affect selected vertices that are within brush radius
             for (int vi : m_selectedVertices) {
-                float d = (QVector3D(vi % 100 - 50, 0, vi / 100 - 50) - center).length(); // placeholder
+                float d;
+                if (!m_vertexPositions.isEmpty() && vi < m_vertexPositions.size()) {
+                    d = (m_vertexPositions[vi] - center).length();
+                } else {
+                    d = (QVector3D(float(vi % 100) - 50.0f, 0.0f, float(vi / 100) - 50.0f) - center).length();
+                }
                 if (d <= radius) {
                     affected.insert(vi);
                 }
@@ -52,52 +57,132 @@ QSet<int> BrushMaskManager::applyMaskToBrush(int objectId, const QVector3D& cent
             break;
         }
         case MaskFace: {
-            // Only affect faces in selection
+            // Only affect faces in selection - insert all vertex indices of selected faces
             for (int fi : m_selectedFaces) {
-                // Simple approximation - would need actual face data
+                // Face index to vertex indices would require face data
+                // For now, treat face index as vertex index (legacy behavior)
                 affected.insert(fi);
             }
             break;
         }
         case MaskSculpt: {
-            // Would use sculpt layer weights
-            // For now, affect all vertices within radius
-            // In real implementation: check per-vertex weights from sculpt layers
-            float d = radius; // placeholder
-            if (d > 0) {
-                // Affect vertices within radius
+            // Use sculpt layer weights to determine affected vertices
+            for (int vi = 0; vi < m_sculptLayerWeights.size(); ++vi) {
+                float weight = m_sculptLayerWeights[vi];
+                if (weight <= 0.0f) continue;
+                float d;
+                if (!m_vertexPositions.isEmpty() && vi < m_vertexPositions.size()) {
+                    d = (m_vertexPositions[vi] - center).length();
+                } else {
+                    d = (QVector3D(float(vi % 100) - 50.0f, 0.0f, float(vi / 100) - 50.0f) - center).length();
+                }
+                if (d <= radius && weight > 0.0f) {
+                    affected.insert(vi);
+                }
             }
             break;
         }
         case MaskPaint: {
-            // Would use paint layer masks
-            // For now, affect all vertices within radius
+            // Use paint layer masks to determine affected vertices
+            for (int vi = 0; vi < m_paintLayerMasks.size(); ++vi) {
+                float mask = m_paintLayerMasks[vi];
+                if (mask <= 0.0f) continue;
+                float d;
+                if (!m_vertexPositions.isEmpty() && vi < m_vertexPositions.size()) {
+                    d = (m_vertexPositions[vi] - center).length();
+                } else {
+                    d = (QVector3D(float(vi % 100) - 50.0f, 0.0f, float(vi / 100) - 50.0f) - center).length();
+                }
+                if (d <= radius && mask > 0.0f) {
+                    affected.insert(vi);
+                }
+            }
             break;
         }
         case MaskArea: {
             // Affect vertices within the mask radius area
-            // Simple: all vertices within radius
-            // Real impl: check distance from maskCenter
-            for (int i = 0; i < 100; ++i) { // placeholder loop
-                float d = (QVector3D(i % 10 - 5, 0, i / 10 - 5) - center).length();
+            int vertCount = m_vertexPositions.isEmpty() ? 100 : m_vertexPositions.size();
+            for (int vi = 0; vi < vertCount; ++vi) {
+                float d;
+                if (!m_vertexPositions.isEmpty() && vi < m_vertexPositions.size()) {
+                    d = (m_vertexPositions[vi] - m_maskCenter).length();
+                } else {
+                    d = (QVector3D(float(vi % 10) - 5.0f, 0.0f, float(vi / 10) - 5.0f) - m_maskCenter).length();
+                }
                 if (d <= m_maskRadius) {
-                    affected.insert(i);
+                    affected.insert(vi);
                 }
             }
             break;
         }
         case MaskSymmetry: {
-            // Apply mask with symmetry (mirror left/right)
-            // Would check symmetry plane and mirror affected vertices
-            // For now, just affect as normal
+            // Apply mask with symmetry (mirror left/right across symmetry plane)
+            int vertCount = m_vertexPositions.isEmpty() ? 0 : m_vertexPositions.size();
+            for (int vi = 0; vi < vertCount; ++vi) {
+                float d;
+                if (!m_vertexPositions.isEmpty() && vi < m_vertexPositions.size()) {
+                    d = (m_vertexPositions[vi] - center).length();
+                } else {
+                    continue;
+                }
+                if (d <= radius) {
+                    affected.insert(vi);
+                    // Mirror across symmetry plane
+                    if (m_symmetryEnabled && !m_symmetryPlaneNormal.isNull()) {
+                        QVector3D pos = m_vertexPositions[vi];
+                        float distFromPlane = QVector3D::dotProduct(pos, m_symmetryPlaneNormal) - m_symmetryPlaneOffset;
+                        QVector3D mirrored = pos - 2.0f * distFromPlane * m_symmetryPlaneNormal;
+                        // Find closest vertex to mirrored position
+                        float bestDist = 1e9f;
+                        int bestIdx = -1;
+                        for (int mi = 0; mi < vertCount; ++mi) {
+                            float md = (m_vertexPositions[mi] - mirrored).length();
+                            if (md < bestDist) {
+                                bestDist = md;
+                                bestIdx = mi;
+                            }
+                        }
+                        if (bestIdx >= 0 && bestDist < radius * 0.5f) {
+                            affected.insert(bestIdx);
+                        }
+                    }
+                }
+            }
             break;
         }
         default: {
-            // No masking - affect all within radius
-            // In real implementation, would iterate all vertices
+            // No masking - affect all vertices within radius
+            int vertCount = m_vertexPositions.isEmpty() ? 0 : m_vertexPositions.size();
+            for (int vi = 0; vi < vertCount; ++vi) {
+                float d = (m_vertexPositions[vi] - center).length();
+                if (d <= radius) {
+                    affected.insert(vi);
+                }
+            }
             break;
         }
     }
     
     return affected;
+}
+
+void BrushMaskManager::setVertexPositions(const QVector<QVector3D>& positions) {
+    m_vertexPositions = positions;
+}
+
+void BrushMaskManager::setVertexNormals(const QVector<QVector3D>& normals) {
+    m_vertexNormals = normals;
+}
+
+void BrushMaskManager::setSculptLayerWeights(const QVector<float>& weights) {
+    m_sculptLayerWeights = weights;
+}
+
+void BrushMaskManager::setPaintLayerMasks(const QVector<float>& masks) {
+    m_paintLayerMasks = masks;
+}
+
+void BrushMaskManager::setSymmetryPlane(const QVector3D& normal, float offset) {
+    m_symmetryPlaneNormal = normal;
+    m_symmetryPlaneOffset = offset;
 }

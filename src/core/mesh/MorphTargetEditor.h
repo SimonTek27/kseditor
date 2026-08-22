@@ -51,6 +51,13 @@ public:
     int sculptBrushToTarget(int targetIndex, const QVector3D& center, float radius, float strength, int mode,
                             const QVector3D& drag, const QVector3D& previousCenter,
                             float falloffPower, const QSet<int>* pinned);
+
+    // Set base mesh data for real vertex distance calculations
+    void setBaseMeshData(const QVector<QVector3D>& positions, const QVector<QVector3D>& normals,
+                         const QVector<QVector<int>>& adjacency);
+
+    // Get vertex position (base + delta) for external queries
+    QVector3D getVertexPosition(int targetIndex, int vertexIndex) const;
     
     // Signals
 signals:
@@ -65,4 +72,7 @@ signals:
 private:
     QVector<MorphTarget> m_targets;
     int m_currentTarget = -1;
+    QVector<QVector3D> m_basePositions;
+    QVector<QVector3D> m_baseNormals;
+    QVector<QVector<int>> m_adjacency;
 };

@@ -266,14 +266,50 @@ void CADDXFParser::parsePolyline(const QVector<QPair<int, QString>>& groups, int
 
 void CADDXFParser::parseInsert(const QVector<QPair<int, QString>>& groups, int& pos)
 {
-    // BLOCK INSERT - simplified, just records the entity
     DXFEntity ent;
     ent.type = "INSERT";
 
+    QString blockName;
+    QVector2D insertPoint;
+    QVector2D scale(1.0f, 1.0f);
+    float rotation = 0.0f;
+
     while (pos < groups.size()) {
         if (groups[pos].first == 0) break;
-        ent.values[groups[pos].first] = groups[pos].second;
+        int code = groups[pos].first;
+        const QString& val = groups[pos].second;
+
+        if (code == 2) blockName = val;
+        else if (code == 10) insertPoint.setX(val.toFloat());
+        else if (code == 20) insertPoint.setY(val.toFloat());
+        else if (code == 41) scale.setX(val.toFloat());
+        else if (code == 42) scale.setY(val.toFloat());
+        else if (code == 50) rotation = val.toFloat();
+
+        ent.values[code] = val;
         pos++;
+    }
+
+    if (!blockName.isEmpty() && m_blocks.contains(blockName)) {
+        const auto& blockEntities = m_blocks[blockName];
+        float rad = rotation * M_PI / 180.0f;
+        float cosR = std::cos(rad);
+        float sinR = std::sin(rad);
+
+        for (const auto& blockEnt : blockEntities) {
+            DXFEntity transformed = blockEnt;
+            if (transformed.values.contains(10) && transformed.values.contains(20)) {
+                float bx = transformed.values[10].toFloat();
+                float by = transformed.values[20].toFloat();
+                float tx = bx * scale.x();
+                float ty = by * scale.y();
+                float rx = tx * cosR - ty * sinR + insertPoint.x();
+                float ry = tx * sinR + ty * cosR + insertPoint.y();
+                transformed.values[10] = QString::number(rx, 'f', 6);
+                transformed.values[20] = QString::number(ry, 'f', 6);
+            }
+            m_scene.entities.append(transformed);
+        }
     }
 
     m_scene.entities.append(ent);

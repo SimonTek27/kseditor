@@ -34,6 +34,17 @@ void AdvancedSculptMode::setDyntopo(bool enabled)
     }
 }
 
+void AdvancedSculptMode::setRetopoMode(bool enabled)
+{
+    m_retopoMode = enabled;
+    if (enabled) {
+        // Activate retopo-aware edge splitting
+        dyntopo.retopoMode = true;
+    } else {
+        dyntopo.retopoMode = false;
+    }
+}
+
 void AdvancedSculptMode::setDetail(float detail)
 {
     m_detail = detail;
@@ -66,7 +77,7 @@ void AdvancedSculptMode::addStroke(const QVector3D& position, const QVector3D& n
         beginStroke(position);
     }
     sculptPoint(const_cast<QVector3D&>(position), normal, pressure);
-    SculptMode::addPoint(position, normal);
+    SculptMode::addPoint(position, normal, pressure);
     if (!active) {
         endStroke();
     }
@@ -123,22 +134,58 @@ void AdvancedSculptMode::sculptPoint(QVector3D& vertex, const QVector3D& normal,
 
 void AdvancedSculptMode::refineDynamicTopology(const QVector3D& point, const QVector3D& normal)
 {
-    if (!m_dyntopoEnabled) return;
+    if (!m_dyntopoEnabled || !m_mesh) return;
 
-    // Add new vertices/edges/faces near brush area based on detail level
     float targetEdgeLength = m_detail * 0.5f;
+    if (targetEdgeLength <= 0.0f) return;
 
-    for (int i = 0; i < m_mesh->vertices.size(); ++i) {
-        float dist = (m_mesh->vertices[i].position - point).length();
-        if (dist < m_brushRadius * 2.0f) {
-            for (int j = i + 1; j < m_mesh->vertices.size(); ++j) {
-                float edgeLen = (m_mesh->vertices[i].position - m_mesh->vertices[j].position).length();
-                if (edgeLen > targetEdgeLength * 2.0f) {
-                    QVector3D midPoint = (m_mesh->vertices[i].position + m_mesh->vertices[j].position) * 0.5f;
-                    Vertex newVertex;
-                    newVertex.position = midPoint;
-                    newVertex.normal = normal;
-                    m_mesh->vertices.append(newVertex);
+    // Find faces near brush area and split their long edges
+    QVector<QPair<int,int>> edgesToSplit;
+    
+    for (int fi = 0; fi + 2 < m_mesh->faces.size(); fi += 3) {
+        int f0 = m_mesh->faces[fi], f1 = m_mesh->faces[fi + 1], f2 = m_mesh->faces[fi + 2];
+        if (f0 >= m_mesh->vertices.size() || f1 >= m_mesh->vertices.size() || f2 >= m_mesh->vertices.size())
+            continue;
+        
+        QVector3D center = (m_mesh->vertices[f0].position + m_mesh->vertices[f1].position + m_mesh->vertices[f2].position) / 3.0f;
+        float dist = (center - point).length();
+        if (dist > m_brushRadius * 2.0f) continue;
+        
+        // Check each edge of this triangle
+        int faceVerts[3] = {f0, f1, f2};
+        for (int e = 0; e < 3; ++e) {
+            int v0 = faceVerts[e];
+            int v1 = faceVerts[(e + 1) % 3];
+            float edgeLen = (m_mesh->vertices[v0].position - m_mesh->vertices[v1].position).length();
+            if (edgeLen > targetEdgeLength * 2.0f) {
+                edgesToSplit.append({v0, v1});
+            }
+        }
+    }
+    
+    // Split edges by inserting midpoint vertex
+    for (const auto& edge : edgesToSplit) {
+        int v0 = edge.first, v1 = edge.second;
+        if (v0 >= m_mesh->vertices.size() || v1 >= m_mesh->vertices.size()) continue;
+        
+        QVector3D midPoint = (m_mesh->vertices[v0].position + m_mesh->vertices[v1].position) * 0.5f;
+        Vertex newVertex;
+        newVertex.position = midPoint;
+        newVertex.normal = (m_mesh->vertices[v0].normal + m_mesh->vertices[v1].normal).normalized();
+        int newIdx = m_mesh->vertices.size();
+        m_mesh->vertices.append(newVertex);
+        
+        // Find faces containing this edge and split them
+        for (int fi = 0; fi + 2 < m_mesh->faces.size(); fi += 3) {
+            int faceVerts[3] = {m_mesh->faces[fi], m_mesh->faces[fi+1], m_mesh->faces[fi+2]};
+            for (int e = 0; e < 3; ++e) {
+                int ev0 = faceVerts[e], ev1 = faceVerts[(e+1)%3];
+                if ((ev0 == v0 && ev1 == v1) || (ev0 == v1 && ev1 == v0)) {
+                    // Split this face: replace edge (v0,v1) with two faces
+                    int opp = faceVerts[(e+2)%3];
+                    m_mesh->faces[fi] = v0; m_mesh->faces[fi+1] = newIdx; m_mesh->faces[fi+2] = opp;
+                    m_mesh->faces.append(newIdx); m_mesh->faces.append(v1); m_mesh->faces.append(opp);
+                    break;
                 }
             }
         }
@@ -150,21 +197,57 @@ void AdvancedSculptMode::collapseLongEdges()
     if (!m_mesh) return;
 
     float maxLength = m_detail * 3.0f;
-    QVector<int> verticesToRemove;
-
-    for (int i = 0; i < m_mesh->edges.size(); ++i) {
-        const Edge& edge = m_mesh->edges[i];
-        float len = (m_mesh->vertices[edge.v1].position - m_mesh->vertices[edge.v2].position).length();
-        if (len > maxLength) {
-            verticesToRemove.append(edge.v2);
+    if (maxLength <= 0.0f) return;
+    
+    QSet<int> verticesToRemove;
+    
+    // Find edges to collapse: merge shorter vertex into longer one
+    for (int fi = 0; fi + 2 < m_mesh->faces.size(); fi += 3) {
+        int f0 = m_mesh->faces[fi], f1 = m_mesh->faces[fi+1], f2 = m_mesh->faces[fi+2];
+        if (f0 >= m_mesh->vertices.size() || f1 >= m_mesh->vertices.size() || f2 >= m_mesh->vertices.size())
+            continue;
+        
+        int faceVerts[3] = {f0, f1, f2};
+        for (int e = 0; e < 3; ++e) {
+            int v0 = faceVerts[e];
+            int v1 = faceVerts[(e+1)%3];
+            if (v0 >= m_mesh->vertices.size() || v1 >= m_mesh->vertices.size()) continue;
+            if (verticesToRemove.contains(v0) || verticesToRemove.contains(v1)) continue;
+            
+            float len = (m_mesh->vertices[v0].position - m_mesh->vertices[v1].position).length();
+            if (len > maxLength) {
+                // Collapse: remove the vertex with fewer incident edges (simpler)
+                verticesToRemove.insert(v1);
+                // Move v0 to midpoint (average) for smoother collapse
+                m_mesh->vertices[v0].position = (m_mesh->vertices[v0].position + m_mesh->vertices[v1].position) * 0.5f;
+            }
         }
     }
-
-    // Remove duplicate vertices and update edges
-    QSet<int> uniqueToRemove(verticesToRemove.begin(), verticesToRemove.end());
-    for (int idx : uniqueToRemove) {
+    
+    // Remove vertices (from highest index first to preserve indices)
+    QVector<int> sortedToRemove = verticesToRemove.values();
+    std::sort(sortedToRemove.begin(), sortedToRemove.end(), std::greater<int>());
+    
+    for (int idx : sortedToRemove) {
         if (idx < m_mesh->vertices.size()) {
             m_mesh->vertices.removeAt(idx);
+        }
+    }
+    
+    // Remove faces that reference removed vertices
+    QVector<int> facesToRemove;
+    for (int fi = 0; fi + 2 < m_mesh->faces.size(); fi += 3) {
+        int f0 = m_mesh->faces[fi], f1 = m_mesh->faces[fi+1], f2 = m_mesh->faces[fi+2];
+        if (verticesToRemove.contains(f0) || verticesToRemove.contains(f1) || verticesToRemove.contains(f2)) {
+            facesToRemove.append(fi);
+        }
+    }
+    std::sort(facesToRemove.begin(), facesToRemove.end(), std::greater<int>());
+    for (int fi : facesToRemove) {
+        if (fi + 2 < m_mesh->faces.size()) {
+            m_mesh->faces.removeAt(fi + 2);
+            m_mesh->faces.removeAt(fi + 1);
+            m_mesh->faces.removeAt(fi);
         }
     }
 }

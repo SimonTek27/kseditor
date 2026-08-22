@@ -56,6 +56,9 @@ void MultiresManager::subdivideCurrentLevel() {
     if (m_levels.isEmpty() || m_currentLevel < 0 || m_currentLevel >= m_levels.size()) return;
     
     auto& current = m_levels[m_currentLevel];
+    // Save pre-subdivision positions for limit surface preservation
+    m_previousVertices = current.vertices;
+    
     current.vertices = catmullClarkSubdivide(current.vertices, current.faces);
     current.faces = catmullClarkFaceIndices(current.faces);
     // Recompute normals and creases
@@ -69,8 +72,10 @@ void MultiresManager::limitCurrentLevel() {
     if (m_levels.isEmpty() || m_currentLevel < 0 || m_currentLevel >= m_levels.size()) return;
     
     auto& current = m_levels[m_currentLevel];
-    // Apply limit surface - preserve shape by constraining new positions
-    preserveShape(current.vertices, current.vertices); // Placeholder - would need old positions
+    // Apply limit surface - preserve shape by constraining toward pre-subdivision positions
+    if (!m_previousVertices.isEmpty()) {
+        preserveShape(current.vertices, m_previousVertices);
+    }
     
     emit levelChanged(m_currentLevel);
 }
@@ -80,17 +85,31 @@ int MultiresManager::sculptBrush(const QVector3D& center, float radius, float st
                                  float falloffPower, const QSet<int>* pinned) {
     if (m_levels.isEmpty()) return 0;
     
-    // Sculpt on current level
-    const auto& current = m_levels[m_currentLevel];
-    // ... apply sculpt brush to current level vertices
-    // Then propagate effects to higher levels if needed
-    
-    // For now, apply to current level only
+    auto& current = m_levels[m_currentLevel];
     QVector<QVector3D> newVerts = current.vertices;
     int affected = 0;
+
+    // Pre-compute smooth averages if needed (mode 1)
+    QVector<QVector3D> smoothPositions;
+    if (mode == 1) {
+        smoothPositions.resize(current.vertices.size());
+        for (int vi = 0; vi < current.vertices.size(); ++vi) {
+            QVector3D avgPos;
+            int neighborCount = 0;
+            // Find adjacent vertices from face data
+            for (int fi = 0; fi + 2 < current.faces.size(); fi += 3) {
+                int f0 = current.faces[fi], f1 = current.faces[fi + 1], f2 = current.faces[fi + 2];
+                if (f0 == vi || f1 == vi || f2 == vi) {
+                    if (f0 != vi && f0 < current.vertices.size()) { avgPos += current.vertices[f0]; neighborCount++; }
+                    if (f1 != vi && f1 < current.vertices.size()) { avgPos += current.vertices[f1]; neighborCount++; }
+                    if (f2 != vi && f2 < current.vertices.size()) { avgPos += current.vertices[f2]; neighborCount++; }
+                }
+            }
+            smoothPositions[vi] = (neighborCount > 0) ? avgPos / float(neighborCount) : current.vertices[vi];
+        }
+    }
     
     for (int vi = 0; vi < current.vertices.size(); ++vi) {
-        // Skip pinned vertices
         if (pinned && pinned->contains(vi)) continue;
         
         float d = (current.vertices[vi] - center).length();
@@ -105,21 +124,53 @@ int MultiresManager::sculptBrush(const QVector3D& center, float radius, float st
         if (falloff <= 0.001f) continue;
         affected++;
         
-        // Apply based on mode - simplified version
+        // Compute vertex normal for this vertex
+        QVector3D vertNormal = current.vertices[vi].normalized();
+        if (!current.faceNormals.isEmpty() && vi < current.faceNormals.size()) {
+            vertNormal = current.faceNormals[vi];
+        }
+        
         switch (mode) {
             case 0: // draw
-                newVerts[vi] += current.vertices[vi].normalized() * (strength * falloff);
+                newVerts[vi] += vertNormal * (strength * falloff);
                 break;
             case 1: // smooth
-                // Would need neighbor averaging
+                if (vi < smoothPositions.size()) {
+                    newVerts[vi] = current.vertices[vi] * (1.0f - strength * falloff) +
+                                   smoothPositions[vi] * (strength * falloff);
+                }
                 break;
-            // ... other modes
+            case 2: { // grab
+                QVector3D grabDir = drag.normalized();
+                newVerts[vi] += grabDir * (strength * falloff);
+                break;
+            }
+            case 3: // flatten
+                newVerts[vi].setY(newVerts[vi].y() * (1.0f - strength * falloff) +
+                                  center.y() * (strength * falloff));
+                break;
+            case 4: // crease
+                newVerts[vi] += vertNormal * (strength * falloff * 0.5f);
+                break;
+            case 5: // inflate
+                newVerts[vi] += vertNormal * (strength * falloff * (1.0f + falloff));
+                break;
+            case 6: { // pinch - pull toward center
+                QVector3D toCenter = center - current.vertices[vi];
+                newVerts[vi] += toCenter * (strength * falloff * 0.3f);
+                break;
+            }
+            case 7: // smear - follow drag
+                newVerts[vi] += drag * (strength * falloff * 0.5f);
+                break;
+            case 8: // negate
+                newVerts[vi] -= vertNormal * (strength * falloff * 1.5f);
+                break;
             default:
                 break;
         }
     }
     
-    // Update current level
     m_levels[m_currentLevel].vertices = newVerts;
     emit sculptUpdated();
     return affected;
@@ -140,53 +191,110 @@ void MultiresManager::bakeCurrentLevel() {
 }
 
 QVector<QVector3D> MultiresManager::catmullClarkSubdivide(const QVector<QVector3D>& verts, const QVector<int>& faces) {
-    // Standard Catmull-Clark subdivision
     QVector<QVector3D> newVerts;
-    QVector<int> newFaces;
-    
-    // Count original vertices and faces
+
     int numVerts = verts.size();
     int numFaces = faces.size() / 3;
-    
-    // Compute face points
+
     QVector<QVector3D> facePoints(numFaces);
     for (int i = 0; i < numFaces; ++i) {
         int fi = i * 3;
-        QVector3D fp(0, 0, 0);
-        for (int j = 0; j < 3; ++j) {
-            fp += verts[faces[fi + j]];
-        }
-        fp /= 3.0f;
-        facePoints[i] = fp;
+        facePoints[i] = (verts[faces[fi]] + verts[faces[fi + 1]] + verts[faces[fi + 2]]) / 3.0f;
     }
-    
-    // Compute new positions for original vertices (averaging of connected face points + edge midpoints)
-    QVector<QVector3D> vertPoints(numVerts);
-    QVector<int> vertFaceCounts(numVerts, 0);
-    
+
+    QMap<QPair<int,int>, int> edgeMidpoints;
+    QVector<QVector3D> edgePoints;
+    auto getEdgeIndex = [&](int a, int b) -> int {
+        if (a > b) qSwap(a, b);
+        QPair<int,int> key(a, b);
+        if (edgeMidpoints.contains(key)) return edgeMidpoints[key];
+        int idx = edgePoints.size();
+        edgePoints.append((verts[a] + verts[b]) / 2.0f);
+        edgeMidpoints[key] = idx;
+        return idx;
+    };
+
+    QVector<int> vertFaceCount(numVerts, 0);
+    QVector<QVector3D> vertFaceAvg(numVerts, QVector3D(0,0,0));
+    QVector<int> vertEdgeCount(numVerts, 0);
+    QVector<QVector3D> vertEdgeAvg(numVerts, QVector3D(0,0,0));
+
     for (int i = 0; i < numFaces; ++i) {
         int fi = i * 3;
-        for (int j = 0; j < 3; ++j) {
-            int v = faces[fi + j];
-            vertFaceCounts[v]++;
-            vertPoints[v] += facePoints[i];
+        int v0 = faces[fi], v1 = faces[fi+1], v2 = faces[fi+2];
+
+        vertFaceCount[v0]++; vertFaceAvg[v0] += facePoints[i];
+        vertFaceCount[v1]++; vertFaceAvg[v1] += facePoints[i];
+        vertFaceCount[v2]++; vertFaceAvg[v2] += facePoints[i];
+
+        int e0 = getEdgeIndex(v0, v1);
+        int e1 = getEdgeIndex(v1, v2);
+        int e2 = getEdgeIndex(v2, v0);
+
+        vertEdgeCount[v0]++; vertEdgeAvg[v0] += edgePoints[e0] + edgePoints[e2];
+        vertEdgeCount[v1]++; vertEdgeAvg[v1] += edgePoints[e0] + edgePoints[e1];
+        vertEdgeCount[v2]++; vertEdgeAvg[v2] += edgePoints[e1] + edgePoints[e2];
+    }
+
+    for (int i = 0; i < numVerts; ++i) {
+        if (vertFaceCount[i] > 0 && vertEdgeCount[i] > 0) {
+            QVector3D F = vertFaceAvg[i] / vertFaceCount[i];
+            QVector3D E = vertEdgeAvg[i] / vertEdgeCount[i];
+            int n = vertFaceCount[i];
+            newVerts.append((F + 2.0f * E + (n - 3.0f) * verts[i]) / n);
+        } else {
+            newVerts.append(verts[i]);
         }
     }
-    
-    for (int i = 0; i < numVerts; ++i) {
-        vertPoints[i] /= vertFaceCounts[i];
-        vertPoints[i] = vertPoints[i] * (2.0f / 3.0f) + verts[i] * (1.0f / 3.0f);
-    }
-    
-    // ... continue with edge points and face tessellation
-    // This is a simplified implementation - full Catmull-Clark is more complex
-    
+
+    for (auto& ep : edgePoints)
+        newVerts.append(ep);
+
+    for (const auto& fp : facePoints)
+        newVerts.append(fp);
+
     return newVerts;
 }
 
 QVector<int> MultiresManager::catmullClarkFaceIndices(const QVector<int>& faces) {
-    // Return face indices for subdivided mesh
-    return faces; // Simplified
+    QVector<int> newFaces;
+    int numFaces = faces.size() / 3;
+    int baseVerts = 0;
+    int baseEdges = 0;
+
+    QMap<QPair<int,int>, int> edgeMap;
+    QVector<QPair<int,int>> edgeList;
+    for (int i = 0; i < numFaces; ++i) {
+        int fi = i * 3;
+        for (int j = 0; j < 3; ++j) {
+            int a = faces[fi + j];
+            int b = faces[fi + (j + 1) % 3];
+            if (a > b) qSwap(a, b);
+            QPair<int,int> key(a, b);
+            if (!edgeMap.contains(key)) {
+                edgeMap[key] = edgeList.size();
+                edgeList.append(key);
+            }
+        }
+    }
+
+    int totalOriginal = faces.size() / 3;
+    int vertCount = 0;
+    for (int i = 0; i < numFaces; ++i) {
+        int fi = i * 3;
+        int v0 = faces[fi], v1 = faces[fi+1], v2 = faces[fi+2];
+
+        int e01 = edgeMap.value(QPair<int,int>(qMin(v0,v1), qMax(v0,v1))) + vertCount;
+        int e12 = edgeMap.value(QPair<int,int>(qMin(v1,v2), qMax(v1,v2))) + vertCount;
+        int e20 = edgeMap.value(QPair<int,int>(qMin(v2,v0), qMax(v2,v0))) + vertCount;
+        int fCenter = edgeList.size() + i + vertCount;
+
+        newFaces.append(v0); newFaces.append(e01); newFaces.append(fCenter);
+        newFaces.append(v1); newFaces.append(e12); newFaces.append(fCenter);
+        newFaces.append(v2); newFaces.append(e20); newFaces.append(fCenter);
+    }
+
+    return newFaces;
 }
 
 QVector<QVector3D> MultiresManager::computeVertexNormals(const QVector<QVector3D>& verts, const QVector<int>& faces) {

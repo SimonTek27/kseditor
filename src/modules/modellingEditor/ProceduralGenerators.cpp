@@ -583,11 +583,33 @@ ProceduralCarGenerator::CarModel ProceduralCarGenerator::generateCar(const CarPa
     mp.rings = 8 + params.detailLevel * 4;
 
     switch (params.bodyStyle) {
-        case CarParams::Sedan: mp.primitive = ProceduralMeshGenerator::MeshParams::Box; break;
-        case CarParams::Coupe: mp.primitive = ProceduralMeshGenerator::MeshParams::Box; break;
-        case CarParams::SUV: mp.primitive = ProceduralMeshGenerator::MeshParams::Box; break;
-        case CarParams::Formula: mp.primitive = ProceduralMeshGenerator::MeshParams::Box; break;
-        case CarParams::GT: mp.primitive = ProceduralMeshGenerator::MeshParams::Box; break;
+        case CarParams::Sedan:
+            mp.primitive = ProceduralMeshGenerator::MeshParams::Box;
+            mp.height *= 0.75f;
+            mp.width *= 1.05f;
+            break;
+        case CarParams::Coupe:
+            mp.primitive = ProceduralMeshGenerator::MeshParams::Box;
+            mp.height *= 0.65f;
+            mp.width *= 1.1f;
+            break;
+        case CarParams::SUV:
+            mp.primitive = ProceduralMeshGenerator::MeshParams::Box;
+            mp.height *= 1.2f;
+            mp.depth *= 0.95f;
+            break;
+        case CarParams::Formula:
+            mp.primitive = ProceduralMeshGenerator::MeshParams::Cylinder;
+            mp.height *= 0.45f;
+            mp.depth *= 0.6f;
+            mp.segments = 24 + params.detailLevel * 8;
+            break;
+        case CarParams::GT:
+            mp.primitive = ProceduralMeshGenerator::MeshParams::Box;
+            mp.height *= 0.7f;
+            mp.width *= 1.15f;
+            mp.depth *= 1.05f;
+            break;
     }
 
     model.body = gen.generateMesh(mp);

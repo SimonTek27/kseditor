@@ -39,18 +39,18 @@ public:
     void setStencilUseAlpha(bool useAlpha);
     void setStencilLoop(bool loop);
     
+    // Mesh data for projection (must be set before projecting)
+    void setMeshData(const QVector<QVector3D>& vertices, const QVector<int>& indices,
+                     const QVector<QVector2D>& uvs, const QVector<QVector3D>& normals);
+    
     // Projection operations
-    // Project stencil onto mesh via raycast from viewport
     int projectStencilToMesh(int objectId, const QVector3D& viewportCenter, 
                              float radius, float strength, int mode,
                              const QVector2D& uvOffset = QVector2D(0,0));
-    
-    // Clone from source UV to destination UV
     int cloneStencilToPoint(int objectId, const QVector2D& sourceUV, 
                             const QVector2D& destUV, float strength,
-                            float blendMode = 1.0f); // 0=additive, 1=multiply, 2=screen, 3=overlay
+                            float blendMode = 1.0f);
     
-    // Signals
 signals:
     void stencilChanged();
     void projectCompleted(int affectedCount);
@@ -64,11 +64,17 @@ private:
     qreal m_stencilOpacity;
     bool m_useAlpha;
     bool m_loop;
+
+    // Mesh data for raycasting
+    QVector<QVector3D> m_meshVertices;
+    QVector<int> m_meshIndices;
+    QVector<QVector2D> m_meshUVs;
+    QVector<QVector3D> m_meshNormals;
     
-    // Project ray from viewport point to world space, then to mesh
     bool projectPointToMesh(int objectId, const QVector3D& worldPos, 
                            QVector2D& uv, QVector3D& normal);
-    
-    // Sample stencil at UV coordinates
+    bool rayTriangleIntersect(const QVector3D& rayOrigin, const QVector3D& rayDir,
+                              const QVector3D& v0, const QVector3D& v1, const QVector3D& v2,
+                              float& t, float& u, float& v) const;
     QColor sampleStencilAt(const QVector2D& uv) const;
 };

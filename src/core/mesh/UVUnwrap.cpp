@@ -1060,8 +1060,85 @@ UVQualityChecker::QualityReport UVQualityChecker::analyze(const QVector<QVector3
                                                           const QVector<QVector<int>>& faces,
                                                           const QVector<QVector2D>& uvs, float texelSize) {
     QualityReport report;
-    report.avgStretch = 1.0f;
-    report.maxStretch = 1.0f;
+    if (faces.isEmpty() || vertices.isEmpty() || uvs.isEmpty()) return report;
+
+    float totalStretch = 0.0f;
+    float totalConformal = 0.0f;
+    float totalAreaRatio = 0.0f;
+    float maxStretchFace = 0.0f;
+    int stretchedFaceCount = 0;
+
+    // Compute global texel density for reference
+    float total3DArea = 0.0f;
+    float totalUVArea = 0.0f;
+
+    for (int fi = 0; fi < faces.size(); ++fi) {
+        const auto& face = faces[fi];
+        if (face.size() < 3) continue;
+
+        // Gather face vertex positions and UVs into flat arrays for the helper functions
+        QVector<QVector3D> faceVerts;
+        QVector<QVector2D> faceUVs;
+        for (int i = 0; i < face.size(); ++i) {
+            int vi = face[i];
+            if (vi >= 0 && vi < vertices.size()) faceVerts.append(vertices[vi]);
+            if (vi >= 0 && vi < uvs.size()) faceUVs.append(uvs[vi]);
+            else faceUVs.append(QVector2D(0, 0));
+        }
+        if (faceVerts.size() < 3) continue;
+
+        // 3D triangle area
+        QVector3D e1 = faceVerts[1] - faceVerts[0];
+        QVector3D e2 = faceVerts[2] - faceVerts[0];
+        float area3d = QVector3D::crossProduct(e1, e2).length() * 0.5f;
+        total3DArea += area3d;
+
+        // UV triangle area
+        QVector2D u1 = faceUVs[1] - faceUVs[0];
+        QVector2D u2 = faceUVs[2] - faceUVs[0];
+        float areaUV = qAbs(u1.x() * u2.y() - u1.y() * u2.x()) * 0.5f;
+        totalUVArea += areaUV;
+
+        // Conformal distortion: angle preservation
+        float conformal = 0.0f;
+        if (face.size() >= 3) {
+            // Compare edge length ratios between 3D and UV
+            for (int i = 0; i < 3; ++i) {
+                int j = (i + 1) % 3;
+                float len3D = (faceVerts[j] - faceVerts[i]).length();
+                float lenUV = (faceUVs[j] - faceUVs[i]).length();
+                if (lenUV > 0.0001f && len3D > 0.0001f) {
+                    float ratio3D = len3D / area3d;
+                    float ratioUV = lenUV / areaUV;
+                    conformal += qAbs(ratio3D - ratioUV);
+                }
+            }
+            conformal /= 3.0f;
+        }
+
+        // Area-based stretch: how much the UV area deviates from expected
+        float expectedUVArea = (texelSize > 0.0f) ? (area3d / (texelSize * texelSize)) : area3d;
+        float stretch = (areaUV > 0.0001f) ? (expectedUVArea / areaUV) : 1.0f;
+        stretch = qAbs(stretch - 1.0f) + 1.0f; // normalize around 1.0
+
+        totalStretch += stretch;
+        totalConformal += conformal;
+        totalAreaRatio += (areaUV > 0.0001f) ? (area3d / areaUV) : 0.0f;
+
+        if (stretch > maxStretchFace) maxStretchFace = stretch;
+        if (stretch > 1.1f || stretch < 0.9f) {
+            stretchedFaceCount++;
+            report.distortedFaces.append(fi);
+        }
+    }
+
+    int validFaces = faces.size();
+    report.avgStretch = (validFaces > 0) ? (totalStretch / validFaces) : 1.0f;
+    report.maxStretch = maxStretchFace;
+    report.distortion = (validFaces > 0) ? (totalConformal / validFaces) : 0.0f;
+    report.uvToTexRatio = texelSize;
+    report.islandsOverlap = 0.0f; // Would need island detection to compute
+
     return report;
 }
 

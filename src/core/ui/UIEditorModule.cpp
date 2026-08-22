@@ -15,6 +15,7 @@
 #include <QMenu>
 #include <QAction>
 #include <QApplication>
+#include <QGuiApplication>
 #include <QSettings>
 #include <QMainWindow>
 #include <QStyle>
@@ -233,7 +234,7 @@ void UIEditorModule::onThemeSelected(int index) {
         stylesheet = "QWidget { background: #f0f0f0; color: #1e1e1e; } QMenuBar { background: #e0e0e0; } QToolBar { background: #e0e0e0; } QStatusBar { background: #007acc; color: white; }";
     }
     qApp->setStyleSheet(stylesheet);
-    QSettings s; s.setValue("UIEditor/Theme", themeName);
+    QSettings s; s.setValue(QGuiApplication::organizationName() + "/Theme", themeName);
     log(QString("Theme changed to: %1").arg(themeName));
 }
 
@@ -245,7 +246,7 @@ void UIEditorModule::onAccentColorChanged() {
         pal.setColor(QPalette::Highlight, color);
         pal.setColor(QPalette::HighlightedText, color.lightness() > 128 ? Qt::black : Qt::white);
         qApp->setPalette(pal);
-        QSettings s; s.setValue("UIEditor/AccentColor", color.name());
+        QSettings s; s.setValue(QGuiApplication::organizationName() + "/AccentColor", color.name());
         log(QString("Accent color changed to: %1").arg(color.name()));
     }
 }
@@ -254,20 +255,20 @@ void UIEditorModule::onFontSizeChanged(int value) {
     QFont f = qApp->font();
     f.setPointSize(value);
     qApp->setFont(f);
-    QSettings s; s.setValue("UIEditor/FontSize", value);
+    QSettings s; s.setValue(QGuiApplication::organizationName() + "/FontSize", value);
     log(QString("UI font size set to: %1pt").arg(value));
 }
 
 void UIEditorModule::onLayoutSelected(int index) {
     QString layoutName = m_layoutCombo->itemText(index);
-    QSettings s; s.setValue("UIEditor/Layout", layoutName);
+    QSettings s; s.setValue(QGuiApplication::organizationName() + "/Layout", layoutName);
     log(QString("Layout selected: %1").arg(layoutName));
 }
 
 void UIEditorModule::onResetLayout() {
     if (confirmAction("Reset Layout", "Reset UI layout to default?")) {
         m_layoutCombo->setCurrentIndex(0);
-        QSettings s; s.remove("UIEditor/LayoutState");
+        QSettings s; s.remove(QGuiApplication::organizationName() + "/LayoutState");
         logSuccess("Layout reset to default");
     }
 }
@@ -278,7 +279,7 @@ void UIEditorModule::onSaveLayout() {
         if (m_layoutCombo->findText(name) < 0) m_layoutCombo->addItem(name);
         m_layoutCombo->setCurrentText(name);
         QByteArray state = parentWidget() ? static_cast<QMainWindow*>(window())->saveState() : QByteArray();
-        QSettings s; s.setValue("UIEditor/LayoutState_" + name, state);
+        QSettings s; s.setValue(QGuiApplication::organizationName() + "/LayoutState_" + name, state);
         logSuccess(QString("Layout saved: %1").arg(name));
     }
 }
@@ -286,7 +287,7 @@ void UIEditorModule::onSaveLayout() {
 void UIEditorModule::onLoadLayout() {
     QString name = m_layoutCombo->currentText();
     QSettings s;
-    QByteArray state = s.value("UIEditor/LayoutState_" + name).toByteArray();
+    QByteArray state = s.value(QGuiApplication::organizationName() + "/LayoutState_" + name).toByteArray();
     if (!state.isEmpty()) {
         static_cast<QMainWindow*>(window())->restoreState(state);
         logSuccess(QString("Layout loaded: %1").arg(name));
@@ -305,7 +306,7 @@ void UIEditorModule::onConfigureShortcuts() {
 
 void UIEditorModule::onToggleAnimations(bool checked) {
     qApp->setProperty("UIAnimationsEnabled", checked);
-    QSettings s; s.setValue("UIEditor/AnimationsEnabled", checked);
+    QSettings s; s.setValue(QGuiApplication::organizationName() + "/AnimationsEnabled", checked);
     log(QString("UI animations %1").arg(checked ? "enabled" : "disabled"));
 }
 

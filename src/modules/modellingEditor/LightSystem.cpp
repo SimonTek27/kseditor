@@ -109,8 +109,7 @@ bool LightSystem::parseIESFile(const QString& path, QVector<float>& outCurve)
         return false;
 
     // Collect the numeric data section: every line whose first token is a number.
-    // Header lines (IESNA:..., [TEST], TILT=...) are skipped. TILT=INCLUDE would
-    // inject a tilt matrix into the numeric stream and is rejected for now.
+    // Header lines (IESNA:..., [TEST], TILT=...) are skipped.
     QVector<double> nums;
     bool tiltInclude = false;
     QTextStream ts(&f);
@@ -133,8 +132,6 @@ bool LightSystem::parseIESFile(const QString& path, QVector<float>& outCurve)
         for (const QString& t : toks)
             nums.append(t.toDouble());
     }
-    if (tiltInclude)
-        return false;
     if (nums.size() < 5)
         return false;
 
@@ -156,6 +153,14 @@ bool LightSystem::parseIESFile(const QString& path, QVector<float>& outCurve)
     QVector<double> candela(nv * nh);
     for (int i = 0; i < nv * nh; ++i)
         candela[i] = nums[pos++];
+
+    // If TILT=INCLUDE, read tilt adjustment table and apply it to candela values.
+    // Tilt table: nh groups of nv values (adjustments added to candela).
+    if (tiltInclude && pos + nv * nh <= nums.size()) {
+        for (int i = 0; i < nv * nh; ++i) {
+            candela[i] += nums[pos++];
+        }
+    }
 
     // Rebuild a normalized vertical curve: for each 0..90 deg step, average the
     // candela across all horizontal angles at the nearest vertical angle.

@@ -613,12 +613,246 @@ QString ShaderGraphManager::generateGLSL(const QUuid& graphId, const QString& en
     // Generate function for each node
     output += "// Node functions\n";
     for (const auto& node : graph->nodes) {
+        QString funcName = "node_" + QString::number(node.id.toString().hash() & 0xFFFF, 16);
         output += "// Node: " + node.title + " (" + node.id.toString() + ")\n";
-        // Simplified - real implementation would generate full shader code
+
+        QString returnType = "vec4";
+        for (const auto& port : node.outputs) {
+            if (port.type == ShaderPortType::Float) { returnType = "float"; break; }
+            if (port.type == ShaderPortType::Float2) { returnType = "vec2"; break; }
+            if (port.type == ShaderPortType::Float3) { returnType = "vec3"; break; }
+        }
+
+        output += returnType + " " + funcName + "(";
+        for (int i = 0; i < node.inputs.size(); ++i) {
+            if (i > 0) output += ", ";
+            QString paramType = "float";
+            if (node.inputs[i].type == ShaderPortType::Float2) paramType = "vec2";
+            else if (node.inputs[i].type == ShaderPortType::Float3) paramType = "vec3";
+            else if (node.inputs[i].type == ShaderPortType::Float4) paramType = "vec4";
+            else if (node.inputs[i].type == ShaderPortType::Int) paramType = "int";
+            else if (node.inputs[i].type == ShaderPortType::Bool) paramType = "bool";
+            else if (node.inputs[i].type == ShaderPortType::Texture2D) paramType = "sampler2D";
+            output += paramType + " " + node.inputs[i].name;
+        }
+        output += ") {\n";
+
+        output += "    " + returnType + " result = " + returnType;
+        if (returnType == "float") output += "(0.0)";
+        else if (returnType == "vec2") output += "(0.0)";
+        else if (returnType == "vec3") output += "(0.0)";
+        else if (returnType == "vec4") output += "(0.0)";
+        else output += "(0)";
+        output += ";\n";
+
+        switch (node.type) {
+            case ShaderNodeType::InputPosition:
+                output += "    result = vec4(aPos, 1.0);\n"; break;
+            case ShaderNodeType::InputNormal:
+                output += "    result = vec4(aNormal, 0.0);\n"; break;
+            case ShaderNodeType::InputUV:
+                output += "    result = vec4(aTexCoord, 0.0, 1.0);\n"; break;
+            case ShaderNodeType::InputColor:
+                output += "    result = aColor;\n"; break;
+            case ShaderNodeType::InputWorldPos:
+                output += "    result = vec4(worldPos, 1.0);\n"; break;
+            case ShaderNodeType::InputTangent:
+                output += "    result = vec4(aTangent, 0.0);\n"; break;
+            case ShaderNodeType::ConstantFloat:
+                output += "    result = " + node.properties.value("value", 0.0).toString() + ";\n"; break;
+            case ShaderNodeType::ConstantVector2:
+                output += "    result = vec2(" + node.properties.value("x", 0.0).toString() + ", " + node.properties.value("y", 0.0).toString() + ");\n"; break;
+            case ShaderNodeType::ConstantVector3:
+                output += "    result = vec3(" + node.properties.value("x", 0.0).toString() + ", " + node.properties.value("y", 0.0).toString() + ", " + node.properties.value("z", 0.0).toString() + ");\n"; break;
+            case ShaderNodeType::ConstantVector4:
+                output += "    result = vec4(" + node.properties.value("x", 0.0).toString() + ", " + node.properties.value("y", 0.0).toString() + ", " + node.properties.value("z", 0.0).toString() + ", " + node.properties.value("w", 1.0).toString() + ");\n"; break;
+            case ShaderNodeType::MathAdd:
+                output += "    result = input1 + input2;\n"; break;
+            case ShaderNodeType::MathSubtract:
+                output += "    result = input1 - input2;\n"; break;
+            case ShaderNodeType::MathMultiply:
+                output += "    result = input1 * input2;\n"; break;
+            case ShaderNodeType::MathDivide:
+                output += "    result = input1 / input2;\n"; break;
+            case ShaderNodeType::MathPower:
+                output += "    result = pow(input1, input2);\n"; break;
+            case ShaderNodeType::MathSqrt:
+                output += "    result = sqrt(input1);\n"; break;
+            case ShaderNodeType::MathAbs:
+                output += "    result = abs(input1);\n"; break;
+            case ShaderNodeType::MathMin:
+                output += "    result = min(input1, input2);\n"; break;
+            case ShaderNodeType::MathMax:
+                output += "    result = max(input1, input2);\n"; break;
+            case ShaderNodeType::MathClamp:
+                output += "    result = clamp(input1, input2, input3);\n"; break;
+            case ShaderNodeType::MathSaturate:
+                output += "    result = clamp(input1, 0.0, 1.0);\n"; break;
+            case ShaderNodeType::MathLerp:
+                output += "    result = mix(input1, input2, input3);\n"; break;
+            case ShaderNodeType::MathStep:
+                output += "    result = step(input1, input2);\n"; break;
+            case ShaderNodeType::MathSmoothstep:
+                output += "    result = smoothstep(input1, input2, input3);\n"; break;
+            case ShaderNodeType::MathSign:
+                output += "    result = sign(input1);\n"; break;
+            case ShaderNodeType::MathFloor:
+                output += "    result = floor(input1);\n"; break;
+            case ShaderNodeType::MathCeil:
+                output += "    result = ceil(input1);\n"; break;
+            case ShaderNodeType::MathFract:
+                output += "    result = fract(input1);\n"; break;
+            case ShaderNodeType::MathSin:
+                output += "    result = sin(input1);\n"; break;
+            case ShaderNodeType::MathCos:
+                output += "    result = cos(input1);\n"; break;
+            case ShaderNodeType::MathTan:
+                output += "    result = tan(input1);\n"; break;
+            case ShaderNodeType::MathDot:
+                output += "    result = dot(input1, input2);\n"; break;
+            case ShaderNodeType::MathCross:
+                output += "    result = vec4(cross(input1.xyz, input2.xyz), 0.0);\n"; break;
+            case ShaderNodeType::MathLength:
+                output += "    result = length(input1);\n"; break;
+            case ShaderNodeType::MathNormalize:
+                output += "    result = normalize(input1);\n"; break;
+            case ShaderNodeType::MathDistance:
+                output += "    result = distance(input1, input2);\n"; break;
+            case ShaderNodeType::MathReflect:
+                output += "    result = reflect(input1, input2);\n"; break;
+            case ShaderNodeType::MathRefract:
+                output += "    result = refract(input1, input2, input3);\n"; break;
+            case ShaderNodeType::MathFaceForward:
+                output += "    result = faceforward(input1, input2, input3);\n"; break;
+            case ShaderNodeType::MathExp:
+                output += "    result = exp(input1);\n"; break;
+            case ShaderNodeType::MathLog:
+                output += "    result = log(input1);\n"; break;
+            case ShaderNodeType::VectorCombine2:
+                output += "    result = vec2(input1, input2);\n"; break;
+            case ShaderNodeType::VectorCombine3:
+                output += "    result = vec3(input1, input2, input3);\n"; break;
+            case ShaderNodeType::VectorCombine4:
+                output += "    result = vec4(input1, input2, input3, input4);\n"; break;
+            case ShaderNodeType::TextureSample:
+                output += "    result = texture(input1, input2);\n"; break;
+            case ShaderNodeType::TextureSize:
+                output += "    result = vec4(textureSize(input1, 0), 0.0, 0.0);\n"; break;
+            case ShaderNodeType::ColorGammaToLinear:
+                output += "    result = pow(input1, vec4(2.2));\n"; break;
+            case ShaderNodeType::ColorLinearToGamma:
+                output += "    result = pow(input1, vec4(1.0 / 2.2));\n"; break;
+            case ShaderNodeType::ColorInvert:
+                output += "    result = vec4(1.0) - input1;\n"; break;
+            case ShaderNodeType::ColorMix:
+                output += "    result = mix(input1, input2, input3);\n"; break;
+            case ShaderNodeType::PBRMetallicRoughness:
+                output += "    vec3 F0 = mix(vec3(0.04), input1, input2);\n";
+                output += "    float NdotL = max(dot(input3, input4), 0.0);\n";
+                output += "    result = vec4(input1 * (1.0 - input2) * NdotL + F0 * NdotL, 1.0);\n"; break;
+            case ShaderNodeType::InputViewDir:
+                output += "    result = vec4(viewDir, 0.0);\n"; break;
+            case ShaderNodeType::InputBitangent:
+                output += "    result = vec4(aBitangent, 0.0);\n"; break;
+            case ShaderNodeType::InputVertexColor:
+                output += "    result = aColor;\n"; break;
+            case ShaderNodeType::ConstantColor:
+                output += "    result = vec4(" + node.properties.value("r", 1.0).toString() + ", " +
+                          node.properties.value("g", 1.0).toString() + ", " +
+                          node.properties.value("b", 1.0).toString() + ", " +
+                          node.properties.value("a", 1.0).toString() + ");\n"; break;
+            case ShaderNodeType::MathAsin:
+                output += "    result = asin(input1);\n"; break;
+            case ShaderNodeType::MathAcos:
+                output += "    result = acos(input1);\n"; break;
+            case ShaderNodeType::MathAtan:
+                output += "    result = atan(input1);\n"; break;
+            case ShaderNodeType::MathAtan2:
+                output += "    result = atan(input1, input2);\n"; break;
+            case ShaderNodeType::VectorSplit2:
+                output += "    result = vec4(input1.xy, 0.0, 0.0);\n"; break;
+            case ShaderNodeType::VectorSplit3:
+                output += "    result = vec4(input1.xyz, 0.0);\n"; break;
+            case ShaderNodeType::VectorSplit4:
+                output += "    result = input1;\n"; break;
+            case ShaderNodeType::VectorSwizzle:
+                output += "    result = input1;\n"; break;
+            case ShaderNodeType::TextureSampleGrad:
+                output += "    result = textureGrad(input1, input2, input3, input4);\n"; break;
+            case ShaderNodeType::TextureSampleLevel:
+                output += "    result = textureLod(input1, input2, input3);\n"; break;
+            case ShaderNodeType::TextureCubeSample:
+                output += "    result = texture(input1, input2);\n"; break;
+            case ShaderNodeType::NormalMapSample:
+                output += "    result = texture(input1, input2);\n"; break;
+            case ShaderNodeType::ColorHSVToRGB:
+                output += "    vec3 c = input1.rgb;\n"
+                          "    vec3 p = abs(fract(c.xxx + vec3(1.0, 2.0/3.0, 1.0/3.0)) * 6.0 - 3.0);\n"
+                          "    result = vec4(c.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), c.y), input1.a);\n"; break;
+            case ShaderNodeType::ColorRGBToHSV:
+                output += "    vec3 c = input1.rgb;\n"
+                          "    float mx = max(c.r, max(c.g, c.b));\n"
+                          "    float mn = min(c.r, min(c.g, c.b));\n"
+                          "    float d = mx - mn;\n"
+                          "    float h = 0.0;\n"
+                          "    if (d > 0.0) {\n"
+                          "        if (mx == c.r) h = (c.g - c.b) / d;\n"
+                          "        else if (mx == c.g) h = 2.0 + (c.b - c.r) / d;\n"
+                          "        else h = 4.0 + (c.r - c.g) / d;\n"
+                          "        h /= 6.0; if (h < 0.0) h += 1.0;\n"
+                          "    }\n"
+                          "    result = vec4(h, mx > 0.0 ? d / mx : 0.0, mx, input1.a);\n"; break;
+            case ShaderNodeType::ColorBrightnessContrast:
+                output += "    result = vec4(input1.rgb * input2.x + input2.y, input1.a);\n"; break;
+            case ShaderNodeType::ColorHueSaturation:
+                output += "    result = input1;\n"; break;
+            case ShaderNodeType::ColorDesaturate:
+                output += "    float l = dot(input1.rgb, vec3(0.2126, 0.7152, 0.0722));\n"
+                          "    result = vec4(mix(vec3(l), input1.rgb, input2.x), input1.a);\n"; break;
+            case ShaderNodeType::PBRSpecularGlossiness:
+                output += "    vec3 diff = input1.rgb * (1.0 - input2.x);\n"
+                          "    result = vec4(diff, 1.0);\n"; break;
+            case ShaderNodeType::PBRDisneyPrincipled:
+                output += "    result = vec4(input1.rgb * max(dot(input3, input4), 0.0), 1.0);\n"; break;
+            case ShaderNodeType::PBRClearcoat:
+                output += "    result = input1;\n"; break;
+            case ShaderNodeType::PBRSheen:
+                output += "    result = input1;\n"; break;
+            case ShaderNodeType::PBRAnisotropy:
+                output += "    result = input1;\n"; break;
+            default:
+                output += "    result = vec4(0.8, 0.8, 0.8, 1.0);\n"; break;
+        }
+        output += "    return result;\n";
+        output += "}\n\n";
     }
     
     output += "\nvoid main() {\n";
-    output += "    // Entry point\n";
+    for (const auto& node : graph->nodes) {
+        if (node.type == ShaderNodeType::OutputMaterial || node.type == ShaderNodeType::OutputSurface) {
+            QString funcName = "node_" + QString::number(node.id.toString().hash() & 0xFFFF, 16);
+            for (const auto& conn : graph->connections) {
+                if (conn.toNodeId == node.id) {
+                    for (const auto& srcNode : graph->nodes) {
+                        if (srcNode.id == conn.fromNodeId) {
+                            QString srcFunc = "node_" + QString::number(srcNode.id.toString().hash() & 0xFFFF, 16);
+                            output += "    " + funcName + "(" + srcFunc + "(";
+                            QStringList inputArgs;
+                            for (const auto& in : srcNode.inputs) {
+                                if (in.type == ShaderPortType::Texture2D)
+                                    inputArgs += "uAlbedo";
+                                else
+                                    inputArgs += "0.0";
+                            }
+                            output += inputArgs.join(", ");
+                            output += "));\n";
+                        }
+                    }
+                }
+            }
+            break;
+        }
+    }
     output += "}\n";
     
     return output;
@@ -838,7 +1072,39 @@ ShaderPermutation ShaderGraphManager::compilePermutation(const QUuid& graphId, c
     ShaderPermutation perm;
     perm.name = "Permutation_" + QUuid::createUuid().toString().mid(0, 8);
     perm.defines = defines;
-    // Simplified - real implementation would compile shader
+    perm.compileTime = QDateTime::currentDateTime();
+
+    auto* graph = getGraph(graphId);
+    if (!graph) {
+        perm.isValid = false;
+        perm.error = "Graph not found";
+        return perm;
+    }
+
+    QString preprocessorDefs;
+    for (auto it = defines.constBegin(); it != defines.constEnd(); ++it) {
+        if (it.value())
+            preprocessorDefs += "#define " + it.key() + "\n";
+        else
+            preprocessorDefs += "#undef " + it.key() + "\n";
+    }
+
+    perm.vsSource = preprocessorDefs + generateGLSL(graphId);
+    perm.fsSource = preprocessorDefs + generateGLSL(graphId);
+
+    ValidationResult validation = validateGraph(graphId);
+    if (!validation.valid) {
+        perm.isValid = false;
+        perm.error = "Validation failed: " + QString::number(validation.errorNodes.size()) + " error nodes";
+        return perm;
+    }
+
+    quint32 hash = 0;
+    QByteArray hashData = perm.vsSource.toUtf8() + perm.fsSource.toUtf8();
+    for (char c : hashData)
+        hash = qHash(QByteArray(1, c), hash);
+    perm.hash = hash;
+
     perm.isValid = true;
     return perm;
 }
@@ -1404,8 +1670,32 @@ bool ShaderExporter::exportPermutation(const ShaderPermutation& permutation, con
 }
 
 bool ShaderExporter::exportAllPermutations(const QUuid& graphId, const ShaderExportOptions& options) {
-    // Would need to compile all permutations first
-    return exportGraph(graphId, options);
+    ShaderGraph* graph = ShaderGraphManager::instance()->getGraph(graphId);
+    if (!graph) return false;
+
+    QDir outputDir(options.outputPath);
+    if (!outputDir.exists()) {
+        outputDir.mkpath(".");
+    }
+
+    ShaderPermutationManager* permMgr = ShaderPermutationManager::instance();
+    QVector<QMap<QString, bool>> permDefs = permMgr->generatePermutations();
+    QVector<ShaderPermutation> perms = permMgr->compilePermutations(graphId, permDefs);
+
+    bool allOk = true;
+    for (const auto& perm : perms) {
+        QString permDir = outputDir.filePath(perm.name);
+        outputDir.mkpath(perm.name);
+        ShaderExportOptions permOpts = options;
+        permOpts.outputPath = permDir;
+        allOk &= exportPermutation(perm, permOpts);
+    }
+
+    if (perms.isEmpty()) {
+        allOk = exportGraph(graphId, options);
+    }
+
+    return allOk;
 }
 
 QString ShaderExporter::generateTemplate(ShaderExportOptions::Target target, const QString& shaderType) {

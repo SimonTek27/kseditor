@@ -221,6 +221,19 @@ Rectangle {
                     }
                 }
 
+                AppButton {
+                    text: "Split at Group Boundaries"
+                    height: 26; Layout.fillWidth: true
+                    bgcolor: "#3e3e42"; color: "#fff"
+                    font.pixelSize: 11
+                    enabled: objectId >= 0
+                    onClicked: {
+                        if (Modeler.splitSmoothingGroupsMesh)
+                            Modeler.splitSmoothingGroupsMesh()
+                    }
+                    ToolTip.visible: hovered; ToolTip.text: "Duplicates vertices where smoothing groups change (3ds Max 'Split'), so seams become real edges"
+                }
+
                 Text {
                     text: "Each group colors faces within the angle threshold. Group 0 = hard edge."
                     color: "#888"

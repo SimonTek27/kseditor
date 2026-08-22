@@ -45,7 +45,6 @@ signals:
     void exportFailed(const QString& error);
 
 private:
-    bool exportModels     (const TrackProject& p, const QString& dir);
     bool exportTerrain    (const TrackProject& p, const QString& dir);
     bool exportRoads      (const TrackProject& p, const QString& dir,
                            QVector<RoadMesh>& outMeshes);
@@ -71,7 +70,6 @@ private:
     bool writeOBJ(const QString& path, const QVector<RoadMesh>& meshes,
                   const QString& mtlName);
     bool writeMTL(const QString& path, const TrackProject& p);
-    bool writeKn5Placeholder(const QString& path, const QString& meshName);
     bool writeKN5(const QString& path, const TrackProject& p,
                   const QVector<RoadMesh>& roadMeshes,
                   const QVector<RoadMesh>& wallMeshes,

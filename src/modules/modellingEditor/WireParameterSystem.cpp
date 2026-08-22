@@ -1,5 +1,6 @@
 #include "WireParameterSystem.h"
 
+#include "ExpressionEvaluator.h"
 #include "SceneParamAccess.h"
 
 #include <QJsonArray>
@@ -21,6 +22,7 @@ QVariant WireBinding::toVariant() const
     o["scale"] = scale;
     o["offset"] = offset;
     o["enabled"] = enabled;
+    o["expression"] = expression;
     return o;
 }
 
@@ -36,6 +38,7 @@ void WireBinding::fromVariant(const QVariant& v)
     scale = static_cast<float>(o["scale"].toDouble(1.0));
     offset = static_cast<float>(o["offset"].toDouble(0.0));
     enabled = o["enabled"].toBool(true);
+    expression = o["expression"].toString();
 }
 
 bool WireParameterSystem::add(int driverId, const QString& driverName, const QString& driverProp,
@@ -80,6 +83,14 @@ bool WireParameterSystem::setParams(int drivenId, int index, float scale, float 
     if (it == m_bindings.end() || index < 0 || index >= it->size()) return false;
     (*it)[index].scale = scale;
     (*it)[index].offset = offset;
+    return true;
+}
+
+bool WireParameterSystem::setExpression(int drivenId, int index, const QString& expression)
+{
+    auto it = m_bindings.find(drivenId);
+    if (it == m_bindings.end() || index < 0 || index >= it->size()) return false;
+    (*it)[index].expression = expression;
     return true;
 }
 
@@ -140,7 +151,15 @@ void WireParameterSystem::applyOne(const WireBinding& b, SceneGraph* graph, bool
     float src = 0.0f;
     if (!sceneParamRead(driver, b.driverProp, src)) return;
 
-    float value = src * b.scale + b.offset;
+    const float value = [&]() {
+        if (!b.expression.trimmed().isEmpty()) {
+            bool ok = false;
+            const double v = expr::ExpressionEvaluator::evaluate(b.expression, static_cast<double>(src), &ok);
+            return ok ? static_cast<float>(v) : src; // fall back to driver value on error
+        }
+        return src * b.scale + b.offset;
+    }();
+
     float old = 0.0f;
     if (sceneParamRead(driven, b.drivenProp, old) && qAbs(old - value) < 1e-6f)
         return; // no effective change

@@ -39,6 +39,7 @@ public:
     void executeCommandWithArgs(const QString& commandId, const QJsonObject& args);
 
     void setHandler(const QString& id, std::function<void()> handler);
+    void setHandlerWithArgs(const QString& id, std::function<void(const QJsonObject&)> handler);
     bool execute(const QString& id);
     QVector<Command> search(const QString& query) const;
     QVector<Command> getByCategory(const QString& category) const;
@@ -83,6 +84,7 @@ private:
 
     QMap<QString, Command> m_commands;
     QMap<QString, std::function<void()>> m_handlers;
+    QMap<QString, std::function<void(const QJsonObject&)>> m_handlersWithArgs;
     QStringList m_commandHistory;
     QJsonObject m_lastCommandArgs;
 };

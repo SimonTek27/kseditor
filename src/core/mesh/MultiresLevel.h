@@ -60,6 +60,7 @@ signals:
 private:
     QVector<SubdivisionLevel> m_levels;
     int m_currentLevel = 0;
+    QVector<QVector3D> m_previousVertices; // Stored before subdivision for limit surface
     
     // Catmull-Clark subdivision
     QVector<QVector3D> catmullClarkSubdivide(const QVector<QVector3D>& verts, const QVector<int>& faces);

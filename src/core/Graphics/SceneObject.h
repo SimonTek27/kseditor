@@ -132,6 +132,7 @@ QColor baseColor() const { return m_baseColor; }
 signals:
     void transformChanged();
     void visibilityChanged(bool visible);
+    void meshChanged();
 
 private:
     int m_id = 0;

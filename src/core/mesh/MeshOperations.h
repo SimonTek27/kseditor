@@ -121,6 +121,15 @@ public:
     static MeshData extrude(const MeshData& mesh, const QVector3D& direction, float distance, bool individualFaces = false);
     static MeshData extrudeFaces(const MeshData& mesh, const QVector<QVector3D>& directions);
     static MeshData bevelEdges(const MeshData& mesh, float distance, int segments = 1, float angleLimit = qDegreesToRadians(30.0f));
+    // Fillet chain (Plasticity P2): bevels the given edges (indices into the
+    // mesh's edge list after `ensureEdgeList`) each at its own `radius`, so a
+    // chain of edges can get a tapering fillet. Where several beveled edges
+    // share a corner vertex, the corner offset is blended from the incident
+    // radii. Ineligible edges (non-manifold, co-planar, or over `angleLimit`)
+    // are skipped. `segments` rows are inserted across the fillet.
+    static MeshData bevelChain(const MeshData& mesh, const QVector<int>& edgeIndices,
+                               const QVector<float>& radii, int segments = 1,
+                               float angleLimit = qDegreesToRadians(30.0f));
     static MeshData bevelVertices(const MeshData& mesh, float distance);
 
     static MeshData insetFaces(const MeshData& mesh, float distance, float depth = 0.0f);
@@ -132,6 +141,35 @@ public:
     // or -1 (inside); `flipNormals` optionally reverses the winding of the
     // outer (extruded) surface so normals point correctly after thickening.
     static MeshData shell(const MeshData& mesh, float thickness, int direction = 1, bool flipNormals = false);
+
+    // Transformation modes for `transformAround` (Modo/3ds Max "action center").
+    // Translate: amount = per-axis delta. Rotate: amount = per-axis Euler angles
+    // in degrees, applied about the world axes through `pivot`. ScaleUniform:
+    // amount.x is a single uniform factor. ScaleAxis: amount = per-axis factors
+    // (1 = unchanged).
+    enum class TransformCenterMode {
+        Translate = 0,
+        Rotate = 1,
+        ScaleUniform = 2,
+        ScaleAxis = 3
+    };
+
+    // Reusable spatial falloff profile shared by proportional editing, sculpting
+    // and transform ops. Type: 0 = smooth (smoothstep), 1 = linear, 2 = sharp,
+    // 3 = root, 4 = sphere, 5 = constant. Returns the weight for a point at
+    // `distance` from the falloff center; 1.0 at the center, 0.0 at/beyond
+    // `radius`. `radius` > 0 is required (else returns 0).
+    static float falloffFactor(float distance, float radius, int type);
+
+    // Transforms a subset of vertices around an explicit pivot point (the
+    // "action center" pattern). `selection` holds vertex indices; empty means
+    // "all vertices". `pivot` is the transform origin in local space.
+    // `falloffRadius` > 0 applies a spatial falloff from `pivot` (same profile
+    // as proportional editing via `falloffFactor`). Vertex attributes are kept.
+    static MeshData transformAround(const MeshData& mesh, const QVector<int>& selection,
+                                    TransformCenterMode mode, const QVector3D& pivot,
+                                    const QVector3D& axis, const QVector3D& amount,
+                                    float falloffRadius = 0.0f, int falloffType = 0);
 
     // Polygonal bridge: connects two edge loops with a strip of quads.
     // `loopA`/`loopB` are ordered vertex-index loops (same vertex count).
@@ -154,6 +192,19 @@ public:
     static MeshData sweep(const MeshData& profile, const QVector<QMatrix4x4>& transforms, bool close = false);
     static MeshData spin(const MeshData& profile, const QVector3D& axis, float angle, int steps);
 
+    // Revolves a 2D sketch profile (an ordered polyline of vertices) around
+    // `axis` (through the origin, default +Y) to build a surface of revolution
+    // - the Plasticity-style "lathe / revolve from sketch" workflow. Each
+    // profile segment becomes `steps` quads around the axis; `angleDeg` is the
+    // sweep (360 = full lathe). The profile vertex order is taken from the
+    // edge chain of `profileMesh` (falling back to index order). When
+    // `closeCaps`, the two open end rings of the sweep are closed with fans
+    // (degenerate rings on the axis are skipped). Returns the revolved mesh.
+    static MeshData revolveSketch(const MeshData& profileMesh,
+                                  const QVector3D& axis = QVector3D(0, 1, 0),
+                                  float angleDeg = 360.0f, int steps = 24,
+                                  bool closeCaps = true);
+
     static MeshData subdivide(const MeshData& mesh, int levels = 1);
     static MeshData unsubdivide(const MeshData& mesh, float detail = 0.0f);
     static MeshData triangulate(const MeshData& mesh);
@@ -165,6 +216,16 @@ public:
     // group starts when the angle exceeds the threshold. Returns a vector of
     // group ids with one entry per face. 0 = no group (hard edges).
     static QVector<int> autoSmooth(const MeshData& mesh, float angleDeg = 30.0f);
+
+    // Splits vertices at hard edges so that every smoothing-group boundary
+    // becomes a geometric seam (3ds Max "Split" smoothing groups). `faceGroups`
+    // holds one entry per face (from `autoSmooth`, or hand-assigned 0..31
+    // groups). Faces sharing an edge but belonging to different groups get
+    // duplicated corner vertices that keep the original per-vertex attributes
+    // (position is shared with the source vertex; UVs, colors, weights and
+    // tangents are carried over). Returns the split mesh. When all faces share
+    // a single group (or `faceGroups` is empty), the mesh is returned unchanged.
+    static MeshData splitSmoothingGroups(const MeshData& mesh, const QVector<int>& faceGroups);
 
     static MeshData mirror(const MeshData& mesh, const QVector3D& axis, float offset = 0.0f);
     static MeshData array(const MeshData& mesh, int count, const QVector3D& offset);
@@ -395,6 +456,14 @@ struct RadialMenu {
     static NURBSSurface sweep(const NURBSSurface& profile, const QVector<QMatrix4x4>& transforms, bool close = false);
     static NURBSSurface revolve(const NURBSSurface& surface, float angleDeg, int steps);
     static NURBSSurface pipe(const QVector<NURBSCurve>& profiles, float radius);
+    // NURBS fillet/chamfer blending - creates a blended surface between
+    // two adjacent NURBS surfaces at a given radius.
+    static NURBSSurface filletSurface(const NURBSSurface& surfaceA,
+                                       const NURBSSurface& surfaceB,
+                                       const QVector3D& edgePointA,
+                                       const QVector3D& edgePointB,
+                                       float radius,
+                                       int segments = 8);
 
     // NURBS evaluation
     static QVector3D evaluatePointOnCurve(const NURBSCurve& curve, float u);
@@ -405,6 +474,32 @@ struct RadialMenu {
     static NURBSSurface extendSurface(const NURBSSurface& surface, int direction, float distance);
     // Slides a CV tangentially along its row/column by `factor` in [-1,1].
     static bool slideCV(NURBSSurface& surface, int row, int col, float factor);
+    // Trims a NURBS surface with a boundary curve defined by 3D points.
+    // The trim curve should be a closed polygon lying on the surface.
+    // `keepInside` determines whether to keep the region inside (true) or outside (false) the curve.
+    static NURBSSurface trimSurface(const NURBSSurface& surface,
+                                     const QVector<QVector3D>& trimCurvePoints,
+                                     bool keepInside = true);
+// Splits a NURBS surface into two along a cutting curve defined by 3D points.
+    // The cut curve should be a closed polygon lying on the surface.
+    // Returns two surfaces: the "left" and "right" parts of the split.
+    // outSurfaceIndex indicates which side of the cut the result belongs to.
+    static NURBSSurface splitSurfaceByCurve(const NURBSSurface& surface,
+                                              const QVector<QVector3D>& cutCurvePoints,
+                                              int& outSurfaceIndex);
+    // NURBS boolean operations - tessellate surfaces and use CGAL mesh booleans.
+    static NURBSSurface booleanUnion(const NURBSSurface& surfaceA,
+                                      const NURBSSurface& surfaceB);
+    static NURBSSurface booleanDifference(const NURBSSurface& surfaceA,
+                                         const NURBSSurface& surfaceB);
+    static NURBSSurface booleanIntersection(const NURBSSurface& surfaceA,
+                                            const NURBSSurface& surfaceB);
+    static NURBSSurface booleanXor(const NURBSSurface& surfaceA,
+                                    const NURBSSurface& surfaceB);
+
+    // NURBS fillet/chamfer blending - creates a blended surface between
+    // two adjacent NURBS surfaces at a given radius.
+    // The blend replaces the sharp edge with a smooth tangent continuation.
     // Samples curvature (estimated from the surface normals) along an isoparam
     // curve; returns a polyline ribbon suitable for visualization.
     static MeshData curvatureComb(const NURBSSurface& surface, int direction, int combCount, float scale);
@@ -475,7 +570,7 @@ public:
     static void removeSelectedEdge(int edgeIndex);
     static void addSelectedFace(int faceIndex);
     static void removeSelectedFace(int faceIndex);
-    static void selectAll();
+    static void selectAll(int vertexCount, int edgeCount, int faceCount);
     static void deselectAll();
     static bool hasSelection() { return !m_selectedVertices.isEmpty() || !m_selectedEdges.isEmpty() || !m_selectedFaces.isEmpty(); }
     static QVector<int> selectedVertices() { return m_selectedVertices; }
@@ -519,6 +614,16 @@ private:
 };
 
 static QVector<MeshUVIsland> findUVIslands(const MeshData& mesh);
+
+    // UV overlap resolution (3ds Max "overlap resolution" + packing optimizer):
+    // splits the mesh into UV islands (charts stitched only across edges that
+    // share vertex indices with matching UVs), detects islands whose bounding
+    // boxes overlap in texture space, separates them into a fresh non-overlapping
+    // layout and re-normalizes the result to fill [0,1] x [0,1] with `padding`
+    // between charts. Per-face UVs are kept; the mesh's per-vertex UVs
+    // (mesh.uvs and vertices[].uv) are rewritten. Returns the adjusted mesh or
+    // the input unchanged when no overlaps are detected.
+    static MeshData resolveUVOverlaps(const MeshData& mesh, float padding = 0.01f);
 
     static geometry::GeoMeshData toGeoMesh(const MeshData& mesh);
     static MeshData fromGeoMesh(const geometry::GeoMeshData& geo);
@@ -571,6 +676,12 @@ public:
     bool useConstantOffset = true;
     bool useRelativeOffset = false;
     float mergeThreshold = 0.0001f;
+};
+
+// Fillet/chamfer parameters for NURBS surface blending.
+struct FilletParams {
+    float radius = 0.1f;
+    int segments = 8;  // number of divisions around the fillet
 };
 
 }

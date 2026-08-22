@@ -669,24 +669,78 @@ bool TrackExporter::writeOBJ(const QString& path, const QVector<RoadMesh>& meshe
     return true;
 }
 
-bool TrackExporter::writeMTL(const QString& path, const TrackProject&)
+bool TrackExporter::writeMTL(const QString& path, const TrackProject& p)
 {
     QFile f(path);
     if (!f.open(QIODevice::WriteOnly|QIODevice::Text)) return false;
     QTextStream ts(&f);
-    auto mat=[&](const QString& name, float r,float g,float b){
-        ts<<"newmtl "<<name<<"\n";
-        ts<<"Kd "<<r<<" "<<g<<" "<<b<<"\nKa 0.1 0.1 0.1\nKs 0 0 0\n\n";
+
+    auto writeMat = [&](const QString& name, float r, float g, float b,
+                        float sr = 0.1f, float sg = 0.1f, float sb = 0.1f,
+                        float ns = 10.0f) {
+        ts << "newmtl " << name << "\n";
+        ts << "Ka 0.1 0.1 0.1\n";
+        ts << "Kd " << r << " " << g << " " << b << "\n";
+        ts << "Ks " << sr << " " << sg << " " << sb << "\n";
+        ts << "Ns " << ns << "\n";
+        ts << "d 1.0\n";
+        ts << "illum 2\n\n";
     };
-    mat("ASPHALT",  0.15f,0.15f,0.15f);
-    mat("CONCRETE", 0.55f,0.55f,0.55f);
-    mat("GRAVEL",   0.45f,0.40f,0.30f);
-    mat("DIRT",     0.45f,0.32f,0.18f);
-    mat("GRASS",    0.20f,0.50f,0.15f);
-    mat("SAND",     0.80f,0.70f,0.40f);
-    mat("TERRAIN_GRASS",0.22f,0.52f,0.17f);
-    mat("KERB_RED", 0.90f,0.10f,0.10f);
-    mat("KERB_WHITE",0.95f,0.95f,0.95f);
+
+    // Default surface materials
+    writeMat("ASPHALT",       0.15f, 0.15f, 0.15f,  0.3f, 0.3f, 0.3f,  30.0f);
+    writeMat("ASPHALT_WET",   0.12f, 0.12f, 0.14f,  0.6f, 0.6f, 0.65f, 80.0f);
+    writeMat("CONCRETE",      0.55f, 0.55f, 0.55f,  0.2f, 0.2f, 0.2f,  20.0f);
+    writeMat("GRAVEL",        0.45f, 0.40f, 0.30f,  0.05f, 0.05f, 0.05f, 5.0f);
+    writeMat("DIRT",          0.45f, 0.32f, 0.18f,  0.05f, 0.05f, 0.05f, 5.0f);
+    writeMat("GRASS",         0.20f, 0.50f, 0.15f,  0.02f, 0.02f, 0.02f, 3.0f);
+    writeMat("SAND",          0.80f, 0.70f, 0.40f,  0.05f, 0.05f, 0.05f, 5.0f);
+    writeMat("ICE",           0.70f, 0.80f, 0.90f,  0.8f, 0.8f, 0.9f,  120.0f);
+
+    // Terrain materials
+    writeMat("TERRAIN_GRASS", 0.22f, 0.52f, 0.17f,  0.02f, 0.02f, 0.02f, 3.0f);
+    writeMat("TERRAIN_DIRT",  0.40f, 0.30f, 0.16f,  0.05f, 0.05f, 0.05f, 5.0f);
+    writeMat("TERRAIN_ROCK",  0.45f, 0.42f, 0.38f,  0.1f, 0.1f, 0.1f,  15.0f);
+
+    // Kerb materials
+    writeMat("KERB_RED",      0.90f, 0.10f, 0.10f,  0.1f, 0.1f, 0.1f,  10.0f);
+    writeMat("KERB_WHITE",    0.95f, 0.95f, 0.95f,  0.2f, 0.2f, 0.2f,  20.0f);
+    writeMat("KERB_RUMBLE",   0.85f, 0.80f, 0.10f,  0.1f, 0.1f, 0.1f,  10.0f);
+
+    // Wall/barrier materials
+    writeMat("CONCRETE_WALL", 0.60f, 0.60f, 0.58f,  0.15f, 0.15f, 0.15f, 15.0f);
+    writeMat("ARMCO",         0.50f, 0.52f, 0.55f,  0.4f, 0.4f, 0.45f, 40.0f);
+    writeMat("TYRE_BARRIER",  0.08f, 0.08f, 0.08f,  0.05f, 0.05f, 0.05f, 3.0f);
+    writeMat("FENCE",         0.40f, 0.40f, 0.40f,  0.3f, 0.3f, 0.3f,  25.0f);
+    writeMat("WALL_INVISIBLE",0.0f,  0.0f,  0.0f,   0.0f, 0.0f, 0.0f,  1.0f);
+
+    // Prop materials
+    writeMat("PROP_METAL",    0.65f, 0.65f, 0.68f,  0.5f, 0.5f, 0.55f, 60.0f);
+    writeMat("PROP_PLASTIC",  0.30f, 0.30f, 0.32f,  0.2f, 0.2f, 0.2f,  20.0f);
+    writeMat("PROP_RUBBER",   0.05f, 0.05f, 0.05f,  0.02f, 0.02f, 0.02f, 3.0f);
+
+    // Light materials
+    writeMat("LIGHT_HEAD",    1.0f,  0.95f, 0.80f,  0.0f, 0.0f, 0.0f,  1.0f);
+    writeMat("LIGHT_TAIL",    0.90f, 0.05f, 0.05f,  0.0f, 0.0f, 0.0f,  1.0f);
+    writeMat("LIGHT_GANTRY",  0.80f, 0.85f, 0.90f,  0.0f, 0.0f, 0.0f,  1.0f);
+
+    // Generate materials for any custom surfaces defined in the project
+    int customIdx = 0;
+    for (const auto& surface : p.surfaces) {
+        QString customName = QString("CUSTOM_SURFACE_%1").arg(customIdx++);
+        float r = 0.5f, g = 0.5f, b = 0.5f;
+        // Derive color from surface type
+        switch (surface.surface) {
+        case SurfaceType::Grass:  r = 0.20f; g = 0.50f; b = 0.15f; break;
+        case SurfaceType::Gravel: r = 0.45f; g = 0.40f; b = 0.30f; break;
+        case SurfaceType::Dirt:   r = 0.45f; g = 0.32f; b = 0.18f; break;
+        case SurfaceType::Sand:   r = 0.80f; g = 0.70f; b = 0.40f; break;
+        case SurfaceType::Concrete:r = 0.55f; g = 0.55f; b = 0.55f; break;
+        default:                  r = 0.15f; g = 0.15f; b = 0.15f; break;
+        }
+        writeMat(customName, r, g, b);
+    }
+
     return true;
 }
 
@@ -913,7 +967,15 @@ bool TrackExporter::writeKN5(const QString& path, const TrackProject& p,
                 float u = float(ox) / (ow - 1);
                 float v = float(oz) / (oh - 1);
                 float pos[3] = { wx, wy, wz };
-                float nrm[3] = { 0.0f, 1.0f, 0.0f };
+                
+                // Compute normal from heightmap using central differences
+                float hL = (ox > 0) ? hFn(ox - 1, oz) : wy;
+                float hR = (ox < ow - 1) ? hFn(ox + 1, oz) : wy;
+                float hD = (oz > 0) ? hFn(ox, oz - 1) : wy;
+                float hU = (oz < oh - 1) ? hFn(ox, oz + 1) : wy;
+                QVector3D normal = QVector3D(hL - hR, 2.0f * skip * dxW, hD - hU).normalized();
+                float nrm[3] = { normal.x(), normal.y(), normal.z() };
+                
                 float uv[2]  = { u, v };
                 std::memcpy(tdst,      pos, 12);
                 std::memcpy(tdst + 12, nrm, 12);

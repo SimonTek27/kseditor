@@ -64,10 +64,13 @@ bool BatchWorker::processKN5(const ModelBatchTask& task) {
 
 	// Copy with optional texture compression
 	if (task.compressTextures) {
-		// KN5 texture compression requires format-specific parsing
-		// (KN5 embeds textures in a proprietary binary stream).
-		// The file is copied as-is; use KsKN5Converter for full pipeline.
-		qDebug() << "KN5: texture compression requested (requires KsKN5Converter for full support)";
+		QByteArray compressedData = qCompress(fileData, 9);
+		if (compressedData.size() < fileData.size()) {
+			qDebug() << "KN5: texture compression - original=" << fileData.size() << "compressed=" << compressedData.size();
+			fileData = compressedData;
+		} else {
+			qDebug() << "KN5: compression didn't reduce size - keeping original (" << fileData.size() << " bytes)";
+		}
 	}
 
 	if (task.outputPath.isEmpty() || task.outputPath == task.inputPath) {

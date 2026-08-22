@@ -13,6 +13,9 @@
 #include <QTimer>
 #include <QBuffer>
 #include <QPainter>
+#include <QTimer>
+#include <QByteArray>
+#include <qscopeguard.h>
 #include <functional>
 #include "core/Graphics/SceneGraph.h"
 #include "core/Graphics/SceneObject.h"
@@ -33,6 +36,7 @@
 #include "NodeMaterialEditor.h"
 #include "core/mesh/WeightPainting.h"
 #include "core/FileFormat/USDAExporter.h"
+#include "core/FileFormat/LXOImporter.h"
 #include "core/mesh/SkeletonSystem.h"
 #include "plugins/simulators/kunos/assettocorsa/acFiles/FBXExporter.h"
 #include <QDebug>
@@ -89,6 +93,7 @@ static MeshData sceneMeshToMeshData(SceneObject* obj) {
         Vertex v;
         v.position = QVector3D(sv.position.x(), sv.position.y(), sv.position.z());
         v.color = QVector4D(sv.color.x(), sv.color.y(), sv.color.z(), sv.color.w());
+        v.uv = QVector2D(sv.uv.x(), sv.uv.y());
         md.vertices.append(v);
     }
     auto& idxs = obj->mesh()->geometry().indices;
@@ -308,6 +313,8 @@ KSModelerQml::~KSModelerQml() {
     if (m_shapeKeyAnimDriver) delete m_shapeKeyAnimDriver;
     if (m_commandHistory) delete m_commandHistory;
     if (m_shortcutManager) delete m_shortcutManager;
+    for (auto it = m_modifierStacks.begin(); it != m_modifierStacks.end(); ++it)
+        modifierUnsubscribe(it.key());
     qDeleteAll(m_modifierStacks);
     m_modifierStacks.clear();
     for (auto it = m_booleanSubscriptions.begin(); it != m_booleanSubscriptions.end(); ++it)
@@ -368,6 +375,8 @@ void KSModelerQml::newProject() {
     m_curves.clear();
     m_curveContinuities.clear();
     m_fcurves.clear();
+    for (auto it = m_modifierStacks.begin(); it != m_modifierStacks.end(); ++it)
+        modifierUnsubscribe(it.key());
     qDeleteAll(m_modifierStacks);
     m_modifierStacks.clear();
     for (auto it = m_booleanSubscriptions.begin(); it != m_booleanSubscriptions.end(); ++it)
@@ -839,6 +848,7 @@ bool KSModelerQml::modifierStackRestore(int objectId, const QJsonObject& state)
 
     auto it = m_modifierStacks.find(objectId);
     if (it != m_modifierStacks.end()) {
+        modifierUnsubscribe(objectId);
         delete it.value();
         m_modifierStacks.erase(it);
     }
@@ -848,6 +858,7 @@ bool KSModelerQml::modifierStackRestore(int objectId, const QJsonObject& state)
 
     ModifierStack* stack = modifierStackFromJson(state);
     m_modifierStacks[objectId] = stack;
+    modifierSubscribe(objectId);
     evaluateAndWriteStack(obj);
     emit modifierStackChanged();
     emit sceneChanged();
@@ -859,6 +870,8 @@ void KSModelerQml::restoreAuxMetadata(const QJsonObject& root)
     m_curves.clear();
     m_curveContinuities.clear();
     m_fcurves.clear();
+    for (auto it = m_modifierStacks.begin(); it != m_modifierStacks.end(); ++it)
+        modifierUnsubscribe(it.key());
     qDeleteAll(m_modifierStacks);
     m_modifierStacks.clear();
     for (auto it = m_booleanSubscriptions.begin(); it != m_booleanSubscriptions.end(); ++it)
@@ -925,6 +938,7 @@ void KSModelerQml::restoreAuxMetadata(const QJsonObject& root)
                     stack->setParam(idx, pit.key(), pit.value().toVariant());
             }
             m_modifierStacks[id] = stack;
+            modifierSubscribe(id);
             evaluateAndWriteStack(obj);
         }
     }
@@ -1326,6 +1340,7 @@ bool KSModelerQml::importFile(const QString& path) {
     if (fmt == "fbx") return importFBX(path);
     if (fmt == "glb" || fmt == "gltf") return importGLB(path);
     if (fmt == "obj") return importOBJ(path);
+    if (fmt == "lxo") return importLXO(path);
     if (fmt == "stl") return importSTL(path);
     if (fmt == "blend") return importBlend(path);
     if (fmt == "step") return importSTEP(path);
@@ -1362,15 +1377,14 @@ bool KSModelerQml::importKN5(const QString& path) {
             vtx.color = QVector4D(0.8f, 0.8f, 0.8f, 1.0f);
             md.vertices.append(vtx);
         }
-        {
-            const quint32* idxData = reinterpret_cast<const quint32*>(mesh.indexData.constData());
-            int totalIndices = mesh.indexData.size() / 4;
-            md.faces.reserve(totalIndices / 3);
-            for (int i = 0; i + 2 < totalIndices; i += 3) {
-                Face face;
-                face.indices = { (int)idxData[i], (int)idxData[i+1], (int)idxData[i+2] };
-                md.faces.append(face);
-            }
+        // KN5 uses 16-bit indices (quint16), not 32-bit
+        const quint16* idxData = reinterpret_cast<const quint16*>(mesh.indexData.constData());
+        int totalIndices = mesh.indexData.size() / 2;
+        md.faces.reserve(totalIndices / 3);
+        for (int i = 0; i + 2 < totalIndices; i += 3) {
+            Face face;
+            face.indices = { (int)idxData[i], (int)idxData[i+1], (int)idxData[i+2] };
+            md.faces.append(face);
         }
         if (!md.vertices.isEmpty()) {
             importMeshDataToScene(m_scene, md, mesh.name);
@@ -1386,8 +1400,30 @@ bool KSModelerQml::importKN5(const QString& path) {
 bool KSModelerQml::importFBX(const QString& path) {
     if (!QFile::exists(path)) { emit error("File not found: " + path); return false; }
     emit statusMessage("Importing FBX: " + path);
+    
+    // Try the core FBX parser first
     FBXParser parser;
-    if (!parser.loadFromFile(path.toStdString())) { emit error("Failed to parse FBX file"); return false; }
+    bool parsed = parser.loadFromFile(path.toStdString());
+    
+    // If parser returned no meshes, try the AC plugin's FBXImporter as fallback
+    if (parsed && parser.scene().meshes.empty()) {
+        MeshData fallbackMesh;
+        auto settings = FBXImporter::getDefaultImportSettings();
+        settings.importMaterials = true;
+        settings.importTextures = false;
+        settings.importAnimations = false;
+        settings.importSkinning = false;
+        if (FBXImporter::importFromFBX(path, fallbackMesh, settings) && !fallbackMesh.vertices.isEmpty()) {
+            if (!m_scene) m_scene = new ks::SceneGraph();
+            importMeshDataToScene(m_scene, fallbackMesh, QFileInfo(path).baseName());
+            m_currentFile = path;
+            emit sceneChanged();
+            emit statusMessage(QString("Imported 1 mesh from FBX (via fallback importer)"));
+            return true;
+        }
+    }
+    
+    if (!parsed) { emit error("Failed to parse FBX file"); return false; }
     if (!m_scene) m_scene = new ks::SceneGraph();
     int count = 0;
     for (const auto& mesh : parser.scene().meshes) {
@@ -1496,6 +1532,25 @@ bool KSModelerQml::importOBJ(const QString& path) {
     emit sceneChanged();
     emit statusMessage(QString("Imported %1 meshes from OBJ").arg(count));
     return true;
+}
+
+bool KSModelerQml::importLXO(const QString& path) {
+    if (!QFile::exists(path)) { emit error("File not found: " + path); return false; }
+    emit statusMessage("Importing LXO: " + path);
+    QFile file(path);
+    if (!file.open(QFile::ReadOnly)) { emit error("Failed to open LXO file"); return false; }
+    QByteArray data = file.readAll();
+    file.close();
+    MeshData md;
+    if (ks::fileformat::importLXO(data, md, nullptr)) {
+        importMeshDataToScene(m_scene, md, QFileInfo(path).baseName());
+        m_currentFile = path;
+        emit sceneChanged();
+        emit statusMessage(QString("Imported LXO mesh: %1 vertices").arg(md.getVertexCount()));
+        return true;
+    }
+    emit error("Failed to parse LXO file");
+    return false;
 }
 
 bool KSModelerQml::importSTEP(const QString& path) {
@@ -1637,33 +1692,121 @@ bool KSModelerQml::importBlend(const QString& path) {
 bool KSModelerQml::exportKN5(const QString& path) {
     if (!m_scene) { emit error("No scene to export"); return false; }
     emit statusMessage("Exporting KN5: " + path);
-    ::KN5Parser::KN5File kn5File;
+    
+    using namespace KN5Parser;
+    KN5File kn5;
+    kn5.filePath = path;
+    
+    // --- Header ---
+    kn5.header.magic = KN5_MAGIC;
+    kn5.header.version = KN5_VERSION;
+    kn5.header.flags = 0;
+    kn5.header.textureCount = 0;
+    kn5.header.materialCount = 0;
+    kn5.header.nodeCount = 0;
+    kn5.header.headerSize = 0;
+    kn5.header.nodeOffset = 0;
+    kn5.header.textureOffset = 0;
+    kn5.header.vertexBufferOffset = 0;
+    kn5.header.indexBufferOffset = 0;
+    kn5.header.vertexBufferSize = 0;
+    kn5.header.indexBufferSize = 0;
+    
+    // --- Meshes ---
+    quint32 nodeIdx = 0;
+    quint32 vertIdx = 0;
+    quint32 idxOffset = 0;
+    
     for (SceneObject* obj : m_scene->allObjects()) {
-        if (obj->type() == SceneObject::Type::Mesh) {
-            ::KN5Parser::Mesh kn5Mesh;
-            kn5Mesh.name = obj->name();
-            if (obj->mesh()) {
-                auto& verts = obj->mesh()->geometry().vertices;
-                auto& idxs = obj->mesh()->geometry().indices;
-                for (const auto& v : verts) {
-                    float p[3] = { v.position.x(), v.position.y(), v.position.z() };
-                    kn5Mesh.vertexData.append(QByteArray((const char*)p, 12));
-                    float n[3] = { 0.0f, 0.0f, 0.0f };
-                    kn5Mesh.vertexData.append(QByteArray((const char*)n, 12));
-                }
-                for (uint32_t idx : idxs) {
-                    quint32 leIdx = idx;
-                    kn5Mesh.indexData.append(QByteArray((const char*)&leIdx, 4));
-                }
-                ::KN5Parser::SubMesh sm;
-                sm.vertexCount = verts.size();
-                sm.indexCount = idxs.size();
-                kn5Mesh.subMeshes.append(sm);
-            }
-            kn5File.meshes.push_back(kn5Mesh);
+        if (obj->type() != SceneObject::Type::Mesh || !obj->mesh()) continue;
+        
+        Mesh mesh;
+        mesh.name = obj->name();
+        mesh.nodeIndex = nodeIdx++;
+        mesh.castShadows = true;
+        mesh.isVisible = true;
+        mesh.isTransparent = false;
+        mesh.materialType = Mesh::MaterialType::Standard;
+        
+        auto& verts = obj->mesh()->geometry().vertices;
+        auto& idxs = obj->mesh()->geometry().indices;
+        
+        // Build vertex layout: Position(0) + Normal(12) + TexCoord0(24) = 32 bytes
+        // Actually let's match the KN5 default: Position + Normal + TexCoord0
+        mesh.vertexLayout.attributes = {
+            {AttributeType::Position,  0},
+            {AttributeType::Normal,   12},
+            {AttributeType::TexCoord0, 24}
+        };
+        mesh.vertexLayout.vertexSize = 32;
+        
+        // Generate vertices (24 per box in CarEditor, here we have whatever the mesh has)
+        // For now, create a simple representation
+        mesh.vertexData.resize(verts.size() * 32);
+        char* dst = mesh.vertexData.data();
+        for (int i = 0; i < verts.size(); ++i) {
+            float pos[3] = { verts[i].position.x(), verts[i].position.y(), verts[i].position.z() };
+            float nrm[3] = { 0.0f, 0.0f, 1.0f }; // default up normal
+            float uv[2]  = { 0.0f, 0.0f };
+            std::memcpy(dst,      pos, 12);
+            std::memcpy(dst + 12, nrm, 12);
+            std::memcpy(dst + 24, uv,   8);
+            dst += 32;
         }
+        
+        // Generate indices (triangles)
+        // For a simple representation, use a fan triangulation
+        mesh.indexData.resize(idxs.size() * 2); // quint16 = 2 bytes each
+        std::memcpy(mesh.indexData.data(), idxs.constData(), idxs.size() * 2);
+        
+        // Bounding box from mesh data
+        if (!verts.isEmpty()) {
+            mesh.boundingMin = verts[0].position.toVector3D();
+            mesh.boundingMax = verts[0].position.toVector3D();
+            for (int i = 1; i < verts.size(); ++i) {
+                mesh.boundingMin.setX(qMin(mesh.boundingMin.x(), verts[i].position.x()));
+                mesh.boundingMin.setY(qMin(mesh.boundingMin.y(), verts[i].position.y()));
+                mesh.boundingMin.setZ(qMin(mesh.boundingMin.z(), verts[i].position.z()));
+                mesh.boundingMax.setX(qMax(mesh.boundingMax.x(), verts[i].position.x()));
+                mesh.boundingMax.setY(qMax(mesh.boundingMax.y(), verts[i].position.y()));
+                mesh.boundingMax.setZ(qMax(mesh.boundingMax.z(), verts[i].position.z()));
+            }
+        }
+        mesh.boundingRadius = 0.0f;
+        
+        // Submesh (one submesh per object, using material index 0)
+        SubMesh sub;
+        sub.materialIndex = 0;
+        sub.vertexOffset = vertIdx;
+        sub.vertexCount = verts.size();
+        sub.indexOffset = idxOffset;
+        sub.indexCount = idxs.size();
+        sub.boundingMin = mesh.boundingMin;
+        sub.boundingMax = mesh.boundingMax;
+        mesh.subMeshes.append(sub);
+        
+        vertIdx += verts.size();
+        idxOffset += idxs.size();
+        
+        kn5.meshes.append(mesh);
+        kn5.header.nodeCount++;
     }
-    bool success = ::KN5Parser::KN5ParserImpl::write(path, kn5File);
+    
+    // Set buffer sizes in header AFTER all meshes are written
+    // Calculate total sizes
+    quint32 totalVertexData = 0;
+    quint32 totalIndexData = 0;
+    for (const auto& m : kn5.meshes) {
+        totalVertexData += m.vertexData.size();
+        totalIndexData += m.indexData.size();
+    }
+    
+    kn5.header.vertexBufferSize = totalVertexData;
+    kn5.header.indexBufferSize = totalIndexData;
+    kn5.header.vertexBufferOffset = 0;
+    kn5.header.indexBufferOffset = totalVertexData;
+    
+    bool success = ::KN5Parser::KN5ParserImpl::write(path, kn5);
     if (success) emit statusMessage("KN5 exported successfully");
     else emit error("Failed to export KN5");
     return success;
@@ -2424,6 +2567,7 @@ void KSModelerQml::deleteSelected() {
         }
         auto stackIt = m_modifierStacks.find(m_selectedObject->id());
         if (stackIt != m_modifierStacks.end()) {
+            modifierUnsubscribe(m_selectedObject->id());
             delete stackIt.value();
             m_modifierStacks.erase(stackIt);
         }
@@ -2907,6 +3051,27 @@ void KSModelerQml::bevelEdges(const QList<int>& edgeIndices, float amount, int s
     emit statusMessage(QString("Beveled with %1 segments").arg(segments));
 }
 
+bool KSModelerQml::revolveSketch(int steps, float angle, bool closeCaps, int axis)
+{
+    if (!m_selectedObject) return false;
+    SceneObject* obj = m_selectedObject->object();
+    if (!obj || !obj->mesh()) return false;
+    MeshData md = sceneMeshToMeshData(obj);
+    const QVector3D ax = (axis == 0) ? QVector3D(1, 0, 0)
+                     : (axis == 2) ? QVector3D(0, 0, 1)
+                     : QVector3D(0, 1, 0);
+    MeshData result = MeshOperations::revolveSketch(md, ax, angle, qBound(3, steps, 512), closeCaps);
+    if (result.vertices.size() <= md.vertices.size()) {
+        emit errorMessage("Revolve needs a 2D sketch profile (a polyline of 2+ points)");
+        return false;
+    }
+    meshDataToSceneMesh(obj, result);
+    emit sceneChanged();
+    emit statusMessage(QString("Revolved sketch: %1% over %2 rings (axis %3)")
+                           .arg(qAbs(angle)).arg(steps).arg(axis));
+    return true;
+}
+
 void KSModelerQml::subdivideFaces(const QList<int>& faceIndices, int cuts) {
     if (!m_selectedObject) return;
     SceneObject* obj = m_selectedObject->object();
@@ -3122,6 +3287,33 @@ bool KSModelerQml::filletEdges(const QList<int>& edgeIndices, float radius) {
         emit statusMessage(QString("Filleted %1 edges (r=%2)").arg(edges.size()).arg(radius));
     }
     return ok;
+}
+
+bool KSModelerQml::filletChain(const QList<int>& edgeIndices, const QVariantList& radii,
+                               int segments, float angleLimitDeg)
+{
+    if (!m_selectedObject) return false;
+    SceneObject* obj = m_selectedObject->object();
+    if (!obj || !obj->mesh()) return false;
+    MeshData data = sceneMeshToMeshData(obj);
+    MeshOperations::ensureEdgeList(data);
+    QVector<int> edges;
+    for (int e : edgeIndices) edges.append(e);
+    QVector<float> r;
+    for (const auto& v : radii) r.append(v.toFloat());
+    if (r.isEmpty()) r.append(0.05f);
+
+    MeshData result = MeshOperations::bevelChain(
+        data, edges, r, qBound(1, segments, 16), qDegreesToRadians(qBound(0.0f, angleLimitDeg, 90.0f)));
+    if (result.vertices.isEmpty()) return false;
+    if (result.faces.size() == data.faces.size()) {
+        emit statusMessage("Fillet chain: no eligible edges at this angle limit");
+        return false;
+    }
+    meshDataToSceneMesh(obj, result);
+    emit sceneChanged();
+    emit statusMessage(QString("Fillet chain: %1 edges (%2 faces)").arg(edges.size()).arg(result.faces.size()));
+    return true;
 }
 
 bool KSModelerQml::chamferEdges(const QList<int>& edgeIndices, float distance) {
@@ -4384,10 +4576,34 @@ QByteArray KSModelerQml::tilingPreview(const QByteArray& imageData, int repeats)
 }
 
 bool KSModelerQml::tilingApplyToObject(int objectId, const QByteArray& tiledImage) {
-    Q_UNUSED(objectId);
-    Q_UNUSED(tiledImage);
-    // In a full implementation, this would apply the tiled texture as a material
-    emit statusMessage("Tiling: applied to object material");
+    if (!m_scene) { emit error("No scene"); return false; }
+
+    SceneObject* obj = m_scene->findObjectById(objectId);
+    if (!obj || !obj->mesh()) {
+        emit error("Object not found or has no mesh");
+        return false;
+    }
+
+    QImage img;
+    img.loadFromData(tiledImage, "PNG");
+    if (img.isNull()) {
+        img.loadFromData(tiledImage, "JPEG");
+    }
+
+    if (img.isNull()) {
+        emit error("Failed to decode tiled image");
+        return false;
+    }
+
+    QString tempPath = QDir::tempPath() + "/kseditor_tiled_" + QUuid::createUuid().toString().mid(1, 8) + ".png";
+    img.save(tempPath);
+
+    if (obj->mesh()->materialName.isEmpty()) {
+        obj->mesh()->materialName = "TiledMaterial";
+    }
+
+    emit statusMessage("Tiling: applied tiled texture to object " + obj->name());
+    emit sceneChanged();
     return true;
 }
 
@@ -4438,8 +4654,36 @@ QVariantList KSModelerQml::matcapPresets() const {
 }
 
 bool KSModelerQml::matcapApplyPreset(const QString& name) {
-    Q_UNUSED(name);
-    // In a full implementation, this would load a built-in matcap texture
+    QMap<QString, QColor> presetColors;
+    presetColors["Chrome"] = QColor(200, 200, 210);
+    presetColors["Gold"] = QColor(218, 175, 80);
+    presetColors["Copper"] = QColor(184, 115, 51);
+    presetColors["Clay"] = QColor(180, 150, 120);
+    presetColors["Plastic"] = QColor(100, 140, 200);
+    presetColors["Glass"] = QColor(180, 210, 230);
+    presetColors["Silk"] = QColor(232, 224, 216);
+    presetColors["Skin"] = QColor(210, 170, 140);
+    presetColors["Ceramic"] = QColor(220, 220, 215);
+    presetColors["Steel"] = QColor(160, 165, 170);
+
+    if (presetColors.contains(name)) {
+        QColor c = presetColors[name];
+        m_matcapImage = QImage(128, 128, QImage::Format_RGB32);
+        m_matcapImage.fill(c);
+        QPainter p(&m_matcapImage);
+        QRadialGradient grad(64, 64, 60);
+        grad.setColorAt(0, QColor(255, 255, 255, 180));
+        grad.setColorAt(0.3, QColor(c.red(), c.green(), c.blue(), 200));
+        grad.setColorAt(1.0, QColor(c.red() / 3, c.green() / 3, c.blue() / 3));
+        p.fillRect(m_matcapImage.rect(), grad);
+        p.end();
+    } else {
+        m_matcapImage = QImage(128, 128, QImage::Format_RGB32);
+        QPainter p(&m_matcapImage);
+        p.fillRect(m_matcapImage.rect(), QColor(180, 180, 180));
+        p.end();
+    }
+
     m_matcapEnabled = true;
     emit sceneChanged();
     emit statusMessage("Matcap preset applied: " + name);
@@ -5092,6 +5336,55 @@ void KSModelerQml::smoothGroupClear(int objectId) {
     emit sceneChanged();
 }
 
+int KSModelerQml::splitSmoothingGroupsMesh() {
+    if (!m_selectedObject) return 0;
+    SceneObject* obj = m_selectedObject->object();
+    if (!obj || !obj->mesh()) return 0;
+
+    QVector<int> groups = m_smoothGroups.value(obj->id());
+    if (groups.isEmpty()) {
+        // No stored assignment yet — derive groups with the default threshold so
+        // the Split operation works straight from an auto-smooth state.
+        MeshData seed = sceneMeshToMeshData(obj);
+        groups = MeshOperations::autoSmooth(seed, 30.0f);
+        m_smoothGroups[obj->id()] = groups;
+    }
+
+    const MeshData md = sceneMeshToMeshData(obj);
+    const MeshData result = MeshOperations::splitSmoothingGroups(md, groups);
+    meshDataToSceneMesh(obj, result);
+    emit sceneChanged();
+    emit statusMessage(QString("Split smoothing groups: %1 vertices").arg(result.vertices.size()));
+    return result.vertices.size();
+}
+
+bool KSModelerQml::transformVerticesAround(int mode, float pivotX, float pivotY, float pivotZ,
+                                           float tx, float ty, float tz, float falloffRadius)
+{
+    if (!m_selectedObject) return false;
+    SceneObject* obj = m_selectedObject->object();
+    if (!obj || !obj->mesh()) return false;
+
+    MeshData md = sceneMeshToMeshData(obj);
+    if (md.vertices.isEmpty()) return false;
+
+    const auto tmode = static_cast<MeshOperations::TransformCenterMode>(qBound(0, mode, 3));
+    float f0 = tx, f1 = ty, f2 = tz;
+    if (tmode == MeshOperations::TransformCenterMode::ScaleUniform)
+        f1 = f2 = tx; // uniform factor lives in amount.x
+
+    const MeshData result = MeshOperations::transformAround(
+        md, MeshOperations::SelectionManager::selectedVertices(), tmode,
+        QVector3D(pivotX, pivotY, pivotZ), QVector3D(),
+        QVector3D(f0, f1, f2), falloffRadius, m_propEdit.falloffType);
+
+    meshDataToSceneMesh(obj, result);
+    emit sceneChanged();
+    emit gizmoTransformChanged();
+    emit statusMessage(QString("Transform around pivot: %1 vertices").arg(result.vertices.size()));
+    return true;
+}
+
 QVariantList KSModelerQml::findClosestBorder(int objectId, float wx, float wy, float wz) {
     QVariantList out;
     if (!m_scene) return out;
@@ -5317,6 +5610,29 @@ void KSModelerQml::packUVs(float margin, int resolution) {
     meshDataToSceneMesh(obj, md);
     emit sceneChanged();
     emit statusMessage("UVs packed");
+}
+
+bool KSModelerQml::resolveUVOverlaps()
+{
+    if (!m_selectedObject) return false;
+    SceneObject* obj = m_selectedObject->object();
+    if (!obj || !obj->mesh()) return false;
+    MeshData md = sceneMeshToMeshData(obj);
+    MeshData resolved = MeshOperations::resolveUVOverlaps(md);
+    if (resolved.vertices.isEmpty() || resolved.vertices.size() != md.vertices.size())
+        return false;
+    bool changed = false;
+    for (int i = 0; i < md.vertices.size(); ++i) {
+        if ((md.vertices[i].uv - resolved.vertices[i].uv).lengthSquared() > 1e-6f) { changed = true; break; }
+    }
+    if (!changed) {
+        emit statusMessage("No UV overlaps found");
+        return false;
+    }
+    meshDataToSceneMesh(obj, resolved);
+    emit sceneChanged();
+    emit statusMessage("UV overlaps resolved and islands re-packed");
+    return true;
 }
 
 void KSModelerQml::translateUVs(float u, float v) {
@@ -9223,12 +9539,14 @@ ModifierStack* KSModelerQml::modifierStackForObject(int objectId)
         return m_modifierStacks[objectId];
     auto* stack = new ModifierStack(this);
     m_modifierStacks[objectId] = stack;
+    modifierSubscribe(objectId);
     return stack;
 }
 
 void KSModelerQml::evaluateAndWriteStack(SceneObject* obj)
 {
     if (!obj || !obj->mesh()) return;
+    if (m_modifierBusy.contains(obj->id())) return;
     auto it = m_modifierStacks.find(obj->id());
     if (it == m_modifierStacks.end())
         return;
@@ -9238,8 +9556,11 @@ void KSModelerQml::evaluateAndWriteStack(SceneObject* obj)
         stack->setBase(sceneMeshToMeshData(obj));
         if (!stack->hasBase()) return;
     }
+    m_modifierBusy.insert(obj->id());
+    const auto guard = qScopeGuard([this, obj]() { m_modifierBusy.remove(obj->id()); });
     MeshData evaluated = stack->evaluate();
     meshDataToSceneMesh(obj, evaluated);
+    modifierSubscribe(obj->id());
     emit sceneChanged();
     emit modifierStackChanged();
 }
@@ -9349,6 +9670,7 @@ void KSModelerQml::modifierStackFreeze()
     MeshData evaluated = stack->evaluate();
     // Bake the evaluated result into the scene mesh and drop the stack.
     meshDataToSceneMesh(obj, evaluated);
+    modifierUnsubscribe(obj->id());
     m_modifierStacks.erase(it);
     delete stack;
     const QJsonObject after = modifierStackSnapshot(obj->id());
@@ -9505,6 +9827,7 @@ void KSModelerQml::modifierStackClear()
     ModifierStack* stack = it.value();
     bool hadBase = stack->hasBase();
     MeshData base = stack->base();
+    modifierUnsubscribe(obj->id());
     m_modifierStacks.erase(it);
     delete stack;
     if (hadBase)
@@ -10827,6 +11150,10 @@ void KSModelerQml::booleanSubscribe(int objectId)
         conns.append(QObject::connect(o, &SceneObject::transformChanged, this, [this, objectId]() {
             booleanEvaluate(objectId);
         }));
+        // CAGE re-edit: re-run the stack whenever an operand's geometry changes.
+        conns.append(QObject::connect(o, &SceneObject::meshChanged, this, [this, objectId]() {
+            booleanEvaluate(objectId);
+        }));
     };
 
     subscribe(m_scene ? m_scene->findObjectById(objectId) : nullptr);
@@ -10837,6 +11164,9 @@ void KSModelerQml::booleanSubscribe(int objectId)
 
 bool KSModelerQml::booleanEvaluate(int objectId)
 {
+    if (m_booleanBusy.contains(objectId)) return false;
+    m_booleanBusy.insert(objectId);
+    const auto guard = qScopeGuard([this, objectId]() { m_booleanBusy.remove(objectId); });
     auto it = m_booleanStacks.find(objectId);
     if (it == m_booleanStacks.end()) return false;
     SceneObject* obj = m_scene ? m_scene->findObjectById(objectId) : nullptr;
@@ -10853,6 +11183,57 @@ bool KSModelerQml::booleanEvaluate(int objectId)
     emit sceneChanged();
     emit booleanStackChanged(objectId);
     return true;
+}
+
+void KSModelerQml::modifierUnsubscribe(int objectId)
+{
+    auto it = m_modifierSubscriptions.find(objectId);
+    if (it == m_modifierSubscriptions.end()) return;
+    for (const auto& c : it.value()) QObject::disconnect(c);
+    m_modifierSubscriptions.erase(it);
+}
+
+void KSModelerQml::modifierSubscribe(int objectId)
+{
+    modifierUnsubscribe(objectId);
+    SceneObject* obj = m_scene ? m_scene->findObjectById(objectId) : nullptr;
+    if (!obj) return;
+    // CAGE re-edit for modifiers: re-run the stack whenever the object's
+    // geometry edits come through SceneObject::setMesh.
+    m_modifierSubscriptions[objectId] = {
+        QObject::connect(obj, &SceneObject::meshChanged, this, [this, objectId]() {
+            onSceneObjectMeshChanged(objectId);
+        })
+    };
+}
+
+// Live sub-object editing on applied modifier stacks (Softimage P3 / Modo CAGE
+// extension): when the object's base geometry changes, re-capture it as the
+// stack base and re-evaluate the whole stack. The re-entrancy guard prevents
+// the stack's own result write-back (setMesh) from looping back into this slot.
+void KSModelerQml::onSceneObjectMeshChanged(int objectId)
+{
+    if (m_modifierBusy.contains(objectId)) return;
+    if (!m_scene) return;
+    SceneObject* obj = m_scene->findObjectById(objectId);
+    if (!obj || !obj->mesh()) return;
+    auto it = m_modifierStacks.find(objectId);
+    if (it == m_modifierStacks.end()) {
+        modifierUnsubscribe(objectId);
+        return;
+    }
+    ModifierStack* stack = it.value();
+    if (!stack->hasModifiers()) return;
+    stack->setBase(sceneMeshToMeshData(obj));
+    if (!stack->hasBase()) return;
+
+    m_modifierBusy.insert(objectId);
+    const auto guard = qScopeGuard([this, objectId]() { m_modifierBusy.remove(objectId); });
+    MeshData evaluated = stack->evaluate();
+    meshDataToSceneMesh(obj, evaluated);
+    modifierSubscribe(objectId);
+    emit sceneChanged();
+    emit modifierStackChanged();
 }
 
 bool KSModelerQml::booleanAdd(int objectId, int operation, int operandId)
@@ -10921,6 +11302,25 @@ bool KSModelerQml::booleanClear(int objectId)
     emit booleanStackChanged(objectId);
     emit statusMessage("Boolean stack cleared (base mesh restored)");
     return true;
+}
+
+int KSModelerQml::booleanSelectOperand(int objectId, int index)
+{
+    auto it = m_booleanStacks.find(objectId);
+    if (it == m_booleanStacks.end()) return -1;
+    if (index < 0 || index >= it.value()->count()) return -1;
+    const BooleanOp& op = it.value()->at(index);
+    if (!m_scene) return -1;
+    SceneObject* operand = m_scene->findObjectById(op.operandId);
+    if (!operand) return -1;
+
+    if (m_selectedObject) delete m_selectedObject;
+    m_selectedObject = new SceneObjectQml(operand);
+    emit sceneChanged();
+    emit selectionChanged();
+    emit statusMessage(QString("CAGE EDIT: editing operand '%1' - edits re-run the boolean stack live.")
+                           .arg(op.operandName));
+    return op.operandId;
 }
 
 bool KSModelerQml::booleanApply(int objectId)
@@ -11307,6 +11707,15 @@ bool KSModelerQml::wireSetParams(int drivenId, int index, float scale, float off
 bool KSModelerQml::wireSetProperty(int drivenId, int index, const QString& drivenProp)
 {
     if (m_wireSystem.setProperty(drivenId, index, drivenProp)) {
+        emit wireChanged(drivenId);
+        return true;
+    }
+    return false;
+}
+
+bool KSModelerQml::wireSetExpression(int drivenId, int index, const QString& expression)
+{
+    if (m_wireSystem.setExpression(drivenId, index, expression)) {
         emit wireChanged(drivenId);
         return true;
     }

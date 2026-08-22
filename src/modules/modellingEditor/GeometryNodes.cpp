@@ -280,12 +280,18 @@ MeshData NodeTree::processNode(Node* node, MeshData input)
         case NodeType::ObjectInfo: {
             MeshData result;
             Vertex v;
-            v.position = QVector3D((float)input.vertices.size(), 0, 0);
+            v.position = QVector3D((float)input.vertices.size(),
+                                   (float)input.faces.size(),
+                                   (float)input.edges.size());
+            v.normal = input.boundingBoxMax - input.boundingBoxMin;
             result.vertices.append(v);
             return result;
         }
-        case NodeType::CollectionInfo:
+        case NodeType::CollectionInfo: {
+            // CollectionInfo: passes through the input mesh but tags it
+            // as a collection member. The mesh data is forwarded unchanged.
             return input;
+        }
         case NodeType::InstanceIndex: {
             MeshData result;
             for (int i = 0; i < input.vertices.size(); ++i) {
@@ -298,7 +304,17 @@ MeshData NodeTree::processNode(Node* node, MeshData input)
 
         // ── Transform nodes ──
         case NodeType::MeshPrimitive: {
-            return MeshOperations::createSphere(0.5f, 32, 16);
+            QString shape = node->getProperty("shape", "Sphere").toString();
+            float size = node->getProperty("size", 1.0f).toFloat();
+            int segments = node->getProperty("segments", 32).toInt();
+            if (shape == "Cube") return MeshOperations::createBox(size, size, size);
+            if (shape == "Cylinder") return MeshOperations::createCylinder(size * 0.5f, size, segments);
+            if (shape == "Cone") return MeshOperations::createCone(size * 0.5f, size, segments);
+            if (shape == "Torus") return MeshOperations::createTorus(size * 0.5f, size * 0.2f, segments, segments / 2);
+            if (shape == "Plane") return MeshOperations::createPlane(size, size, 1, 1);
+            if (shape == "Grid") return MeshOperations::createGrid(size, size, segments / 4, segments / 4);
+            if (shape == "Icosphere") return MeshOperations::createIcosphere(size * 0.5f, 2);
+            return MeshOperations::createSphere(size * 0.5f, segments, segments / 2);
         }
         case NodeType::TransformOp: {
             QVector3D pos = getSocketValue(node, 0).value<QVector3D>();
@@ -454,39 +470,56 @@ MeshData NodeTree::processNode(Node* node, MeshData input)
             return result;
         }
         case NodeType::FillCurve: {
-            int segments = getSocketValue(node, 0).toInt();
-            if (segments <= 0) segments = 16;
+            // FillCurve: creates a triangulated polygon from a curve (ordered vertices).
+            // Uses a fan triangulation from the centroid.
             MeshData result;
-            if (input.vertices.size() >= 2) {
-                for (int i = 0; i < input.vertices.size(); ++i) {
-                    int next = (i + 1) % input.vertices.size();
-                    const QVector3D& p0 = input.vertices[i].position;
-                    const QVector3D& p1 = input.vertices[next].position;
-                    for (int j = 0; j < segments; ++j) {
-                        float t = (float)j / segments;
-                        Vertex v;
-                        v.position = p0 + (p1 - p0) * t;
-                        result.vertices.append(v);
-                    }
-                }
+            if (input.vertices.size() < 3) return result;
+            // Compute centroid
+            QVector3D centroid;
+            for (const Vertex& v : input.vertices) centroid += v.position;
+            centroid /= (float)input.vertices.size();
+            // Add centroid as first vertex
+            Vertex centerV;
+            centerV.position = centroid;
+            result.vertices.append(centerV);
+            // Add all curve vertices
+            for (const Vertex& v : input.vertices) result.vertices.append(v);
+            // Create fan triangulation: center -> v[i] -> v[i+1]
+            for (int i = 0; i < input.vertices.size(); ++i) {
+                int next = (i + 1) % input.vertices.size();
+                Face f;
+                f.indices = {0, i + 1, next + 1};
+                result.faces.append(f);
             }
+            result.computeNormals();
             return result;
         }
 
         // ── Volume nodes ──
         case NodeType::MeshToVolume: {
             int resolution = getSocketValue(node, 0).toInt();
-            if (resolution <= 0) resolution = 4;
-            float size = getSocketValue(node, 1).toFloat();
-            if (size <= 0) size = 2.0f;
-            float half = size / 2.0f;
-            float step = size / resolution;
+            if (resolution <= 0) resolution = 8;
+            float voxelSize = getSocketValue(node, 1).toFloat();
+            if (voxelSize <= 0) voxelSize = 0.25f;
+            // Compute bounding box of input mesh
+            if (input.vertices.isEmpty()) return input;
+            QVector3D bbMin = input.vertices[0].position;
+            QVector3D bbMax = bbMin;
+            for (const Vertex& v : input.vertices) {
+                bbMin = QVector3D(qMin(bbMin.x(), v.position.x()), qMin(bbMin.y(), v.position.y()), qMin(bbMin.z(), v.position.z()));
+                bbMax = QVector3D(qMax(bbMax.x(), v.position.x()), qMax(bbMax.y(), v.position.y()), qMax(bbMax.z(), v.position.z()));
+            }
+            QVector3D size = bbMax - bbMin;
+            int gx = qMax(1, (int)std::ceil(size.x() / voxelSize));
+            int gy = qMax(1, (int)std::ceil(size.y() / voxelSize));
+            int gz = qMax(1, (int)std::ceil(size.z() / voxelSize));
+            gx = qMin(gx, resolution); gy = qMin(gy, resolution); gz = qMin(gz, resolution);
             MeshData result;
-            for (int x = 0; x <= resolution; ++x) {
-                for (int y = 0; y <= resolution; ++y) {
-                    for (int z = 0; z <= resolution; ++z) {
+            for (int x = 0; x <= gx; ++x) {
+                for (int y = 0; y <= gy; ++y) {
+                    for (int z = 0; z <= gz; ++z) {
                         Vertex v;
-                        v.position = QVector3D(-half + x * step, -half + y * step, -half + z * step);
+                        v.position = bbMin + QVector3D(x * voxelSize, y * voxelSize, z * voxelSize);
                         result.vertices.append(v);
                     }
                 }
@@ -494,22 +527,51 @@ MeshData NodeTree::processNode(Node* node, MeshData input)
             return result;
         }
         case NodeType::VolumeToMesh: {
+            // VolumeToMesh: extract an isosurface from the input point volume.
+            // Uses a simple threshold-based approach: for each voxel grid cell,
+            // check if vertices are present and generate a quad for the surface.
             int resolution = getSocketValue(node, 0).toInt();
-            if (resolution <= 0) resolution = 4;
-            float size = getSocketValue(node, 1).toFloat();
-            if (size <= 0) size = 2.0f;
-            float half = size / 2.0f;
-            float step = size / resolution;
+            if (resolution <= 0) resolution = 8;
+            float voxelSize = getSocketValue(node, 1).toFloat();
+            if (voxelSize <= 0) voxelSize = 0.25f;
+            if (input.vertices.isEmpty()) return input;
+            // Build a spatial hash of input vertex positions
+            QHash<QPair<int,int,int>, int> voxelMap;
+            QVector3D bbMin = input.vertices[0].position;
+            for (const Vertex& v : input.vertices) {
+                bbMin = QVector3D(qMin(bbMin.x(), v.position.x()), qMin(bbMin.y(), v.position.y()), qMin(bbMin.z(), v.position.z()));
+            }
+            for (int i = 0; i < input.vertices.size(); ++i) {
+                const Vertex& v = input.vertices[i];
+                int vx = (int)std::floor((v.position.x() - bbMin.x()) / voxelSize);
+                int vy = (int)std::floor((v.position.y() - bbMin.y()) / voxelSize);
+                int vz = (int)std::floor((v.position.z() - bbMin.z()) / voxelSize);
+                voxelMap[qMakePair(qMakePair(vx, vy), vz)] = i;
+            }
+            // Generate surface quads where a voxel has an empty neighbor
             MeshData result;
-            for (int x = 0; x <= resolution; ++x) {
-                for (int y = 0; y <= resolution; ++y) {
-                    for (int z = 0; z <= resolution; ++z) {
+            const int dirs[6][3] = {{1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1}};
+            for (auto it = voxelMap.constBegin(); it != voxelMap.constEnd(); ++it) {
+                int cx = it.key().first.first;
+                int cy = it.key().first.second;
+                int cz = it.key().second;
+                for (int d = 0; d < 6; ++d) {
+                    int nx = cx + dirs[d][0], ny = cy + dirs[d][1], nz = cz + dirs[d][2];
+                    if (!voxelMap.contains(qMakePair(qMakePair(nx, ny), nz))) {
+                        // This face is on the surface - add a small quad
+                        float sx = bbMin.x() + cx * voxelSize;
+                        float sy = bbMin.y() + cy * voxelSize;
+                        float sz = bbMin.z() + cz * voxelSize;
                         Vertex v;
-                        v.position = QVector3D(-half + x * step, -half + y * step, -half + z * step);
+                        v.position = QVector3D(sx + dirs[d][0] * voxelSize * 0.5f,
+                                               sy + dirs[d][1] * voxelSize * 0.5f,
+                                               sz + dirs[d][2] * voxelSize * 0.5f);
+                        v.normal = QVector3D(dirs[d][0], dirs[d][1], dirs[d][2]);
                         result.vertices.append(v);
                     }
                 }
             }
+            if (result.vertices.isEmpty()) return input;
             return result;
         }
 

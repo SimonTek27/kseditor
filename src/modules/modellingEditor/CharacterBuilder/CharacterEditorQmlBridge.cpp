@@ -91,6 +91,10 @@ void CharacterEditorQmlBridge::normalizeWeights() {
     m_editor->normalizeWeights();
 }
 
+void CharacterEditorQmlBridge::mirrorWeights(int axis) {
+    m_editor->mirrorWeights(axis, 0.01f);
+}
+
 void CharacterEditorQmlBridge::bindToMesh(const QString& meshId) {
     m_editor->bindToMesh(meshId);
 }

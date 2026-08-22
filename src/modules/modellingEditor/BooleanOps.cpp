@@ -472,4 +472,34 @@ bool BooleanOperations::canPerform() {
 #endif
 }
 
+GeoMeshData BooleanOperations::bevelOperation(const GeoMeshData& mesh, float bevelAmount, int bevelSegments) {
+    GeoMeshData result = mesh;
+    if (result.vertices.empty() || bevelAmount <= 0.0f) return result;
+    
+    // Simple bevel implementation: extrude and connect new edges
+    // This is a placeholder - full implementation would use CGAL or custom mesh operations
+    float segmentSize = bevelAmount / bevelSegments;
+    
+    // For now, return the original mesh - full CGAL-based bevel would require
+    // CGAL integration which is conditionally compiled
+    return result;
+}
+
+GeoMeshData BooleanOperations::bridgeOperation(const GeoMeshData& meshA, const GeoMeshData& meshB, float bridgeAmount, int bridgeSegments) {
+    GeoMeshData result = meshA;
+    if (meshA.vertices.empty() || meshB.vertices.empty() || bridgeAmount <= 0.0f) return result;
+    
+    // Simple bridge implementation: would connect two meshes with intermediate geometry
+    // This is a placeholder - full implementation would use CGAL or custom mesh operations
+    return result;
+}
+
+const char* BooleanOperations::bevelName(float amount, int segments) {
+    return QString("Bevel %1 segments %2").arg(amount, 0, 'f', 2).arg(segments).toLocal8Bit().constData();
+}
+
+const char* BooleanOperations::bridgeName(float amount, int segments) {
+    return QString("Bridge %1 segments %2").arg(amount, 0, 'f', 2).arg(segments).toLocal8Bit().constData();
+}
+
 } // namespace ks::geometry

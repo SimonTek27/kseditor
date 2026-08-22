@@ -2,6 +2,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QCoreApplication>
+#include <QGuiApplication>
 #include <QSettings>
 #include <QSet>
 
@@ -53,7 +54,7 @@ void AssetListModel::scanAssets() {
     };
 
     QSettings s;
-    QString acContent = s.value("contentPath", "").toString();
+    QString acContent = s.value(QGuiApplication::organizationName() + "/contentPath", "").toString();
     if (!acContent.isEmpty() && QDir(acContent).exists()) {
         dirs << acContent + "/cars";
         dirs << acContent + "/tracks";

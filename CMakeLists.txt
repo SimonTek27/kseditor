@@ -284,6 +284,11 @@ list(REMOVE_ITEM ALL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/modules/fontEditor/fonteditor_main.cpp
 )
 
+# Exclude 3D print module (has C++17 compatibility issues with current MSVC version)
+list(REMOVE_ITEM ALL_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core/3dprint
+)
+
 # VR module re-enabled: OpenXR headers now compatible with MSVC 2026
 
 # Re-add plugin sources that were excluded by PLUGIN_SOURCES_EXCLUDE but needed in the library

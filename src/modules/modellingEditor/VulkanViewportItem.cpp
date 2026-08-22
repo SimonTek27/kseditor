@@ -185,6 +185,13 @@ void VulkanViewportItem::wheelEvent(QWheelEvent* event) {
     event->accept();
 }
 
+void VulkanViewportItem::tabletEvent(QTabletEvent* event)
+{
+    Q_UNUSED(event);
+    // TODO: Implement tablet pressure support for sculpting
+    // This will route tablet events to the sculpting system
+}
+
 void VulkanViewportItem::hoverMoveEvent(QHoverEvent* event) {
     Q_UNUSED(event);
     setCursor(Qt::CrossCursor);

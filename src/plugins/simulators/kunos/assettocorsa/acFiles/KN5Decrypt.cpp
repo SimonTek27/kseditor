@@ -340,8 +340,27 @@ bool KN5Decrypt::decryptTextures(const QByteArray& encryptedTextures, QVector<QB
         decrypted[i] = (char)val;
     }
 
-    // Split into individual textures (simplified)
-    textures.append(decrypted);
+    // Split into individual textures by DDS magic
+    int pos = 0;
+    const QByteArray ddsMagic("DDS ", 4);
+    while (pos < decrypted.size() - 4) {
+        int found = decrypted.indexOf(ddsMagic, pos);
+        if (found < 0) break;
+
+        int nextFound = decrypted.indexOf(ddsMagic, found + 4);
+        int endPos = (nextFound > 0) ? nextFound : decrypted.size();
+
+        QByteArray texture = decrypted.mid(found, endPos - found);
+        if (texture.size() > 128) {
+            textures.append(texture);
+        }
+        pos = endPos;
+    }
+
+    if (textures.isEmpty() && !decrypted.isEmpty()) {
+        textures.append(decrypted);
+    }
+
     return true;
 }
 

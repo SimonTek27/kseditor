@@ -928,8 +928,33 @@ QImage LicensePlateGenerator::addNoise(const QImage& image, float intensity) con
 }
 
 QImage LicensePlateGenerator::applyPerspective(const QImage& image, float angle) const {
-    // Simple perspective transform - would use QTransform in real implementation
-    return image;
+    if (image.isNull()) return image;
+
+    float rad = angle * M_PI / 180.0f;
+    float cosA = std::cos(rad);
+    float sinA = std::sin(rad);
+
+    int w = image.width();
+    int h = image.height();
+
+    QPointF topLeft(0, 0);
+    QPointF topRight(w, 0);
+    QPointF bottomLeft(0, h);
+    QPointF bottomRight(w, h);
+
+    float skewX = h * sinA * 0.3f;
+    float scaleY = 1.0f - std::abs(sinA) * 0.15f;
+
+    QPolygonF src, dst;
+    src << QPointF(0, 0) << QPointF(w, 0) << QPointF(w, h) << QPointF(0, h);
+    dst << QPointF(skewX, 0) << QPointF(w + skewX * 0.5f, 0)
+        << QPointF(w - skewX * 0.5f, h * scaleY) << QPointF(-skewX, h * scaleY);
+
+    QTransform transform;
+    QTransform::quadToQuad(src, dst, transform);
+    if (transform.isIdentity()) return image;
+
+    return image.transformed(transform, Qt::SmoothTransformation);
 }
 
 QString LicensePlateGenerator::formatWithSeparators(const QString& text, const QString& separator, int groupSize) {

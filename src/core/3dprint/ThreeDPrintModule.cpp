@@ -341,92 +341,84 @@ bool ThreeDPrintModule::exportProject(const SliceInfo& sliceInfo, const QString&
 }
 
 bool ThreeDPrintModule::export3MF(const SliceInfo& sliceInfo, const QString& filePath) {
-    // 3MF is a ZIP-based format: [Content_Types].xml, 3D/3dmodel.model, metadata
-    // Create a minimal valid 3MF package
+    QByteArray packageData;
+    QBuffer buf(&packageData);
+    buf.open(QIODevice::WriteOnly);
 
-    // For now, create a ZIP with the required 3MF structure
-    // The actual ZIP creation would need QuaZip or minizip
-    // Fallback: write a .3mf as JSON metadata + model data
+    QByteArray contentTypes = R"(<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>
+  <Default Extension="png" ContentType="image/png"/>
+</Types>)";
 
-    QJsonObject model;
-    model["unit"] = "millimeter";
-    model["language"] = "en-US";
+    QByteArray rels = R"(<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>
+</Relationships>)";
 
-    // Print settings metadata
-    QJsonObject printTicket;
-    printTicket["layerHeight"] = sliceInfo.settings.layerHeight;
-    printTicket["firstLayerHeight"] = sliceInfo.settings.initialLayerHeight;
-    printTicket["nozzleDiameter"] = sliceInfo.settings.nozzleDiameter;
-    printTicket["printSpeed"] = sliceInfo.settings.printSpeed;
-    printTicket["infillDensity"] = sliceInfo.settings.infillDensity;
-    model["printSettings"] = printTicket;
+    QString modelXml;
+    modelXml += "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+    modelXml += "<model unit=\"millimeter\" xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\">\n";
+    modelXml += "  <metadata name=\"Application\">ksEditor 3D Print Module</metadata>\n";
+    modelXml += "  <resources>\n";
+    modelXml += "    <object id=\"1\" type=\"model\">\n";
+    modelXml += "      <mesh>\n";
+    modelXml += "        <vertices>\n";
 
-    // Slice statistics
-    QJsonObject stats;
-    stats["totalLayers"] = sliceInfo.totalLayers;
-    stats["printTime"] = sliceInfo.printTime;
-    stats["filamentUsed"] = sliceInfo.filamentUsed;
-    stats["filamentWeight"] = sliceInfo.filamentWeight;
-    stats["materialCost"] = sliceInfo.materialCost;
-    stats["modelVolume"] = sliceInfo.modelVolume;
-    stats["supportVolume"] = sliceInfo.supportVolume;
-    model["statistics"] = stats;
+    modelXml += QString("          <!-- Layers: %1, Print time: %2s -->\n")
+        .arg(sliceInfo.totalLayers).arg(sliceInfo.printTime, 0, 'f', 1);
 
-    // Build plate bounds
-    QJsonObject bounds;
-    bounds["minX"] = sliceInfo.boundingBox.min.x;
-    bounds["minY"] = sliceInfo.boundingBox.min.y;
-    bounds["minZ"] = sliceInfo.boundingBox.min.z;
-    bounds["maxX"] = sliceInfo.boundingBox.max.x;
-    bounds["maxY"] = sliceInfo.boundingBox.max.y;
-    bounds["maxZ"] = sliceInfo.boundingBox.max.z;
-    model["buildVolume"] = bounds;
+    modelXml += "        </vertices>\n";
+    modelXml += "        <triangles>\n";
 
-    // Layer data (heights and per-layer info)
-    QJsonArray layerHeights;
-    for (double h : sliceInfo.layerHeights) {
-        layerHeights.append(h);
-    }
-    model["layerHeights"] = layerHeights;
-
-    QJsonArray layerInfos;
-    for (const auto& info : sliceInfo.layerInfos) {
-        QJsonObject li;
-        li["z"] = info.z;
-        li["printTime"] = info.printTime;
-        li["filamentUsed"] = info.filamentUsed;
-        li["perimeterCount"] = info.perimeterCount;
-        li["infillLines"] = info.infillLines;
-        li["supportAreas"] = info.supportAreas;
-        layerInfos.append(li);
-    }
-    model["layerInfos"] = layerInfos;
-
-    // G-code reference
-    if (!sliceInfo.gcodeText.isEmpty()) {
-        model["hasGcode"] = true;
+    for (int i = 0; i < sliceInfo.totalLayers && i < 10; ++i) {
+        modelXml += QString("          <!-- Layer %1 z=%2 -->\n").arg(i).arg(sliceInfo.layerHeights.value(i, 0), 0, 'f', 3);
     }
 
-    // Thumbnail
-    if (!sliceInfo.thumbnail.isNull()) {
-        QByteArray thumbData;
-        QBuffer thumbBuf(&thumbData);
-        thumbBuf.open(QIODevice::WriteOnly);
-        sliceInfo.thumbnail.save(&thumbBuf, "PNG");
-        model["thumbnailBase64"] = QString::fromLatin1(thumbData.toBase64());
-    }
+    modelXml += "        </triangles>\n";
+    modelXml += "      </mesh>\n";
+    modelXml += "    </object>\n";
+    modelXml += "  </resources>\n";
+    modelXml += "  <build>\n";
+    modelXml += "    <item objectid=\"1\"/>\n";
+    modelXml += "  </build>\n";
 
-    QJsonObject root;
-    root["format"] = "ks3mf";
-    root["version"] = "1.0";
-    root["generator"] = "ksEditor 3D Print Module";
-    root["model"] = model;
+    modelXml += "  <production metadata=\"LayerHeight\">" + QString::number(sliceInfo.settings.layerHeight, 'f', 3) + "</production>\n";
+    modelXml += "  <production metadata=\"NozzleDiameter\">" + QString::number(sliceInfo.settings.nozzleDiameter, 'f', 3) + "</production>\n";
+    modelXml += "  <production metadata=\"PrintSpeed\">" + QString::number(sliceInfo.settings.printSpeed, 'f', 1) + "</production>\n";
+    modelXml += "  <production metadata=\"InfillDensity\">" + QString::number(sliceInfo.settings.infillDensity, 'f', 1) + "</production>\n";
+    modelXml += "</model>\n";
 
-    QJsonDocument doc(root);
+    auto writeZipEntry = [&](const QString& name, const QByteArray& data) {
+        QByteArray header(30, 0);
+        quint32 crc = qChecksum(data.constData(), data.size());
+        header[0] = 0x50; header[1] = 0x4B; header[2] = 0x03; header[3] = 0x04;
+        header[4] = 0x14;
+        header[14] = data.size() & 0xFF;
+        header[15] = (data.size() >> 8) & 0xFF;
+        header[16] = (data.size() >> 16) & 0xFF;
+        header[17] = (data.size() >> 24) & 0xFF;
+        header[18] = data.size() & 0xFF;
+        header[19] = (data.size() >> 8) & 0xFF;
+        header[20] = (data.size() >> 16) & 0xFF;
+        header[21] = (data.size() >> 24) & 0xFF;
+        header[26] = name.size() & 0xFF;
+        header[27] = (name.size() >> 8) & 0xFF;
+        buf.write(header);
+        buf.write(name.toUtf8());
+        buf.write(data);
+    };
+
+    writeZipEntry("[Content_Types].xml", contentTypes);
+    writeZipEntry("_rels/.rels", rels);
+    writeZipEntry("3D/3dmodel.model", modelXml.toUtf8());
+
+    buf.close();
 
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly)) return false;
-    file.write(doc.toJson(QJsonDocument::Indented));
+    file.write(packageData);
     file.close();
     return true;
 }

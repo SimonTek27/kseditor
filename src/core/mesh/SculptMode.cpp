@@ -51,14 +51,14 @@ void SculptMode::beginStroke(const QVector3D& point)
     emit strokeStarted();
 }
 
-void SculptMode::addPoint(const QVector3D& point, const QVector3D& normal)
+void SculptMode::addPoint(const QVector3D& point, const QVector3D& normal, float pressure)
 {
     if (!m_isStroking || m_vertices.isEmpty()) return;
 
     StrokePoint sp;
     sp.position = point;
     sp.normal = normal;
-    sp.pressure = 1.0f;
+    sp.pressure = pressure;
     m_currentStroke.append(sp);
 
     int centerIdx = findNearestVertex(point);
@@ -80,6 +80,65 @@ void SculptMode::addPoint(const QVector3D& point, const QVector3D& normal)
     }
 
     emit strokeUpdated();
+}
+
+void SculptMode::quadDrawSplitEdge(int edgeIndex)
+{
+    if (edgeIndex < 0 || edgeIndex >= m_faces.size()) return;
+
+    int v1 = m_faces[edgeIndex];
+    int v2 = m_faces[(edgeIndex + 1) % m_faces.size()];
+
+    if (v1 >= m_vertices.size() || v2 >= m_vertices.size()) return;
+
+    if (m_retopoMode) {
+        // Retopo-aware: split edge and preserve mask tags
+        QVector3D midPos = (m_vertices[v1].position + m_vertices[v2].position) * 0.5f;
+        Vertex newVert;
+        newVert.position = midPos;
+        newVert.normal = (m_vertices[v1].normal + m_vertices[v2].normal).normalized();
+        newVert.mask = (m_vertices[v1].mask + m_vertices[v2].mask) * 0.5f;
+        int newIdx = m_vertices.size();
+        m_vertices.append(newVert);
+
+        // Replace the edge in all faces containing it
+        for (int fi = 0; fi + 2 < m_faces.size(); fi += 3) {
+            int faceVerts[3] = {m_faces[fi], m_faces[fi+1], m_faces[fi+2]};
+            for (int e = 0; e < 3; ++e) {
+                int ev0 = faceVerts[e];
+                int ev1 = faceVerts[(e+1)%3];
+                if ((ev0 == v1 && ev1 == v2) || (ev0 == v2 && ev1 == v1)) {
+                    int opp = faceVerts[(e+2)%3];
+                    m_faces[fi] = v1; m_faces[fi+1] = newIdx; m_faces[fi+2] = opp;
+                    m_faces.append(newIdx); m_faces.append(v2); m_faces.append(opp);
+                    break;
+                }
+            }
+        }
+    } else {
+        // Standard edge split: insert midpoint vertex
+        QVector3D midPos = (m_vertices[v1].position + m_vertices[v2].position) * 0.5f;
+        Vertex newVert;
+        newVert.position = midPos;
+        newVert.normal = (m_vertices[v1].normal + m_vertices[v2].normal).normalized();
+        int newIdx = m_vertices.size();
+        m_vertices.append(newVert);
+
+        // Find and split faces containing this edge
+        for (int fi = 0; fi + 2 < m_mesh->faces.size(); fi += 3) {
+            int faceVerts[3] = {m_mesh->faces[fi], m_mesh->faces[fi+1], m_mesh->faces[fi+2]};
+            for (int e = 0; e < 3; ++e) {
+                int ev0 = faceVerts[e];
+                int ev1 = faceVerts[(e+1)%3];
+                if ((ev0 == v1 && ev1 == v2) || (ev0 == v2 && ev1 == v1)) {
+                    int opp = faceVerts[(e+2)%3];
+                    m_mesh->faces[fi] = v1; m_mesh->faces[fi+1] = newIdx; m_mesh->faces[fi+2] = opp;
+                    m_mesh->faces.append(newIdx); m_mesh->faces.append(v2); m_mesh->faces.append(opp);
+                    break;
+                }
+            }
+        }
+    }
 }
 
 void SculptMode::endStroke()

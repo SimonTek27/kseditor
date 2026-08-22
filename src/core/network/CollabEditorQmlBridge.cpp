@@ -145,9 +145,30 @@ QVariantList CollabEditorQmlBridge::getConflicts() const {
     QVariantList conflicts;
     if (!m_client || !m_client->isConnected()) return conflicts;
 
-    // Check for pending changes that may conflict
-    // In a real implementation, this would compare local vs server state
-    // For now, return empty list (no conflicts detected)
+    auto pendingChanges = m_client->getChanges(m_documentId, m_lastSyncedVersion);
+    auto serverChanges = m_client->getChanges(m_documentId, 0);
+
+    QSet<QString> localOps;
+    for (const auto& ch : pendingChanges) {
+        localOps.insert(ch.userId + ":" + ch.type);
+    }
+
+    QSet<QString> remoteOps;
+    for (const auto& ch : serverChanges) {
+        remoteOps.insert(ch.userId + ":" + ch.type);
+    }
+
+    QSet<QString> overlap = localOps.intersect(remoteOps);
+    for (const auto& key : overlap) {
+        QVariantMap conflict;
+        conflict["type"] = key.split(":").last();
+        conflict["user"] = key.split(":").first();
+        conflict["description"] = "Concurrent modification detected";
+        conflict["documentId"] = m_documentId;
+        conflict["timestamp"] = QDateTime::currentDateTime().toString("hh:mm:ss");
+        conflicts.append(conflict);
+    }
+
     return conflicts;
 }
 

@@ -205,6 +205,8 @@ public:
 signals:
     void toolChanged(ToolType type);
     void settingsChanged();
+    void uvUnwrapRequested(const QString& methodInfo);
+    void uvPackChartsRequested(float margin, bool shareUV);
 
 private slots:
     void onToolSelected(int toolIndex);
