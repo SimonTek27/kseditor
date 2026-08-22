@@ -50,7 +50,7 @@
 #include "core/AIEditor/AIEditorQmlBridge.h"
 #include "core/tools/FormatToolsQmlBridge.h"
 #include "core/modmanager/ModManagerQmlBridge.h"
-#include "core/ppfiltersEditor/PPFiltersQmlBridge.h"
+#include "core/editor/ppfiltersEditor/PPFiltersQmlBridge.h"
 #include "core/3dprint/ThreeDPrintQmlBridge.h"
 #include "core/Audio/KsACSndEventBridge.h"
 #include "core/FfbEditor/FfbEditorQmlBridge.h"

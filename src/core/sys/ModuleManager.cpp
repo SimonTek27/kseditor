@@ -40,7 +40,7 @@
 #include "../../modules/fontEditor/FontCreatorQmlBridge.h"
 #include "../../modules/fontEditor/FontCreatorEditorModule.h"
 #include "../../modules/displayEditor/CockpitInstrumentsModule.h"
-#include "../../core/ppfiltersEditor/PPFiltersQmlBridge.h"
+#include "../../core/editor/ppfiltersEditor/PPFiltersQmlBridge.h"
 #include "../../core/ServerConfigEditor/ServerConfigEditorModule.h"
 #include "../../core/vcs/VcsEditorModule.h"
 #include "../../core/archive/ArchiveEditorModule.h"

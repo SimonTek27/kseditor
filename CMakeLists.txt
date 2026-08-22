@@ -355,8 +355,8 @@ target_include_directories(kseditor_lib PRIVATE
     ${PROJECT_SOURCE_DIR}/src/plugins/simulators/kunos
     ${PROJECT_SOURCE_DIR}/resources/ui
     ${PROJECT_SOURCE_DIR}/src/core/3dprint
-    ${PROJECT_SOURCE_DIR}/src/core/eventEditor
-    ${PROJECT_SOURCE_DIR}/src/core/ServerConfigEditor
+    ${PROJECT_SOURCE_DIR}/src/core/editor/eventEditor
+    ${PROJECT_SOURCE_DIR}/src/core/editor/ServerConfigEditor
     "${Qt6Core_DIR}/../../../include/QtCore/${Qt6Core_VERSION}"
     "${Qt6Core_DIR}/../../../include/QtCore/${Qt6Core_VERSION}/QtCore/private"
 )
