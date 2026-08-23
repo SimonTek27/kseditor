@@ -102,6 +102,22 @@ public:
     bool alignVectors(const QVector<int>& ids,int t){ bool r=m_vectorDoc->alignObjects(ids,t); if(r) emit documentChanged(); return r; }
     bool distributeVectors(const QVector<int>& ids,int dir,double gap){ bool r=m_vectorDoc->distributeObjects(ids,dir,gap); if(r) emit documentChanged(); return r; }
     QPainterPath traceBitmap(const QImage& img,double thr=128){ auto p=m_vectorDoc->traceBitmap(img,thr); VectorObject o; o.type=VectorObjectType::Path; o.path=p; o.id=QString("trace%1").arg(m_vectorDoc->objectCount()); m_vectorDoc->addObject(o); emit documentChanged(); return p; }
+    QString createMeshGradient(int idx,const QVector<VectorMeshPatch>& pa){ return m_vectorDoc->createMeshGradient(idx,pa); }
+    QString createVectorFilter(const QString& id,const QVector<VectorFilterPrimitive>& pr){ return m_vectorDoc->createFilter(id,pr); }
+    bool applyVectorFilter(int idx,const QString& fid){ bool r=m_vectorDoc->applyFilterToObject(idx,fid); if(r) emit documentChanged(); return r; }
+    QStringList vectorFilterIds() const { return m_vectorDoc->filterIds(); }
+    QString addVectorExtension(const VectorExtension& e){ return m_vectorDoc->addExtension(e); }
+    bool runVectorExtension(const QString& id){ bool r=m_vectorDoc->runExtension(id); if(r) emit documentChanged(); return r; }
+    QStringList vectorExtensionIds() const { return m_vectorDoc->extensionIds(); }
+    QString vectorCmsProfile() const { return m_vectorDoc->cmsProfile(); }
+    void setVectorCmsProfile(const QString& p){ m_vectorDoc->setCmsProfile(p); emit documentChanged(); }
+    bool addVectorSwatch(const VectorSwatch& s){ bool r=m_vectorDoc->addSwatch(s); if(r) emit documentChanged(); return r; }
+    QStringList vectorSwatches() const { return m_vectorDoc->swatches(); }
+    bool vectorBatchExport(const QString& d,const QString& f="png") const { return m_vectorDoc->batchExport(d,f); }
+    QString vectorCommandLineExport(const QString& in,const QString& out) const { return m_vectorDoc->commandLineExport(in,out); }
+    QStringList vectorTemplates() const { return m_vectorDoc->documentTemplates(); }
+    bool saveVectorTemplate(const QString& n){ return m_vectorDoc->saveAsTemplate(n); }
+    bool loadVectorTemplate(const QString& n){ bool r=m_vectorDoc->loadTemplate(n); if(r) emit documentChanged(); return r; }
 
     // Undo / Redo
     bool canUndo() const { return !m_undoStack.isEmpty(); }
