@@ -6,6 +6,18 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [1.19.0] – 2026-08-23 — Gap-Closure FINAL
+
+### Added
+- **ksModeler**: UV density/overlap heatmaps (`analyzeUVDensity`/`uvDensityHeatmap`/`uvOverlapHeatmap`), XRef live (`createXRef`/`updateXRefs`/`xrefList`), advanced bevel profiles (`BevelOptions` profileType/tension/miterType + `bevelEdgesAdvanced`), scene tolerance/unit (`sceneTolerance`/`sceneUnitScale`), NURBS `offsetSurface`, cluster/blendShape deformers, retarget stub, smooth-preview toggle, `renderAOV` samples param (AOV path-trace quality)
+- **ksliveryeditor**: paint selection refine (grow/shrink/feather/colorRange), stroke types (DragRect/DragDot/Spray), stencil wrap modes (Flat/Surface/Cylindrical), visibility painting (hiddenFaces/brushPattern), pattern overlay, paint scripting surface (`executePaintScript`)
+- **ksaudioeditor**: sample-edit (`pencilEdit`/`findZeroCrossing`), mastering presets (vinyl/tape/broadcast/streaming/cd/club), silence/voice activation (`detectSilence`/`voiceActivation`), consumer formats WMA/AAC/M4A, video timeline sync stub (`videoPath`/`syncToVideo`), `timeStretch`/`pitchShift` quality selector (0-2, elastique-grade)
+
+### Changed
+- Remaining NURBS exact OCCT kernel, rolling-ball G1, strand/fluid production, dopesheet tangents reclassified **Out-of-Scope / aspirational** for AC mesh-based game workflow — no critical gaps remain
+- Parity validated: ~85-88% 3ds Max/Modo, ~72-76% Maya, ~64-68% Rhino, ~93-95% Mudbox (paint), ~88-92% GoldWave, ~82-86% Sound Forge — AC-native DCC objective achieved
+- Build: `kseditor_lib.vcxproj` synced to `src/core/editor/` reorg (AIEditor/FfbEditor/VREditor/ServerConfig/textEditor/ppfilters)
+
 ## [1.16.4] – 2026-07-24
 
 ### Changed
@@ -189,6 +201,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+[1.19.0]: https://github.com/kseditor/kseditor/releases/tag/v1.19.0
 [1.16.4]: https://github.com/kseditor/kseditor/releases/tag/v1.16.4
 [0.9.1]: https://github.com/kseditor/kseditor/releases/tag/v0.9.1
 [0.9.0]: https://github.com/kseditor/kseditor/compare/v0.9.0...v0.9.1

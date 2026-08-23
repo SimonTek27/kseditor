@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(kseditor
-    VERSION 1.16.4
+    VERSION 1.19.0
     LANGUAGES C CXX
 )
 
