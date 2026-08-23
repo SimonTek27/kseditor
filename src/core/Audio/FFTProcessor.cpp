@@ -278,42 +278,99 @@ QVector<float> FFTProcessor::generateNoiseProfile(const QVector<float> &noiseSam
 }
 
 QVector<float> FFTProcessor::spectralSubtraction(const QVector<float> &samples,
-                                                  const QVector<float> &noiseProfile)
+                                                  const QVector<float> &noiseProfile, float reductionDb, float smoothing)
 {
+    float reductionLin = qPow(10.0f, reductionDb / 20.0f);
+    float alpha = qBound(0.0f, smoothing, 0.95f);
     QVector<float> windowed = applyWindow(samples);
     QVector<QComplex> fftData;
     fftReal(windowed, fftData);
-
     QVector<float> result(samples.size());
-
+    static QVector<float> prevGain;
+    if (prevGain.size() != m_fftSize/2) prevGain.fill(1.0f, m_fftSize/2);
     for (int i = 0; i < m_fftSize / 2; ++i) {
-        float mag = sqrt(fftData[i].real() * fftData[i].real()
-                        + fftData[i].imag() * fftData[i].imag());
-
+        float mag = sqrt(fftData[i].real() * fftData[i].real() + fftData[i].imag() * fftData[i].imag());
         float noiseMag = 0.0f;
-        if (i < noiseProfile.size()) {
-            noiseMag = sqrt(noiseProfile[i]) * 2.0f;
-        }
-
-        float subtracted = mag - noiseMag;
-        if (subtracted < 0) subtracted = 0;
-
+        if (i < noiseProfile.size()) noiseMag = sqrt(noiseProfile[i]) * 2.0f * reductionLin;
+        float targetGain = mag > 1e-10f ? qMax(0.0f, (mag - noiseMag) / mag) : 0.0f;
+        float g = alpha * prevGain[i] + (1.0f - alpha) * targetGain;
+        prevGain[i] = g;
+        float newMag = mag * g;
         float phase = qAtan2(fftData[i].imag(), fftData[i].real());
-        fftData[i] = QComplex(subtracted * qCos(phase), subtracted * qSin(phase));
+        fftData[i] = QComplex(newMag * qCos(phase), newMag * qSin(phase));
+        if (i > 0) fftData[m_fftSize - i] = QComplex(newMag * qCos(-phase), newMag * qSin(-phase));
+    }
+    ifft(fftData);
+    for (int i = 0; i < result.size() && i < m_fftSize; ++i) result[i] = fftData[i].real();
+    return result;
+}
 
-        if (i > 0) {
-            fftData[m_fftSize - i] = QComplex(subtracted * qCos(-phase),
-                                              subtracted * qSin(-phase));
+QVector<float> FFTProcessor::spectralEdit(const QVector<float> &samples, int sampleRate, int startMs, int endMs, float lowHz, float highHz, float gainDb)
+{
+    if (samples.isEmpty() || sampleRate <= 0) return samples;
+    int hop = m_fftSize / 2;
+    QVector<float> out = samples;
+    float gainLin = qPow(10.0f, gainDb / 20.0f);
+    int startSample = qBound(0, startMs * sampleRate / 1000, samples.size());
+    int endSample = qBound(0, endMs * sampleRate / 1000, samples.size());
+    if (endSample <= startSample) return samples;
+    int binLow = qBound(0, int(lowHz * m_fftSize / sampleRate), m_fftSize/2 -1);
+    int binHigh = qBound(0, int(highHz * m_fftSize / sampleRate), m_fftSize/2 -1);
+    if (binLow > binHigh) qSwap(binLow, binHigh);
+    for (int pos = startSample; pos < endSample; pos += hop) {
+        int len = qMin(m_fftSize, samples.size() - pos);
+        QVector<float> frame(m_fftSize, 0.0f);
+        for (int i=0;i<len;++i) frame[i]=samples[pos+i];
+        QVector<float> win = applyWindow(frame);
+        QVector<QComplex> fd;
+        fftReal(win, fd);
+        for (int b=binLow;b<=binHigh && b < m_fftSize/2;++b){
+            float mag = sqrt(fd[b].real()*fd[b].real()+fd[b].imag()*fd[b].imag());
+            float phase = qAtan2(fd[b].imag(), fd[b].real());
+            float newMag = mag * gainLin;
+            fd[b]=QComplex(newMag*qCos(phase), newMag*qSin(phase));
+            if (b>0) fd[m_fftSize-b]=QComplex(newMag*qCos(-phase), newMag*qSin(-phase));
+        }
+        ifft(fd);
+        for (int i=0;i<hop && pos+i < out.size();++i){
+            float w = 0.5f*(1.0f - qCos(2*M_PI*i/hop));
+            out[pos+i]= out[pos+i]*(1.0f-w) + fd[i].real()*w;
         }
     }
+    return out;
+}
 
-    ifft(fftData);
-
-    for (int i = 0; i < result.size() && i < m_fftSize; ++i) {
-        result[i] = fftData[i].real();
+QVector<float> FFTProcessor::deHum(const QVector<float> &samples, int sampleRate, float humFreq, float bw, int harmonics)
+{
+    QVector<float> out = samples;
+    for (int h=1; h<=harmonics; ++h){
+        float f = humFreq * h;
+        if (f > sampleRate/2 - bw) break;
+        float omega = 2*M_PI*f/sampleRate;
+        float alpha = qSin(omega)*qSin(bw*M_PI/sampleRate/2) / 1.0f;
+        float b0=1, b1=-2*qCos(omega), b2=1, a0=1+alpha, a1=-2*qCos(omega), a2=1-alpha;
+        float x1=0,x2=0,y1=0,y2=0;
+        for (int i=0;i<out.size();++i){
+            float x0=out[i];
+            float y0 = (b0/a0)*x0 + (b1/a0)*x1 + (b2/a0)*x2 - (a1/a0)*y1 - (a2/a0)*y2;
+            x2=x1; x1=x0; y2=y1; y1=y0;
+            out[i]=y0;
+        }
     }
+    return out;
+}
 
-    return result;
+QVector<float> FFTProcessor::deClick(const QVector<float> &samples, float threshold)
+{
+    QVector<float> out = samples;
+    float thr = qBound(0.05f, threshold, 0.99f);
+    for (int i=1; i<out.size()-1; ++i){
+        float d = qAbs(out[i] - 0.5f*(out[i-1]+out[i+1]));
+        if (d > thr){
+            out[i]=0.5f*(out[i-1]+out[i+1]);
+        }
+    }
+    return out;
 }
 
 NoiseReducer::NoiseReducer(QObject *parent)
@@ -356,8 +413,19 @@ QVector<float> NoiseReducer::reduceNoise(const QVector<float> &samples)
         qWarning() << "NoiseReducer: No noise profile available";
         return samples;
     }
-
-    return m_fft->spectralSubtraction(samples, m_noiseProfile);
+    QVector<float> out;
+    int hop = m_fft->getFFTSize()/2;
+    out.reserve(samples.size());
+    for (int pos=0; pos < samples.size(); pos+= hop){
+        int len = qMin(m_fft->getFFTSize(), samples.size()-pos);
+        QVector<float> frame(len);
+        for (int i=0;i<len;++i) frame[i]=samples[pos+i];
+        QVector<float> proc = m_fft->spectralSubtraction(frame, m_noiseProfile, m_reductionDb, m_smoothingFactor);
+        for (int i=0;i<qMin(hop, proc.size());++i) out.append(proc[i]);
+    }
+    if (out.size() > samples.size()) out.resize(samples.size());
+    else if (out.size() < samples.size()) out.resize(samples.size());
+    return out;
 }
 
 PeakMeter::PeakMeter(QObject *parent)

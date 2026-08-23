@@ -10,6 +10,7 @@
 #include <QIODevice>
 #include <QQuaternion>
 #include <QMatrix4x4>
+#include <QDir>
 
 namespace ks {
 namespace geometry_nodes {
@@ -892,16 +893,36 @@ void NodeEditor::loadTree(const QString& path)
 void NodeEditor::saveTree(const QString& path)
 {
     if (!m_activeTree) return;
-    
     QString json = m_activeTree->toJson();
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly)) {
         qWarning() << "[NodeEditor] Failed to save tree:" << path;
         return;
     }
-    
     file.write(json.toUtf8());
     file.close();
+}
+
+bool NodeEditor::saveCompound(const QString& name, const QString& path)
+{
+    if (!m_activeTree) return false;
+    QString p = path.isEmpty() ? QString("compounds/%1.json").arg(name) : path;
+    saveTree(p);
+    qInfo() << "[NodeEditor] Compound saved:" << name << "->" << p;
+    return true;
+}
+
+bool NodeEditor::loadCompound(const QString& path)
+{
+    loadTree(path);
+    return m_activeTree != nullptr;
+}
+
+QStringList NodeEditor::compoundLibrary() const
+{
+    QDir d("compounds");
+    if (!d.exists()) return {};
+    return d.entryList({"*.json"}, QDir::Files);
 }
 
 static NodeType stringToNodeType(const QString& type)

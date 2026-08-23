@@ -41,7 +41,16 @@ public:
     void setLayerOffset(int index, const QPoint& offset);
     void setLayerName(int index, const QString& name);
     void renameLayer(int index, const QString& name) { setLayerName(index, name); }
-    bool mergeDown(int index); // Merge layer at index with layer below
+    bool mergeDown(int index);
+    bool layerHasMask(int index) const;
+    void addLayerMask(int index);
+    void removeLayerMask(int index);
+    void setLayerMask(int index, const QImage& mask);
+    QImage layerMask(int index) const;
+    void setLayerMaskEnabled(int index, bool enabled);
+    bool layerMaskEnabled(int index) const;
+    void applyMask(int index);
+    void disableMask(int index);
 
     // Composite
     QImage composite() const;

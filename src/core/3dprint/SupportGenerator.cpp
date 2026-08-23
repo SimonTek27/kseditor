@@ -230,15 +230,15 @@ Polygons2D SupportGenerator::generateTreeSupports(const LayerSlice& layer, const
         BoundingBox bounds;
         bool hasBounds = false;
         for (const auto& v : poly.vertices) {
-            if (!hasBounds) { bounds.min = bounds.max = v; hasBounds = true; }
-            else { bounds.expand(v); }
+            if (!hasBounds) { bounds.min = bounds.max = Vector3(v.x, v.y, 0); hasBounds = true; }
+            else { bounds.expand(Vector3(v.x, v.y, 0)); }
         }
         if (!hasBounds) continue;
 
         double cx = (bounds.min.x + bounds.max.x) * 0.5;
         double cy = (bounds.min.y + bounds.max.y) * 0.5;
 
-        geometry::Polygon2D branch;
+        Polygon2D branch;
         double angleStep = M_PI * 2.0 / 8;
         for (int i = 0; i < 8; ++i) {
             double a = i * angleStep;
@@ -248,7 +248,7 @@ Polygons2D SupportGenerator::generateTreeSupports(const LayerSlice& layer, const
         support.push_back(std::move(branch));
 
         if (bounds.max.x - bounds.min.x > branchWidth * 2) {
-            geometry::Polygon2D conn;
+            Polygon2D conn;
             double y = cy;
             conn.vertices.push_back({bounds.min.x, y - branchWidth * 0.25});
             conn.vertices.push_back({bounds.max.x, y - branchWidth * 0.25});

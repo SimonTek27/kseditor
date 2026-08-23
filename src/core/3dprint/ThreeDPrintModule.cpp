@@ -373,7 +373,8 @@ bool ThreeDPrintModule::export3MF(const SliceInfo& sliceInfo, const QString& fil
     modelXml += "        <triangles>\n";
 
     for (int i = 0; i < sliceInfo.totalLayers && i < 10; ++i) {
-        modelXml += QString("          <!-- Layer %1 z=%2 -->\n").arg(i).arg(sliceInfo.layerHeights.value(i, 0), 0, 'f', 3);
+        double z = i < (int)sliceInfo.layerHeights.size() ? sliceInfo.layerHeights[i] : 0.0;
+        modelXml += QString("          <!-- Layer %1 z=%2 -->\n").arg(i).arg(z, 0, 'f', 3);
     }
 
     modelXml += "        </triangles>\n";

@@ -209,6 +209,10 @@ public:
     static MeshData unsubdivide(const MeshData& mesh, float detail = 0.0f);
     static MeshData triangulate(const MeshData& mesh);
     static MeshData quadrangulate(const MeshData& mesh);
+    static MeshData retopoQuadDraw(const MeshData& highPoly, const MeshData& lowPoly, float snapDist = 0.1f);
+    static MeshData uvPeel(const MeshData& mesh, const QVector<int>& seamEdges);
+    static MeshData uvPack(const MeshData& mesh, float padding = 2.0f);
+    static QImage renderAOV(const MeshData& mesh, const QString& aov, int width = 1920, int height = 1080);
 
     // Assigns smoothing groups (0..31, Max-style) to faces based on the
     // dihedral angle between adjacent faces. Faces whose adjacent angle is

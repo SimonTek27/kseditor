@@ -31,7 +31,10 @@ public:
     QVector<float> getMelSpectrum(const QVector<float> &samples, int melBands);
 
     QVector<float> generateNoiseProfile(const QVector<float> &noiseSamples);
-    QVector<float> spectralSubtraction(const QVector<float> &samples, const QVector<float> &noiseProfile);
+    QVector<float> spectralSubtraction(const QVector<float> &samples, const QVector<float> &noiseProfile, float reductionDb = -15.0f, float smoothing = 0.3f);
+    QVector<float> spectralEdit(const QVector<float> &samples, int sampleRate, int startMs, int endMs, float lowHz, float highHz, float gainDb);
+    QVector<float> deHum(const QVector<float> &samples, int sampleRate, float humFreq = 50.0f, float bw = 5.0f, int harmonics = 5);
+    QVector<float> deClick(const QVector<float> &samples, float threshold = 0.5f);
 
     static float hzToMel(float hz);
     static float melToHz(float mel);

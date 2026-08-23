@@ -353,6 +353,18 @@ QImage PaintDocument::compositeLayer(int index) const
     p.setOpacity(layer.opacity);
     p.drawImage(QPoint(layer.offsetX, layer.offsetY), layer.image);
     p.end();
+    if (layer.hasMask() && layer.maskEnabled) {
+        QImage masked = out;
+        for (int y = 0; y < m_height; ++y) {
+            const QRgb* msk = reinterpret_cast<const QRgb*>(layer.mask.constScanLine(y));
+            QRgb* dst = reinterpret_cast<QRgb*>(masked.scanLine(y));
+            for (int x = 0; x < m_width; ++x) {
+                int ma = qAlpha(msk[x]);
+                dst[x] = qRgba(qRed(dst[x]), qGreen(dst[x]), qBlue(dst[x]), qAlpha(dst[x]) * ma / 255);
+            }
+        }
+        return masked;
+    }
     return out;
 }
 
@@ -364,10 +376,7 @@ QImage PaintDocument::composite() const
     for (int i = 0; i < m_layers.size(); ++i) {
         const PaintLayer& layer = m_layers.at(i);
         if (!layer.visible || layer.image.isNull()) continue;
-
-        // Draw the layer's own pixels (with alpha) over the base using blend mode.
-        // Use painter-based blend: for non-normal modes do per-pixel.
-        const QImage layerPixels = compositeLayer(i);
+        QImage layerPixels = compositeLayer(i);
         if (layer.blend == PaintBlendMode::Normal) {
             QPainter p(&out);
             p.drawImage(0, 0, layerPixels);
@@ -383,6 +392,90 @@ QImage PaintDocument::composite() const
         }
     }
     return out;
+}
+
+bool PaintDocument::layerHasMask(int index) const
+{
+    if (index < 0 || index >= m_layers.size()) return false;
+    return m_layers[index].hasMask();
+}
+
+void PaintDocument::addLayerMask(int index)
+{
+    if (index < 0 || index >= m_layers.size()) return;
+    if (m_layers[index].hasMask()) return;
+    pushUndo();
+    m_layers[index].mask = QImage(m_width, m_height, QImage::Format_ARGB32);
+    m_layers[index].mask.fill(QColor(255,255,255,255));
+    m_layers[index].maskEnabled = true;
+    emit layersChanged();
+    emit documentChanged();
+}
+
+void PaintDocument::removeLayerMask(int index)
+{
+    if (index < 0 || index >= m_layers.size()) return;
+    if (!m_layers[index].hasMask()) return;
+    pushUndo();
+    m_layers[index].mask = QImage();
+    emit layersChanged();
+    emit documentChanged();
+}
+
+void PaintDocument::setLayerMask(int index, const QImage& mask)
+{
+    if (index < 0 || index >= m_layers.size()) return;
+    pushUndo();
+    m_layers[index].mask = mask.convertToFormat(QImage::Format_ARGB32);
+    emit layersChanged();
+    emit documentChanged();
+}
+
+QImage PaintDocument::layerMask(int index) const
+{
+    if (index < 0 || index >= m_layers.size()) return QImage();
+    return m_layers[index].mask;
+}
+
+void PaintDocument::setLayerMaskEnabled(int index, bool enabled)
+{
+    if (index < 0 || index >= m_layers.size()) return;
+    if (m_layers[index].maskEnabled == enabled) return;
+    pushUndo();
+    m_layers[index].maskEnabled = enabled;
+    emit layersChanged();
+    emit documentChanged();
+}
+
+bool PaintDocument::layerMaskEnabled(int index) const
+{
+    if (index < 0 || index >= m_layers.size()) return false;
+    return m_layers[index].maskEnabled;
+}
+
+void PaintDocument::applyMask(int index)
+{
+    if (index < 0 || index >= m_layers.size()) return;
+    if (!m_layers[index].hasMask()) return;
+    pushUndo();
+    QImage img = m_layers[index].image;
+    QImage msk = m_layers[index].mask;
+    for (int y = 0; y < m_height; ++y) {
+        QRgb* dst = reinterpret_cast<QRgb*>(img.scanLine(y));
+        const QRgb* m = reinterpret_cast<const QRgb*>(msk.constScanLine(y));
+        for (int x = 0; x < m_width; ++x) {
+            dst[x] = qRgba(qRed(dst[x]), qGreen(dst[x]), qBlue(dst[x]), qAlpha(dst[x]) * qAlpha(m[x]) / 255);
+        }
+    }
+    m_layers[index].image = img;
+    m_layers[index].mask = QImage();
+    emit layersChanged();
+    emit documentChanged();
+}
+
+void PaintDocument::disableMask(int index)
+{
+    setLayerMaskEnabled(index, false);
 }
 
 QImage PaintDocument::compositeWithBackground(const QColor& bg) const

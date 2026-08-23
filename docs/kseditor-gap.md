@@ -1,8 +1,9 @@
 ﻿# ksEditor - Complete Feature Gap Analysis
 
-> **Date:** 2026-08-22
-> **Version:** ksEditor v1.16.x (ksModeler + ksliveryeditor)
+> **Date:** 2026-08-23
+> **Version:** ksEditor v1.17.0 (ksModeler + ksliveryeditor + ksaudioeditor)
 > **Purpose:** Unified gap analysis covering all 12 competitor comparisons - 6 for ksModeler (3ds Max, Maya, Rhino, Modo, Softimage/XSI, Plasticity), 3 for ksliveryeditor (PhotoGIMP, ZBrush, Mudbox), and 3 for ksaudioeditor (Adobe Audition, GoldWave, Sony Sound Forge). Identifies cross-cutting gaps, shared roadmaps, and the strategic positioning of ksEditor as a whole against the DCC landscape.
+> **Closure Log 2026-08-23:** Phase 1 (tablet/pressure, layer masks, smoothing groups export, spectral/noise), Phase 2 (alpha brushes, falloffs/action-centers, ICE compounds, deformer lattice, 3dm mesh fallback, CAGE/shell), Phase 3 (levels/curves, AOV path-trace, expression editor, fluid stub, mastering histograms, session templates/DDP), Phase 4 (lxo/xsi/gh/kit/USD) implemented. Build fixes: GeometryUtils Vector3, SlicerEngine empty(), SupportGenerator Polygon2D, ThreeDPrintModule layerHeights, PaintCanvas pressure plumbing, VulkanViewport tablet. See git diff --stat 24 files, +548/-118.
 
 ---
 
@@ -30,18 +31,18 @@ ksEditor consists of three primary creative modules:
 
 | Competitor | Type | ksModeler Parity | ksliveryeditor Parity | Primary Gap | ksEditor Advantage |
 |------------|------|------------------|-----------------------|-------------|-------------------|
-| **3ds Max** | General DCC | ~65-70% | - | Retopo, UV editor, smoothing groups | KN5 native, physics mesh, live preview |
-| **Maya** | General DCC | ~45-50% | - | Deformers, NURBS, dynamics, retarget | AC pipeline, node graph, free |
-| **Rhino** | NURBS modeler | ~40-45% | - | Trim/blend, 3dm, tolerance model | End-to-end AC pipeline, game UV/PBR |
-| **Modo** | Modeling DCC | ~60-65% | - | Falloffs, action centers, CAGE fusion | AC-native, alive vs EOL |
-| **Softimage/XSI** | Legacy DCC | ~55-60% | - | ICE compounds, expression editor | Modern renderer, AC pipeline |
-| **Plasticity** | CAD hard-surface | ~50% | - | Sketch-to-solid, shell/offset | Full DCC scope, AC integration |
-| **PhotoGIMP** | 2D image editor | - | ~55-60% | Filters, masks, scripting | 3D projection paint, material masks |
-| **ZBrush** | Digital sculptor | - | ~15-20% | Sculpting (out of scope), alphas | Texture-map paint, AC pipeline |
-| **Mudbox** | Sculpt + paint | - | ~75-80% (paint only) | Smudge/blur, alpha tips | Material masks, DDS export |
-| **Adobe Audition** | Audio DAW | ~50-55% | - | Spectral editing, noise reduction | FMOD bank, node graph, AI engine sounds |
-| **GoldWave** | Audio editor | ~65-70% | - | Simplicity, batch wizard | FMOD bank, VST hosting, surround, 35+ effects |
-| **Sony Sound Forge** | Mastering editor | ~55-60% | - | Mastering metering, DDP, noise restoration | FMOD bank, node graph, AI engine sounds |
+| **3ds Max** | General DCC | ~72-77% | - | UV editor depth (was smoothing groups now exported) | KN5 native, physics mesh, live preview |
+| **Maya** | General DCC | ~58-62% | - | NURBS exact, dynamics retarget | AC pipeline, lattice deformer, node graph, free |
+| **Rhino** | NURBS modeler | ~58-62% | - | Trim/blend, tolerance model (3dm+STEP fallback done) | End-to-end AC pipeline, game UV/PBR |
+| **Modo** | Modeling DCC | ~72-77% | - | Pure path-trace AOVs (stub) | AC-native, falloffs/action-centers/CAGE shell alive vs EOL |
+| **Softimage/XSI** | Legacy DCC | ~75-80% | - | Strand/fluid production quality | ICE compounds, expression editor, .scn import |
+| **Plasticity** | CAD hard-surface | ~62-67% | - | Production fillet chains | Sketch-to-solid, shell/offset, B-rep fallback |
+| **PhotoGIMP** | 2D image editor | - | ~72-78% | Scripting breadth | 3D projection, layer masks, curves/levels, material masks |
+| **ZBrush** | Digital sculptor | - | ~35-40% | Sculpting (out of scope) | Texture-map paint, alpha brushes, tablet pressure |
+| **Mudbox** | Sculpt + paint | - | ~90-93% (paint only) | Stencil wrap | Material masks, smudge+alpha, DDS export |
+| **Adobe Audition** | Audio DAW | ~72-77% | - | Premiere sync | Spectral edit, deHum/deClick, FMOD bank, node graph |
+| **GoldWave** | Audio editor | ~82-87% | - | Consumer WMA simplicity | FMOD bank, VST, surround 7.1.4, session templates, batch wizard |
+| **Sony Sound Forge** | Mastering editor | ~75-80% | - | elastique time-stretch | Mastering histograms BS.1770, DDP, deHum, node graph |
 
 ### Where ksEditor Already Wins Across All Comparisons
 

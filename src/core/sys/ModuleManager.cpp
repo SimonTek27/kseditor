@@ -44,7 +44,7 @@
 #include "../../core/ServerConfigEditor/ServerConfigEditorModule.h"
 #include "../../core/vcs/VcsEditorModule.h"
 #include "../../core/archive/ArchiveEditorModule.h"
-#include "../VREditor/VREditorModule.h"
+#include "../vr/VREditorModule.h"
 #include "../../core/animation/AnimationEditorModule.h"
 #include "../../core/3dprint/ThreeDPrintEditorModule.h"
 #include "../../core/Audio/AudioEditorModule.h"

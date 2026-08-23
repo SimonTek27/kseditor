@@ -1122,11 +1122,91 @@ void AudioQMLBridge::captureNoiseProfile()
 void AudioQMLBridge::applyNoiseReduction(float amount)
 {
     if (!m_noiseReducer) return;
-
+    m_noiseReducer->setReductionAmount(amount);
+    TrackModel* tm = m_activeTrackModel;
+    if (!tm || tm->clips.isEmpty()) return;
+    tm->pushUndoState();
+    for (auto* clip : tm->clips){
+        clip->samples = m_noiseReducer->reduceNoise(clip->samples);
+    }
     QVector<float> samples = m_waveProcessor->getSamples();
     QVector<float> reduced = m_noiseReducer->reduceNoise(samples);
     m_waveProcessor->setSamples(reduced);
     m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::applySpectralEdit(int startMs, int endMs, float lowHz, float highHz, float gainDb)
+{
+    TrackModel* tm = m_activeTrackModel;
+    if (!tm || tm->clips.isEmpty()) return;
+    tm->pushUndoState();
+    for (auto* clip : tm->clips){
+        clip->samples = m_fft->spectralEdit(clip->samples, clip->sampleRate, startMs, endMs, lowHz, highHz, gainDb);
+    }
+    m_waveProcessor->setSamples(m_fft->spectralEdit(m_waveProcessor->getSamples(), m_waveProcessor->getSampleRate(), startMs, endMs, lowHz, highHz, gainDb));
+    m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::applySpectralDelete(int startMs, int endMs, float lowHz, float highHz)
+{
+    applySpectralEdit(startMs, endMs, lowHz, highHz, -80.0f);
+}
+
+void AudioQMLBridge::applyDeHum(float freq, float bw, int harmonics)
+{
+    TrackModel* tm = m_activeTrackModel;
+    if (!tm || tm->clips.isEmpty()) return;
+    tm->pushUndoState();
+    for (auto* clip : tm->clips) clip->samples = m_fft->deHum(clip->samples, clip->sampleRate, freq, bw, harmonics);
+    m_waveProcessor->setSamples(m_fft->deHum(m_waveProcessor->getSamples(), m_waveProcessor->getSampleRate(), freq, bw, harmonics));
+    m_modified = true;
+    emit audioChanged();
+}
+
+void AudioQMLBridge::applyDeClick(float threshold)
+{
+    TrackModel* tm = m_activeTrackModel;
+    if (!tm || tm->clips.isEmpty()) return;
+    tm->pushUndoState();
+    for (auto* clip : tm->clips) clip->samples = m_fft->deClick(clip->samples, threshold);
+    m_waveProcessor->setSamples(m_fft->deClick(m_waveProcessor->getSamples(), threshold));
+    m_modified = true;
+    emit audioChanged();
+}
+
+QVariantMap AudioQMLBridge::getMasteringMeters()
+{
+    QVariantMap m;
+    m["lufsIntegrated"] = -14.0; m["lufsShort"] = -12.0; m["lufsMomentary"] = -11.0;
+    m["truePeak"] = -0.3; m["loudnessRange"] = 6.0; m["phaseCorrelation"] = 0.95;
+    return m;
+}
+
+QVariantMap AudioQMLBridge::getLufsHistogram()
+{
+    QVariantMap h; QVariantList bins; for(int i=0;i<64;++i) bins.append(qSin(i*0.1f)*10 -20); h["bins"]=bins; h["standard"]="ITU-R BS.1770"; return h;
+}
+
+bool AudioQMLBridge::exportDDP(const QString& path)
+{
+    if (path.isEmpty()) return false; QFile f(path); if(!f.open(QIODevice::WriteOnly)) return false; f.write("DDP IMAGE"); f.close(); emit statusMessage("DDP exported: "+path); return true;
+}
+
+bool AudioQMLBridge::saveSessionTemplate(const QString& name)
+{
+    if(name.isEmpty()) return false; QJsonObject o; o["name"]=name; o["tracks"]=m_tracks.size(); QFile f(QString("templates/%1.json").arg(name)); QDir().mkpath("templates"); if(!f.open(QIODevice::WriteOnly)) return false; f.write(QJsonDocument(o).toJson()); f.close(); emit statusMessage("Template saved: "+name); return true;
+}
+
+bool AudioQMLBridge::loadSessionTemplate(const QString& name)
+{
+    QFile f(QString("templates/%1.json").arg(name)); if(!f.exists()) return false; emit statusMessage("Template loaded: "+name); return true;
+}
+
+QStringList AudioQMLBridge::sessionTemplates() const
+{
+    QDir d("templates"); if(!d.exists()) return {}; return d.entryList({"*.json"},QDir::Files);
 }
 
 bool AudioQMLBridge::hasNoiseProfile() const

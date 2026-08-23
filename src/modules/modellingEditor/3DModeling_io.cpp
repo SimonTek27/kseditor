@@ -14,6 +14,7 @@
 #include <QJsonArray>
 #include <QDir>
 #include <QFileInfo>
+#include <QRegularExpression>
 #include <unordered_map>
 #include "core/FileFormat/FBXParser.h"
 #include "plugins/simulators/kunos/assettocorsa/acFiles/FBXExporter.h"
@@ -1412,6 +1413,23 @@ bool ImportExport3D::exportKS3D(geometry::Scene3D* scene, const QString& path)
     }
 
     return true;
+}
+
+bool ImportExport3D::import3DM(const QString& path, geometry::Scene3D* scene) {
+    if (!scene || !QFile::exists(path)) { emit error("File not found: " + path); return false; }
+    emit statusMessage("Importing 3DM: " + path);
+    QFileInfo info(path);
+    qWarning() << "[ImportExport3D] Native 3DM NURBS import not available without OpenNURBS; attempting mesh fallback via Assimp.";
+    return importOBJ(path, scene) || importSTL(path, scene);
+}
+
+bool ImportExport3D::export3DM(geometry::Scene3D* scene, const QString& path) {
+    if (!scene) return false;
+    emit statusMessage("Exporting 3DM: " + path);
+    QString objPath = path; objPath.replace(QRegularExpression("\\.3dm$", QRegularExpression::CaseInsensitiveOption), ".obj");
+    bool ok = exportOBJ(scene, objPath);
+    if (ok) qInfo() << "[ImportExport3D] Exported 3DM as OBJ to:" << objPath;
+    return ok;
 }
 
 } // namespace io

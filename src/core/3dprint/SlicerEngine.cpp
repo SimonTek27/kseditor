@@ -614,7 +614,7 @@ bool SlicerEngine::checkBuildVolume(const BoundingBox& bounds, const PrinterProf
 }
 
 QMatrix4x4 SlicerEngine::suggestOrientation(const MeshTriangles& triangles) {
-    if (triangles.isEmpty()) return QMatrix4x4();
+    if (triangles.empty()) return QMatrix4x4();
 
     QVector3D centroid;
     QVector3D avgNormal;

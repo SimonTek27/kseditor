@@ -679,21 +679,18 @@ void PaintCanvasWidget::tabletEvent(QTabletEvent* event)
     default:
         break;
     }
-    QWidget::tabletEvent(event);
+    event->accept();
 }
+
+void PaintCanvasWidget::wheelEvent(QWheelEvent* event)
 {
     if (!m_document || !m_document->hasDocument()) return;
-    QPoint imagePos = imagePosFromView(event->position().toPoint());
     int delta = event->angleDelta().y();
     if (delta == 0) return;
-
     float factor = delta > 0 ? 1.15f : 1.0f / 1.15f;
     setZoom(m_zoom * factor);
-    // keep cursor anchored
-    QPointF oldImg = viewToImage(event->position().toPoint());
-    Q_UNUSED(oldImg);
-    Q_UNUSED(imagePos);
     update();
+    event->accept();
 }
 
 void PaintCanvasWidget::keyPressEvent(QKeyEvent* event)
@@ -726,16 +723,16 @@ void PaintCanvasWidget::startStroke(const QPoint& imagePos, const PaintBrush& br
     m_document->pushUndo();
 
     PaintBrush b = brush;
-    if (b.radius <= 0) brush.radius = m_brushSize;
-    if (b.hardness < 0.0f) brush.hardness = m_brushHardness;
-    if (b.opacity < 0.0f) brush.opacity = m_brushOpacity;
-    if (b.flow < 0.0f) brush.flow = m_brushFlow;
-    if (b.strength < 0.0f) brush.strength = m_brushStrength;
-    if (b.tool == PaintTool::None) brush.tool = m_tool;
-    if (!brush.hasCloneSource && m_hasCloneSource) brush.cloneSource = m_cloneSource;
-    brush.hasCloneSource = m_hasCloneSource || brush.hasCloneSource;
+    if (b.radius <= 0) b.radius = m_brushSize;
+    if (b.hardness < 0.0f) b.hardness = m_brushHardness;
+    if (b.opacity < 0.0f) b.opacity = m_brushOpacity;
+    if (b.flow < 0.0f) b.flow = m_brushFlow;
+    if (b.strength < 0.0f) b.strength = m_brushStrength;
+    if (b.tool == PaintTool::None) b.tool = m_tool;
+    if (!b.hasCloneSource && m_hasCloneSource) b.cloneSource = m_cloneSource;
+    b.hasCloneSource = m_hasCloneSource || b.hasCloneSource;
 
-    m_brush = brush;  // store for later use
+    m_brush = b;
 
     QImage layer = m_document->currentLayerImage();
     if (layer.isNull()) return;
@@ -744,27 +741,27 @@ void PaintCanvasWidget::startStroke(const QPoint& imagePos, const PaintBrush& br
     case PaintTool::Smudge:
         break;
     case PaintTool::Blur:
-        PaintPainter::blurAt(layer, m_document->selectionMask(), imagePos, m_brushSize, m_brushStrength);
+        PaintPainter::blurAt(layer, m_document->selectionMask(), imagePos, b.radius, b.strength);
         break;
     case PaintTool::Sharpen:
-        PaintPainter::sharpenAt(layer, m_document->selectionMask(), imagePos, m_brushSize, m_brushStrength);
+        PaintPainter::sharpenAt(layer, m_document->selectionMask(), imagePos, b.radius, b.strength);
         break;
     case PaintTool::Dodge:
-        PaintPainter::dodgeAt(layer, m_document->selectionMask(), imagePos, m_brushSize, m_brushStrength);
+        PaintPainter::dodgeAt(layer, m_document->selectionMask(), imagePos, b.radius, b.strength);
         break;
     case PaintTool::Burn:
-        PaintPainter::burnAt(layer, m_document->selectionMask(), imagePos, m_brushSize, m_brushStrength);
+        PaintPainter::burnAt(layer, m_document->selectionMask(), imagePos, b.radius, b.strength);
         break;
     case PaintTool::Clone:
-        if (m_hasCloneSource)
-            PaintPainter::cloneAt(layer, m_document->selectionMask(), imagePos, m_cloneSource, m_brushSize, m_brushOpacity);
+        if (b.hasCloneSource)
+            PaintPainter::cloneAt(layer, m_document->selectionMask(), imagePos, b.cloneSource, b.radius, b.opacity);
         break;
     case PaintTool::Healing:
-        if (m_hasCloneSource)
-            PaintPainter::healAt(layer, m_document->selectionMask(), imagePos, m_cloneSource, m_brushSize, m_brushOpacity);
+        if (b.hasCloneSource)
+            PaintPainter::healAt(layer, m_document->selectionMask(), imagePos, b.cloneSource, b.radius, b.opacity);
         break;
     default:
-        PaintPainter::paintAt(layer, m_document->selectionMask(), imagePos, brush);
+        PaintPainter::paintAt(layer, m_document->selectionMask(), imagePos, b);
         break;
     }
 
@@ -778,14 +775,14 @@ void PaintCanvasWidget::updateStroke(const QPoint& imagePos, const PaintBrush& b
     if (!m_strokeActive) return;
 
     PaintBrush b = brush;
-    if (b.radius <= 0) brush.radius = m_brushSize;
-    if (b.hardness < 0.0f) brush.hardness = m_brushHardness;
-    if (b.opacity < 0.0f) brush.opacity = m_brushOpacity;
-    if (b.flow < 0.0f) brush.flow = m_brushFlow;
-    if (b.strength < 0.0f) brush.strength = m_brushStrength;
-    if (b.tool == PaintTool::None) brush.tool = m_tool;
-    if (!brush.hasCloneSource && m_hasCloneSource) brush.cloneSource = m_cloneSource;
-    brush.hasCloneSource = m_hasCloneSource || brush.hasCloneSource;
+    if (b.radius <= 0) b.radius = m_brushSize;
+    if (b.hardness < 0.0f) b.hardness = m_brushHardness;
+    if (b.opacity < 0.0f) b.opacity = m_brushOpacity;
+    if (b.flow < 0.0f) b.flow = m_brushFlow;
+    if (b.strength < 0.0f) b.strength = m_brushStrength;
+    if (b.tool == PaintTool::None) b.tool = m_tool;
+    if (!b.hasCloneSource && m_hasCloneSource) b.cloneSource = m_cloneSource;
+    b.hasCloneSource = m_hasCloneSource || b.hasCloneSource;
 
     QImage layer = m_document->currentLayerImage();
     if (layer.isNull()) return;
@@ -804,22 +801,17 @@ void PaintCanvasWidget::updateStroke(const QPoint& imagePos, const PaintBrush& b
         PaintPainter::burnAt(layer, m_document->selectionMask(), imagePos, m_brushSize, m_brushStrength);
         break;
     case PaintTool::Clone:
-        if (m_hasCloneSource)
-            PaintPainter::cloneAt(layer, m_document->selectionMask(), imagePos, m_cloneSource, m_brushSize, m_brushOpacity);
+        if (b.hasCloneSource)
+            PaintPainter::cloneAt(layer, m_document->selectionMask(), imagePos, b.cloneSource, b.radius, b.opacity);
         break;
     case PaintTool::Healing:
-        if (m_hasCloneSource)
-            PaintPainter::healAt(layer, m_document->selectionMask(), imagePos, m_cloneSource, m_brushSize, m_brushOpacity);
+        if (b.hasCloneSource)
+            PaintPainter::healAt(layer, m_document->selectionMask(), imagePos, b.cloneSource, b.radius, b.opacity);
         break;
     default:
-        PaintPainter::paintLine(layer, m_document->selectionMask(), m_lastImage, imagePos, brush);
+        PaintPainter::paintLine(layer, m_document->selectionMask(), m_lastImage, imagePos, b);
         break;
     }
-
-    m_lastImage = imagePos;
-    m_document->setCurrentLayerImage(layer);
-    emit imageEdited();
-}
 
     m_lastImage = imagePos;
     m_document->setCurrentLayerImage(layer);

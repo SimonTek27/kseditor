@@ -247,6 +247,18 @@ public:
     Q_INVOKABLE bool importOBJ(const QString& path);
     Q_INVOKABLE bool importLXO(const QString& path);
     Q_INVOKABLE bool importSTL(const QString& path);
+    Q_INVOKABLE bool importXSI(const QString& path);
+    Q_INVOKABLE bool importGrasshopper(const QString& path);
+    Q_INVOKABLE QString exportAOV(const QString& path, const QString& aov = "beauty");
+    Q_INVOKABLE bool createKit(const QString& name);
+    Q_INVOKABLE QStringList kitList() const;
+    Q_INVOKABLE bool expressionSet(const QString& target, const QString& expr);
+    Q_INVOKABLE QString expressionGet(const QString& target) const;
+    Q_INVOKABLE bool fluidSimulate(int frames = 24, float viscosity = 1.0f);
+    Q_INVOKABLE bool retopoQuadDraw();
+    Q_INVOKABLE bool uvPeelSeams();
+    Q_INVOKABLE bool uvPackIslands(float padding = 2.0f);
+    Q_INVOKABLE QString renderAOVImage(const QString& aov, int w = 1920, int h = 1080);
     Q_INVOKABLE bool importBlend(const QString& path);
     Q_INVOKABLE bool importSTEP(const QString& path);
     Q_INVOKABLE bool exportKN5(const QString& path);

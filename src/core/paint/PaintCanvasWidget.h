@@ -7,6 +7,7 @@
 #include <QTimer>
 #include <QPainterPath>
 #include "PaintTypes.h"
+#include "PaintPainter.h"
 
 namespace ks {
 namespace paint {
@@ -54,6 +55,10 @@ public:
 
     void setFuzzyTolerance(float tolerance) { m_fuzzyTolerance = tolerance; }
     float fuzzyTolerance() const { return m_fuzzyTolerance; }
+    void setAlphaBrush(const QImage& alpha) { m_brush.stampTexture = alpha.convertToFormat(QImage::Format_ARGB32); }
+    QImage alphaBrush() const { return m_brush.stampTexture; }
+    bool hasAlphaBrush() const { return !m_brush.stampTexture.isNull(); }
+    void clearAlphaBrush() { m_brush.stampTexture = QImage(); }
 
     void applySelectionRect(const QRect& rect);          // for rect/ellipse select
     void applyFuzzySelection(const QPoint& pos, bool subtract);
@@ -77,6 +82,7 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
+    void tabletEvent(QTabletEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;
     void leaveEvent(QEvent* event) override;
@@ -85,8 +91,8 @@ private:
     QPointF viewToImage(const QPoint& viewPos) const;
     QPoint imageToView(const QPointF& imagePos) const;
     QRect imageRectToView(const QRect& imageRect) const;
-    void startStroke(const QPoint& imagePos);
-    void updateStroke(const QPoint& imagePos);
+    void startStroke(const QPoint& imagePos, const PaintBrush& brush);
+    void updateStroke(const QPoint& imagePos, const PaintBrush& brush);
     void endStroke();
     void pickColor(const QPoint& imagePos);
     void drawCheckerboard(QPainter& p, const QRect& rect);
@@ -120,6 +126,7 @@ private:
     bool m_strokeActive = false;
     QPoint m_cloneSource;
     bool m_hasCloneSource = false;
+    PaintBrush m_brush;
 
     QRect m_selectionRect;            // for drag-based select
     QList<QPoint> m_freeSelectPoints;

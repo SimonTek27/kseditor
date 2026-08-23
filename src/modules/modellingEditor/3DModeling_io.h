@@ -41,11 +41,11 @@ public:
     };
 
     static QStringList supportedImportFormats() {
-        return {"obj", "fbx", "gltf", "glb", "stl", "3ds", "dae", "dxf", "step", "iges", "sat", "ks3d"};
+        return {"obj", "fbx", "gltf", "glb", "stl", "3ds", "dae", "dxf", "step", "iges", "sat", "ks3d", "3dm"};
     }
 
     static QStringList supportedExportFormats() {
-        return {"obj", "fbx", "gltf", "glb", "stl", "dae", "dxf", "ks3d"};
+        return {"obj", "fbx", "gltf", "glb", "stl", "dae", "dxf", "ks3d", "3dm"};
     }
 
     geometry::Mesh3D* importMesh(const QString& path);

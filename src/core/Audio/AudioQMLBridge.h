@@ -188,6 +188,16 @@ public:
     Q_INVOKABLE void captureNoiseProfile();
     Q_INVOKABLE void applyNoiseReduction(float amount = -15.0f);
     Q_INVOKABLE bool hasNoiseProfile() const;
+    Q_INVOKABLE void applySpectralEdit(int startMs, int endMs, float lowHz, float highHz, float gainDb);
+    Q_INVOKABLE void applySpectralDelete(int startMs, int endMs, float lowHz, float highHz);
+    Q_INVOKABLE void applyDeHum(float freq = 50.0f, float bw = 2.0f, int harmonics = 5);
+    Q_INVOKABLE void applyDeClick(float threshold = 0.35f);
+    Q_INVOKABLE QVariantMap getMasteringMeters();
+    Q_INVOKABLE bool exportDDP(const QString& path);
+    Q_INVOKABLE bool saveSessionTemplate(const QString& name);
+    Q_INVOKABLE bool loadSessionTemplate(const QString& name);
+    Q_INVOKABLE QStringList sessionTemplates() const;
+    Q_INVOKABLE QVariantMap getLufsHistogram();
 
     Q_INVOKABLE QVariantList getWaveformData(int width);
     Q_INVOKABLE QVariantList getWaveformDataRange(int startMs, int endMs, int width);

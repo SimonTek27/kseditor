@@ -224,6 +224,9 @@ public:
     Q_INVOKABLE void newTree(const QString& name);
     Q_INVOKABLE void loadTree(const QString& path);
     Q_INVOKABLE void saveTree(const QString& path);
+    Q_INVOKABLE bool saveCompound(const QString& name, const QString& path);
+    Q_INVOKABLE bool loadCompound(const QString& path);
+    Q_INVOKABLE QStringList compoundLibrary() const;
 
     Q_INVOKABLE void addNode(const QString& type, int x, int y);
     Q_INVOKABLE void removeNode(const QString& nodeId);

@@ -126,12 +126,16 @@ inline bool paintToolIsPaint(PaintTool tool)
 struct PaintLayer {
     QString name;
     QImage image;                 // ARGB32, size == document size
+    QImage mask;                  // Alpha mask (grayscale), same size; null = no mask
+    bool maskEnabled = true;
+    bool maskLinked = true;
     int offsetX = 0;
     int offsetY = 0;
     float opacity = 1.0f;
     PaintBlendMode blend = PaintBlendMode::Normal;
     bool visible = true;
     bool locked = false;
+    bool hasMask() const { return !mask.isNull(); }
 };
 
 } // namespace paint

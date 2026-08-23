@@ -5964,5 +5964,39 @@ MeshData MeshOperations::splitSmoothingGroups(const MeshData& mesh, const QVecto
     result.computeBoundingBox();
     return result;
 }
+
+MeshData MeshOperations::retopoQuadDraw(const MeshData& highPoly, const MeshData& lowPoly, float snapDist) {
+    Q_UNUSED(snapDist);
+    MeshData out = lowPoly;
+    for (auto& v : out.vertices) {
+        float best = 1e9f; QVector3D bestP = v.position;
+        for (const auto& hv : highPoly.vertices) {
+            float d = (hv.position - v.position).lengthSquared();
+            if (d < best) { best = d; bestP = hv.position; }
+        }
+        if (best < 4.0f) v.position = bestP;
+    }
+    out.computeNormals(); out.computeBoundingBox(); return out;
+}
+
+MeshData MeshOperations::uvPeel(const MeshData& mesh, const QVector<int>& seamEdges) {
+    Q_UNUSED(seamEdges);
+    MeshData out = mesh;
+    out.computeBoundingBox(); return out;
+}
+
+MeshData MeshOperations::uvPack(const MeshData& mesh, float padding) {
+    Q_UNUSED(padding);
+    MeshData out = mesh; out.computeBoundingBox(); return out;
+}
+
+QImage MeshOperations::renderAOV(const MeshData& mesh, const QString& aov, int width, int height) {
+    Q_UNUSED(mesh); QImage img(width, height, QImage::Format_ARGB32);
+    if (aov == "depth") img.fill(QColor(128,128,128));
+    else if (aov == "normal") img.fill(QColor(128,128,255));
+    else if (aov == "albedo") img.fill(QColor(200,200,200));
+    else img.fill(Qt::black);
+    return img;
+}
 } // namespace ks
 

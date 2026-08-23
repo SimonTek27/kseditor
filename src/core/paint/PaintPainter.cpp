@@ -85,9 +85,12 @@ bool PaintPainter::inside(const QPoint& p, const QSize& size)
 void PaintPainter::paintAt(QImage& image, const QImage& mask, const QPoint& pos, const PaintBrush& brush)
 {
     if (image.isNull()) return;
-    const int r = int(brush.radius);
+    float p = clampf(brush.pressure, 0.05f, 1.0f);
+    float effRadius = brush.radius * (0.3f + 0.7f * p);
+    float effOpacity = brush.opacity * p;
+    const int r = int(effRadius);
     if (r <= 0) return;
-    const int innerR = int(brush.radius * brush.hardness);
+    const int innerR = int(effRadius * brush.hardness);
     const bool eraser = (brush.tool == PaintTool::Eraser);
     const bool airbrush = (brush.tool == PaintTool::Airbrush);
 
@@ -106,8 +109,17 @@ void PaintPainter::paintAt(QImage& image, const QImage& mask, const QPoint& pos,
             if (innerR > 0 && dist > innerR) {
                 falloff = 1.0f - (dist - innerR) / float(r - innerR);
             }
-            float alpha = brush.opacity * falloff * maskAt(mask, x, y);
-            if (airbrush) alpha *= brush.flow;
+            if (!brush.stampTexture.isNull()) {
+                float u = float(x - pos.x() + r) / float(2*r);
+                float v = float(y - pos.y() + r) / float(2*r);
+                int sx = qBound(0, int(u * brush.stampTexture.width()), brush.stampTexture.width()-1);
+                int sy = qBound(0, int(v * brush.stampTexture.height()), brush.stampTexture.height()-1);
+                float stampA = qAlpha(brush.stampTexture.pixel(sx, sy)) / 255.0f;
+                if (brush.stampTexture.format() == QImage::Format_Grayscale8) stampA = qRed(brush.stampTexture.pixel(sx, sy))/255.0f;
+                falloff *= stampA;
+            }
+            float alpha = effOpacity * falloff * maskAt(mask, x, y);
+            if (airbrush) alpha *= brush.flow * p;
             if (alpha <= 0.0f) continue;
 
             QRgb base = img.pixel(x, y);
@@ -453,6 +465,22 @@ QImage PaintPainter::applyFilter(const QImage& src, const QString& filter, const
             }
         }
         return out;
+    }
+    if (filter == QStringLiteral("levels")) {
+        int inLow = params.value("inLow", 0).toInt(), inHigh = params.value("inHigh", 255).toInt();
+        int outLow = params.value("outLow", 0).toInt(), outHigh = params.value("outHigh", 255).toInt();
+        float gamma = params.value("gamma", 1.0).toFloat();
+        QImage out = img.copy();
+        for (int y=0;y<out.height();++y){ QRgb* l=reinterpret_cast<QRgb*>(out.scanLine(y)); for(int x=0;x<out.width();++x){ auto lvl=[&](int c){ float n=(c-inLow)/float(qMax(1,inHigh-inLow)); n=qBound(0.0f,n,1.0f); n=pow(n,1.0f/qMax(0.1f,gamma)); return qBound(0,int(outLow+n*(outHigh-outLow)),255); }; QRgb p=l[x]; l[x]=qRgba(lvl(qRed(p)),lvl(qGreen(p)),lvl(qBlue(p)),qAlpha(p)); } } return out;
+    }
+    if (filter == QStringLiteral("curves")) {
+        QVariantList curve = params.value("curve").toList();
+        QVector<int> lut(256); for(int i=0;i<256;++i) lut[i]=i;
+        if(curve.size()>=4){ for(int i=0;i<256;++i){ float t=i/255.0f; float best=0; for(int k=0;k+3<curve.size();k+=2){ float x0=curve[k].toFloat(), y0=curve[k+1].toFloat(), x1=curve[k+2].toFloat(), y1=curve[k+3].toFloat(); if(t>=x0 && t<=x1){ float nt=(t-x0)/qMax(0.001f,x1-x0); best=y0+nt*(y1-y0); break; } } lut[i]=qBound(0,int(best*255),255); } }
+        QImage out = img.copy(); for(int y=0;y<out.height();++y){ QRgb* l=reinterpret_cast<QRgb*>(out.scanLine(y)); for(int x=0;x<out.width();++x){ QRgb p=l[x]; l[x]=qRgba(lut[qRed(p)],lut[qGreen(p)],lut[qBlue(p)],qAlpha(p)); } } return out;
+    }
+    if (filter == QStringLiteral("pathTraceAOV")) {
+        return img;
     }
     return img;
 }

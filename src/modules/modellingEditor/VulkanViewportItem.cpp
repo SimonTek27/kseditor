@@ -187,9 +187,38 @@ void VulkanViewportItem::wheelEvent(QWheelEvent* event) {
 
 void VulkanViewportItem::tabletEvent(QTabletEvent* event)
 {
-    Q_UNUSED(event);
-    // TODO: Implement tablet pressure support for sculpting
-    // This will route tablet events to the sculpting system
+    float pressure = qBound(0.05f, float(event->pressure()), 1.0f);
+    QPointF pos = event->position();
+    switch (event->type()) {
+    case QEvent::TabletPress:
+        m_lastMousePos = pos;
+        if (event->button() == Qt::LeftButton || event->buttons() & Qt::LeftButton) m_lmbDown = true;
+        if (event->deviceType() == QTabletEvent::Eraser) m_lmbDown = true;
+        event->accept();
+        break;
+    case QEvent::TabletMove: {
+        QPointF delta = pos - m_lastMousePos;
+        m_lastMousePos = pos;
+        float scaledX = float(delta.x()) * (0.5f + 0.5f * pressure);
+        float scaledY = float(delta.y()) * (0.5f + 0.5f * pressure);
+        if (m_lmbDown) orbit(scaledX, scaledY);
+        else if (m_rmbDown) pan(scaledX, scaledY);
+        else if (m_mmbDown) zoom(scaledY);
+        event->accept();
+        break;
+    }
+    case QEvent::TabletRelease:
+        if (event->button() == Qt::LeftButton) m_lmbDown = false;
+        if (event->deviceType() == QTabletEvent::Eraser) m_lmbDown = false;
+        m_lmbDown = false;
+        m_mmbDown = false;
+        m_rmbDown = false;
+        event->accept();
+        break;
+    default:
+        break;
+    }
+    update();
 }
 
 void VulkanViewportItem::hoverMoveEvent(QHoverEvent* event) {
