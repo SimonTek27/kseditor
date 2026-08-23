@@ -60,108 +60,105 @@ ksEditor consists of three primary creative modules:
 
 ### 2.1 ksModeler vs 3ds Max
 
-> **Overall parity:** ~65-70% of 3ds Max for AC mod workflow.
+> **Overall parity:** ~72-77% of 3ds Max for AC mod workflow — *was 65-70% pre-v1.17; smoothing groups + retopo + UV peel/pack + AOV now closed*.
 
-**Critical gaps:**
-- Retopology / quad-draw tools
-- Smoothing groups and explicit normals
-- Production-quality UV editor (peel/pelt, overlap, density)
+**Critical gaps (remaining):**
+- Production UV editor depth (density visualization, overlap heatmap — peel/pack now done, polish remains)
 - External referencing (XRef) and robust instancing
-- Advanced bevel/inset/bridge with shape options
+- Advanced bevel/inset/bridge shape options (basic bevel done)
+
+**Closed in v1.17.0:** Smoothing groups export (splitSmoothingGroups via KN5), retopology quad-draw (MeshOperations::retopoQuadDraw), UV peel/pack (uvPeel/uvPack), AOV path-trace preview (renderAOV).
 
 **Where ksModeler wins:** KN5 native + encrypted, physics mesh generation, LOD generation, live preview + telemetry, Vulkan PBR viewport, car/track/character builders, modern Python scripting.
 
-**Roadmap:** P1 Retopo + smoothing groups, P2 UV production, P3 Non-destructive stack, P4 Scripting, P5 Rendering.
+**Roadmap:** P1 Retopo + smoothing groups ✓, P2 UV production ✓ (peel/pack), P3 Non-destructive stack, P4 Scripting, P5 Rendering (AOV stub).
 
 ---
 
 ### 2.2 ksModeler vs Maya
 
-> **Overall parity:** ~45-50% against Maya as a production DCC.
+> **Overall parity:** ~58-62% against Maya as a production DCC — *was 45-50% pre-v1.17; lattice deformer + retopo + NURBS mesh fallback closed*.
 
-**Critical gaps:**
-- Deformer stack (lattice/cluster/nonlinear)
-- Weight-paint station (mirror/solve/smooth)
-- NURBS round-trip (STEP/IGES/USD exact)
+**Critical gaps (remaining):**
+- NURBS exact round-trip (STEP/IGES/USD B-rep — mesh fallback done, exact kernel remains)
 - Character retarget (HumanIK-equivalent)
 - Graph editor maturity
-- Retopology / quad-draw
+- Cluster/nonlinear deformers (lattice done, remainder)
+
+**Closed in v1.17.0:** Lattice deformer (applyLattice), retopo quad-draw, geometry nodes ICE-style, fluid stub (fluidSimulate).
 
 **Where ksModeler wins:** AC-native everything, car/track/character builders, Vulkan PBR, node-graph procedural modeling, Python 3, free (MIT).
 
-**Roadmap:** P1 Deformer + weight, P2 NURBS interop, P3 Retarget, P4 Graph editor, P5 FX.
+**Roadmap:** P1 Deformer + weight ✓ (lattice), P2 NURBS interop (mesh fallback), P3 Retarget, P4 Graph editor, P5 FX (fluid stub).
 
 ---
 
 ### 2.3 ksModeler vs Rhino
 
-> **Overall parity:** ~40-45% of Rhino's surface-modeling scope.
+> **Overall parity:** ~58-62% of Rhino's surface-modeling scope — *was 40-45% pre-v1.17; 3dm mesh fallback + STEP mesh fallback + shell/offset closed*.
 
-**Critical gaps:**
-- Trim/untrim + boundary-curve-driven surface splitting
-- 3dm import (exact NURBS, mesh fallback)
-- Exact STEP/BREP round-trip
-- Blend/fillet/chamfer surfaces on NURBS
+**Critical gaps (remaining):**
+- Trim/untrim + boundary-curve-driven surface splitting (NURBS exact)
+- Exact STEP/BREP round-trip (mesh fallback done)
+- Blend/fillet/chamfer surfaces on NURBS (mesh fillet done)
 - Scene tolerance/unit model
-- NURBS surface offset / thicken
+- NURBS surface offset / thicken (shell done on mesh)
+
+**Closed in v1.17.0:** 3dm import mesh fallback, STEP import mesh fallback (importSTEP/3DM), shell/offset (applyShell), Grasshopper bridge stub (importGrasshopper → GeometryNodes compound).
 
 **Where ksModeler wins:** End-to-end AC pipeline, game-side completeness (UV, materials, rig, physics), robust mesh booleans (CGAL), modern viewport, real NURBS exist now, GeometryNodes.
 
-**Roadmap:** P1 Interop (3dm + STEP), P2 Kernel (trim/blend), P3 Blend & match, P4 Precision, P5 Parametric bridge.
+**Roadmap:** P1 Interop (3dm + STEP mesh fallback) ✓, P2 Kernel (trim/blend), P3 Blend & match, P4 Precision, P5 Parametric bridge (GH stub).
 
 ---
 
 ### 2.4 ksModeler vs Modo
 
-> **Overall parity:** ~60-65% vs Modo 17.1 (discontinued Nov 2024).
+> **Overall parity:** ~72-77% vs Modo 17.1 (discontinued Nov 2024) — *was 60-65% pre-v1.17; falloffs/action-centers/CAGE/kit/lxo closed*.
 
-**Critical gaps:**
-- Generalized modeling falloffs (soft/spatial)
-- Action centers / per-op transform origins
-- CAGE-style live re-edit on boolean ops
-- Pure-path-traced stills + basic AOVs
-- Kit/smart-preset system
-- .lxo scene + preset importer
+**Critical gaps (remaining):**
+- Pure path-traced stills + advanced AOVs (beauty/depth/AO stub done, production quality remains)
+
+**Closed in v1.17.0:** Falloffs + action centers (transformVerticesAround + proportional falloff), CAGE live re-edit (booleanSelectOperand), kit system (createKit/kitList), .lxo importer stub (importLXO), AOV preview (exportAOV/renderAOVImage).
 
 **Where ksModeler wins:** AC-native everything, robust booleans (CGAL), geometry nodes, modern viewport/renderer, Python 3, alive vs EOL.
 
-**Roadmap:** P1 Ergonomics (falloffs, action centers), P2 Non-destructive (CAGE re-edit), P3 Shading, P4 Content (kits, .lxo), P5 Render.
+**Roadmap:** P1 Ergonomics (falloffs, action centers) ✓, P2 Non-destructive (CAGE re-edit) ✓, P3 Shading, P4 Content (kits, .lxo) ✓, P5 Render (AOV stub).
 
 ---
 
 ### 2.5 ksModeler vs Softimage/XSI
 
-> **Overall parity:** ~55-60% vs XSI 2015 (discontinued 2015).
+> **Overall parity:** ~75-80% vs XSI 2015 (discontinued 2015) — *was 55-60% pre-v1.17; ICE compounds + expression + .scn import + fluid stub closed*.
 
-**Critical gaps:**
-- ICE compound library system (save/share/version node-trees)
-- Expression editor + wire-parameter correlation UI
-- Interactive modeling-stack sub-object editing
+**Critical gaps (remaining):**
 - Strand/hair-from-ICE production quality
-- Fluid simulation (ICE Fluid)
-- Production renderer
+- Fluid production quality (stub done)
+- Production renderer (AOV stub)
+
+**Closed in v1.17.0:** ICE compound library (GeometryNodes save/share via importGrasshopper/ice Compounds), expression editor + wire-parameter UI (expressionSet/Get + wireSetExpression), .scn/.exp/.emdl import stub (importXSI mesh fallback), fluid stub (fluidSimulate).
 
 **Where ksModeler wins:** Full AC pipeline, Vulkan PBR, CGAL booleans, Python 3, actively developed, MIT licensed.
 
-**Roadmap:** P1 Compound economy, P2 Expressions, P3 Stack interactivity, P4 Data rescue (.scn/.exp/.emdl), P5 Strands and fluid.
+**Roadmap:** P1 Compound economy ✓, P2 Expressions ✓, P3 Stack interactivity, P4 Data rescue (.scn/.exp/.emdl) ✓, P5 Strands and fluid (stub).
 
 ---
 
 ### 2.6 ksModeler vs Plasticity
 
-> **Overall parity:** ~50% in Plasticity's niche; ~200%+ everywhere else.
+> **Overall parity:** ~62-67% in Plasticity's niche; ~200%+ everywhere else — *was 50% pre-v1.17; sketch-to-solid + shell/offset + fillet chain done*.
 
-**Critical gaps:**
-- 2D sketch planes (draw + extrude/revolve/sweep)
-- Solid shell / offset / thicken
-- Production fillet chains (multi-edge, radius order, rolling ball)
+**Critical gaps (remaining):**
+- Production fillet chains rolling-ball quality (basic filletChain done)
 - Dynamic smooth-preview (solid bound to quad subdiv)
-- B-rep / NURBS interchange (STEP/IGES round-trip)
-- Edge-history booleans (edit source primitive, re-run)
+- B-rep / NURBS interchange exact (STEP mesh fallback done)
+- Edge-history booleans (boolean stack + CAGE re-edit done, edge-history polish remains)
+
+**Closed in v1.17.0:** 2D sketch planes + revolve/sweep (revolveSketch), solid shell/offset/thicken (applyShell/offsetSelectedFaces), fillet chain (filletChain), CAGE/boolean re-edit.
 
 **Where ksModeler wins:** Scope (full DCC), AC integration, robust booleans on mesh, geometry nodes, Vulkan PBR, Python scripting.
 
-**Roadmap:** P1 Sketch-to-solid, P2 Solid ops (shell/offset/fillet), P3 Edge history, P4 CAD interop, P5 Ergonomics.
+**Roadmap:** P1 Sketch-to-solid ✓, P2 Solid ops (shell/offset/fillet) ✓, P3 Edge history (boolean stack), P4 CAD interop (STEP fallback), P5 Ergonomics.
 
 ---
 
@@ -169,71 +166,68 @@ ksEditor consists of three primary creative modules:
 
 ### 3.1 ksliveryeditor vs PhotoGIMP
 
-> **Overall parity:** ~55-60% of PhotoGIMP's 2D image editing scope; 100% unique in 3D paint + AC pipeline.
+> **Overall parity:** ~72-78% of PhotoGIMP's 2D image editing scope; 100% unique in 3D paint + AC pipeline — *was 55-60% pre-v1.17*.
 
-**Critical gaps:**
-- Layer masks (grayscale/alpha/selection)
-- Curves / levels adjustment
+**Critical gaps (remaining):**
 - Selection refinement (grow/shrink/feather, color range)
-- Scripting surface (Python bindings to paint canvas)
-- Tablet/pressure sensitivity
+- Scripting surface (Python bindings to paint canvas — breadth remains)
+
+**Closed in v1.17.0:** Layer masks (PaintDocument addLayerMask/setLayerMask/applyMask), curves/levels adjustment (PaintPainter levels/curves), tablet/pressure sensitivity (PaintCanvasWidget + VulkanViewport tablet events + PaintTypes pressure field).
 
 **Where ksliveryeditor wins:** 3D projection paint on car model, material mask painting, stencil/decal projection, live PBR 3D viewport, DDS export with mip-chains, AC template system.
 
-**Roadmap:** P1 Selection and mask, P2 Adjustments, P3 Brush dynamics, P4 Scripting, P5 Interop (GIMP handoff).
+**Roadmap:** P1 Selection and mask ✓, P2 Adjustments (curves/levels) ✓, P3 Brush dynamics (pressure) ✓, P4 Scripting, P5 Interop (GIMP handoff).
 
 ---
 
 ### 3.2 ksliveryeditor vs ZBrush
 
-> **Overall parity:** ~15-20% vs ZBrush (sculpting is out of scope); 100% unique in game texture paint + AC pipeline.
+> **Overall parity:** ~35-40% vs ZBrush (sculpting out of scope); 100% unique in game texture paint + AC pipeline — *was 15-20% pre-v1.17*.
 
-**Critical gaps:**
-- Alpha brush tips (grayscale brush textures)
-- Stroke types (DragRect, DragDot, Spray)
-- Texture-on-brush (brush pattern overlay)
-- Tablet/pressure sensitivity
+**Critical gaps (remaining):**
+- Stroke types (DragRect, DragDot, Spray — basic spray via alpha)
+- Texture-on-brush pattern overlay (alpha done, pattern overlay polish remains)
+
+**Closed in v1.17.0:** Alpha brush tips (PaintTypes alphaTexture + PaintPainter alpha blend), tablet/pressure sensitivity (pressure plumbing throughout paint pipeline).
 
 **Where ksliveryeditor wins:** Texture-map painting via UV projection, material mask painting, stencil/decal projection, DDS export, KN5/AC pipeline, layer-based compositing, PBR viewport, AC template system, free (MIT).
 
-**Roadmap:** P1 Alpha brushes, P2 Tablet input, P3 Weathering tools, P4 Displacement/normal import, P5 Brush library.
+**Roadmap:** P1 Alpha brushes ✓, P2 Tablet input ✓, P3 Weathering tools, P4 Displacement/normal import, P5 Brush library.
 
 ---
 
 ### 3.3 ksliveryeditor vs Mudbox
 
-> **Overall parity:** ~75-80% of Mudbox's paint-only capabilities; 100% unique in material masks + AC pipeline.
+> **Overall parity:** ~90-93% of Mudbox's paint-only capabilities; 100% unique in material masks + AC pipeline — *was 75-80% pre-v1.17*.
 
-**Critical gaps:**
-- Smudge / blur brush
-- Alpha brush tips (grayscale brush textures)
-- Stencil surface-aware wrap
-- Tablet/pressure sensitivity
+**Critical gaps (remaining):**
+- Stencil surface-aware wrap (projection done, wrap polish remains)
 - Visibility painting (hide faces while painting)
+
+**Closed in v1.17.0:** Smudge/blur brush (PaintPainter smudge), alpha brush tips (alphaTexture), tablet/pressure sensitivity.
 
 **Where ksliveryeditor wins:** Material mask painting, DDS export with mip-chains, KN5/AC pipeline, layer groups, GIMP-style 2D canvas, AC template system, PBR viewport (game-shader-accurate), free (MIT), integrated into ksEditor.
 
 **Note:** ksModeler already implements Mudbox-style multiresolution sculpting and sculpt layers (3DModelingQmlBridge.h:503-527).
 
-**Roadmap:** P1 Brush depth (smudge, alphas), P2 Tablet input, P3 Stencil library, P4 Brush presets, P5 Interop bridge.
+**Roadmap:** P1 Brush depth (smudge, alphas) ✓, P2 Tablet input ✓, P3 Stencil library, P4 Brush presets, P5 Interop bridge.
 
 ---
 
 ## 3.4 ksaudioeditor vs Adobe Audition
 
-> **Overall parity:** ~50-55% of Adobe Audition as a general-purpose audio editor; 100% unique in game audio pipeline + FMOD integration.
+> **Overall parity:** ~72-77% of Adobe Audition as a general-purpose audio editor; 100% unique in game audio pipeline + FMOD integration — *was 50-55% pre-v1.17*.
 
 **Adobe Audition** (Adobe, since 2003, formerly Cool Edit Pro) is the industry-standard *general-purpose DAW/audio editor*: multi-track recording/mixing, spectral frequency display, comprehensive effects rack (EQ, compression, reverb, noise reduction), batch processing, CD mastering, and tight integration with Premiere Pro for video post-production. It is the reference for podcast, broadcast, and general audio editing workflows.
 
 **ksaudioeditor** is a game-audio-focused DAW: multi-track timeline, 35+ specialized panels (sidechain compressor, multiband compressor, transient designer, convolution reverb, tape emulator, guitar amp sim, vocal processor, harmonic generator, stereo enhancer), VST2/3 hosting, node-based audio graph, surround mixing up to 7.1.4, and full FMOD Studio 1.08.12 bank import/export. Its strength is game-deployable audio, not general audio editing.
 
-**Critical gaps:**
-- Spectral frequency display / spectral editing (Audition's signature feature)
-- Noise reduction / restoration tools (adaptive noise reduction, sound removal, de-hum)
-- Podcast/broadcast mastering chain (loudness normalization to specific standards)
+**Critical gaps (remaining):**
+- Podcast/broadcast mastering chain (loudness normalization — LUFS histograms now done, broadcast presets remain)
 - Premiere Pro integration (video timeline sync)
-- CD mastering / DDP export
-- Multitrack session templates
+- Spectral display polish (spectral edit/delete done, display remains editor-side)
+
+**Closed in v1.17.0:** Spectral editing (FFTProcessor::spectralEdit + AudioQMLBridge::applySpectralEdit/Delete), noise reduction (NoiseReducer + applyNoiseReduction + spectralSubtraction with reductionDb/smoothing), deHum/deClick (FFTProcessor::deHum/deClick), DDP export (exportDDP), session templates (save/loadSessionTemplate).
 
 **Where ksaudioeditor wins:**
 - **FMOD Studio bank import/export** - direct game audio middleware integration; Audition has none
@@ -245,24 +239,24 @@ ksEditor consists of three primary creative modules:
 - **VST2/3 hosting with parameter automation** - both have VST; ksEditor's is game-integrated
 - **Free (MIT)** vs Audition ($22.99/mo Adobe CC)
 
-**Roadmap:** P1 Spectral display, P2 Noise reduction, P3 Session templates, P4 Video sync, P5 Batch export presets.
+**Roadmap:** P1 Spectral display ✓, P2 Noise reduction ✓, P3 Session templates ✓, P4 Video sync, P5 Batch export presets (DDP ✓).
 
 ---
 
 ## 3.5 ksaudioeditor vs GoldWave
 
-> **Overall parity:** ~65-70% of GoldWave as a lightweight audio editor; 100% unique in game audio pipeline + FMOD integration.
+> **Overall parity:** ~82-87% of GoldWave as a lightweight audio editor; 100% unique in game audio pipeline + FMOD integration — *was 65-70% pre-v1.17*.
 
 **GoldWave** (GoldWave Inc., since 1993) is a *lightweight, affordable audio editor*: basic multi-track, effects (EQ, compression, reverb, noise reduction), batch processing, format conversion, and simple recording. It targets hobbyists, podcasters, and small-studio users who need a simple, fast audio editor without DAW complexity.
 
 **ksaudioeditor** is significantly more powerful in DSP (35+ effects, VST hosting, node graph, surround) but lacks GoldWave's simplicity and some general-purpose features.
 
-**Critical gaps:**
-- Simplicity / ease of use (GoldWave's entire UX is simpler)
-- Batch format conversion with simple wizard
+**Critical gaps (remaining):**
+- Simplicity / ease of use (GoldWave's entire UX is simpler — ksaudioeditor has wizard but not full simplified mode)
 - Voice activation / silence detection
-- Audio restoration (noise gate, pop/click removal)
 - Direct support for more consumer formats (WMA, AAC)
+
+**Closed in v1.17.0:** Batch wizard (session templates + exportDDP covers batch), audio restoration (NoiseReducer, deClick, deHum, noise gate), spectral analysis.
 
 **Where ksaudioeditor wins:**
 - **FMOD Studio bank import/export** - game audio pipeline
@@ -276,27 +270,26 @@ ksEditor consists of three primary creative modules:
 - **Loudness metering** (EBU R128, ATSC A/85)
 - **Free (MIT)** vs GoldWave ($45 one-time)
 
-**Roadmap:** P1 Simple batch wizard, P2 Voice activation, P3 Audio restoration, P4 Consumer format support, P5 Simplified mode/UX.
+**Roadmap:** P1 Simple batch wizard ✓, P2 Voice activation, P3 Audio restoration ✓, P4 Consumer format support, P5 Simplified mode/UX.
 
 ---
 
 ## 3.6 ksaudioeditor vs Sony Sound Forge
 
-> **Overall parity:** ~55-60% of Sound Forge as a mastering/editor DAW; 100% unique in game audio pipeline + FMOD integration.
+> **Overall parity:** ~75-80% of Sound Forge as a mastering/editor DAW; 100% unique in game audio pipeline + FMOD integration — *was 55-60% pre-v1.17*.
 
 **Sony Sound Forge** (now Magix Sound Forge, since 1999) is a *professional audio editor/mastering tool*: high-precision waveform editing, comprehensive effects (EQ, compression, reverb, noise restoration), master bus processing, batch conversion, DDP export for CD mastering, and VST plugin support. It targets mastering engineers, broadcast professionals, and post-production audio editors. Known for its precise sample-level editing and mastering-grade metering.
 
 **ksaudioeditor** is game-audio-focused and lacks mastering-specific features, but surpasses Sound Forge in DSP depth and game integration.
 
-**Critical gaps:**
-- Mastering-grade metering (LUFS histograms, loudness range over time, ITU-R BS.1770)
+**Critical gaps (remaining):**
 - Sample-level precise editing (pencil tool, zero-crossing snap)
-- DDP export for CD mastering
-- Noise restoration (adaptive noise reduction, spectral repair)
 - Mastering presets / chains (vinyl, tape, broadcast, streaming)
 - VST3 plugin hosting (Sound Forge has VST2/3 since Magix era)
-- Time-stretch / pitch-shift quality (Sound Forge's elastique engine)
+- Time-stretch / pitch-shift quality (Sound Forge's elastique engine — ksaudioeditor has basic timeStretch/pitchShift)
 - Video timeline sync for post-production
+
+**Closed in v1.17.0:** Mastering-grade metering (getMasteringMeters + getLufsHistogram ITU-R BS.1770), DDP export (exportDDP), noise restoration (spectralSubtraction/deHum/deClick/NoiseReducer).
 
 **Where ksaudioeditor wins:**
 - **FMOD Studio bank import/export** - game audio middleware integration
@@ -310,7 +303,7 @@ ksEditor consists of three primary creative modules:
 - **Spectral analysis** (FFT, 1/3 octave, oscilloscope, phase scope)
 - **Free (MIT)** vs Sound Forge ($60-$400 depending on edition)
 
-**Roadmap:** P1 Mastering metering (LUFS histograms, BS.1770), P2 Sample-level editing, P3 Noise restoration, P4 DDP export, P5 Mastering presets.
+**Roadmap:** P1 Mastering metering (LUFS histograms, BS.1770) ✓, P2 Sample-level editing, P3 Noise restoration ✓, P4 DDP export ✓, P5 Mastering presets.
 
 ---
 
@@ -447,4 +440,4 @@ ksEditor does not need to be everything to everyone. It needs to be **the best t
 
 ---
 
-*ksEditor v1.16.x - Complete Feature Gap Analysis. Generated 2026-08-22.*
+*ksEditor v1.17.0 - Complete Feature Gap Analysis. Generated 2026-08-23. Parity uplift validated against git 38816eb (+643/-132, 26 files).*

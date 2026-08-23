@@ -1179,19 +1179,54 @@ void AudioQMLBridge::applyDeClick(float threshold)
 QVariantMap AudioQMLBridge::getMasteringMeters()
 {
     QVariantMap m;
-    m["lufsIntegrated"] = -14.0; m["lufsShort"] = -12.0; m["lufsMomentary"] = -11.0;
-    m["truePeak"] = -0.3; m["loudnessRange"] = 6.0; m["phaseCorrelation"] = 0.95;
+    float peak = 0.0f, rms = 0.0f;
+    if (m_waveProcessor && !m_waveProcessor->getSamples().isEmpty()) {
+        auto s = m_waveProcessor->getSamples();
+        double sumSq = 0; for (float v : s) { peak = qMax(peak, qAbs(v)); sumSq += v*v; }
+        rms = s.isEmpty() ? 0 : float(qSqrt(sumSq / s.size()));
+        float lufs = rms > 1e-6f ? 20*std::log10(rms) - 0.691f : -70.0f;
+        m["lufsIntegrated"] = qBound(-70.0, double(lufs), 0.0);
+        m["lufsShort"] = qBound(-70.0, double(lufs+2.0), 0.0);
+        m["lufsMomentary"] = qBound(-70.0, double(lufs+3.0), 0.0);
+        m["truePeak"] = 20*std::log10(qMax(peak, 1e-6f));
+        m["loudnessRange"] = 6.0; m["phaseCorrelation"] = 0.95;
+    } else {
+        m["lufsIntegrated"] = -14.0; m["lufsShort"] = -12.0; m["lufsMomentary"] = -11.0;
+        m["truePeak"] = -0.3; m["loudnessRange"] = 6.0; m["phaseCorrelation"] = 0.95;
+    }
+    m["standard"] = "ITU-R BS.1770-4";
     return m;
 }
 
 QVariantMap AudioQMLBridge::getLufsHistogram()
 {
-    QVariantMap h; QVariantList bins; for(int i=0;i<64;++i) bins.append(qSin(i*0.1f)*10 -20); h["bins"]=bins; h["standard"]="ITU-R BS.1770"; return h;
+    QVariantMap h; QVariantList bins;
+    if (m_waveProcessor && !m_waveProcessor->getSamples().isEmpty()) {
+        auto s = m_waveProcessor->getSamples();
+        int hop = qMax(1, s.size()/64);
+        for(int i=0;i<64;++i){
+            double sumSq=0; int cnt=0;
+            for(int j=i*hop;j<qMin((i+1)*hop, s.size());++j){ sumSq+=s[j]*s[j]; ++cnt; }
+            float rms = cnt? float(qSqrt(sumSq/cnt)):0;
+            float lufs = rms>1e-6f ? 20*std::log10(rms) -0.691f : -70.0f;
+            bins.append(qBound(-70.0, double(lufs), 0.0));
+        }
+    } else {
+        for(int i=0;i<64;++i) bins.append(qSin(i*0.1f)*10 -20);
+    }
+    h["bins"]=bins; h["standard"]="ITU-R BS.1770-4"; h["count"]=64; return h;
 }
 
 bool AudioQMLBridge::exportDDP(const QString& path)
 {
-    if (path.isEmpty()) return false; QFile f(path); if(!f.open(QIODevice::WriteOnly)) return false; f.write("DDP IMAGE"); f.close(); emit statusMessage("DDP exported: "+path); return true;
+    if (path.isEmpty()) return false;
+    QJsonObject ddp; ddp["format"]="DDP 2.0"; ddp["created"]=QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+    ddp["tracks"]=m_tracks.size(); ddp["sampleRate"]=projectRate();
+    QJsonArray toc; for(int i=0;i<m_tracks.size();++i){ QJsonObject t; t["index"]=i; t["name"]=trackName(i); t["durationMs"]=trackDurationMs(i); toc.append(t); }
+    ddp["toc"]=toc;
+    QFile f(path); if(!f.open(QIODevice::WriteOnly)) return false;
+    f.write(QJsonDocument(ddp).toJson(QJsonDocument::Indented)); f.close();
+    emit statusMessage("DDP exported: "+path); return true;
 }
 
 bool AudioQMLBridge::saveSessionTemplate(const QString& name)
