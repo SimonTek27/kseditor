@@ -104,6 +104,10 @@ QVector<MeshOperations::DimensionLine> MeshOperations::m_dimensions;
 QVector<MeshOperations::DimensionData> MeshOperations::m_distanceDimensions;
 QVector<MeshOperations::DimensionData> MeshOperations::m_angleDimensions;
 QVector<MeshOperations::RadiusDimension> MeshOperations::m_radiusDimensions;
+float MeshOperations::s_tolerance = 0.001f;
+float MeshOperations::s_unitScale = 1.0f;
+bool MeshOperations::s_smoothPreview = false;
+int MeshOperations::s_smoothPreviewLevel = 1;
 
 QVector3D MeshOperations::snapPoint(const QVector3D& worldPoint, int snapTypes) {
     QVector3D result = worldPoint;
@@ -5990,13 +5994,96 @@ MeshData MeshOperations::uvPack(const MeshData& mesh, float padding) {
     MeshData out = mesh; out.computeBoundingBox(); return out;
 }
 
-QImage MeshOperations::renderAOV(const MeshData& mesh, const QString& aov, int width, int height) {
-    Q_UNUSED(mesh); QImage img(width, height, QImage::Format_ARGB32);
+QImage MeshOperations::renderAOV(const MeshData& mesh, const QString& aov, int width, int height, int samples) {
+    Q_UNUSED(mesh); Q_UNUSED(samples); QImage img(width, height, QImage::Format_ARGB32);
     if (aov == "depth") img.fill(QColor(128,128,128));
     else if (aov == "normal") img.fill(QColor(128,128,255));
     else if (aov == "albedo") img.fill(QColor(200,200,200));
     else img.fill(Qt::black);
     return img;
+}
+QVector<float> MeshOperations::analyzeUVDensity(const MeshData& mesh) {
+    QVector<float> out; out.reserve(mesh.faces.size());
+    for (const auto& f : mesh.faces) {
+        if (f.indices.size() < 3 || mesh.uvs.isEmpty()) { out.append(1.0f); continue; }
+        float area3D = 0, areaUV = 0;
+        QVector3D p0 = mesh.vertices[f.indices[0]].position;
+        QVector2D uv0 = mesh.uvs[qMin(f.indices[0], mesh.uvs.size()-1)];
+        for (int i = 1; i + 1 < f.indices.size(); ++i) {
+            QVector3D p1 = mesh.vertices[f.indices[i]].position;
+            QVector3D p2 = mesh.vertices[f.indices[i+1]].position;
+            area3D += QVector3D::crossProduct(p1-p0, p2-p0).length() * 0.5f;
+            QVector2D uv1 = mesh.uvs[qMin(f.indices[i], mesh.uvs.size()-1)];
+            QVector2D uv2 = mesh.uvs[qMin(f.indices[i+1], mesh.uvs.size()-1)];
+            areaUV += qAbs((uv1-uv0).x()*(uv2-uv0).y() - (uv1-uv0).y()*(uv2-uv0).x()) * 0.5f;
+            Q_UNUSED(uv0);
+        }
+        float d = areaUV > 1e-8f ? area3D / areaUV : 1.0f;
+        out.append(qBound(0.0f, d, 10.0f));
+    }
+    return out;
+}
+QImage MeshOperations::uvOverlapHeatmap(const MeshData& mesh, int width, int height) {
+    QImage img(width, height, QImage::Format_ARGB32); img.fill(QColor(30,30,30,255));
+    if (mesh.uvs.isEmpty() || mesh.faces.isEmpty()) return img;
+    QHash<quint64,int> occ; occ.reserve(width*height/4);
+    for (const auto& f : mesh.faces) {
+        for (int idx : f.indices) {
+            QVector2D uv = mesh.uvs[qMin(idx, mesh.uvs.size()-1)];
+            int x = qBound(0, int(uv.x()*width), width-1);
+            int y = qBound(0, int(uv.y()*height), height-1);
+            quint64 k = (quint64(x)<<32)|quint32(y); occ[k]++;
+        }
+    }
+    for (auto it = occ.begin(); it != occ.end(); ++it) {
+        int cnt = it.value(); if (cnt < 2) continue;
+        int x = int(it.key()>>32); int y = int(it.key()&0xffffffff);
+        int r = qMin(255, 80 + cnt*40); img.setPixelColor(x,y, QColor(r, 30, 30, 200));
+    }
+    return img;
+}
+QImage MeshOperations::uvDensityHeatmap(const MeshData& mesh, int width, int height) {
+    auto dens = analyzeUVDensity(mesh);
+    QImage img(width, height, QImage::Format_ARGB32); img.fill(QColor(40,40,40,255));
+    if (dens.isEmpty() || mesh.faces.isEmpty()) return img;
+    float mn = *std::min_element(dens.begin(), dens.end());
+    float mx = *std::max_element(dens.begin(), dens.end());
+    float rng = qMax(1e-6f, mx - mn);
+    for (int i = 0; i < qMin(dens.size(), mesh.faces.size()); ++i) {
+        const auto& f = mesh.faces[i];
+        float t = (dens[i]-mn)/rng;
+        QColor c = QColor::fromHsvF(0.66f*(1.0f-t), 0.9f, 0.95f);
+        for (int idx : f.indices) {
+            if (idx < 0 || idx >= mesh.uvs.size()) continue;
+            QVector2D uv = mesh.uvs[idx];
+            int x = qBound(0, int(uv.x()*width), width-1);
+            int y = qBound(0, int(uv.y()*height), height-1);
+            img.setPixelColor(x,y,c);
+        }
+    }
+    return img;
+}
+NURBSSurface MeshOperations::offsetSurface(const NURBSSurface& surface, float distance) {
+    NURBSSurface out = surface;
+    for (auto& row : out.controlPoints)
+        for (auto& p : row) p += QVector3D(0, distance, 0);
+    return out;
+}
+QVector<int> MeshOperations::retargetSkeleton(const QVector<QVector3D>& srcJoints, const QVector<QVector3D>& dstJoints) {
+    Q_UNUSED(dstJoints); QVector<int> map; map.reserve(srcJoints.size());
+    for (int i = 0; i < srcJoints.size(); ++i) map.append(i < dstJoints.size() ? i : -1);
+    return map;
+}
+MeshData MeshOperations::applyClusterDeform(const MeshData& mesh, const QVector<int>& indices, const QVector3D& delta, float weight) {
+    MeshData out = mesh;
+    for (int idx : indices) if (idx>=0 && idx < out.vertices.size()) out.vertices[idx].position += delta * weight;
+    out.computeNormals(); return out;
+}
+MeshData MeshOperations::applyBlendShape(const MeshData& base, const MeshData& target, float weight) {
+    MeshData out = base; weight = qBound(0.0f, weight, 1.0f);
+    int n = qMin(base.vertices.size(), target.vertices.size());
+    for (int i = 0; i < n; ++i) out.vertices[i].position = base.vertices[i].position * (1-weight) + target.vertices[i].position * weight;
+    out.computeNormals(); return out;
 }
 } // namespace ks
 

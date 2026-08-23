@@ -594,6 +594,50 @@ void PaintDocument::clearHistory()
     m_redoStack.clear();
     emit historyChanged();
 }
+void PaintDocument::growSelection(int pixels) {
+    if (m_selection.isNull() || pixels <= 0) return; pushUndo();
+    QImage out(m_width, m_height, QImage::Format_ARGB32); out.fill(Qt::transparent);
+    for (int y = 0; y < m_height; ++y) for (int x = 0; x < m_width; ++x) {
+        int a = 0; for (int dy=-pixels; dy<=pixels; ++dy) for (int dx=-pixels; dx<=pixels; ++dx) {
+            int nx=x+dx, ny=y+dy; if (nx<0||ny<0||nx>=m_width||ny>=m_height) continue;
+            if (qAlpha(m_selection.pixel(nx,ny))>0) { a=255; break; } } if (a) out.setPixelColor(x,y,QColor(0,0,0,a));
+        }
+    m_selection=out; emit selectionChanged(); emit documentChanged();
+}
+void PaintDocument::shrinkSelection(int pixels) {
+    if (m_selection.isNull() || pixels <= 0) return; pushUndo();
+    QImage out(m_width, m_height, QImage::Format_ARGB32); out.fill(Qt::transparent);
+    for (int y = 0; y < m_height; ++y) for (int x = 0; x < m_width; ++x) {
+        if (qAlpha(m_selection.pixel(x,y))==0) continue;
+        bool keep=true; for (int dy=-pixels; dy<=pixels; ++dy) for (int dx=-pixels; dx<=pixels; ++dx) {
+            int nx=x+dx, ny=y+dy; if (nx<0||ny<0||nx>=m_width||ny>=m_height) { keep=false; break; }
+            if (qAlpha(m_selection.pixel(nx,ny))==0) { keep=false; break; } } if (keep) out.setPixelColor(x,y,QColor(0,0,0,255));
+        }
+    m_selection=out; emit selectionChanged(); emit documentChanged();
+}
+void PaintDocument::featherSelection(int radius) {
+    if (m_selection.isNull() || radius <= 0) return; pushUndo();
+    QImage out = m_selection; int r = qBound(1, radius, 32);
+    for (int iter=0; iter<r; ++iter) {
+        QImage tmp = out;
+        for (int y=1;y<m_height-1;++y) for (int x=1;x<m_width-1;++x) {
+            int a=(qAlpha(tmp.pixel(x,y))+qAlpha(tmp.pixel(x-1,y))+qAlpha(tmp.pixel(x+1,y))+qAlpha(tmp.pixel(x,y-1))+qAlpha(tmp.pixel(x,y+1)))/5;
+            out.setPixelColor(x,y,QColor(0,0,0,a));
+        }
+    }
+    m_selection=out; emit selectionChanged(); emit documentChanged();
+}
+void PaintDocument::selectColorRange(const QColor& color, int tolerance) {
+    if (m_width==0||m_height==0) return; pushUndo();
+    QImage sel(m_width, m_height, QImage::Format_ARGB32); sel.fill(Qt::transparent);
+    QImage comp = composite();
+    for (int y=0;y<m_height;++y) for (int x=0;x<m_width;++x) {
+        QColor c = comp.pixelColor(x,y);
+        int dr=qAbs(c.red()-color.red()), dg=qAbs(c.green()-color.green()), db=qAbs(c.blue()-color.blue());
+        if (dr<=tolerance && dg<=tolerance && db<=tolerance) sel.setPixelColor(x,y,QColor(0,0,0,255));
+    }
+    m_selection=sel; emit selectionChanged(); emit documentChanged();
+}
 
 } // namespace paint
 } // namespace ks

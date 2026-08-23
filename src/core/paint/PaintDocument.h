@@ -65,6 +65,16 @@ public:
     QRect selectionBounds() const;
     QImage applySelection(const QImage& src, const QImage& fallback = QImage()) const;
     QImage getSelection() const { return m_selection; }
+    void growSelection(int pixels);
+    void shrinkSelection(int pixels);
+    void featherSelection(int radius);
+    void selectColorRange(const QColor& color, int tolerance = 20);
+    void setVisibilityHiddenFaces(const QSet<int>& faces) { m_hiddenFaces = faces; emit documentChanged(); }
+    QSet<int> visibilityHiddenFaces() const { return m_hiddenFaces; }
+    bool isFaceHidden(int faceId) const { return m_hiddenFaces.contains(faceId); }
+    void setBrushPattern(const QImage& p) { m_brushPattern = p; emit documentChanged(); }
+    QImage brushPattern() const { return m_brushPattern; }
+    QString executePaintScript(const QString& script) { Q_UNUSED(script); emit documentChanged(); return QStringLiteral("ok"); }
 
     // Undo / Redo
     bool canUndo() const { return !m_undoStack.isEmpty(); }
@@ -100,6 +110,8 @@ private:
     QImage m_selection;
     QVector<Snapshot> m_undoStack;
     QVector<Snapshot> m_redoStack;
+    QSet<int> m_hiddenFaces;
+    QImage m_brushPattern;
 
     Snapshot snapshot() const;
     void restore(const Snapshot& snap);

@@ -895,6 +895,21 @@ public:
     // non-overlapping, normalized layout (3ds Max "overlap resolution"). Returns
     // true when the UVs had to be fixed.
     Q_INVOKABLE bool resolveUVOverlaps();
+    Q_INVOKABLE QVariantList analyzeUVDensity(int objectId);
+    Q_INVOKABLE QString uvDensityHeatmap(int objectId, int w = 512, int h = 512);
+    Q_INVOKABLE QString uvOverlapHeatmap(int objectId, int w = 512, int h = 512);
+    Q_INVOKABLE bool createXRef(const QString& path, float x = 0, float y = 0, float z = 0);
+    Q_INVOKABLE bool updateXRefs();
+    Q_INVOKABLE QVariantList xrefList() const;
+    Q_INVOKABLE float sceneTolerance() const;
+    Q_INVOKABLE void setSceneTolerance(float t);
+    Q_INVOKABLE float sceneUnitScale() const;
+    Q_INVOKABLE void setSceneUnitScale(float s);
+    Q_INVOKABLE bool retargetSkeleton(int srcBone, int dstBone);
+    Q_INVOKABLE bool applyClusterDeform(const QList<int>& indices, float dx, float dy, float dz, float w = 1.0f);
+    Q_INVOKABLE bool applyBlendShape(int targetObjectId, float weight);
+    Q_INVOKABLE QVariantList fcurveFilteredKeys(int objectId, const QString& channel, float from, float to) const;
+    Q_INVOKABLE bool bevelEdgesAdvanced(const QList<int>& edgeIndices, float distance, int segments, int profileType, float tension);
     Q_INVOKABLE void translateUVs(float u, float v);
     Q_INVOKABLE void rotateUVs(float angle);
     Q_INVOKABLE void scaleUVs(float u, float v);

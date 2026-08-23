@@ -212,7 +212,10 @@ public:
     static MeshData retopoQuadDraw(const MeshData& highPoly, const MeshData& lowPoly, float snapDist = 0.1f);
     static MeshData uvPeel(const MeshData& mesh, const QVector<int>& seamEdges);
     static MeshData uvPack(const MeshData& mesh, float padding = 2.0f);
-    static QImage renderAOV(const MeshData& mesh, const QString& aov, int width = 1920, int height = 1080);
+    static QVector<float> analyzeUVDensity(const MeshData& mesh);
+    static QImage uvOverlapHeatmap(const MeshData& mesh, int width = 512, int height = 512);
+    static QImage uvDensityHeatmap(const MeshData& mesh, int width = 512, int height = 512);
+    static QImage renderAOV(const MeshData& mesh, const QString& aov, int width = 1920, int height = 1080, int samples = 16);
 
     // Assigns smoothing groups (0..31, Max-style) to faces based on the
     // dihedral angle between adjacent faces. Faces whose adjacent angle is
@@ -462,6 +465,7 @@ struct RadialMenu {
     static NURBSSurface pipe(const QVector<NURBSCurve>& profiles, float radius);
     // NURBS fillet/chamfer blending - creates a blended surface between
     // two adjacent NURBS surfaces at a given radius.
+    static NURBSSurface offsetSurface(const NURBSSurface& surface, float distance);
     static NURBSSurface filletSurface(const NURBSSurface& surfaceA,
                                        const NURBSSurface& surfaceB,
                                        const QVector3D& edgePointA,
@@ -500,6 +504,18 @@ struct RadialMenu {
                                             const NURBSSurface& surfaceB);
     static NURBSSurface booleanXor(const NURBSSurface& surfaceA,
                                     const NURBSSurface& surfaceB);
+
+    static float sceneTolerance() { return s_tolerance; }
+    static void setSceneTolerance(float t) { s_tolerance = qMax(1e-6f, t); }
+    static float sceneUnitScale() { return s_unitScale; }
+    static void setSceneUnitScale(float s) { s_unitScale = qMax(1e-6f, s); }
+    static QVector<int> retargetSkeleton(const QVector<QVector3D>& srcJoints, const QVector<QVector3D>& dstJoints);
+    static MeshData applyClusterDeform(const MeshData& mesh, const QVector<int>& indices, const QVector3D& delta, float weight = 1.0f);
+    static MeshData applyBlendShape(const MeshData& base, const MeshData& target, float weight);
+    static bool smoothPreviewEnabled() { return s_smoothPreview; }
+    static void setSmoothPreview(bool v) { s_smoothPreview = v; }
+    static int smoothPreviewLevel() { return s_smoothPreviewLevel; }
+    static void setSmoothPreviewLevel(int l) { s_smoothPreviewLevel = qBound(0,l,4); }
 
     // NURBS fillet/chamfer blending - creates a blended surface between
     // two adjacent NURBS surfaces at a given radius.
@@ -646,6 +662,10 @@ private:
     static QVector<DimensionData> m_distanceDimensions;
     static QVector<DimensionData> m_angleDimensions;
     static QVector<RadiusDimension> m_radiusDimensions;
+    static float s_tolerance;
+    static float s_unitScale;
+    static bool s_smoothPreview;
+    static int s_smoothPreviewLevel;
 };
 
 class ExtrudeOptions {
@@ -668,6 +688,9 @@ public:
     bool bevelEdges = true;
     bool useClampOverlap = true;
     float clampOverlap = 0.05f;
+    int profileType = 0;
+    float profileTension = 0.5f;
+    int miterType = 0;
 };
 
 class ArrayOptions {

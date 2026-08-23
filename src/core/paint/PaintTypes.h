@@ -33,6 +33,8 @@ enum class PaintTool {
     Gradient,
     Text
 };
+enum class StrokeType { Dots = 0, DragRect = 1, DragDot = 2, Spray = 3, Freehand = 4 };
+enum class StencilWrapMode { Flat = 0, Surface = 1, Cylindrical = 2 };
 
 enum class PaintBlendMode {
     Normal,

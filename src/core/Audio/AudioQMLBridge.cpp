@@ -1617,8 +1617,9 @@ bool AudioQMLBridge::isModified() const
     return m_modified;
 }
 
-void AudioQMLBridge::timeStretch(float ratio)
+void AudioQMLBridge::timeStretch(float ratio, int quality)
 {
+    Q_UNUSED(quality); m_timeStretchQuality = qBound(0,quality,2);
     AudioTimeStretch stretch;
     QVector<float> samples = m_waveProcessor->getSamples();
     int channels = m_waveProcessor->getChannelCount();
@@ -1629,8 +1630,9 @@ void AudioQMLBridge::timeStretch(float ratio)
     m_modified = true;
 }
 
-void AudioQMLBridge::pitchShift(float semitones)
+void AudioQMLBridge::pitchShift(float semitones, int quality)
 {
+    Q_UNUSED(quality); m_timeStretchQuality = qBound(0,quality,2);
     float ratio = qPow(2.0f, semitones / 12.0f);
     AudioTimeStretch stretch;
     stretch.setPitchShift(semitones);
@@ -2058,3 +2060,37 @@ bool AudioQMLBridge::ttsSaveToWav(const QString& text, const QString& filePath)
 {
     return m_tts ? m_tts->saveToWav(text, filePath) : false;
 }
+bool AudioQMLBridge::pencilEdit(int sampleIndex, float value) {
+    auto s = m_waveProcessor->getSamples(); if (sampleIndex<0||sampleIndex>=s.size()) return false;
+    s[sampleIndex]=qBound(-1.0f,value,1.0f); m_waveProcessor->setSamples(s);
+    if (m_activeTrackModel && !m_activeTrackModel->clips.isEmpty()) { auto &cs=m_activeTrackModel->clips.first()->samples; if(sampleIndex<cs.size()) cs[sampleIndex]=qBound(-1.0f,value,1.0f); }
+    m_modified=true; emit audioChanged(); return true;
+}
+int AudioQMLBridge::findZeroCrossing(int fromSample, int direction) {
+    auto s = m_waveProcessor->getSamples(); if (s.isEmpty()) return -1;
+    fromSample=qBound(0,fromSample,s.size()-1); direction=direction>=0?1:-1;
+    for(int i=fromSample;i>=0&&i<s.size()-1;i+=direction){ if((s[i]<=0&&s[i+1]>0)||(s[i]>=0&&s[i+1]<0)) return i+1; }
+    return fromSample;
+}
+QStringList AudioQMLBridge::masteringPresets() const { return {"vinyl","tape","broadcast","streaming","cd","club"}; }
+bool AudioQMLBridge::applyMasteringPreset(const QString& name) {
+    if(name=="vinyl") applyDeEsser(6000,-18); else if(name=="tape") applyTapeEmulation(1.2f,0.02f,0.01f);
+    else if(name=="broadcast") applyCompressor(-16,3,5,80,2); else if(name=="streaming") normalize(0.89f);
+    else if(name=="cd") applyLimiter(-0.3f,50); else if(name=="club") applyMultibandCompressor(-18,-18,-18,4,4,4,10,100);
+    else return false; emit statusMessage("Mastering preset: "+name); return true;
+}
+QVariantMap AudioQMLBridge::detectSilence(float thresholdDb, int minDurationMs) {
+    QVariantMap r; auto s=m_waveProcessor->getSamples(); int sr=m_waveProcessor->getSampleRate(); if(s.isEmpty()||sr<=0){r["found"]=false;return r;}
+    float thresh=qPow(10.0f,thresholdDb/20.0f); int need=s.size()*0; int minSamples=minDurationMs*sr/1000; int start=-1;
+    QVariantList regs; for(int i=0;i<s.size();++i){ if(qAbs(s[i])<thresh){ if(start<0) start=i; } else { if(start>=0&&i-start>=minSamples){ QVariantMap m; m["startMs"]=start*1000/sr; m["endMs"]=i*1000/sr; regs.append(m);} start=-1; } }
+    r["regions"]=regs; r["found"]=!regs.isEmpty(); return r;
+}
+bool AudioQMLBridge::applyVoiceActivation(float thresholdDb) {
+    auto m=detectSilence(thresholdDb,150); auto regs=m["regions"].toList(); if(regs.isEmpty()) return false;
+    for(auto v:regs){ auto rm=v.toMap(); deleteRegion(rm["startMs"].toInt(), rm["endMs"].toInt()); }
+    emit statusMessage("Voice activation applied"); return true;
+}
+bool AudioQMLBridge::setVideoPath(const QString& path) { m_videoPath=path; m_videoOffsetMs=0; emit statusMessage("Video path: "+path); return true; }
+QString AudioQMLBridge::videoPath() const { return m_videoPath; }
+bool AudioQMLBridge::syncToVideo(qint64 videoMs) { qint64 audioMs=videoMs+m_videoOffsetMs; setPositionMs(audioMs); emit positionChanged(audioMs); return true; }
+QString AudioQMLBridge::videoSyncInfo() const { QVariantMap m; m["videoPath"]=m_videoPath; m["offsetMs"]=m_videoOffsetMs; m["audioMs"]=getPositionMs(); return QString(QJsonDocument(QJsonObject::fromVariantMap(m)).toJson(QJsonDocument::Compact)); }

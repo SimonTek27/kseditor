@@ -164,8 +164,10 @@ public:
                                                float lowRatio = 4.0f, float midRatio = 4.0f, float highRatio = 4.0f,
                                                float attack = 10.0f, float release = 100.0f);
 
-    Q_INVOKABLE void timeStretch(float ratio);
-    Q_INVOKABLE void pitchShift(float semitones);
+    Q_INVOKABLE void timeStretch(float ratio, int quality = 2);
+    Q_INVOKABLE void pitchShift(float semitones, int quality = 2);
+    Q_INVOKABLE int timeStretchQuality() const { return m_timeStretchQuality; }
+    Q_INVOKABLE void setTimeStretchQuality(int q) { m_timeStretchQuality = qBound(0,q,2); }
     Q_INVOKABLE void changeTempo(float percent);
     Q_INVOKABLE void changePitch(float semitones);
 
@@ -198,6 +200,16 @@ public:
     Q_INVOKABLE bool loadSessionTemplate(const QString& name);
     Q_INVOKABLE QStringList sessionTemplates() const;
     Q_INVOKABLE QVariantMap getLufsHistogram();
+    Q_INVOKABLE bool pencilEdit(int sampleIndex, float value);
+    Q_INVOKABLE int findZeroCrossing(int fromSample, int direction = 1);
+    Q_INVOKABLE QStringList masteringPresets() const;
+    Q_INVOKABLE bool applyMasteringPreset(const QString& name);
+    Q_INVOKABLE QVariantMap detectSilence(float thresholdDb = -40.0f, int minDurationMs = 200);
+    Q_INVOKABLE bool applyVoiceActivation(float thresholdDb = -35.0f);
+    Q_INVOKABLE bool setVideoPath(const QString& path);
+    Q_INVOKABLE QString videoPath() const;
+    Q_INVOKABLE bool syncToVideo(qint64 videoMs);
+    Q_INVOKABLE QString videoSyncInfo() const;
 
     Q_INVOKABLE QVariantList getWaveformData(int width);
     Q_INVOKABLE QVariantList getWaveformDataRange(int startMs, int endMs, int width);
@@ -315,6 +327,9 @@ private:
 
     // Text-to-Speech
     ks::audio::TextToSpeech* m_tts;
+    QString m_videoPath;
+    qint64 m_videoOffsetMs = 0;
+    int m_timeStretchQuality = 2;
 };
 
 #endif // AUDIO_QML_BRIDGE_H

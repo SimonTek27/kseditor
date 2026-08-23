@@ -17,7 +17,7 @@ AudioFormatConverter::~AudioFormatConverter() = default;
 
 QStringList AudioFormatConverter::supportedExtensions()
 {
-    return QStringList() << "wav" << "mp3" << "ogg" << "flac" << "aiff";
+    return QStringList() << "wav" << "mp3" << "ogg" << "flac" << "aiff" << "wma" << "aac" << "m4a";
 }
 
 AudioFormatConverter::AudioFormat AudioFormatConverter::formatFromExtension(const QString &ext)

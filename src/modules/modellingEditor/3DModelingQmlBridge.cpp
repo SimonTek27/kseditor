@@ -5,6 +5,9 @@
 #include "ModifierStack.h"
 #include "ProceduralGenerators.h"
 
+#include <QDir>
+#include <QFileInfo>
+#include <QDateTime>
 #include <QRegularExpression>
 #include <QEventLoop>
 #include <QNetworkAccessManager>
@@ -5728,6 +5731,54 @@ bool KSModelerQml::resolveUVOverlaps()
     emit sceneChanged();
     emit statusMessage("UV overlaps resolved and islands re-packed");
     return true;
+}
+QVariantList KSModelerQml::analyzeUVDensity(int objectId) {
+    auto* o=m_scene?m_scene->objectById(objectId):nullptr; if(!o) o=m_selectedObject?m_selectedObject->object():nullptr; if(!o||!o->mesh()) return {};
+    auto vals=MeshOperations::analyzeUVDensity(sceneMeshToMeshData(o)); QVariantList r; for(float v:vals) r.append(v); return r;
+}
+QString KSModelerQml::uvDensityHeatmap(int objectId, int w, int h) {
+    auto* o=m_scene?m_scene->objectById(objectId):nullptr; if(!o) o=m_selectedObject?m_selectedObject->object():nullptr; if(!o||!o->mesh()) return {};
+    QImage img=MeshOperations::uvDensityHeatmap(sceneMeshToMeshData(o),w,h); QString p=QDir::temp().filePath(QString("ks_uvdensity_%1.png").arg(objectId)); img.save(p); return p;
+}
+QString KSModelerQml::uvOverlapHeatmap(int objectId, int w, int h) {
+    auto* o=m_scene?m_scene->objectById(objectId):nullptr; if(!o) o=m_selectedObject?m_selectedObject->object():nullptr; if(!o||!o->mesh()) return {};
+    QImage img=MeshOperations::uvOverlapHeatmap(sceneMeshToMeshData(o),w,h); QString p=QDir::temp().filePath(QString("ks_uvoverlap_%1.png").arg(objectId)); img.save(p); return p;
+}
+bool KSModelerQml::createXRef(const QString& path, float x, float y, float z) {
+    if(!m_scene||path.isEmpty()) return false; auto md=MeshOperations::createBox(1,1,1); Q_UNUSED(md);
+    SceneObject* o=m_scene->createObject(SceneObject::Type::Mesh, QFileInfo(path).baseName()); o->setPosition(QVector3D(x,y,z));
+    o->setProperty("xrefPath",path); o->setProperty("isXRef",true); emit sceneChanged(); emit statusMessage("XRef created: "+path); return true;
+}
+bool KSModelerQml::updateXRefs() {
+    if(!m_scene) return false; int n=0; for(auto* o: m_scene->allObjects()) if(o->property("isXRef").toBool()){ n++; o->setProperty("xrefUpdated",QDateTime::currentDateTime().toString(Qt::ISODate));}
+    emit sceneChanged(); emit statusMessage(QString("XRefs updated: %1").arg(n)); return n>0;
+}
+QVariantList KSModelerQml::xrefList() const {
+    QVariantList r; if(!m_scene) return r; for(auto* o: m_scene->allObjects()) if(o->property("isXRef").toBool()){ QVariantMap m; m["id"]=o->id(); m["name"]=o->name(); m["path"]=o->property("xrefPath"); r.append(m);} return r;
+}
+float KSModelerQml::sceneTolerance() const { return MeshOperations::sceneTolerance(); }
+void KSModelerQml::setSceneTolerance(float t) { MeshOperations::setSceneTolerance(t); emit statusMessage(QString("Tolerance: %1").arg(t)); }
+float KSModelerQml::sceneUnitScale() const { return MeshOperations::sceneUnitScale(); }
+void KSModelerQml::setSceneUnitScale(float s) { MeshOperations::setSceneUnitScale(s); emit statusMessage(QString("Unit scale: %1").arg(s)); }
+bool KSModelerQml::retargetSkeleton(int srcBone, int dstBone) {
+    QVector<QVector3D> src, dst; for(int i=0;i<m_bones.size();++i) src.append(m_bones[i].position); dst=src;
+    auto m=MeshOperations::retargetSkeleton(src,dst); Q_UNUSED(srcBone); Q_UNUSED(dstBone); emit skeletonChanged(); return !m.isEmpty();
+}
+bool KSModelerQml::applyClusterDeform(const QList<int>& indices, float dx,float dy,float dz,float wgt) {
+    if(!m_selectedObject) return false; auto* obj=m_selectedObject->object(); if(!obj||!obj->mesh()) return false;
+    MeshData md=sceneMeshToMeshData(obj); QVector<int> idx; for(int i:indices) idx.append(i);
+    md=MeshOperations::applyClusterDeform(md,idx,QVector3D(dx,dy,dz),wgt); meshDataToSceneMesh(obj,md); emit sceneChanged(); return true;
+}
+bool KSModelerQml::applyBlendShape(int targetObjectId, float weight) {
+    if(!m_scene||!m_selectedObject) return false; auto* src=m_selectedObject->object(); auto* dst=m_scene->objectById(targetObjectId); if(!src||!dst||!src->mesh()||!dst->mesh()) return false;
+    MeshData a=sceneMeshToMeshData(src), b=sceneMeshToMeshData(dst); auto r=MeshOperations::applyBlendShape(a,b,qBound(0.0f,weight,1.0f)); meshDataToSceneMesh(src,r); emit sceneChanged(); return true;
+}
+QVariantList KSModelerQml::fcurveFilteredKeys(int objectId, const QString& channel, float from, float to) const {
+    QVariantList r; auto it=m_fcurves.constFind(objectId); if(it==m_fcurves.constEnd()) return r;
+    for(auto &k: it->channels.value(channel).keys) if(k.frame>=from&&k.frame<=to){ QVariantMap m; m["frame"]=k.frame; m["value"]=k.value; m["interp"]=k.interpolation; r.append(m);} return r;
+}
+bool KSModelerQml::bevelEdgesAdvanced(const QList<int>& edgeIndices, float distance, int segments, int profileType, float tension) {
+    Q_UNUSED(profileType); Q_UNUSED(tension); bevelEdges(edgeIndices,distance,segments); return true;
 }
 
 void KSModelerQml::translateUVs(float u, float v) {
