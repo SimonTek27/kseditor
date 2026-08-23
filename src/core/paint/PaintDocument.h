@@ -5,6 +5,7 @@
 #include <QRect>
 #include <QVector>
 #include "PaintTypes.h"
+#include "PaintVector.h"
 
 namespace ks {
 namespace paint {
@@ -75,6 +76,32 @@ public:
     void setBrushPattern(const QImage& p) { m_brushPattern = p; emit documentChanged(); }
     QImage brushPattern() const { return m_brushPattern; }
     QString executePaintScript(const QString& script) { Q_UNUSED(script); emit documentChanged(); return QStringLiteral("ok"); }
+    PaintVectorDocument* vectorDocument() { return m_vectorDoc; }
+    const PaintVectorDocument* vectorDocument() const { return m_vectorDoc; }
+    bool importSvg(const QString& svg) { bool r=m_vectorDoc->importSvg(svg); if(r) emit documentChanged(); return r; }
+    bool importSvgFile(const QString& path) { bool r=m_vectorDoc->importSvgFile(path); if(r) emit documentChanged(); return r; }
+    QString exportSvg() const { return m_vectorDoc->exportSvg(); }
+    bool exportSvgFile(const QString& path) const { return m_vectorDoc->exportSvgFile(path); }
+    bool importPdf(const QString& path) { bool r=m_vectorDoc->importPdf(path); if(r) emit documentChanged(); return r; }
+    int vectorObjectCount() const { return m_vectorDoc->objectCount(); }
+    bool vectorBooleanOp(int a,int b,int op){ bool r=m_vectorDoc->applyBoolean(a,b,VectorBooleanOp(op)); if(r) emit documentChanged(); return r; }
+    bool vectorSimplify(int idx,double t=2.0){ bool r=m_vectorDoc->simplify(idx,t); if(r) emit documentChanged(); return r; }
+    bool vectorInset(int idx,double d){ bool r=m_vectorDoc->inset(idx,d); if(r) emit documentChanged(); return r; }
+    bool vectorOutset(int idx,double d){ bool r=m_vectorDoc->outset(idx,d); if(r) emit documentChanged(); return r; }
+    bool vectorStrokeToPath(int idx){ bool r=m_vectorDoc->strokeToPath(idx); if(r) emit documentChanged(); return r; }
+    bool vectorObjectToPath(int idx){ bool r=m_vectorDoc->objectToPath(idx); if(r) emit documentChanged(); return r; }
+    bool vectorBreakApart(int idx){ bool r=m_vectorDoc->breakApart(idx); if(r) emit documentChanged(); return r; }
+    bool vectorCombine(const QVector<int>& ids){ bool r=m_vectorDoc->combine(ids); if(r) emit documentChanged(); return r; }
+    int vectorAddClone(const QString& sid){ int r=m_vectorDoc->addClone(sid); if(r>=0) emit documentChanged(); return r; }
+    bool vectorTiledClones(int s,int rows,int cols,double dx,double dy){ bool r=m_vectorDoc->tiledClones(s,rows,cols,dx,dy); if(r) emit documentChanged(); return r; }
+    bool vectorTextOnPath(int t,int p){ bool r=m_vectorDoc->textOnPath(t,p); if(r) emit documentChanged(); return r; }
+    QString vectorXmlEditorText() const { return m_vectorDoc->xmlEditorText(); }
+    bool setVectorXmlEditorText(const QString& t){ bool r=m_vectorDoc->setXmlEditorText(t); if(r) emit documentChanged(); return r; }
+    QVariantMap vectorDocumentProperties() const { return m_vectorDoc->documentProperties(); }
+    QImage vectorThumbnail(int w=256,int h=256) const { return m_vectorDoc->renderThumbnail(w,h); }
+    bool alignVectors(const QVector<int>& ids,int t){ bool r=m_vectorDoc->alignObjects(ids,t); if(r) emit documentChanged(); return r; }
+    bool distributeVectors(const QVector<int>& ids,int dir,double gap){ bool r=m_vectorDoc->distributeObjects(ids,dir,gap); if(r) emit documentChanged(); return r; }
+    QPainterPath traceBitmap(const QImage& img,double thr=128){ auto p=m_vectorDoc->traceBitmap(img,thr); VectorObject o; o.type=VectorObjectType::Path; o.path=p; o.id=QString("trace%1").arg(m_vectorDoc->objectCount()); m_vectorDoc->addObject(o); emit documentChanged(); return p; }
 
     // Undo / Redo
     bool canUndo() const { return !m_undoStack.isEmpty(); }
@@ -115,6 +142,7 @@ private:
 
     Snapshot snapshot() const;
     void restore(const Snapshot& snap);
+    PaintVectorDocument* m_vectorDoc = nullptr;
 };
 
 } // namespace paint

@@ -31,7 +31,22 @@ enum class PaintTool {
     Healing,
     BucketFill,
     Gradient,
-    Text
+    Text,
+    Pen,
+    NodeEdit,
+    RectShape,
+    EllipseShape,
+    StarShape,
+    PolygonShape,
+    SpiralShape,
+    Box3DShape,
+    Calligraphy,
+    VectorSelect,
+    GradientTool,
+    PatternTool,
+    CloneTool,
+    SprayTool,
+    TextOnPath
 };
 enum class StrokeType { Dots = 0, DragRect = 1, DragDot = 2, Spray = 3, Freehand = 4 };
 enum class StencilWrapMode { Flat = 0, Surface = 1, Cylindrical = 2 };
@@ -76,6 +91,21 @@ inline QString paintToolDisplayName(PaintTool tool)
     case PaintTool::BucketFill:  return QStringLiteral("Bucket Fill");
     case PaintTool::Gradient:    return QStringLiteral("Gradient");
     case PaintTool::Text:        return QStringLiteral("Text");
+    case PaintTool::Pen:         return QStringLiteral("Pen / Bezier");
+    case PaintTool::NodeEdit:    return QStringLiteral("Node Edit");
+    case PaintTool::RectShape:   return QStringLiteral("Rectangle");
+    case PaintTool::EllipseShape:return QStringLiteral("Ellipse");
+    case PaintTool::StarShape:   return QStringLiteral("Star");
+    case PaintTool::PolygonShape:return QStringLiteral("Polygon");
+    case PaintTool::SpiralShape: return QStringLiteral("Spiral");
+    case PaintTool::Box3DShape:  return QStringLiteral("3D Box");
+    case PaintTool::Calligraphy: return QStringLiteral("Calligraphy");
+    case PaintTool::VectorSelect:return QStringLiteral("Select Vectors");
+    case PaintTool::GradientTool:return QStringLiteral("Gradient Edit");
+    case PaintTool::PatternTool: return QStringLiteral("Pattern Fill");
+    case PaintTool::CloneTool:   return QStringLiteral("Tiled Clones");
+    case PaintTool::SprayTool:   return QStringLiteral("Spray Clones");
+    case PaintTool::TextOnPath:  return QStringLiteral("Text on Path");
     }
     return QStringLiteral("Tool");
 }
@@ -105,6 +135,21 @@ inline QString paintToolShortcut(PaintTool tool)
     case PaintTool::BucketFill:  return QStringLiteral("Shift+B");
     case PaintTool::Gradient:    return QStringLiteral("L");
     case PaintTool::Text:        return QStringLiteral("T");
+    case PaintTool::Pen:         return QStringLiteral("B");
+    case PaintTool::NodeEdit:    return QStringLiteral("N2");
+    case PaintTool::RectShape:   return QStringLiteral("Shift+R");
+    case PaintTool::EllipseShape:return QStringLiteral("Shift+E");
+    case PaintTool::StarShape:   return QStringLiteral("Shift+Y");
+    case PaintTool::PolygonShape:return QStringLiteral("Shift+O");
+    case PaintTool::SpiralShape: return QStringLiteral("Shift+I");
+    case PaintTool::Box3DShape:  return QStringLiteral("Shift+X");
+    case PaintTool::Calligraphy: return QStringLiteral("Shift+C");
+    case PaintTool::VectorSelect:return QStringLiteral("S");
+    case PaintTool::GradientTool:return QStringLiteral("G");
+    case PaintTool::PatternTool: return QStringLiteral("Shift+P");
+    case PaintTool::CloneTool:   return QStringLiteral("Alt+D");
+    case PaintTool::SprayTool:   return QStringLiteral("Alt+S");
+    case PaintTool::TextOnPath:  return QStringLiteral("Alt+T");
     }
     return QString();
 }

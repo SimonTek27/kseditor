@@ -97,7 +97,7 @@ inline QPainter::CompositionMode compositionModeFromBlendMode(PaintBlendMode mod
 } // namespace
 
 PaintDocument::PaintDocument(QObject* parent)
-    : QObject(parent)
+    : QObject(parent), m_vectorDoc(new PaintVectorDocument(this))
 {
 }
 
@@ -372,6 +372,10 @@ QImage PaintDocument::composite() const
 {
     QImage out(m_width, m_height, QImage::Format_ARGB32);
     out.fill(Qt::transparent);
+    if(m_vectorDoc && m_vectorDoc->objectCount()>0){
+        QImage vec = m_vectorDoc->rasterize(QSize(m_width,m_height));
+        QPainter pv(&out); pv.drawImage(0,0,vec); pv.end();
+    }
 
     for (int i = 0; i < m_layers.size(); ++i) {
         const PaintLayer& layer = m_layers.at(i);

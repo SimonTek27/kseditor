@@ -56,7 +56,7 @@ endif()
 
 set(QML_IMPORT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/resources/ui/qml CACHE PATH "QML import paths")
 
-find_package(Qt6 COMPONENTS Core Gui Widgets Network Qml Quick Quick3D QuickControls2 QuickWidgets Multimedia OpenGL Sql Charts WebSockets Svg REQUIRED)
+find_package(Qt6 COMPONENTS Core Gui Widgets Network Qml Quick Quick3D QuickControls2 QuickWidgets Multimedia OpenGL Sql Charts WebSockets Svg Xml REQUIRED)
 find_package(Vulkan QUIET)
 find_package(Qt6 COMPONENTS 3DCore 3DRender 3DExtras 3DLogic 3DInput 3DAnimation QUIET)
 
