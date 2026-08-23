@@ -46,24 +46,18 @@ enum class PaintTool {
     PatternTool,
     CloneTool,
     SprayTool,
-    TextOnPath
+    TextOnPath,
+    QuickSelection, ObjectSelection, MagicWand, ContentAwareFill, ContentAwareMove, PatchTool, HistoryBrush, ArtHistoryBrush,
+    PuppetWarp, Liquify, VanishingPoint, PerspectiveWarp, CameraRaw, NeuralFilter, SkySelect, SelectSubject,
+    PenPath, FreeformPen, CurvaturePen, History, ActionPlay,
+    MixerBrush, PatternStamp, CloneStamp, HealingBrush, HistoryArtBrush
 };
 enum class StrokeType { Dots = 0, DragRect = 1, DragDot = 2, Spray = 3, Freehand = 4 };
 enum class StencilWrapMode { Flat = 0, Surface = 1, Cylindrical = 2 };
 
 enum class PaintBlendMode {
-    Normal,
-    Multiply,
-    Screen,
-    Overlay,
-    Darken,
-    Lighten,
-    ColorDodge,
-    ColorBurn,
-    HardLight,
-    SoftLight,
-    Difference,
-    Exclusion
+    Normal, Multiply, Screen, Overlay, Darken, Lighten, ColorDodge, ColorBurn, HardLight, SoftLight, Difference, Exclusion,
+    VividLight, LinearLight, PinLight, HardMix, Divide, Subtract, DarkerColor, LighterColor, Hue, Saturation, Color, Luminosity, PassThrough, Dissolve
 };
 
 inline QString paintToolDisplayName(PaintTool tool)

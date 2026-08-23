@@ -57,8 +57,85 @@ public:
     QImage composite() const;
     QImage compositeWithBackground(const QColor& bg) const;
     QImage compositeLayer(int index) const;
+    QImage photoshopComposite(int mode=0) const;
 
-    // Selection
+    // Adjustment layers
+    int addAdjustmentLayer(AdjustmentType t, const QVariantMap& params={});
+    bool removeAdjustmentLayer(int idx);
+    bool setAdjustmentLayerOpacity(int idx, float opacity);
+    float adjustmentLayerOpacity(int idx) const;
+    QVariantMap adjustmentLayerParams(int idx) const;
+    QImage applyAdjustmentLayer(int idx, const QImage& src) const;
+    int adjustmentLayerCount() const;
+
+    // Layer styles
+    int addLayerStyle(int layerIdx);
+    bool removeLayerStyle(int layerIdx, int styleIdx);
+    bool setLayerStyleEnabled(int layerIdx, int styleIdx, bool enabled);
+    bool layerStyleEnabled(int layerIdx, int styleIdx) const;
+    QImage applyLayerStyle(int layerIdx, const QImage& src, const QSize& docSize) const;
+
+    // Smart objects
+    QString addSmartObject(const QImage& img, const QString& path="");
+    bool updateSmartObject(const QString& id, const QImage& img);
+    bool rasterizeSmartObject(const QString& id);
+    QImage smartObjectRender(const QString& id) const;
+    QStringList smartObjectIds() const;
+
+    // History
+    void pushHistoryState(const QImage& img, const QString& name="State");
+    bool canUndoHistory() const;
+    bool canRedoHistory() const;
+    QImage historyUndo();
+    QImage historyRedo();
+    int historyCount() const;
+    void createSnapshot(const QString& name);
+    QImage snapshot(const QString& name) const;
+    QStringList snapshots() const;
+
+    // Actions
+    QString addAction(const QString& name, const QVariantList& steps);
+    bool playAction(const QString& name);
+    bool removeAction(const QString& name);
+    QStringList actionNames() const;
+    QVariantList actionSteps(const QString& name) const;
+
+    // Artboards
+    int addArtboard(const QRect& r, const QString& name="Artboard");
+    bool removeArtboard(int idx);
+    QVariantMap artboardProperties(int idx) const;
+
+    // Layer comps
+    QStringList layerComps() const;
+    bool saveLayerComp(const QString& name, const QVariantMap& state);
+    bool loadLayerComp(const QString& name);
+    bool removeLayerComp(const QString& name);
+
+    // Selection tools
+    QPainterPath quickSelectionPath(const QImage& img, const QPoint& seed, float tolerance=20) const;
+    QPainterPath objectSelectionPath(const QImage& img, const QRect& roi) const;
+    QPainterPath magicWandPath(const QImage& img, const QPoint& pos, int tolerance=32, bool contiguous=true) const;
+    QImage quickSelectionMask(const QImage& img, const QPoint& seed, float tolerance=20) const;
+    QImage objectSelectionMask(const QImage& img, const QRect& roi) const;
+    QImage skySelectionMask(const QImage& img) const;
+    QPainterPath selectSubjectPath(const QImage& img) const;
+
+    // Warp & transform
+    QImage puppetWarp(const QImage& img, const QVector<QPointF>& srcPts, const QVector<QPointF>& dstPts) const;
+    QImage liquify(const QImage& img, const QPoint& center, float radius, float strength, int mode=0) const;
+    QImage perspectiveWarp(const QImage& img, const QVector<QPointF>& srcQuad, const QVector<QPointF>& dstQuad) const;
+    QImage vanishingPoint(const QImage& img, const QVector<QPointF>& plane) const;
+    QImage contentAwareFill(const QImage& img, const QImage& mask) const;
+    QImage contentAwareMove(const QImage& img, const QRect& src, const QPoint& dst) const;
+    QImage contentAwarePatch(const QImage& img, const QRect& src, const QRect& dst) const;
+    QImage cameraRawFilter(const QImage& img, const QVariantMap& params) const;
+    QImage neuralFilter(const QImage& img, const QString& filterId, const QVariantMap& params={}) const;
+
+    // Brush dynamics
+    QImage applyBrushDynamics(const QImage& dab, float pressure, float tiltX, float tiltY) const;
+
+    // Blend mode helper
+    QImage blendModesComposite(const QImage& src, const QVector<QImage>& layers, const QVector<PaintBlendMode>& modes) const;
     bool hasSelection() const { return !m_selection.isNull(); }
     QImage selectionMask() const { return m_selection; }
     void setSelectionMask(const QImage& mask);
@@ -155,10 +232,8 @@ private:
     QVector<Snapshot> m_redoStack;
     QSet<int> m_hiddenFaces;
     QImage m_brushPattern;
-
-    Snapshot snapshot() const;
-    void restore(const Snapshot& snap);
     PaintVectorDocument* m_vectorDoc = nullptr;
+    PaintPhotoshopEngine* m_photoshopEngine = nullptr;
 };
 
 } // namespace paint

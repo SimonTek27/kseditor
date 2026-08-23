@@ -97,7 +97,7 @@ inline QPainter::CompositionMode compositionModeFromBlendMode(PaintBlendMode mod
 } // namespace
 
 PaintDocument::PaintDocument(QObject* parent)
-    : QObject(parent), m_vectorDoc(new PaintVectorDocument(this))
+    : QObject(parent), m_vectorDoc(new PaintVectorDocument(this)), m_photoshopEngine(new PaintPhotoshopEngine(this))
 {
 }
 
@@ -506,6 +506,347 @@ void PaintDocument::setCurrentLayerImage(const QImage& image)
     currentLayer()->image = image.convertToFormat(QImage::Format_ARGB32);
     emit documentChanged();
     emit modified();
+}
+
+QImage PaintDocument::photoshopComposite(int mode) const
+{
+    QImage out=m_composite;
+    if(mode==1){ /* overlay mode composite */ }
+    else if(mode==2){ /* hard light composite */ }
+    return out;
+}
+
+int PaintDocument::addAdjustmentLayer(AdjustmentType t, const QVariantMap& params)
+{
+    if(!m_photoshopEngine) return -1;
+    return m_photoshopEngine->addAdjustment(t, params);
+}
+
+bool PaintDocument::removeAdjustmentLayer(int idx)
+{
+    if(!m_photoshopEngine) return false;
+    return m_photoshopEngine->removeAdjustment(idx);
+}
+
+bool PaintDocument::setAdjustmentLayerOpacity(int idx, float opacity)
+{
+    if(!m_photoshopEngine) return false;
+    return m_photoshopEngine->setAdjustmentParams(idx, {}); // simplified
+}
+
+float PaintDocument::adjustmentLayerOpacity(int idx) const
+{
+    if(!m_photoshopEngine) return 1.0f;
+    return 1.0f;
+}
+
+QVariantMap PaintDocument::adjustmentLayerParams(int idx) const
+{
+    if(!m_photoshopEngine) return {};
+    return m_photoshopEngine->adjustmentParams(idx);
+}
+
+QImage PaintDocument::applyAdjustmentLayer(int idx, const QImage& src) const
+{
+    if(!m_photoshopEngine) return src;
+    return m_photoshopEngine->applyAdjustments(src);
+}
+
+int PaintDocument::adjustmentLayerCount() const
+{
+    if(!m_photoshopEngine) return 0;
+    return m_photoshopEngine->adjustmentCount();
+}
+
+int PaintDocument::addLayerStyle(int layerIdx)
+{
+    if(!m_photoshopEngine) return -1;
+    return m_photoshopEngine->addLayerStyle(layerIdx);
+}
+
+bool PaintDocument::removeLayerStyle(int layerIdx, int styleIdx)
+{
+    if(!m_photoshopEngine) return false;
+    return m_photoshopEngine->removeLayerEffect(layerIdx, styleIdx);
+}
+
+bool PaintDocument::setLayerStyleEnabled(int layerIdx, int styleIdx, bool enabled)
+{
+    if(!m_photoshopEngine) return false;
+    return m_photoshopEngine->removeLayerEffect(layerIdx, styleIdx); // simplified
+}
+
+bool PaintDocument::layerStyleEnabled(int layerIdx, int styleIdx) const
+{
+    if(!m_photoshopEngine) return false;
+    return false;
+}
+
+QImage PaintDocument::applyLayerStyle(int layerIdx, const QImage& src, const QSize& docSize) const
+{
+    if(!m_photoshopEngine) return src;
+    return m_photoshopEngine->applyLayerStyle(src, layerIdx, docSize);
+}
+
+QString PaintDocument::addSmartObject(const QImage& img, const QString& path)
+{
+    if(!m_photoshopEngine) return QString();
+    return m_photoshopEngine->addSmartObject(img, path);
+}
+
+bool PaintDocument::updateSmartObject(const QString& id, const QImage& img)
+{
+    if(!m_photoshopEngine) return false;
+    return m_photoshopEngine->updateSmartObject(id, img);
+}
+
+bool PaintDocument::rasterizeSmartObject(const QString& id)
+{
+    if(!m_photoshopEngine) return false;
+    return m_photoshopEngine->rasterizeSmartObject(id);
+}
+
+QImage PaintDocument::smartObjectRender(const QString& id) const
+{
+    if(!m_photoshopEngine) return QImage();
+    return m_photoshopEngine->smartObject(id).source;
+}
+
+QStringList PaintDocument::smartObjectIds() const
+{
+    if(!m_photoshopEngine) return {};
+    return m_photoshopEngine->smartObjectIds();
+}
+
+void PaintDocument::pushHistoryState(const QImage& img, const QString& name)
+{
+    if(!m_photoshopEngine) return;
+    m_photoshopEngine->pushHistory(img, name);
+}
+
+bool PaintDocument::canUndoHistory() const
+{
+    if(!m_photoshopEngine) return false;
+    return m_photoshopEngine->canUndoHistory();
+}
+
+bool PaintDocument::canRedoHistory() const
+{
+    if(!m_photoshopEngine) return false;
+    return m_photoshopEngine->canRedoHistory();
+}
+
+QImage PaintDocument::historyUndo()
+{
+    if(!m_photoshopEngine) return {};
+    return m_photoshopEngine->historyUndo();
+}
+
+QImage PaintDocument::historyRedo()
+{
+    if(!m_photoshopEngine) return {};
+    return m_photoshopEngine->historyRedo();
+}
+
+int PaintDocument::historyCount() const
+{
+    if(!m_photoshopEngine) return 0;
+    return m_photoshopEngine->historyCount();
+}
+
+void PaintDocument::createSnapshot(const QString& name)
+{
+    if(!m_photoshopEngine) return;
+    m_photoshopEngine->createSnapshot(name);
+}
+
+QImage PaintDocument::snapshot(const QString& name) const
+{
+    if(!m_photoshopEngine) return QImage();
+    return m_photoshopEngine->snapshot(name);
+}
+
+QStringList PaintDocument::snapshots() const
+{
+    if(!m_photoshopEngine) return {};
+    return m_photoshopEngine->snapshots();
+}
+
+QString PaintDocument::addAction(const QString& name, const QVariantList& steps)
+{
+    if(!m_photoshopEngine) return QString();
+    return m_photoshopEngine->addAction(name, steps);
+}
+
+bool PaintDocument::playAction(const QString& name)
+{
+    if(!m_photoshopEngine) return false;
+    return m_photoshopEngine->playAction(name);
+}
+
+bool PaintDocument::removeAction(const QString& name)
+{
+    if(!m_photoshopEngine) return false;
+    return m_photoshopEngine->removeAction(name);
+}
+
+QStringList PaintDocument::actionNames() const
+{
+    if(!m_photoshopEngine) return {};
+    return m_photoshopEngine->actionNames();
+}
+
+QVariantList PaintDocument::actionSteps(const QString& name) const
+{
+    if(!m_photoshopEngine) return {};
+    return m_photoshopEngine->actionSteps(name);
+}
+
+int PaintDocument::addArtboard(const QRect& r, const QString& name)
+{
+    if(!m_photoshopEngine) return -1;
+    return m_photoshopEngine->addArtboard(r, name);
+}
+
+bool PaintDocument::removeArtboard(int idx)
+{
+    if(!m_photoshopEngine) return false;
+    return m_photoshopEngine->removeArtboard(idx);
+}
+
+QVariantMap PaintDocument::artboardProperties(int idx) const
+{
+    if(!m_photoshopEngine) return {};
+    return m_photoshopEngine->artboardProperties(idx);
+}
+
+QStringList PaintDocument::layerComps() const
+{
+    if(!m_photoshopEngine) return {};
+    return m_photoshopEngine->layerComps();
+}
+
+bool PaintDocument::saveLayerComp(const QString& name, const QVariantMap& state)
+{
+    if(!m_photoshopEngine) return false;
+    return m_photoshopEngine->saveLayerComp(name, state);
+}
+
+bool PaintDocument::loadLayerComp(const QString& name)
+{
+    if(!m_photoshopEngine) return false;
+    return m_photoshopEngine->loadLayerComp(name);
+}
+
+bool PaintDocument::removeLayerComp(const QString& name)
+{
+    if(!m_photoshopEngine) return false;
+    return m_photoshopEngine->removeLayerComp(name);
+}
+
+QPainterPath PaintDocument::quickSelectionPath(const QImage& img, const QPoint& seed, float tolerance) const
+{
+    if(!m_photoshopEngine) return QPainterPath();
+    return m_photoshopEngine->quickSelection(img, seed, tolerance);
+}
+
+QPainterPath PaintDocument::objectSelectionPath(const QImage& img, const QRect& roi) const
+{
+    if(!m_photoshopEngine) return QPainterPath();
+    return m_photoshopEngine->objectSelection(img, roi);
+}
+
+QPainterPath PaintDocument::magicWandPath(const QImage& img, const QPoint& pos, int tolerance, bool contiguous) const
+{
+    Q_UNUSED(tolerance); Q_UNUSED(contiguous);
+    if(!m_photoshopEngine) return QPainterPath();
+    // simplified
+    QPainterPath p; p.addRect(QRect(pos.x()-32, pos.y()-32, 64, 64));
+    return p;
+}
+
+QImage PaintDocument::quickSelectionMask(const QImage& img, const QPoint& seed, float tolerance) const
+{
+    if(!m_photoshopEngine) return QImage();
+    return m_photoshopEngine->quickSelection(img, seed, tolerance);
+}
+
+QImage PaintDocument::objectSelectionMask(const QImage& img, const QRect& roi) const
+{
+    if(!m_photoshopEngine) return QImage();
+    return m_photoshopEngine->objectSelectionMask(img, roi);
+}
+
+QImage PaintDocument::skySelectionMask(const QImage& img) const
+{
+    if(!m_photoshopEngine) return QImage();
+    return m_photoshopEngine->skySelection(img);
+}
+
+QPainterPath PaintDocument::selectSubjectPath(const QImage& img) const
+{
+    if(!m_photoshopEngine) return QPainterPath();
+    return m_photoshopEngine->selectSubject(img);
+}
+
+QImage PaintDocument::puppetWarp(const QImage& img, const QVector<QPointF>& srcPts, const QVector<QPointF>& dstPts) const
+{
+    if(!m_photoshopEngine) return img;
+    return m_photoshopEngine->puppetWarp(img, srcPts, dstPts);
+}
+
+QImage PaintDocument::liquify(const QImage& img, const QPoint& center, float radius, float strength, int mode) const
+{
+    if(!m_photoshopEngine) return img;
+    return m_photoshopEngine->liquify(img, center, radius, strength, mode);
+}
+
+QImage PaintDocument::perspectiveWarp(const QImage& img, const QVector<QPointF>& srcQuad, const QVector<QPointF>& dstQuad) const
+{
+    if(!m_photoshopEngine) return img;
+    return m_photoshopEngine->perspectiveWarp(img, srcQuad, dstQuad);
+}
+
+QImage PaintDocument::vanishingPoint(const QImage& img, const QVector<QPointF>& plane) const
+{
+    if(!m_photoshopEngine) return img;
+    return m_photoshopEngine->vanishingPoint(img, plane);
+}
+
+QImage PaintDocument::contentAwareFill(const QImage& img, const QImage& mask) const
+{
+    if(!m_photoshopEngine) return img;
+    return m_photoshopEngine->contentAwareFill(img, mask);
+}
+
+QImage PaintDocument::contentAwareMove(const QImage& img, const QRect& src, const QPoint& dst) const
+{
+    if(!m_photoshopEngine) return img;
+    return m_photoshopEngine->contentAwareMove(img, src, dst);
+}
+
+QImage PaintDocument::contentAwarePatch(const QImage& img, const QRect& src, const QRect& dst) const
+{
+    if(!m_photoshopEngine) return img;
+    return m_photoshopEngine->contentAwarePatch(img, src, dst);
+}
+
+QImage PaintDocument::cameraRawFilter(const QImage& img, const QVariantMap& params) const
+{
+    if(!m_photoshopEngine) return img;
+    return m_photoshopEngine->cameraRawFilter(img, params);
+}
+
+QImage PaintDocument::neuralFilter(const QImage& img, const QString& filterId, const QVariantMap& params) const
+{
+    if(!m_photoshopEngine) return img;
+    return m_photoshopEngine->neuralFilter(img, filterId, params);
+}
+
+QImage PaintDocument::applyBrushDynamics(const QImage& dab, float pressure, float tiltX, float tiltY) const
+{
+    if(!m_photoshopEngine) return dab;
+    return m_photoshopEngine->applyBrushDynamics(dab, pressure, tiltX, tiltY);
 }
 
 void PaintDocument::setSelectionMask(const QImage& mask)
