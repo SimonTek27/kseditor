@@ -33,6 +33,7 @@
 #include "core/FileFormat/KS3DWriter.h"
 #include "core/FileFormat/CADAdvancedParsers.h"
 #include "core/mesh/MeshOperations.h"
+#include "core/mesh/InteractiveRetopoTool.h"
 #include "core/mesh/InstanceReference.h"
 #include "core/mesh/UVUnwrap.h"
 #include "core/mesh/ModifierSystem.h"
@@ -40,6 +41,8 @@
 #include "core/mesh/WeightPainting.h"
 #include "core/FileFormat/USDAExporter.h"
 #include "core/FileFormat/LXOImporter.h"
+#include "core/FileFormat/XSIImporter.h"
+#include "core/FileFormat/GrasshopperImporter.h"
 #include "core/mesh/SkeletonSystem.h"
 #include "plugins/simulators/kunos/assettocorsa/acFiles/FBXExporter.h"
 #include <QDebug>
@@ -302,12 +305,16 @@ KSModelerQml::KSModelerQml(QObject* parent)
     , m_sceneModel(new SceneObjectListModel(this))
     , m_commandHistory(new CommandHistory(this))
     , m_shortcutManager(new ShortcutManager(this))
+    , m_kitSystem(new ks::modelling::KitSystem(this))
 {
     m_scene = new ks::SceneGraph();
     m_sceneModel->setSceneGraph(m_scene);
     m_sceneModel->setTextureResolvers(
         [this](int objectId) -> QString { return m_fabricDiffuseCache.value(objectId); },
         [this](int objectId) -> QString { return m_fabricNormalCache.value(objectId); });
+    
+    // Initialize built-in presets and kits
+    m_kitSystem->initializeBuiltInPresets();
 }
 
 KSModelerQml::~KSModelerQml() {
@@ -1560,20 +1567,133 @@ bool KSModelerQml::importXSI(const QString& path) {
     if (!QFile::exists(path)) { emit error("File not found: " + path); return false; }
     emit statusMessage("Importing XSI (.scn/.exp/.emdl): " + path);
     QFile f(path); if (!f.open(QIODevice::ReadOnly)) { emit error("Failed to open XSI file"); return false; }
-    QByteArray data = f.readAll(); Q_UNUSED(data);
-    emit statusMessage("XSI import: parsed legacy scene, converting to ksEditor nodes (mesh fallback)");
-    MeshData md; md = MeshOperations::createBox(1,1,1);
+    QByteArray data = f.readAll();
+    
+    MeshData md;
+    QString errorMsg;
+    bool success = false;
+    
+    // Try to detect format and import
+    if (path.endsWith(".scn", Qt::CaseInsensitive)) {
+        success = fileformat::importXSIScene(data, md, &errorMsg);
+    } else if (path.endsWith(".exp", Qt::CaseInsensitive)) {
+        success = fileformat::importXSIExport(data, md, &errorMsg);
+    } else if (path.endsWith(".emdl", Qt::CaseInsensitive)) {
+        success = fileformat::importXSIEmodel(data, md, &errorMsg);
+    } else {
+        // Try all formats
+        success = fileformat::importXSIScene(data, md, &errorMsg);
+        if (!success) {
+            success = fileformat::importXSIExport(data, md, &errorMsg);
+        }
+        if (!success) {
+            success = fileformat::importXSIEmodel(data, md, &errorMsg);
+        }
+    }
+    
+    if (!success) {
+        emit error("XSI import failed: " + errorMsg);
+        return false;
+    }
+    
+    emit statusMessage("XSI import: mesh loaded (" + 
+        QString::number(md.vertices.size()) + " vertices, " +
+        QString::number(md.indices.size() / 3) + " triangles)");
+    
     importMeshDataToScene(m_scene, md, QFileInfo(path).baseName() + "_XSI");
     emit sceneChanged(); return true;
+}
+
+bool KSModelerQml::createKit(const QString& name) {
+    m_kitSystem.createKit(name);
+    emit kitAdded(name);
+    emit presetsChanged();
+    return true;
+}
+
+QStringList KSModelerQml::kitList() const {
+    return m_kitSystem.getAllKitNames();
+}
+
+PresetData KSModelerQml::presetData(const QString& name) const {
+    return m_kitSystem.getPreset(name);
+}
+
+QStringList KSModelerQml::presetList() const {
+    return m_kitSystem.presetList();
+}
+
+bool KSModelerQml::savePreset(const QString& name, const QString& category) {
+    // Find or create preset
+    PresetData preset;
+    preset.name = name;
+    preset.category = category;
+    preset.color = QVector4D(1, 1, 1, 1);
+    preset.description = QString();
+    
+    // Check if exists
+    bool exists = false;
+    for (int i = 0; i < m_kitSystem.presetCount(); ++i) {
+        if (m_kitSystem.getPreset(m_kitSystem.presets[i].name).name == name) {
+            exists = true;
+            break;
+        }
+    }
+    
+    if (!exists) {
+        m_kitSystem.addPreset(preset);
+    }
+    
+    return true;
+}
+
+bool KSModelerQml::deletePreset(const QString& name) {
+    return m_kitSystem.removePreset(name);
+}
+
+void KSModelerQml::applyPresetToObject(const QString& presetName, int objectId) {
+    PresetData preset = m_kitSystem.getPreset(presetName);
+    if (preset.name.isEmpty()) return;
+    
+    // Find the object and apply preset parameters
+    SceneObject* obj = m_scene->object(objectId);
+    if (!obj) return;
+    
+    // Apply position, rotation, scale from preset
+    QVector3D pos = preset.position;
+    QVector3D rot = preset.rotation;
+    QVector3D scale = preset.scale;
+    
+    // This is a simplified application - in a full implementation,
+    // we'd apply material, etc.
+    if (obj->type() == SceneObject::Type::Mesh) {
+        Mesh* mesh = static_cast<Mesh*>(obj);
+        // Apply transform
+        mesh->transform().setTranslation(pos);
+        mesh->transform().setRotation(QVector3D(rot.x(), rot.y(), rot.z()));
+        mesh->transform().setScale(scale);
+    }
 }
 
 bool KSModelerQml::importGrasshopper(const QString& path) {
     if (!QFile::exists(path)) { emit error("File not found: " + path); return false; }
     emit statusMessage("Importing Grasshopper (.gh/.ghx): " + path);
     QFile f(path); if (!f.open(QIODevice::ReadOnly)) return false;
-    QByteArray json = f.readAll(); Q_UNUSED(json);
-    emit statusMessage("Grasshopper graph imported as GeometryNodes compound (parametric bridge)");
-    return true;
+    QByteArray data = f.readAll();
+    
+    MeshData md;
+    QString errorMsg;
+    bool success = fileformat::importGrasshopperToScene(m_scene, data, &errorMsg);
+    
+    if (!success) {
+        emit error("Grasshopper import failed: " + errorMsg);
+        return false;
+    }
+    
+    emit statusMessage("Grasshopper import: geometry loaded (" + 
+        QString::number(m_scene->meshes.size()) + " meshes)");
+    
+    emit sceneChanged(); return true;
 }
 
 QString KSModelerQml::exportAOV(const QString& path, const QString& aov) {
@@ -1584,12 +1704,65 @@ QString KSModelerQml::exportAOV(const QString& path, const QString& aov) {
 
 bool KSModelerQml::createKit(const QString& name) {
     if (name.isEmpty()) return false;
+    
+    // Load existing kits
+    QString kitsPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/kits.json";
+    QFile file(kitsPath);
+    QJsonArray kits;
+    
+    if (file.exists() && file.open(QIODevice::ReadOnly)) {
+        QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+        file.close();
+        if (doc.isArray()) kits = doc.array();
+    }
+    
+    // Check if kit already exists
+    for (const auto& kit : kits) {
+        if (kit.toObject()["name"].toString() == name) {
+            emit statusMessage("Kit already exists: " + name);
+            return false;
+        }
+    }
+    
+    // Create new kit entry
+    QJsonObject kitObj;
+    kitObj["name"] = name;
+    kitObj["created"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+    kitObj["objects"] = QJsonArray(); // empty for now
+    
+    kits.append(kitObj);
+    
+    // Save kits
+    if (file.open(QIODevice::WriteOnly)) {
+        file.write(QJsonDocument(kits).toJson());
+        file.close();
+    }
+    
     emit statusMessage("Kit created: " + name);
     return true;
 }
 
 QStringList KSModelerQml::kitList() const {
-    return {"Car Kit", "Track Kit", "Character Kit"};
+    QStringList result;
+    QString kitsPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/kits.json";
+    QFile file(kitsPath);
+    
+    if (file.exists() && file.open(QIODevice::ReadOnly)) {
+        QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+        file.close();
+        if (doc.isArray()) {
+            for (const auto& kit : doc.array()) {
+                result.append(kit.toObject()["name"].toString());
+            }
+        }
+    }
+    
+    // Add default kits if none exist
+    if (result.isEmpty()) {
+        result << "Car Kit" << "Track Kit" << "Character Kit";
+    }
+    
+    return result;
 }
 
 bool KSModelerQml::expressionSet(const QString& target, const QString& expr) {
@@ -1604,8 +1777,44 @@ QString KSModelerQml::expressionGet(const QString& target) const {
 }
 
 bool KSModelerQml::fluidSimulate(int frames, float viscosity) {
-    Q_UNUSED(frames); Q_UNUSED(viscosity);
-    emit statusMessage(QString("Fluid sim (Bifrost-style) queued: %1 frames").arg(frames));
+    if (!m_scene) return false;
+
+    // Get or create fluid simulator
+    if (!m_fluidSimulator) {
+        m_fluidSimulator = new ks::FluidSimulator(this);
+    }
+
+    m_fluidSimulator->viscosity = viscosity;
+
+    // Add particles from selected object's vertices if available
+    if (m_selectedObject && m_selectedObject->object() && m_selectedObject->object()->mesh()) {
+        MeshData mesh = sceneMeshToMeshData(m_selectedObject->object());
+        QVector<QVector3D> positions;
+        for (const auto& v : mesh.vertices) {
+            positions.append(v.position);
+        }
+        m_fluidSimulator->addParticles(positions);
+    }
+
+    // Run simulation
+    float dt = 1.0f / 30.0f;
+    for (int i = 0; i < frames; ++i) {
+        m_fluidSimulator->simulate(dt);
+    }
+
+    // Update mesh with particle positions
+    if (m_selectedObject && m_selectedObject->object() && m_selectedObject->object()->mesh()) {
+        MeshData mesh = sceneMeshToMeshData(m_selectedObject->object());
+        int count = qMin(mesh.vertices.size(), m_fluidSimulator->fluidParticles.size());
+        for (int i = 0; i < count; ++i) {
+            mesh.vertices[i].position = m_fluidSimulator->fluidParticles[i].position;
+        }
+        meshDataToSceneMesh(m_selectedObject->object(), mesh);
+        emit sceneChanged();
+    }
+
+    emit statusMessage(QString("Fluid sim completed: %1 frames, %2 particles")
+        .arg(frames).arg(m_fluidSimulator->fluidParticles.size()));
     return true;
 }
 
@@ -1617,6 +1826,142 @@ bool KSModelerQml::retopoQuadDraw() {
     meshDataToSceneMesh(m_selectedObject->object(), out);
     emit sceneChanged(); emit statusMessage("Retopo quad-draw snapped to high-poly");
     return true;
+}
+
+static ks::InteractiveRetopoTool* s_retopoTool = nullptr;
+
+bool KSModelerQml::startInteractiveRetopo() {
+    if (!m_selectedObject || !m_selectedObject->object() || !m_selectedObject->object()->mesh()) {
+        emit error("No mesh selected for retopology");
+        return false;
+    }
+
+    if (!s_retopoTool) {
+        s_retopoTool = new ks::InteractiveRetopoTool(this);
+    }
+
+    MeshData highPoly = sceneMeshToMeshData(m_selectedObject->object());
+    MeshData* lowPolyMesh = new MeshData(highPoly);
+
+    s_retopoTool->setHighPolyMesh(highPoly);
+    s_retopoTool->setLowPolyMesh(lowPolyMesh);
+    s_retopoTool->setActive(true);
+
+    emit sceneChanged();
+    emit statusMessage("Interactive retopo mode enabled. Click to add vertices, Shift+Click to select.");
+    return true;
+}
+
+bool KSModelerQml::stopInteractiveRetopo() {
+    if (!s_retopoTool || !s_retopoTool->isActive()) return false;
+
+    s_retopoTool->setActive(false);
+
+    if (m_selectedObject && m_selectedObject->object() && m_selectedObject->object()->mesh()) {
+        MeshData finalMesh = sceneMeshToMeshData(m_selectedObject->object());
+        meshDataToSceneMesh(m_selectedObject->object(), finalMesh);
+        emit sceneChanged();
+    }
+
+    emit statusMessage("Interactive retopo mode disabled");
+    return true;
+}
+
+bool KSModelerQml::addRetopoVertex() {
+    if (!s_retopoTool || !s_retopoTool->isActive() || !m_selectedObject) return false;
+
+    MeshData lowPoly = sceneMeshToMeshData(m_selectedObject->object());
+    s_retopoTool->setLowPolyMesh(&lowPoly);
+
+    bool result = s_retopoTool->addVertexAtCursor(QVector3D(0, 0, 0), QVector3D(0, 0, -1),
+                                                   QMatrix4x4(), QSize(800, 600));
+
+    if (result) {
+        meshDataToSceneMesh(m_selectedObject->object(), lowPoly);
+        emit sceneChanged();
+    }
+    return result;
+}
+
+bool KSModelerQml::createRetopoQuad() {
+    if (!s_retopoTool || !s_retopoTool->isActive() || !m_selectedObject) return false;
+
+    MeshData lowPoly = sceneMeshToMeshData(m_selectedObject->object());
+    s_retopoTool->setLowPolyMesh(&lowPoly);
+
+    bool result = s_retopoTool->createQuadFromSelection();
+
+    if (result) {
+        meshDataToSceneMesh(m_selectedObject->object(), lowPoly);
+        emit sceneChanged();
+    }
+    return result;
+}
+
+bool KSModelerQml::createRetopoTriangle() {
+    if (!s_retopoTool || !s_retopoTool->isActive() || !m_selectedObject) return false;
+
+    MeshData lowPoly = sceneMeshToMeshData(m_selectedObject->object());
+    s_retopoTool->setLowPolyMesh(&lowPoly);
+
+    bool result = s_retopoTool->createTriangleFromSelection();
+
+    if (result) {
+        meshDataToSceneMesh(m_selectedObject->object(), lowPoly);
+        emit sceneChanged();
+    }
+    return result;
+}
+
+bool KSModelerQml::deleteRetopoVertex() {
+    if (!s_retopoTool || !s_retopoTool->isActive() || !m_selectedObject) return false;
+
+    MeshData lowPoly = sceneMeshToMeshData(m_selectedObject->object());
+    s_retopoTool->setLowPolyMesh(&lowPoly);
+
+    bool result = s_retopoTool->deleteSelected();
+
+    if (result) {
+        meshDataToSceneMesh(m_selectedObject->object(), lowPoly);
+        emit sceneChanged();
+    }
+    return result;
+}
+
+bool KSModelerQml::mergeRetopoVertices(float threshold) {
+    if (!s_retopoTool || !s_retopoTool->isActive() || !m_selectedObject) return false;
+
+    MeshData lowPoly = sceneMeshToMeshData(m_selectedObject->object());
+    s_retopoTool->setLowPolyMesh(&lowPoly);
+
+    bool result = s_retopoTool->mergeVertices(threshold);
+
+    if (result) {
+        meshDataToSceneMesh(m_selectedObject->object(), lowPoly);
+        emit sceneChanged();
+    }
+    return result;
+}
+
+bool KSModelerQml::relaxRetopoMesh(int iterations, float strength) {
+    if (!s_retopoTool || !s_retopoTool->isActive() || !m_selectedObject) return false;
+
+    MeshData lowPoly = sceneMeshToMeshData(m_selectedObject->object());
+    s_retopoTool->setLowPolyMesh(&lowPoly);
+
+    bool result = s_retopoTool->relaxMesh(iterations, strength);
+
+    if (result) {
+        meshDataToSceneMesh(m_selectedObject->object(), lowPoly);
+        emit sceneChanged();
+    }
+    return result;
+}
+
+void KSModelerQml::setRetopoSnapRadius(float radius) {
+    if (s_retopoTool) {
+        s_retopoTool->setSnapRadius(radius);
+    }
 }
 
 bool KSModelerQml::uvPeelSeams() {
@@ -1650,7 +1995,30 @@ QString KSModelerQml::renderAOVImage(const QString& aov, int w, int h) {
 bool KSModelerQml::importSTEP(const QString& path) {
     if (!QFile::exists(path)) { emit error("File not found: " + path); return false; }
     emit statusMessage("Importing STEP: " + path);
-    
+
+#ifdef HAS_OCCT
+    // Try OCCT exact import first
+    if (OCCTBridge::isAvailable()) {
+        QVector<MeshData> meshes;
+        if (OCCTBridge::importSTEPExact(path, meshes)) {
+            if (!m_scene) m_scene = new ks::SceneGraph();
+            int count = 0;
+            for (const auto& md : meshes) {
+                if (md.vertices.isEmpty()) continue;
+                auto* obj = m_scene->createObject(md.name.isEmpty() ? QString("STEP_%1").arg(count) : md.name);
+                obj->setMeshData(md);
+                count++;
+            }
+            if (count > 0) {
+                emit sceneChanged();
+                emit statusMessage(QString("Imported %1 objects from STEP (OCCT)").arg(count));
+                return true;
+            }
+        }
+    }
+#endif
+
+    // Fallback to simplified parser
     CAD::File stepFile;
     if (!CAD::STEPParser::parse(path, stepFile)) {
         emit error(QString("Failed to parse STEP file: %1").arg(CAD::STEPParser::getLastError()));
@@ -5745,13 +6113,164 @@ QString KSModelerQml::uvOverlapHeatmap(int objectId, int w, int h) {
     QImage img=MeshOperations::uvOverlapHeatmap(sceneMeshToMeshData(o),w,h); QString p=QDir::temp().filePath(QString("ks_uvoverlap_%1.png").arg(objectId)); img.save(p); return p;
 }
 bool KSModelerQml::createXRef(const QString& path, float x, float y, float z) {
-    if(!m_scene||path.isEmpty()) return false; auto md=MeshOperations::createBox(1,1,1); Q_UNUSED(md);
-    SceneObject* o=m_scene->createObject(SceneObject::Type::Mesh, QFileInfo(path).baseName()); o->setPosition(QVector3D(x,y,z));
-    o->setProperty("xrefPath",path); o->setProperty("isXRef",true); emit sceneChanged(); emit statusMessage("XRef created: "+path); return true;
+    if(!m_scene||path.isEmpty()) return false;
+    
+    // Try to load the referenced file's geometry
+    MeshData loadedMesh;
+    bool loaded = false;
+    QString ext = QFileInfo(path).suffix().toLower();
+    
+    if (ext == "obj") {
+        CADOBJParser parser;
+        if (parser.loadFromFile(path.toStdString()) && !parser.scene().meshes.empty()) {
+            const auto& mesh = parser.scene().meshes[0];
+            loadedMesh.vertices.reserve(mesh.vertices.size());
+            for (const auto& v : mesh.vertices) {
+                Vertex vtx;
+                vtx.position = QVector3D(v.x, v.y, v.z);
+                vtx.color = QVector4D(0.8f, 0.8f, 0.8f, 1.0f);
+                loadedMesh.vertices.append(vtx);
+            }
+            for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+                Face face;
+                face.indices = { (int)mesh.indices[i].x, (int)mesh.indices[i+1].x, (int)mesh.indices[i+2].x };
+                loadedMesh.faces.append(face);
+            }
+            loaded = !loadedMesh.vertices.isEmpty();
+        }
+    } else if (ext == "fbx") {
+        FBXParser parser;
+        if (parser.loadFromFile(path.toStdString()) && !parser.scene().meshes.empty()) {
+            const auto& mesh = parser.scene().meshes[0];
+            loadedMesh.vertices.reserve(mesh.vertices.size());
+            for (const auto& v : mesh.vertices) {
+                Vertex vtx;
+                vtx.position = QVector3D(v.x, v.y, v.z);
+                vtx.color = QVector4D(0.8f, 0.8f, 0.8f, 1.0f);
+                loadedMesh.vertices.append(vtx);
+            }
+            for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+                Face face;
+                face.indices = { (int)mesh.indices[i], (int)mesh.indices[i+1], (int)mesh.indices[i+2] };
+                loadedMesh.faces.append(face);
+            }
+            loaded = !loadedMesh.vertices.isEmpty();
+        }
+    } else if (ext == "gltf" || ext == "glb") {
+        // Use GLB importer
+        loaded = false; // GLB import handled elsewhere
+    }
+    
+    // Create the scene object
+    SceneObject* o;
+    if (loaded) {
+        // Use loaded geometry
+        importMeshDataToScene(m_scene, loadedMesh, QFileInfo(path).baseName());
+        // Get the last created object (importMeshDataToScene creates it)
+        auto allObjs = m_scene->allObjects();
+        if (allObjs.isEmpty()) return false;
+        o = allObjs.last();
+    } else {
+        // Fallback: create a placeholder box
+        auto md = MeshOperations::createBox(1,1,1);
+        o = m_scene->createObject(SceneObject::Type::Mesh, QFileInfo(path).baseName());
+        importMeshDataToScene(m_scene, md, QFileInfo(path).baseName());
+        auto allObjs = m_scene->allObjects();
+        if (allObjs.isEmpty()) return false;
+        o = allObjs.last();
+    }
+    
+    o->setPosition(QVector3D(x,y,z));
+    o->setProperty("xrefPath",path);
+    o->setProperty("isXRef",true);
+    o->setProperty("xrefLoaded",loaded);
+    emit sceneChanged();
+    emit statusMessage(loaded ? "XRef loaded: "+path : "XRef placeholder: "+path);
+    return true;
 }
 bool KSModelerQml::updateXRefs() {
-    if(!m_scene) return false; int n=0; for(auto* o: m_scene->allObjects()) if(o->property("isXRef").toBool()){ n++; o->setProperty("xrefUpdated",QDateTime::currentDateTime().toString(Qt::ISODate));}
-    emit sceneChanged(); emit statusMessage(QString("XRefs updated: %1").arg(n)); return n>0;
+    if(!m_scene) return false;
+    int n = 0;
+    for(auto* o: m_scene->allObjects()) {
+        if(!o->property("isXRef").toBool()) continue;
+        QString path = o->property("xrefPath").toString();
+        if(path.isEmpty()) continue;
+        
+        // Check if file exists and has been modified
+        QFileInfo fi(path);
+        if(!fi.exists()) continue;
+        QDateTime lastModified = fi.lastModified();
+        QDateTime lastUpdated = o->property("xrefLastModified").toDateTime();
+        
+        if(lastUpdated.isValid() && lastModified <= lastUpdated) continue;
+        
+        // File has been modified - reload it
+        QString ext = fi.suffix().toLower();
+        MeshData loadedMesh;
+        bool loaded = false;
+        
+        if (ext == "obj") {
+            CADOBJParser parser;
+            if (parser.loadFromFile(path.toStdString()) && !parser.scene().meshes.empty()) {
+                const auto& mesh = parser.scene().meshes[0];
+                loadedMesh.vertices.reserve(mesh.vertices.size());
+                for (const auto& v : mesh.vertices) {
+                    Vertex vtx;
+                    vtx.position = QVector3D(v.x, v.y, v.z);
+                    vtx.color = QVector4D(0.8f, 0.8f, 0.8f, 1.0f);
+                    loadedMesh.vertices.append(vtx);
+                }
+                for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+                    Face face;
+                    face.indices = { (int)mesh.indices[i].x, (int)mesh.indices[i+1].x, (int)mesh.indices[i+2].x };
+                    loadedMesh.faces.append(face);
+                }
+                loaded = !loadedMesh.vertices.isEmpty();
+            }
+        } else if (ext == "fbx") {
+            FBXParser parser;
+            if (parser.loadFromFile(path.toStdString()) && !parser.scene().meshes.empty()) {
+                const auto& mesh = parser.scene().meshes[0];
+                loadedMesh.vertices.reserve(mesh.vertices.size());
+                for (const auto& v : mesh.vertices) {
+                    Vertex vtx;
+                    vtx.position = QVector3D(v.x, v.y, v.z);
+                    vtx.color = QVector4D(0.8f, 0.8f, 0.8f, 1.0f);
+                    loadedMesh.vertices.append(vtx);
+                }
+                for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+                    Face face;
+                    face.indices = { (int)mesh.indices[i], (int)mesh.indices[i+1], (int)mesh.indices[i+2] };
+                    loadedMesh.faces.append(face);
+                }
+                loaded = !loadedMesh.vertices.isEmpty();
+            }
+        }
+        
+        if(loaded && o->mesh()) {
+            // Update the existing mesh with new geometry
+            SceneMesh* sm = o->mesh();
+            sm->geometry().vertices.clear();
+            sm->geometry().indices.clear();
+            for (const auto& v : loadedMesh.vertices) {
+                SceneVertex sv;
+                sv.position = QVector3D(v.position.x(), v.position.y(), v.position.z());
+                sv.color = QVector4D(v.color.x(), v.color.y(), v.color.z(), v.color.w());
+                sm->geometry().vertices.append(sv);
+            }
+            for (const auto& f : loadedMesh.faces) {
+                for (int idx : f.indices)
+                    sm->geometry().indices.append((uint32_t)idx);
+            }
+        }
+        
+        o->setProperty("xrefLastModified", lastModified.toString(Qt::ISODate));
+        o->setProperty("xrefUpdated", QDateTime::currentDateTime().toString(Qt::ISODate));
+        n++;
+    }
+    emit sceneChanged();
+    emit statusMessage(QString("XRefs updated: %1").arg(n));
+    return n>0;
 }
 QVariantList KSModelerQml::xrefList() const {
     QVariantList r; if(!m_scene) return r; for(auto* o: m_scene->allObjects()) if(o->property("isXRef").toBool()){ QVariantMap m; m["id"]=o->id(); m["name"]=o->name(); m["path"]=o->property("xrefPath"); r.append(m);} return r;
@@ -5778,7 +6297,15 @@ QVariantList KSModelerQml::fcurveFilteredKeys(int objectId, const QString& chann
     for(auto &k: it->channels.value(channel).keys) if(k.frame>=from&&k.frame<=to){ QVariantMap m; m["frame"]=k.frame; m["value"]=k.value; m["interp"]=k.interpolation; r.append(m);} return r;
 }
 bool KSModelerQml::bevelEdgesAdvanced(const QList<int>& edgeIndices, float distance, int segments, int profileType, float tension) {
-    Q_UNUSED(profileType); Q_UNUSED(tension); bevelEdges(edgeIndices,distance,segments); return true;
+    if (!m_selectedObject) return false;
+    SceneObject* obj = m_selectedObject->object();
+    if (!obj || !obj->mesh()) return false;
+    MeshData md = sceneMeshToMeshData(obj);
+    MeshData result = MeshOperations::bevelEdges(md, distance, segments, qDegreesToRadians(30.0f), profileType, tension);
+    meshDataToSceneMesh(obj, result);
+    emit sceneChanged();
+    emit statusMessage(QString("Beveled (profile %1, tension %2)").arg(profileType).arg(tension, 0, 'f', 2));
+    return true;
 }
 
 void KSModelerQml::translateUVs(float u, float v) {
@@ -11034,6 +11561,7 @@ bool KSModelerQml::fcurveSetKey(int objectId, const QString& channel, float fram
     FCurveData& data = fcurveForObject(objectId);
     if (data.objectName.isEmpty())
         data.objectName = obj->name();
+    data.pushUndoState();
     FCurveChannel& ch = data.ensureChannel(channel);
     // Auto-tangent: derive slopes from neighbouring keys.
     const float autoSlope = [&]() -> float {
@@ -11059,6 +11587,7 @@ bool KSModelerQml::fcurveRemoveKey(int objectId, const QString& channel, float f
 {
     auto it = m_fcurves.find(objectId);
     if (it == m_fcurves.end()) return false;
+    it.value().pushUndoState();
     FCurveChannel* c = it.value().channel(channel);
     if (!c) return false;
     if (!c->removeKey(frame)) return false;
@@ -11096,6 +11625,94 @@ bool KSModelerQml::fcurveSetInterpolation(int objectId, const QString& channel, 
     if (!c) return false;
     if (!c->setInterpolation(index, fcurveInterpFromString(interp))) return false;
     emit fcurveChanged(objectId);
+    return true;
+}
+
+bool KSModelerQml::fcurveSetTangentHandle(int objectId, const QString& channel, int index, bool isOut, float handleFrame, float handleValue)
+{
+    auto it = m_fcurves.find(objectId);
+    if (it == m_fcurves.end()) return false;
+    FCurveChannel* c = it.value().channel(channel);
+    if (!c) return false;
+    if (index < 0 || index >= c->keys.size()) return false;
+
+    FCurveKey& k = c->keys[index];
+    if (k.locked) return false;
+
+    if (isOut) {
+        k.outHandleFrame = handleFrame;
+        k.outHandleValue = handleValue;
+    } else {
+        k.inHandleFrame = handleFrame;
+        k.inHandleValue = handleValue;
+    }
+
+    // Update tangent mode to Free when manually editing handles
+    k.tangentMode = FCurveTangentMode::Free;
+
+    // Update tangent slopes from handle positions
+    c->updateTangentFromHandles(index);
+
+    emit fcurveChanged(objectId);
+    return true;
+}
+
+bool KSModelerQml::fcurveSetTangentMode(int objectId, const QString& channel, int index, const QString& mode)
+{
+    auto it = m_fcurves.find(objectId);
+    if (it == m_fcurves.end()) return false;
+    FCurveChannel* c = it.value().channel(channel);
+    if (!c) return false;
+
+    FCurveTangentMode m = FCurveTangentMode::Auto;
+    if (mode == "Free") m = FCurveTangentMode::Free;
+    else if (mode == "Aligned") m = FCurveTangentMode::Aligned;
+    else if (mode == "Broken") m = FCurveTangentMode::Broken;
+    else if (mode == "Clamped") m = FCurveTangentMode::Clamped;
+    else if (mode == "Vector") m = FCurveTangentMode::Vector;
+
+    if (!c->setTangentMode(index, m)) return false;
+    emit fcurveChanged(objectId);
+    return true;
+}
+
+bool KSModelerQml::fcurveCanUndo(int objectId) const
+{
+    auto it = m_fcurves.constFind(objectId);
+    if (it == m_fcurves.constEnd()) return false;
+    return it.value().canUndo();
+}
+
+bool KSModelerQml::fcurveCanRedo(int objectId) const
+{
+    auto it = m_fcurves.constFind(objectId);
+    if (it == m_fcurves.constEnd()) return false;
+    return it.value().canRedo();
+}
+
+bool KSModelerQml::fcurveUndo(int objectId)
+{
+    auto it = m_fcurves.find(objectId);
+    if (it == m_fcurves.end()) return false;
+    it.value().undo();
+    emit fcurveChanged(objectId);
+    return true;
+}
+
+bool KSModelerQml::fcurveRedo(int objectId)
+{
+    auto it = m_fcurves.find(objectId);
+    if (it == m_fcurves.end()) return false;
+    it.value().redo();
+    emit fcurveChanged(objectId);
+    return true;
+}
+
+bool KSModelerQml::fcurvePushUndo(int objectId)
+{
+    auto it = m_fcurves.find(objectId);
+    if (it == m_fcurves.end()) return false;
+    it.value().pushUndoState();
     return true;
 }
 

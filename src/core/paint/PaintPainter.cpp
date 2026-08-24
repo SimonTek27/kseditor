@@ -6,6 +6,7 @@
 #include <QVector>
 #include <algorithm>
 #include <cmath>
+#include <random>
 
 namespace ks {
 namespace paint {
@@ -94,6 +95,28 @@ void PaintPainter::paintAt(QImage& image, const QImage& mask, const QPoint& pos,
     const bool eraser = (brush.tool == PaintTool::Eraser);
     const bool airbrush = (brush.tool == PaintTool::Airbrush);
 
+    // Spray mode: scatter multiple dabs randomly within the radius
+    if (brush.strokeType == StrokeType::Spray) {
+        static thread_local std::mt19937 rng(std::random_device{}());
+        std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
+        const int count = qMax(1, brush.sprayDensity);
+        const float scatter = effRadius * brush.sprayScatter;
+        for (int i = 0; i < count; ++i) {
+            float ox = dist(rng) * scatter;
+            float oy = dist(rng) * scatter;
+            QPoint samplePos(pos.x() + int(ox), pos.y() + int(oy));
+            paintSingleDab(image, mask, samplePos, brush, effRadius, effOpacity, innerR, eraser, airbrush, p);
+        }
+        return;
+    }
+
+    paintSingleDab(image, mask, pos, brush, effRadius, effOpacity, innerR, eraser, airbrush, p);
+}
+
+void PaintPainter::paintSingleDab(QImage& image, const QImage& mask, const QPoint& pos, const PaintBrush& brush,
+                                   float effRadius, float effOpacity, int innerR, bool eraser, bool airbrush, float pressure)
+{
+    const int r = int(effRadius);
     const int x0 = pos.x() - r, x1 = pos.x() + r;
     const int y0 = pos.y() - r, y1 = pos.y() + r;
 
@@ -119,7 +142,41 @@ void PaintPainter::paintAt(QImage& image, const QImage& mask, const QPoint& pos,
                 falloff *= stampA;
             }
             float alpha = effOpacity * falloff * maskAt(mask, x, y);
-            if (airbrush) alpha *= brush.flow * p;
+            if (airbrush) alpha *= brush.flow * pressure;
+            if (alpha <= 0.0f) continue;
+
+            QRgb base = img.pixel(x, y);
+            if (eraser) {
+                int a = int(qAlpha(base) * (1.0f - alpha));
+                img.setPixel(x, y, qRgba(qRed(base), qGreen(base), qBlue(base), a));
+            } else {
+                img.setPixel(x, y, blendPixel(base, brush.color.rgb(), alpha));
+            }
+        }
+    }
+    image = img;
+}
+
+void PaintPainter::paintRect(QImage& image, const QImage& mask, const QPoint& from, const QPoint& to, const PaintBrush& brush, bool filled)
+{
+    if (image.isNull()) return;
+    float p = clampf(brush.pressure, 0.05f, 1.0f);
+    float effOpacity = brush.opacity * p;
+    const bool eraser = (brush.tool == PaintTool::Eraser);
+
+    QImage img = image.convertToFormat(QImage::Format_ARGB32);
+    int x0 = qMin(from.x(), to.x()), x1 = qMax(from.x(), to.x());
+    int y0 = qMin(from.y(), to.y()), y1 = qMax(from.y(), to.y());
+    int thickness = qMax(1, int(brush.radius * 0.2f));
+
+    for (int y = y0; y <= y1; ++y) {
+        for (int x = x0; x <= x1; ++x) {
+            if (x < 0 || y < 0 || x >= img.width() || y >= img.height()) continue;
+
+            bool onBorder = filled ? (x <= x0 + thickness || x >= x1 - thickness || y <= y0 + thickness || y >= y1 - thickness) : true;
+            if (!onBorder) continue;
+
+            float alpha = effOpacity * maskAt(mask, x, y);
             if (alpha <= 0.0f) continue;
 
             QRgb base = img.pixel(x, y);

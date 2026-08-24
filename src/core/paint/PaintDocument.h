@@ -152,7 +152,7 @@ public:
     bool isFaceHidden(int faceId) const { return m_hiddenFaces.contains(faceId); }
     void setBrushPattern(const QImage& p) { m_brushPattern = p; emit documentChanged(); }
     QImage brushPattern() const { return m_brushPattern; }
-    QString executePaintScript(const QString& script) { Q_UNUSED(script); emit documentChanged(); return QStringLiteral("ok"); }
+    QString executePaintScript(const QString& script);
     PaintVectorDocument* vectorDocument() { return m_vectorDoc; }
     const PaintVectorDocument* vectorDocument() const { return m_vectorDoc; }
     bool importSvg(const QString& svg) { bool r=m_vectorDoc->importSvg(svg); if(r) emit documentChanged(); return r; }

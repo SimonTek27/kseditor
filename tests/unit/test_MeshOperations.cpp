@@ -51,6 +51,8 @@ private slots:
     void testResolveUVOverlaps();
     void testRevolveSketch();
     void testBevelChain();
+    void testBevelProfiles();
+    void testRetargetSkeleton();
 
     // Quilt of `cols x rows` quads lying in the XZ plane (normal +Y).
     MeshData buildQuilt(int cols, int rows) const {
@@ -994,6 +996,86 @@ void TestMeshOperations::testBevelChain()
         box, QVector<int>{ 0, sharedEdge }, QVector<float>{ 0.1f }, 1, qDegreesToRadians(0.5f));
     QCOMPARE(hard.vertices.size(), 8);
     QCOMPARE(hard.faces.size(), 12);
+}
+
+void TestMeshOperations::testBevelProfiles()
+{
+    MeshData box = MeshOperations::createBox(1, 1, 1);
+    
+    // Test linear profile (default)
+    MeshData linear = MeshOperations::bevelEdges(box, 0.1f, 2, qDegreesToRadians(40.0f), 0, 0.5f);
+    QVERIFY(linear.vertices.size() > box.vertices.size());
+    QVERIFY(linear.faces.size() > box.faces.size());
+    
+    // Test concave profile
+    MeshData concave = MeshOperations::bevelEdges(box, 0.1f, 2, qDegreesToRadians(40.0f), 1, 0.5f);
+    QVERIFY(concave.vertices.size() > box.vertices.size());
+    
+    // Test convex profile
+    MeshData convex = MeshOperations::bevelEdges(box, 0.1f, 2, qDegreesToRadians(40.0f), 2, 0.5f);
+    QVERIFY(convex.vertices.size() > box.vertices.size());
+    
+    // Test custom profile
+    MeshData custom = MeshOperations::bevelEdges(box, 0.1f, 2, qDegreesToRadians(40.0f), 3, 0.75f);
+    QVERIFY(custom.vertices.size() > box.vertices.size());
+    
+    // All profiles should produce valid meshes
+    auto validateMesh = [](const MeshData& m) -> bool {
+        for (const auto& f : m.faces) {
+            if (f.indices.size() < 3) return false;
+            QSet<int> uniq;
+            for (int i : f.indices) {
+                if (i < 0 || i >= m.vertices.size()) return false;
+                uniq.insert(i);
+            }
+            if (uniq.size() < 3) return false;
+        }
+        return true;
+    };
+    
+    QVERIFY(validateMesh(linear));
+    QVERIFY(validateMesh(concave));
+    QVERIFY(validateMesh(convex));
+    QVERIFY(validateMesh(custom));
+}
+
+void TestMeshOperations::testRetargetSkeleton()
+{
+    // Test empty inputs
+    QVector<int> empty = MeshOperations::retargetSkeleton({}, {});
+    QVERIFY(empty.isEmpty());
+    
+    // Test identity mapping (same positions)
+    QVector<QVector3D> src1 = { {0,0,0}, {1,0,0}, {2,0,0} };
+    QVector<QVector3D> dst1 = { {0,0,0}, {1,0,0}, {2,0,0} };
+    QVector<int> map1 = MeshOperations::retargetSkeleton(src1, dst1);
+    QCOMPARE(map1.size(), 3);
+    QCOMPARE(map1[0], 0);
+    QCOMPARE(map1[1], 1);
+    QCOMPARE(map1[2], 2);
+    
+    // Test offset mapping (dst is shifted)
+    QVector<QVector3D> dst2 = { {0,1,0}, {1,1,0}, {2,1,0} };
+    QVector<int> map2 = MeshOperations::retargetSkeleton(src1, dst2);
+    QCOMPARE(map2.size(), 3);
+    QCOMPARE(map2[0], 0);
+    QCOMPARE(map2[1], 1);
+    QCOMPARE(map2[2], 2);
+    
+    // Test with different joint counts
+    QVector<QVector3D> dst3 = { {0,0,0}, {1,0,0} };
+    QVector<int> map3 = MeshOperations::retargetSkeleton(src1, dst3);
+    QCOMPARE(map3.size(), 3);
+    QCOMPARE(map3[0], 0);
+    QCOMPARE(map3[1], 1);
+    QCOMPARE(map3[2], -1); // no match for third joint
+    
+    // Test no matches (too far apart)
+    QVector<QVector3D> src4 = { {0,0,0} };
+    QVector<QVector3D> dst4 = { {100,100,100} };
+    QVector<int> map4 = MeshOperations::retargetSkeleton(src4, dst4);
+    QCOMPARE(map4.size(), 1);
+    QCOMPARE(map4[0], -1); // too far, no match
 }
 
 QTEST_MAIN(TestMeshOperations)

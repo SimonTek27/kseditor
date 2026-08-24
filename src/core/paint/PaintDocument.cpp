@@ -1,6 +1,10 @@
 #include "PaintDocument.h"
 #include <QPainter>
 #include <cmath>
+#include <QJSEngine>
+#include <QJSValue>
+#include <QStringList>
+#include <QRegExp>
 
 namespace ks {
 namespace paint {
@@ -982,6 +986,96 @@ void PaintDocument::selectColorRange(const QColor& color, int tolerance) {
         if (dr<=tolerance && dg<=tolerance && db<=tolerance) sel.setPixelColor(x,y,QColor(0,0,0,255));
     }
     m_selection=sel; emit selectionChanged(); emit documentChanged();
+}
+
+QString PaintDocument::executePaintScript(const QString& script)
+{
+    if (script.isEmpty() || !hasDocument())
+        return QStringLiteral("error: no document or empty script");
+
+    QJSEngine engine;
+    engine.installExtensions(QJSEngine::ConsoleExtension);
+
+    QImage canvas = currentLayerImage().isNull() ? QImage(m_width, m_height, QImage::Format_ARGB32_Premultiplied) : currentLayerImage();
+
+    engine.globalObject().setProperty("width", m_width);
+    engine.globalObject().setProperty("height", m_height);
+
+    engine.globalObject().setProperty("getPixel", engine.newFunction([&engine](const QJSValue& args) -> QJSValue {
+        int x = args.at(0).toInt(), y = args.at(1).toInt();
+        if (x < 0 || y < 0 || x >= canvas.width() || y >= canvas.height()) return QJSValue();
+        QRgb c = canvas.pixel(x, y);
+        QJSValue r = engine.newObject();
+        r.setProperty("r", qRed(c)); r.setProperty("g", qGreen(c));
+        r.setProperty("b", qBlue(c)); r.setProperty("a", qAlpha(c));
+        return r;
+    }));
+
+    engine.globalObject().setProperty("setPixel", engine.newFunction([&engine](const QJSValue& args) -> QJSValue {
+        int x = args.at(0).toInt(), y = args.at(1).toInt();
+        int r = args.at(2).toInt(), g = args.at(3).toInt(), b = args.at(4).toInt(), a = args.size() > 5 ? args.at(5).toInt() : 255;
+        if (x >= 0 && y >= 0 && x < canvas.width() && y < canvas.height())
+            canvas.setPixelColor(x, y, QColor(qBound(0,r,255), qBound(0,g,255), qBound(0,b,255), qBound(0,a,255)));
+        return QJSValue();
+    }));
+
+    engine.globalObject().setProperty("fillRect", engine.newFunction([&engine](const QJSValue& args) -> QJSValue {
+        int x = args.at(0).toInt(), y = args.at(1).toInt(), w = args.at(2).toInt(), h = args.at(3).toInt();
+        int r = args.at(4).toInt(), g = args.at(5).toInt(), b = args.at(6).toInt(), a = args.size() > 7 ? args.at(7).toInt() : 255;
+        QPainter p(&canvas); p.setCompositionMode(QPainter::CompositionMode_Source);
+        p.fillRect(x, y, w, h, QColor(qBound(0,r,255), qBound(0,g,255), qBound(0,b,255), qBound(0,a,255)));
+        p.end();
+        return QJSValue();
+    }));
+
+    engine.globalObject().setProperty("drawLine", engine.newFunction([&engine](const QJSValue& args) -> QJSValue {
+        int x1 = args.at(0).toInt(), y1 = args.at(1).toInt(), x2 = args.at(2).toInt(), y2 = args.at(3).toInt();
+        int r = args.at(4).toInt(), g = args.at(5).toInt(), b = args.at(6).toInt(), a = args.size() > 7 ? args.at(7).toInt() : 255;
+        QPainter p(&canvas); p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(QPen(QColor(qBound(0,r,255), qBound(0,g,255), qBound(0,b,255), qBound(0,a,255)), 1));
+        p.drawLine(x1, y1, x2, y2); p.end();
+        return QJSValue();
+    }));
+
+    engine.globalObject().setProperty("invert", engine.newFunction([&engine](const QJSValue&) -> QJSValue {
+        canvas.invertPixels();
+        return QJSValue();
+    }));
+
+    engine.globalObject().setProperty("brightness", engine.newFunction([&engine](const QJSValue& args) -> QJSValue {
+        double amt = args.at(0).toDouble();
+        for (int y = 0; y < canvas.height(); ++y) {
+            QRgb* l = reinterpret_cast<QRgb*>(canvas.scanLine(y));
+            for (int x = 0; x < canvas.width(); ++x) {
+                int r = qBound(0, int(qRed(l[x]) + amt), 255);
+                int g = qBound(0, int(qGreen(l[x]) + amt), 255);
+                int b = qBound(0, int(qBlue(l[x]) + amt), 255);
+                l[x] = qRgba(r, g, b, qAlpha(l[x]));
+            }
+        }
+        return QJSValue();
+    }));
+
+    engine.globalObject().setProperty("gaussianBlur", engine.newFunction([&engine](const QJSValue& args) -> QJSValue {
+        int radius = args.at(0).toInt();
+        if (radius <= 0) return QJSValue();
+        QImage tmp = canvas;
+        for (int i = 0; i < radius; ++i) {
+            QPainter p(&tmp); p.setOpacity(0.5);
+            p.drawImage(1, 0, canvas); p.drawImage(-1, 0, canvas);
+            p.drawImage(0, 1, canvas); p.drawImage(0, -1, canvas);
+            p.end(); canvas = tmp;
+        }
+        return QJSValue();
+    }));
+
+    QJSValue result = engine.evaluate(script);
+    if (result.isError())
+        return QStringLiteral("error: %1").arg(result.toString());
+
+    setCurrentLayerImage(canvas);
+    emit documentChanged();
+    return QStringLiteral("ok");
 }
 
 } // namespace paint

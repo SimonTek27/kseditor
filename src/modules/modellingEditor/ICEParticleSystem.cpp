@@ -1113,7 +1113,7 @@ void ICEParticleEvaluator::evalOutputRibbons(const QUuid&, const ui::GraphNode& 
 }
 
 void ICEParticleEvaluator::evalOutputMesh(const QUuid&, const ui::GraphNode& node,
-                                          ICEParticleState& state, float, const QMap<QUuid, QVariant>&)
+                                           ICEParticleState& state, float, const QMap<QUuid, QVariant>&)
 {
     // OutputMesh: signals that particles should be used to generate a mesh.
     // Particles are treated as vertices of a point cloud that the renderer
@@ -1123,6 +1123,108 @@ void ICEParticleEvaluator::evalOutputMesh(const QUuid&, const ui::GraphNode& nod
     for (int i = 0; i < state.aliveCount; ++i) {
         state.sizes[i] = scale;
     }
+}
+
+void ICEParticleEvaluator::evalOutputVolumetric(const QUuid&, const ui::GraphNode& node,
+                                                 ICEParticleState& state, float, const QMap<QUuid, QVariant>&)
+{
+    // OutputVolumetric: render particles as volumetric billboards
+    // Properties:
+    //   - density: base density for volume rendering (default 1.0)
+    //   - absorption: light absorption coefficient (default 0.5)
+    //   - scattering: light scattering coefficient (default 0.3)
+    //   - depthSort: whether to sort by depth (default true)
+    //   - cameraPos: camera position for depth sorting (default 0,0,10)
+    
+    float density = node.properties.value("density", 1.0f).toFloat();
+    float absorption = node.properties.value("absorption", 0.5f).toFloat();
+    float scattering = node.properties.value("scattering", 0.3f).toFloat();
+    bool depthSort = node.properties.value("depthSort", true).toBool();
+    QVector3D cameraPos = node.properties.value("cameraPos", QVector3D(0, 0, 10)).value<QVector3D>();
+    
+    // Apply age-based size curves if present
+    QVariant ageSizeCurveVar = node.properties.value("ageSizeCurve");
+    if (ageSizeCurveVar.isValid()) {
+        QVector<QPair<float, float>> ageSizeCurve;
+        QJsonArray arr = ageSizeCurveVar.toJsonArray();
+        for (const auto& v : arr) {
+            QJsonArray pair = v.toArray();
+            if (pair.size() >= 2) {
+                ageSizeCurve.append({pair[0].toFloat(), pair[1].toFloat()});
+            }
+        }
+        
+        for (int i = 0; i < state.aliveCount; ++i) {
+            float normalizedAge = state.ages[i] / state.lifetimes[i];
+            state.sizes[i] *= evaluateAgeSizeCurve(normalizedAge, 1.0f, ageSizeCurve);
+        }
+    }
+    
+    // Apply density-based coloring
+    for (int i = 0; i < state.aliveCount; ++i) {
+        float alpha = density * state.sizes[i];
+        state.colors[i].setW(qMin(1.0f, alpha));
+    }
+    
+    // Depth sorting for proper transparency
+    if (depthSort && state.aliveCount > 1) {
+        sortByDepth(state.positions, state.sizes, state.colors, cameraPos);
+    }
+}
+
+float ICEParticleEvaluator::evaluateAgeSizeCurve(float age, float lifetime, const QVector<QPair<float, float>>& curve)
+{
+    if (curve.isEmpty()) return 1.0f;
+    if (curve.size() == 1) return curve[0].second;
+    
+    float t = age / lifetime;
+    
+    // Find the two control points we're between
+    for (int i = 0; i < curve.size() - 1; ++i) {
+        float t0 = curve[i].first;
+        float t1 = curve[i + 1].first;
+        
+        if (t >= t0 && t <= t1) {
+            float localT = (t - t0) / (t1 - t0);
+            return curve[i].second + (curve[i + 1].second - curve[i].second) * localT;
+        }
+    }
+    
+    // Before first or after last
+    if (t < curve[0].first) return curve[0].second;
+    return curve.last().second;
+}
+
+void ICEParticleEvaluator::sortByDepth(QVector<QVector3D>& positions, QVector<float>& sizes, QVector<QVector4D>& colors, const QVector3D& cameraPos)
+{
+    int count = positions.size();
+    if (count <= 1) return;
+    
+    // Create index array
+    QVector<int> indices(count);
+    for (int i = 0; i < count; ++i) indices[i] = i;
+    
+    // Sort by distance to camera (far to near for back-to-front rendering)
+    std::sort(indices.begin(), indices.end(), [&](int a, int b) {
+        float distA = (positions[a] - cameraPos).lengthSquared();
+        float distB = (positions[b] - cameraPos).lengthSquared();
+        return distA > distB;
+    });
+    
+    // Reorder arrays
+    QVector<QVector3D> sortedPos(count);
+    QVector<float> sortedSizes(count);
+    QVector<QVector4D> sortedColors(count);
+    
+    for (int i = 0; i < count; ++i) {
+        sortedPos[i] = positions[indices[i]];
+        sortedSizes[i] = sizes[indices[i]];
+        sortedColors[i] = colors[indices[i]];
+    }
+    
+    positions = sortedPos;
+    sizes = sortedSizes;
+    colors = sortedColors;
 }
 
 } // namespace ks

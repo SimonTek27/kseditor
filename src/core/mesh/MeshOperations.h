@@ -120,7 +120,7 @@ public:
 
     static MeshData extrude(const MeshData& mesh, const QVector3D& direction, float distance, bool individualFaces = false);
     static MeshData extrudeFaces(const MeshData& mesh, const QVector<QVector3D>& directions);
-    static MeshData bevelEdges(const MeshData& mesh, float distance, int segments = 1, float angleLimit = qDegreesToRadians(30.0f));
+    static MeshData bevelEdges(const MeshData& mesh, float distance, int segments = 1, float angleLimit = qDegreesToRadians(30.0f), int profileType = 0, float tension = 0.5f);
     // Fillet chain (Plasticity P2): bevels the given edges (indices into the
     // mesh's edge list after `ensureEdgeList`) each at its own `radius`, so a
     // chain of edges can get a tapering fillet. Where several beveled edges
@@ -129,7 +129,8 @@ public:
     // are skipped. `segments` rows are inserted across the fillet.
     static MeshData bevelChain(const MeshData& mesh, const QVector<int>& edgeIndices,
                                const QVector<float>& radii, int segments = 1,
-                               float angleLimit = qDegreesToRadians(30.0f));
+                               float angleLimit = qDegreesToRadians(30.0f),
+                               int profileType = 0, float tension = 0.5f);
     static MeshData bevelVertices(const MeshData& mesh, float distance);
 
     static MeshData insetFaces(const MeshData& mesh, float distance, float depth = 0.0f);

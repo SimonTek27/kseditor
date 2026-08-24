@@ -41,6 +41,9 @@ Rectangle {
     property int dragIndex: -1
     property real dragF0: 0
     property real dragV0: 0
+    property bool draggingHandle: false
+    property int dragHandleIndex: -1
+    property bool dragHandleIsOut: false
 
     // ============================================================
     // Helpers
@@ -130,6 +133,31 @@ Rectangle {
         return null
     }
 
+    function hitTestHandle(x, y) {
+        var keys = activeKeys()
+        for (var i = 0; i < keys.length; ++i) {
+            // Out handle
+            var outHFrame = keys[i].outHandleFrame || 0
+            var outHValue = keys[i].outHandleValue || 0
+            if (Math.abs(outHFrame) > 0.01 || Math.abs(outHValue) > 0.01) {
+                var ohx = frameToX(keys[i].frame + outHFrame)
+                var ohy = valueToY(keys[i].value + outHValue)
+                var dx = ohx - x, dy = ohy - y
+                if (dx * dx + dy * dy <= 25) return { index: i, isOut: true }
+            }
+            // In handle
+            var inHFrame = keys[i].inHandleFrame || 0
+            var inHValue = keys[i].inHandleValue || 0
+            if (Math.abs(inHFrame) > 0.01 || Math.abs(inHValue) > 0.01) {
+                var ihx = frameToX(keys[i].frame + inHFrame)
+                var ihy = valueToY(keys[i].value + inHValue)
+                var dx2 = ihx - x, dy2 = ihy - y
+                if (dx2 * dx2 + dy2 * dy2 <= 25) return { index: i, isOut: false }
+            }
+        }
+        return null
+    }
+
     function selectKey(channel, index, frame, value, additive) {
         var sel = { channel: channel, index: index, frame: frame, value: value }
         if (additive) {
@@ -183,6 +211,13 @@ Rectangle {
         if (objectId < 0) return
         for (var i = 0; i < selectedKeys.length; ++i)
             Modeler.fcurveSetInterpolation(objectId, selectedKeys[i].channel, selectedKeys[i].index, name)
+    }
+
+    function applyTangentMode(mode) {
+        if (objectId < 0) return
+        for (var i = 0; i < selectedKeys.length; ++i)
+            Modeler.fcurveSetTangentMode(objectId, selectedKeys[i].channel, selectedKeys[i].index, mode)
+        requestRepaint()
     }
 
     function clearActiveChannel() {
@@ -324,10 +359,24 @@ Rectangle {
                 AppButton { text: "EOut"; height: 20; bgcolor: "#3e3e42"; color: "#fff"; font.pixelSize: 8; onClicked: applyInterp("EaseOut") }
                 AppButton { text: "EIO";  height: 20; bgcolor: "#3e3e42"; color: "#fff"; font.pixelSize: 8; onClicked: applyInterp("EaseInOut") }
 
+                Text {
+                    text: "  Tangent:"
+                    color: "#888"
+                    font.pixelSize: 9
+                    font.bold: true
+                }
+                AppButton { text: "Auto";  height: 20; bgcolor: "#2a3e2a"; color: "#fff"; font.pixelSize: 8; onClicked: applyTangentMode("Auto") }
+                AppButton { text: "Free";  height: 20; bgcolor: "#2a3e2a"; color: "#fff"; font.pixelSize: 8; onClicked: applyTangentMode("Free") }
+                AppButton { text: "Align"; height: 20; bgcolor: "#2a3e2a"; color: "#fff"; font.pixelSize: 8; onClicked: applyTangentMode("Aligned") }
+                AppButton { text: "Break"; height: 20; bgcolor: "#2a3e2a"; color: "#fff"; font.pixelSize: 8; onClicked: applyTangentMode("Broken") }
+                AppButton { text: "Clamp"; height: 20; bgcolor: "#2a3e2a"; color: "#fff"; font.pixelSize: 8; onClicked: applyTangentMode("Clamped") }
+
                 Item { Layout.fillWidth: true }
 
                 AppButton { text: "Add";   height: 20; bgcolor: "#E10600"; color: "#121212"; font.bold: true; font.pixelSize: 9; onClicked: addKeyAt(Modeler.animationTime, valueForChannel(activeChannel), "") }
                 AppButton { text: "Del";   height: 20; bgcolor: "#5a2a2a"; color: "#fff"; font.pixelSize: 9; onClicked: deleteSelectedKeys() }
+                AppButton { text: "Undo";  height: 20; bgcolor: "#3e3e42"; color: "#fff"; font.pixelSize: 9; onClicked: { Modeler.fcurveUndo(objectId); requestRepaint() } }
+                AppButton { text: "Redo";  height: 20; bgcolor: "#3e3e42"; color: "#fff"; font.pixelSize: 9; onClicked: { Modeler.fcurveRedo(objectId); requestRepaint() } }
                 AppButton { text: playing ? "Pause" : "Play"; height: 20; bgcolor: "#3e3e42"; color: "#fff"; font.pixelSize: 9; onClicked: Modeler.fcurvePlayPause() }
                 AppButton { text: "Reset"; height: 20; bgcolor: "#3e3e42"; color: "#fff"; font.pixelSize: 9; onClicked: { autoFit(); requestRepaint() } }
             }
@@ -517,6 +566,49 @@ Rectangle {
                         var kx = frameToX(keys[i].frame)
                         var ky = valueToY(keys[i].value)
                         var sel = isSelected(activeChannel, keys[i].frame)
+
+                        // Draw tangent handles for selected keys or all keys
+                        if (sel || keys[i].interpolation === "Cubic") {
+                            var inHFrame = keys[i].inHandleFrame || 0
+                            var inHValue = keys[i].inHandleValue || 0
+                            var outHFrame = keys[i].outHandleFrame || 0
+                            var outHValue = keys[i].outHandleValue || 0
+
+                            // In handle
+                            if (Math.abs(inHFrame) > 0.01 || Math.abs(inHValue) > 0.01) {
+                                var ihx = frameToX(keys[i].frame + inHFrame)
+                                var ihy = valueToY(keys[i].value + inHValue)
+                                ctx.strokeStyle = sel ? "#4a9eff" : "#336"
+                                ctx.lineWidth = 1
+                                ctx.beginPath()
+                                ctx.moveTo(kx, ky)
+                                ctx.lineTo(ihx, ihy)
+                                ctx.stroke()
+                                // Handle point
+                                ctx.fillStyle = sel ? "#4a9eff" : "#336"
+                                ctx.beginPath()
+                                ctx.arc(ihx, ihy, 3, 0, Math.PI * 2)
+                                ctx.fill()
+                            }
+
+                            // Out handle
+                            if (Math.abs(outHFrame) > 0.01 || Math.abs(outHValue) > 0.01) {
+                                var ohx = frameToX(keys[i].frame + outHFrame)
+                                var ohy = valueToY(keys[i].value + outHValue)
+                                ctx.strokeStyle = sel ? "#ff6b4a" : "#633"
+                                ctx.lineWidth = 1
+                                ctx.beginPath()
+                                ctx.moveTo(kx, ky)
+                                ctx.lineTo(ohx, ohy)
+                                ctx.stroke()
+                                // Handle point
+                                ctx.fillStyle = sel ? "#ff6b4a" : "#633"
+                                ctx.beginPath()
+                                ctx.arc(ohx, ohy, 3, 0, Math.PI * 2)
+                                ctx.fill()
+                            }
+                        }
+
                         ctx.fillStyle = sel ? "#E10600" : (keys[i].locked ? "#E1A500" : "#e0e0e0")
                         ctx.strokeStyle = sel ? "#ffffff" : "#222"
                         ctx.lineWidth = 1
@@ -549,6 +641,25 @@ Rectangle {
                     if (fcurvePanel.panMode) {
                         fcurvePanel.panX = fcurvePanel.panOriginX + (mouse.x - fcurvePanel.panStartX)
                         fcurvePanel.panY = fcurvePanel.panOriginY + (mouse.y - fcurvePanel.panStartY)
+                        fcurvePanel.requestRepaint()
+                        return
+                    }
+                    if (fcurvePanel.draggingHandle) {
+                        // Handle dragging - update handle position relative to key
+                        var idx = fcurvePanel.dragHandleIndex
+                        var keys = activeKeys()
+                        if (idx >= 0 && idx < keys.length) {
+                            var kx = frameToX(keys[idx].frame)
+                            var ky = valueToY(keys[idx].value)
+                            var newFrame = xToFrame(mouse.x) - keys[idx].frame
+                            var newValue = yToValue(mouse.y) - keys[idx].value
+
+                            if (fcurvePanel.dragHandleIsOut) {
+                                Modeler.fcurveSetTangentHandle(objectId, activeChannel, idx, true, newFrame, newValue)
+                            } else {
+                                Modeler.fcurveSetTangentHandle(objectId, activeChannel, idx, false, newFrame, newValue)
+                            }
+                        }
                         fcurvePanel.requestRepaint()
                         return
                     }
@@ -590,8 +701,19 @@ Rectangle {
                         return
                     }
                     if (mouse.button !== Qt.LeftButton) return
+
+                    // Check handle hit first
+                    var handleHit = fcurvePanel.hitTestHandle(mouse.x, mouse.y)
+                    if (handleHit) {
+                        fcurvePanel.draggingHandle = true
+                        fcurvePanel.dragHandleIndex = handleHit.index
+                        fcurvePanel.dragHandleIsOut = handleHit.isOut
+                        return
+                    }
+
                     var hit = fcurvePanel.hitTest(mouse.x, mouse.y)
                     if (hit) {
+                        Modeler.fcurvePushUndo(objectId)
                         fcurvePanel.selectKey(activeChannel, hit.index, hit.frame, hit.value, mouse.modifiers & Qt.ShiftModifier)
                         fcurvePanel.draggingKey = true
                         fcurvePanel.dragIndex = hit.index
@@ -605,6 +727,7 @@ Rectangle {
                 onReleased: {
                     fcurvePanel.panMode = false
                     fcurvePanel.draggingKey = false
+                    fcurvePanel.draggingHandle = false
                 }
                 onDoubleClicked: {
                     if (objectId >= 0) {

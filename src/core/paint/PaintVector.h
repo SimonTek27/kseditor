@@ -92,7 +92,7 @@ public:
     QString exportSvg() const;
     bool exportSvgFile(const QString& path) const;
     bool importPdf(const QString& path);
-    bool importEps(const QString& path) { Q_UNUSED(path); return false; }
+    bool importEps(const QString& path);
     VectorObject createRect(const QRectF& r, double rx=0, double ry=0, const VectorStyle& s={});
     VectorObject createEllipse(const QRectF& r, const VectorStyle& s={});
     VectorObject createStar(const QPointF& c, double r1, double r2, int points, double phase=0, const VectorStyle& s={});

@@ -1,0 +1,52 @@
+-- Selecting Windows SDK version 10.0.26100.0 to target Windows 10.0.26200.
+-- vcpkg detected: E:/Users/Simon/source/repos/kseditor/external/vcpkg
+-- Eigen found: E:/Users/Simon/source/repos/kseditor/external/eigen
+-- mikktspace found: E:/Users/Simon/source/repos/kseditor/external/mikktspace
+-- Bullet found: E:/Users/Simon/source/repos/kseditor/external/bullet
+CMAKE_EXE_LINKER_FLAGS_DEBUG=/INCREMENTAL:NO /debug /INCREMENTAL
+OPENGL FOUND
+opengl32glu32
+-- VHACD found in Bullet Extras
+CMake Error at CMakeLists.txt:129 (add_subdirectory):
+  The source directory
+
+    E:/Users/Simon/source/repos/kseditor/external/bullet/Extras/VHACD
+
+  does not contain a CMakeLists.txt file.
+
+
+-- 7-Zip found: E:/Users/Simon/source/repos/kseditor/external/7zip
+CMake Error at CMakeLists.txt:144 (add_subdirectory):
+  The source directory
+
+    E:/Users/Simon/source/repos/kseditor/external/7zip
+
+  does not contain a CMakeLists.txt file.
+
+
+-- libigl found: E:/Users/Simon/source/repos/kseditor/external/libigl
+-- Visual Leak Detector (VLD) is not found.
+-- Targeting Visual Studio 18 2026
+-- Target build environment supports auto-linking
+-- Using VC toolset 145.
+-- Generator uses intermediate configuration directory: $(Configuration)
+-- Boost include dirs: E:/Users/Simon/source/repos/kseditor/external/vcpkg/installed/x64-windows/include
+-- Boost libraries:    
+-- CGAL found: 6.1.1
+COMPONENT = openvdb
+CMake Warning (dev) at external/vcpkg/installed/x64-windows/share/openvdb/FindOpenVDB.cmake:632 (find_package):
+  Policy CMP0167 is not set: The FindBoost module is removed.  Run "cmake
+  --help-policy CMP0167" for policy details.  Use the cmake_policy command to
+  set the policy and suppress this warning.
+
+Call Stack (most recent call first):
+  CMakeLists.txt:182 (find_package)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- OpenVDB found
+-- libuv found
+-- OpenSubdiv found
+-- Lua not found
+-- Python found: 3.14.6
+-- Vulkan SDK found: C:/VulkanSDK/1.4.341.1/include
+-- Configuring incomplete, errors occurred!

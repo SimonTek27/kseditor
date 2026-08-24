@@ -50,6 +50,8 @@ struct Stencil {
     float rotation = 0.0f;
     bool invert = false;
     float opacity = 1.0f;
+    int wrapMode = 0; // 0=Flat, 1=Surface, 2=Cylindrical
+    QVector3D wrapAxis = QVector3D(0, 1, 0); // axis for cylindrical wrap
 };
 
 class TexturePaintSystem : public QObject {

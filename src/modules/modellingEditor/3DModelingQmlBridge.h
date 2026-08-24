@@ -55,8 +55,11 @@
 #include "core/mesh/ProjectionPainter.h"
 #include <QVector4D>
 #include <QImage>
+#include "modules/modellingEditor/KitSystem.h"
 
 namespace ks {
+
+struct FluidSimulator;
 
 class SceneObjectQml : public QObject {
     Q_OBJECT
@@ -256,6 +259,15 @@ public:
     Q_INVOKABLE QString expressionGet(const QString& target) const;
     Q_INVOKABLE bool fluidSimulate(int frames = 24, float viscosity = 1.0f);
     Q_INVOKABLE bool retopoQuadDraw();
+    Q_INVOKABLE bool startInteractiveRetopo();
+    Q_INVOKABLE bool stopInteractiveRetopo();
+    Q_INVOKABLE bool addRetopoVertex();
+    Q_INVOKABLE bool createRetopoQuad();
+    Q_INVOKABLE bool createRetopoTriangle();
+    Q_INVOKABLE bool deleteRetopoVertex();
+    Q_INVOKABLE bool mergeRetopoVertices(float threshold = 0.01f);
+    Q_INVOKABLE bool relaxRetopoMesh(int iterations = 10, float strength = 0.5f);
+    Q_INVOKABLE void setRetopoSnapRadius(float radius);
     Q_INVOKABLE bool uvPeelSeams();
     Q_INVOKABLE bool uvPackIslands(float padding = 2.0f);
     Q_INVOKABLE QString renderAOVImage(const QString& aov, int w = 1920, int h = 1080);
@@ -350,8 +362,18 @@ public:
     Q_INVOKABLE int proportionalFalloffType() const;
     Q_INVOKABLE bool pickProportionalCenter(float pickX, float pickY, float pickZ);
     Q_INVOKABLE void clearProportionalCenter();
-    Q_INVOKABLE bool hasProportionalCenter() const;
-    Q_INVOKABLE QVector3D proportionalCenter() const;
+
+    // Kit/Preset system
+    Q_INVOKABLE bool createKit(const QString& name);
+    Q_INVOKABLE QStringList kitList() const;
+    Q_INVOKABLE PresetData presetData(const QString& name) const;
+    Q_INVOKABLE QStringList presetList() const;
+    Q_INVOKABLE bool savePreset(const QString& name, const QString& category);
+    Q_INVOKABLE bool deletePreset(const QString& name);
+    Q_INVOKABLE void applyPresetToObject(const QString& presetName, int objectId);
+
+private:
+    ks::modelling::KitSystem m_kitSystem;
     Q_INVOKABLE void translateProportional(float x, float y, float z);
     Q_INVOKABLE void rotateProportional(float x, float y, float z);
     Q_INVOKABLE void scaleProportional(float x, float y, float z);
@@ -751,6 +773,13 @@ public:
     Q_INVOKABLE bool fcurveMoveKey(int objectId, const QString& channel, int index, float newFrame);
     Q_INVOKABLE bool fcurveSetValue(int objectId, const QString& channel, int index, float value);
     Q_INVOKABLE bool fcurveSetInterpolation(int objectId, const QString& channel, int index, const QString& interp);
+    Q_INVOKABLE bool fcurveSetTangentHandle(int objectId, const QString& channel, int index, bool isOut, float handleFrame, float handleValue);
+    Q_INVOKABLE bool fcurveSetTangentMode(int objectId, const QString& channel, int index, const QString& mode);
+    Q_INVOKABLE bool fcurveCanUndo(int objectId) const;
+    Q_INVOKABLE bool fcurveCanRedo(int objectId) const;
+    Q_INVOKABLE bool fcurveUndo(int objectId);
+    Q_INVOKABLE bool fcurveRedo(int objectId);
+    Q_INVOKABLE bool fcurvePushUndo(int objectId);
     Q_INVOKABLE float fcurveEvaluate(int objectId, const QString& channel, float frame) const;
     Q_INVOKABLE bool fcurveApplyToObject(int objectId, float frame);
     Q_INVOKABLE bool fcurveRemoveObject(int objectId);
@@ -1547,6 +1576,7 @@ private:
     QTimer* m_hairTimer = nullptr;
     bool m_hairRunning = false;
     QMap<int, int> m_hairObjects; // surface objectId -> hair SceneObject id
+    ks::FluidSimulator* m_fluidSimulator = nullptr;
     void hairTick();
     void rebuildHairMesh(int surfaceObjectId);
     void dynTick();

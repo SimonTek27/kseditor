@@ -23,6 +23,9 @@ struct PaintBrush {
     bool hasCloneSource = false;
     QImage stampTexture;
     bool eraseAlpha = false; // for eraser
+    StrokeType strokeType = StrokeType::Freehand;
+    float sprayScatter = 0.5f; // scatter amount for Spray mode
+    int sprayDensity = 10;     // dots per stamp for Spray mode
 };
 
 class PaintPainter {
@@ -30,6 +33,9 @@ public:
     // Applies a brush dab (paintAt) or line (paintLine) to image, honoring mask (selection).
     static void paintAt(QImage& image, const QImage& mask, const QPoint& pos, const PaintBrush& brush);
     static void paintLine(QImage& image, const QImage& mask, const QPoint& from, const QPoint& to, const PaintBrush& brush);
+
+    // DragRect mode: draws a rectangle from start to end
+    static void paintRect(QImage& image, const QImage& mask, const QPoint& from, const QPoint& to, const PaintBrush& brush, bool filled = false);
 
     // Filter strokes
     static void blurAt(QImage& image, const QImage& mask, const QPoint& pos, float radius, float strength);
@@ -52,6 +58,11 @@ public:
     // Utils
     static QPoint clampTo(const QPoint& p, const QSize& size);
     static bool inside(const QPoint& p, const QSize& size);
+
+private:
+    // Helper for single brush dab rendering (used by paintAt and Spray mode)
+    static void paintSingleDab(QImage& image, const QImage& mask, const QPoint& pos, const PaintBrush& brush,
+                               float effRadius, float effOpacity, int innerR, bool eraser, bool airbrush, float pressure);
 };
 
 } // namespace paint

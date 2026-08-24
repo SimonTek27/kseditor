@@ -289,14 +289,24 @@ QVariant AnimationCurve::interpolate(const Keyframe& a, const Keyframe& b, doubl
     if (a.value.userType() != b.value.userType())
         return a.value;
 
+    double span = b.time - a.time;
+
     switch (a.value.userType()) {
     case QMetaType::Double:
     case QMetaType::Float:
-        return QVariant(interpolateDouble(a.value.toDouble(), b.value.toDouble(), t, a.interpolation));
+        return QVariant(lerp(a.value.toDouble(), b.value.toDouble(), t, a.interpolation,
+                            a.outTangent, b.inTangent, span));
     case QMetaType::QColor:
         return QVariant::fromValue(interpolateColor(a.value.value<QColor>(), b.value.value<QColor>(), t));
-    case QMetaType::QVector3D:
-        return QVariant::fromValue(interpolateVector3D(a.value.value<QVector3D>(), b.value.value<QVector3D>(), t));
+    case QMetaType::QVector3D: {
+        QVector3D va = a.value.value<QVector3D>();
+        QVector3D vb = b.value.value<QVector3D>();
+        return QVariant::fromValue(QVector3D(
+            static_cast<float>(lerp(va.x(), vb.x(), t, a.interpolation, a.outTangent, b.inTangent, span)),
+            static_cast<float>(lerp(va.y(), vb.y(), t, a.interpolation, a.outTangent, b.inTangent, span)),
+            static_cast<float>(lerp(va.z(), vb.z(), t, a.interpolation, a.outTangent, b.inTangent, span))
+        ));
+    }
     case QMetaType::QQuaternion:
         return QVariant::fromValue(interpolateQuaternion(a.value.value<QQuaternion>(), b.value.value<QQuaternion>(), t));
     default:
@@ -305,19 +315,37 @@ QVariant AnimationCurve::interpolate(const Keyframe& a, const Keyframe& b, doubl
 }
 
 namespace {
-double lerp(double a, double b, double t, const QString& interpolation)
+double lerp(double a, double b, double t, const QString& interpolation,
+            double inTangentA = 0.0, double outTangentB = 0.0, double span = 1.0)
 {
-    if (interpolation == "constant") return a;
-    if (interpolation == "cubic") {
-        double s = t * t * (3.0 - 2.0 * t);
-        return a + s * (b - a);
+    if (interpolation == "constant" || interpolation == "step") return a;
+
+    if (interpolation == "cubic" || interpolation == "bezier") {
+        // Hermite interpolation using tangents
+        double tIn = inTangentA * span;
+        double tOut = outTangentB * span;
+        double t2 = t * t;
+        double t3 = t2 * t;
+        double h00 = 2*t3 - 3*t2 + 1;
+        double h10 = t3 - 2*t2 + t;
+        double h01 = -2*t3 + 3*t2;
+        double h11 = t3 - t2;
+        return h00*a + h10*tIn + h01*b + h11*tOut;
     }
+
+    if (interpolation == "easeIn") return a + (b - a) * (t * t);
+    if (interpolation == "easeOut") return a + (b - a) * (1.0 - (1.0 - t) * (1.0 - t));
+    if (interpolation == "easeInOut") {
+        return a + (b - a) * (t < 0.5 ? 2*t*t : 1.0 - 2*(1-t)*(1-t));
+    }
+
     return a + t * (b - a);
 }
 }
 
 QVariant AnimationCurve::interpolateDouble(double a, double b, double t, const QString& interpolation) const
 {
+    // Tangent information is passed via the caller (interpolate method)
     return QVariant(lerp(a, b, t, interpolation));
 }
 

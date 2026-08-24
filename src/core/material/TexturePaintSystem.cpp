@@ -312,11 +312,6 @@ void TexturePaintSystem::applyStencil(const Stencil& stencil)
     saveUndoState();
     PaintLayer& layer = m_layers[m_currentLayer];
 
-    QTransform transform;
-    transform.translate(stencil.position.x(), stencil.position.y());
-    transform.rotate(stencil.rotation);
-    transform.scale(stencil.scale, stencil.scale);
-
     QImage stencilImage = stencil.mask;
     if (stencil.invert)
         stencilImage.invertPixels();
@@ -324,8 +319,54 @@ void TexturePaintSystem::applyStencil(const Stencil& stencil)
     QPainter painter(&layer.texture);
     painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
     painter.setOpacity(stencil.opacity);
-    painter.setTransform(transform);
-    painter.drawImage(QPoint(0, 0), stencilImage);
+
+    switch (stencil.wrapMode) {
+    case 1: { // Surface mode: project along surface normal
+        QTransform transform;
+        transform.translate(stencil.position.x(), stencil.position.y());
+        transform.rotate(stencil.rotation);
+        transform.scale(stencil.scale, stencil.scale);
+        // Apply perspective-like scaling based on normal direction
+        float normalFactor = qAbs(QVector3D::dotProduct(stencil.normal.normalized(), QVector3D(0, 0, 1)));
+        normalFactor = qMax(0.3f, normalFactor); // clamp to avoid extreme scaling
+        transform.scale(1.0f / normalFactor, 1.0f / normalFactor);
+        painter.setTransform(transform);
+        painter.drawImage(QPoint(0, 0), stencilImage);
+        break;
+    }
+    case 2: { // Cylindrical mode: wrap around an axis
+        QTransform transform;
+        transform.translate(stencil.position.x(), stencil.position.y());
+        transform.rotate(stencil.rotation);
+        // Apply cylindrical distortion by scaling X based on Y position
+        float cylRadius = 100.0f; // virtual cylinder radius in pixels
+        float stencilWidth = stencilImage.width() * stencil.scale;
+        float stencilHeight = stencilImage.height() * stencil.scale;
+        // Draw column by column with X scaling based on Y position
+        for (int col = 0; col < stencilImage.width(); ++col) {
+            float u = float(col) / float(stencilImage.width());
+            float angle = u * 3.14159265f; // half-cylinder wrap
+            float xScale = std::cos(angle);
+            QImage column = stencilImage.copy(col, 0, 1, stencilImage.height());
+            float destX = stencil.position.x() + (col - stencilImage.width() / 2.0f) * stencil.scale;
+            float destY = stencil.position.y();
+            float destW = stencil.scale * xScale;
+            float destH = stencilHeight;
+            painter.drawImage(QRectF(destX, destY, destW, destH), column);
+        }
+        break;
+    }
+    default: { // Flat mode: simple 2D projection
+        QTransform transform;
+        transform.translate(stencil.position.x(), stencil.position.y());
+        transform.rotate(stencil.rotation);
+        transform.scale(stencil.scale, stencil.scale);
+        painter.setTransform(transform);
+        painter.drawImage(QPoint(0, 0), stencilImage);
+        break;
+    }
+    }
+
     painter.resetTransform();
     painter.end();
     emit canvasChanged();

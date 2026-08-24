@@ -152,26 +152,52 @@ float AnimationTimeline::evaluateTrack(const QString& animId, const QString& tra
     if (track.keyframes.isEmpty()) return 0.0f;
 
     const auto& kfs = track.keyframes;
-    auto it = kfs.lowerBound(frame);
 
+    // Extrapolation: hold first/last
+    if (frame <= kfs.constBegin().key()) return kfs.constBegin().value().value;
+    if (frame >= kfs.constLast().key()) return kfs.constLast().value().value;
+
+    auto it = kfs.lowerBound(frame);
     if (it == kfs.constBegin()) return it.value().value;
     if (it == kfs.constEnd()) return std::prev(it).value().value;
 
     const Keyframe& right = it.value();
     const Keyframe& left = std::prev(it).value();
+    float span = static_cast<float>(right.frame - left.frame);
+    if (span <= 0.0f) return left.value;
+    float t = static_cast<float>(frame - left.frame) / span;
+    t = qBound(0.0f, t, 1.0f);
 
-    if (right.interpolation == "constant" || left.interpolation == "constant") {
+    const QString& interp = left.interpolation;
+
+    if (interp == "constant" || interp == "step") {
         return left.value;
     }
 
-    float t = (right.frame == left.frame) ? 0.0f :
-              static_cast<float>(frame - left.frame) / static_cast<float>(right.frame - left.frame);
-
-    if (left.interpolation == "bezier" || right.interpolation == "bezier") {
-        // Cubic bezier approximation
-        t = t * t * (3.0f - 2.0f * t);
+    if (interp == "cubic" || interp == "bezier") {
+        // Hermite interpolation using tangent vectors (slope = value per frame)
+        float tIn = left.tangentOut.x() * span;
+        float tOut = right.tangentIn.x() * span;
+        float t2 = t * t;
+        float t3 = t2 * t;
+        float h00 = 2*t3 - 3*t2 + 1;
+        float h10 = t3 - 2*t2 + t;
+        float h01 = -2*t3 + 3*t2;
+        float h11 = t3 - t2;
+        return h00*left.value + h10*tIn + h01*right.value + h11*tOut;
     }
 
+    if (interp == "easeIn") {
+        return left.value + (right.value - left.value) * (t * t);
+    }
+    if (interp == "easeOut") {
+        return left.value + (right.value - left.value) * (1.0f - (1.0f - t) * (1.0f - t));
+    }
+    if (interp == "easeInOut") {
+        return left.value + (right.value - left.value) * (t < 0.5f ? 2*t*t : 1.0f - 2*(1-t)*(1-t));
+    }
+
+    // Default: linear
     return left.value + (right.value - left.value) * t;
 }
 

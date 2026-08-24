@@ -216,6 +216,20 @@ kseditor/
 
 ---
 
+ ### VR — 6 files — **100% Complete**
+**Capabilities:** OpenXR-based VR integration for immersive 3D viewport editing: headset tracking, motion controller input, stereo rendering with per-eye swapchains, viewport rendering for VR preview.
+
+**Key Components:**
+- **XrManager** — OpenXR session lifecycle, system/instance management, action binding
+- **XrInput** — Controller input handling (aim/grip/squeeze/trigger/thumbstick)
+- **XrViewportRenderer** — Stereo rendering with Vulkan interop (per-eye color/depth images)
+- **XrIntegration** — Vulkan device integration, swapchain creation
+- **VREditorModule** — Editor module with VR viewport, HMD-centric camera
+
+**Alternative Comparison:** Niche integration — no direct alternative in other modding tools. Enables in-VR car modeling and track inspection. Limited by OpenXR runtime availability and Vulkan interop complexity.
+
+---
+
 ## Application Modules (src/modules/)
 
  ### modellingEditor — 49 files — **100% Complete**
@@ -271,20 +285,6 @@ kseditor/
 **Capabilities:** Font atlas generator: TTF/OTF import with FreeType, glyph packing (rectangular, maximal rectangles), distance field generation (SDF, MSDF), kerning pair extraction, variable font axis sampling, and export to runtime format with metadata.
 
 **Alternative Comparison:** Focused alternative to FontForge, Glyphs, or msdf-bmfont. Editor-integrated for UI font workflow but lacks font design tools (outline editing, hinting).
-
----
-
- ### VREditor — 6 files — **100% Complete**
-**Capabilities:** OpenXR-based VR integration for immersive 3D viewport editing: headset tracking, motion controller input, stereo rendering with per-eye swapchains, viewport rendering for VR preview.
-
-**Key Components:**
-- **XrManager** — OpenXR session lifecycle, system/instance management, action binding
-- **XrInput** — Controller input handling (aim/grip/squeeze/trigger/thumbstick)
-- **XrViewportRenderer** — Stereo rendering with Vulkan interop (per-eye color/depth images)
-- **XrIntegration** — Vulkan device integration, swapchain creation
-- **VREditorModule** — Editor module with VR viewport, HMD-centric camera
-
-**Alternative Comparison:** Niche integration — no direct alternative in other modding tools. Enables in-VR car modeling and track inspection. Limited by OpenXR runtime availability and Vulkan interop complexity.
 
 ---
 

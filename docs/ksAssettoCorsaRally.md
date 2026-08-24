@@ -32,7 +32,7 @@ The codebase already has rally-specific references:
 |----------|---------|
 | src/modules/PhysicsEditor/tire_PacejkaTireModel.cpp:310 | getRallyTireCoefficients() — Pacejka coefficients for loose-surface tires |
 | src/modules/PhysicsEditor/TireCurveEditor.cpp:78 | ""Rally"" tire preset in the curve editor UI |
-| src/core/ui/SoundWizard.cpp:84 | ""Rally"" category in the sound wizard |
+| resources/ui/SoundWizard.cpp:84 | ""Rally"" category in the sound wizard |
 
 ---
 

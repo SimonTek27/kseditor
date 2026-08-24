@@ -2,6 +2,7 @@
 #include "3DModeling.h"
 #include "core/FileFormat/KS3DReader.h"
 #include "core/FileFormat/KS3DWriter.h"
+#include "core/FileFormat/Rhino3dmParser.h"
 #include <QDebug>
 #include <QFile>
 #include <QVBoxLayout>
@@ -1418,8 +1419,47 @@ bool ImportExport3D::exportKS3D(geometry::Scene3D* scene, const QString& path)
 bool ImportExport3D::import3DM(const QString& path, geometry::Scene3D* scene) {
     if (!scene || !QFile::exists(path)) { emit error("File not found: " + path); return false; }
     emit statusMessage("Importing 3DM: " + path);
-    QFileInfo info(path);
-    qWarning() << "[ImportExport3D] Native 3DM NURBS import not available without OpenNURBS; attempting mesh fallback via Assimp.";
+
+    // Try native3dm parsing first
+    ks::Rhino3dmParser parser;
+    if (parser.parse(path)) {
+        int meshCount = parser.meshCount();
+        if (meshCount > 0) {
+            for (int i = 0; i < meshCount; ++i) {
+                const auto& rhinoMesh = parser.meshes()[i];
+
+                auto* mesh3d = new geometry::Mesh3D();
+                QVector<QVector3D> verts;
+                QVector<quint32> indices;
+
+                for (const auto& v : rhinoMesh.vertices) {
+                    verts.append(v);
+                }
+
+                for (const auto& face : rhinoMesh.faces) {
+                    for (int idx : face) {
+                        indices.append(quint32(idx));
+                    }
+                }
+
+                mesh3d->setVertices(verts);
+                mesh3d->setIndices(indices);
+                mesh3d->computeNormals();
+
+                auto* obj = new geometry::SceneObject();
+                obj->setMesh(mesh3d);
+                obj->setName(rhinoMesh.name.isEmpty() ?
+                    QString("3DM_Mesh_%1").arg(i) : rhinoMesh.name);
+                scene->addObject(obj);
+            }
+
+            qInfo() << "[ImportExport3D] Imported" << meshCount << "meshes from 3DM file (native parser)";
+            return true;
+        }
+    }
+
+    // Fallback to mesh conversion if native parsing fails
+    qWarning() << "[ImportExport3D] Native 3DM parsing failed or no meshes found; attempting mesh fallback via Assimp.";
     return importOBJ(path, scene) || importSTL(path, scene);
 }
 

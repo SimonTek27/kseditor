@@ -42,6 +42,7 @@
 #include "../../modules/displayEditor/CockpitInstrumentsModule.h"
 #include "../../core/editor/ppfiltersEditor/PPFiltersQmlBridge.h"
 #include "../../core/ServerConfigEditor/ServerConfigEditorModule.h"
+#include "../../core/editor/documentpad/DocumentPadModule.h"
 #include "../../core/vcs/VcsEditorModule.h"
 #include "../../core/archive/ArchiveEditorModule.h"
 #include "../vr/VREditorModule.h"
@@ -129,6 +130,7 @@ void ModuleManager::loadModules()
     registerModule(new ks::FontCreatorEditorModule(this));
     registerModule(new ks::IdeEditorModule(this));
     registerModule(new ks::CockpitInstrumentsModule(this));
+    registerModule(new ks::DocumentPadModule(this));
     registerModule(new ks::PPFiltersEditorModule(this));
     registerModule(new ks::CareerEditorModule(this));
     registerModule(new ks::ServerConfigEditorModule(this));

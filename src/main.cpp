@@ -319,20 +319,10 @@ static int appMain(int argc, char *argv[])
             auto* quickWidget = new QQuickWidget();
             quickWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
             quickWidget->setAttribute(Qt::WA_DeleteOnClose);
-            QString qmlDir = QCoreApplication::applicationDirPath() + "/../../resources/ui/qml";
-            qmlDir = QDir(qmlDir).absolutePath();
             quickWidget->engine()->addImportPath(QStringLiteral("C:/Qt/6.11.1/msvc2022_64/qml"));
-            QString fontQmlPath = qmlDir + "/modules/font_KSFontCreator.qml";
-            QFile f(fontQmlPath);
-            QString qmlContent;
-            if (f.open(QIODevice::ReadOnly)) {
-                qmlContent = QString::fromUtf8(f.readAll());
-                f.close();
-                qmlContent.replace(QStringLiteral("import \"../widgets\""),
-                    QStringLiteral("import \"") + qmlDir + "/widgets\"");
-            }
             QQmlComponent* comp = new QQmlComponent(quickWidget->engine());
-            comp->setData(qmlContent.toUtf8(), QUrl::fromLocalFile(fontQmlPath));
+            comp->setData(QString(),
+                QUrl::fromLocalFile(":/qml/modules/font_KSFontCreator.qml"));
             QObject* root = comp->beginCreate(quickWidget->engine()->rootContext());
             if (comp->isError()) {
                 QString err = comp->errors().first().toString();
@@ -364,17 +354,8 @@ static int appMain(int argc, char *argv[])
             qw->setResizeMode(QQuickWidget::SizeRootObjectToView);
             auto* winBridge = new ModelerWindowBridge(w, qw);
             qw->rootContext()->setContextProperty("winBridge", winBridge);
-            QString qmlDir = QCoreApplication::applicationDirPath() + "/../../resources/ui/qml";
-            qmlDir = QDir(qmlDir).absolutePath();
-            qDebug() << "Modeler qmlDir:" << qmlDir;
-            QString modelerPath = qmlDir + "/pages/page_ksModeler.qml";
-            qDebug() << "Modeler QML path:" << modelerPath;
-            if (!QFile::exists(modelerPath)) {
-                QMessageBox::critical(nullptr, "Modeler Error",
-                    "QML file not found:\n" + modelerPath);
-                return true;
-            }
-            qw->setSource(QUrl::fromLocalFile(modelerPath));
+            qDebug() << "Modeler QML path:" << ":/qml/pages/page_ksModeler.qml";
+            qw->setSource(QUrl("qrc:///qml/pages/page_ksModeler.qml"));
             if (qw->status() == QQuickWidget::Error) {
                 QString err = qw->errors().first().toString();
                 qDebug() << "Modeler QML error:" << err;
@@ -443,23 +424,8 @@ static int appMain(int argc, char *argv[])
             QMainWindow* w = createStandaloneWindow("KS Physics Studio", "car", 1400, 900, "#111111");
             auto* qw = new QQuickWidget();
             qw->setResizeMode(QQuickWidget::SizeRootObjectToView);
-            QString qmlDir = QCoreApplication::applicationDirPath() + "/../../resources/ui/qml";
-            qmlDir = QDir(qmlDir).absolutePath();
             qw->engine()->addImportPath(QStringLiteral("C:/Qt/6.11.1/msvc2022_64/qml"));
-            QString physPath = qmlDir + "/modules/physicsEditor/phys_Editor.qml";
-            QFile pf(physPath);
-            QString pContent;
-            if (pf.open(QIODevice::ReadOnly)) {
-                pContent = QString::fromUtf8(pf.readAll());
-                pf.close();
-                pContent.replace(QStringLiteral("import \"../../widgets\""),
-                    QStringLiteral("import \"") + qmlDir + "/widgets\"");
-            }
-            QQmlComponent* pc = new QQmlComponent(qw->engine());
-            pc->setData(pContent.toUtf8(), QUrl::fromLocalFile(physPath));
-            QObject* pr = pc->beginCreate(qw->engine()->rootContext());
-            pc->completeCreate();
-            qw->setContent(QUrl::fromLocalFile(physPath), pc, qobject_cast<QQuickItem*>(pr));
+            qw->setSource(QUrl("qrc:///qml/modules/physicsEditor/phys_Editor.qml"));
             if (pc->isError()) {
                 QString err = pc->errors().first().toString();
                 QFile ef(QCoreApplication::applicationDirPath() + "/qml_error.txt");

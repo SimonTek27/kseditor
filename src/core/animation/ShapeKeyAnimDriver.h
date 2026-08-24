@@ -42,15 +42,38 @@ struct GraphCurve {
     float evaluate(float frame) const {
         if (keyframes.isEmpty()) return 0.0f;
         if (keyframes.size() == 1) return keyframes[0].value;
+
+        // Extrapolation: hold first/last
+        if (frame <= keyframes.first().frame) return keyframes.first().value;
+        if (frame >= keyframes.last().frame) return keyframes.last().value;
+
         for (int i = 0; i < keyframes.size() - 1; ++i) {
             if (frame >= keyframes[i].frame && frame <= keyframes[i+1].frame) {
-                float t = (keyframes[i+1].frame == keyframes[i].frame)
-                    ? 0.0f
-                    : (frame - keyframes[i].frame) / (float)(keyframes[i+1].frame - keyframes[i].frame);
-                return keyframes[i].value + (keyframes[i+1].value - keyframes[i].value) * t;
+                float span = (float)(keyframes[i+1].frame - keyframes[i].frame);
+                if (span <= 0.0f) return keyframes[i].value;
+                float t = (frame - keyframes[i].frame) / span;
+                t = qBound(0.0f, t, 1.0f);
+
+                switch (keyframes[i].interpolation) {
+                case InterpolationStep:
+                    return keyframes[i].value;
+                case InterpolationSmooth: {
+                    // Hermite cubic interpolation
+                    float t2 = t * t;
+                    float t3 = t2 * t;
+                    float h00 = 2*t3 - 3*t2 + 1;
+                    float h10 = t3 - 2*t2 + t;
+                    float h01 = -2*t3 + 3*t2;
+                    float h11 = t3 - t2;
+                    return h00*keyframes[i].value + h10*span*0.5f
+                         + h01*keyframes[i+1].value + h11*span*0.5f;
+                }
+                case InterpolationLinear:
+                default:
+                    return keyframes[i].value + (keyframes[i+1].value - keyframes[i].value) * t;
+                }
             }
         }
-        if (frame <= keyframes.first().frame) return keyframes.first().value;
         return keyframes.last().value;
     }
 };

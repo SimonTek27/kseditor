@@ -21,6 +21,31 @@ enum class FCurveInterp {
     EaseInOut  // both
 };
 
+// Extrapolation mode for values outside keyframe range.
+enum class FCurveExtrapolation {
+    Constant,   // hold first/last value
+    Linear,     // extend with slope of nearest segment
+    Cycle,      // repeat keyframe range
+    CycleOffset // repeat with offset from last value
+};
+
+inline QString fcurveExtrapolationToString(FCurveExtrapolation e) {
+    switch (e) {
+    case FCurveExtrapolation::Constant:    return "Constant";
+    case FCurveExtrapolation::Linear:      return "Linear";
+    case FCurveExtrapolation::Cycle:       return "Cycle";
+    case FCurveExtrapolation::CycleOffset: return "CycleOffset";
+    }
+    return "Constant";
+}
+
+inline FCurveExtrapolation fcurveExtrapolationFromString(const QString& s) {
+    if (s == "Linear")      return FCurveExtrapolation::Linear;
+    if (s == "Cycle")       return FCurveExtrapolation::Cycle;
+    if (s == "CycleOffset") return FCurveExtrapolation::CycleOffset;
+    return FCurveExtrapolation::Constant;
+}
+
 inline QString fcurveInterpToString(FCurveInterp i) {
     switch (i) {
     case FCurveInterp::Linear:    return "Linear";
@@ -42,6 +67,16 @@ inline FCurveInterp fcurveInterpFromString(const QString& s) {
     return FCurveInterp::Linear;
 }
 
+// Tangent handle mode for a keyframe.
+enum class FCurveTangentMode {
+    Auto,     // auto-computed from neighbors
+    Free,     // independent in/out handles
+    Aligned,  // in/out handles are collinear (direction locked)
+    Broken,   // in/out handles independent (direction + length)
+    Clamped,  // auto but clamped to not overshoot
+    Vector    // tangent points toward neighbor key
+};
+
 // One keyframe: frame index, value, interpolation mode, optional tangents.
 struct FCurveKey {
     float frame = 0.0f;
@@ -50,6 +85,13 @@ struct FCurveKey {
     float inTangent = 0.0f;   // slope (value per frame) entering the key
     float outTangent = 0.0f;  // slope leaving the key
     bool locked = false;
+    FCurveTangentMode tangentMode = FCurveTangentMode::Auto;
+    // Tangent handle positions in graph space (frame, value) relative to key.
+    // Used for visual editing in the graph editor.
+    float inHandleFrame = 0.0f;
+    float inHandleValue = 0.0f;
+    float outHandleFrame = 0.0f;
+    float outHandleValue = 0.0f;
 
     QVariantMap toVariant() const;
 };
@@ -58,6 +100,8 @@ struct FCurveKey {
 struct FCurveChannel {
     QString name;
     QVector<FCurveKey> keys;
+    FCurveExtrapolation preExtrapolation = FCurveExtrapolation::Constant;
+    FCurveExtrapolation postExtrapolation = FCurveExtrapolation::Constant;
 
     void clear() { keys.clear(); }
     bool isEmpty() const { return keys.isEmpty(); }
@@ -72,6 +116,14 @@ struct FCurveChannel {
     // Sets the value of the key at index `idx`.
     bool setValue(int idx, float value);
     bool setInterpolation(int idx, FCurveInterp interp);
+    bool setTangentMode(int idx, FCurveTangentMode mode);
+
+    // Compute auto-tangent for key at index idx from neighboring keys.
+    void computeAutoTangent(int idx);
+    // Update handle positions from tangent slopes.
+    void updateHandlesFromTangent(int idx);
+    // Update tangent slopes from handle positions.
+    void updateTangentFromHandles(int idx);
 
     int nearestKey(float frame) const;
 
@@ -93,10 +145,21 @@ struct FCurveData {
     const FCurveChannel* channel(const QString& name) const;
     FCurveChannel& ensureChannel(const QString& name);
     QStringList channelNames() const;
-    void clear() { channels.clear(); }
+    void clear() { channels.clear(); undoStack.clear(); redoStack.clear(); }
+
+    // Undo/redo support
+    void pushUndoState();
+    bool canUndo() const { return !undoStack.isEmpty(); }
+    bool canRedo() const { return !redoStack.isEmpty(); }
+    void undo();
+    void redo();
 
     QVariantMap toVariant() const;
     static FCurveData fromVariant(const QVariantMap& m);
+
+private:
+    QVector<QVector<FCurveChannel>> undoStack;
+    QVector<QVector<FCurveChannel>> redoStack;
 };
 
 // Standard channel names for a scene object transform.

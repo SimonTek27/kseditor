@@ -168,6 +168,10 @@ public:
     float timeScale = 1.0f;
     int iterations = 2;
 
+    // Surface tension parameters
+    float surfaceTension = 0.0728f;
+    float surfaceThreshold = 0.5f;
+
     QVector<FluidParticle> fluidParticles;
 
     void addParticles(const QVector<QVector3D>& positions);
@@ -178,12 +182,41 @@ public:
     float getParticleDensity(int index) const;
     float getParticlePressure(int index) const;
 
+    // Export particle data as volumetric grid (VDB-compatible)
+    // Returns density field as flat array with grid metadata
+    struct VolumeGrid {
+        QVector<float> densityField;
+        QVector<float> velocityFieldX;
+        QVector<float> velocityFieldY;
+        QVector<float> velocityFieldZ;
+        QVector3D gridMin;
+        QVector3D gridMax;
+        QVector3D voxelSize;
+        int resolutionX, resolutionY, resolutionZ;
+    };
+
+    VolumeGrid exportVolumeGrid(int resolution = 64) const;
+    bool exportVDB(const QString& path, int resolution = 64) const;
+
 signals:
     void fluidUpdated();
 
 private:
+    // Spatial hash grid for O(n) neighbor search
+    struct SpatialHashGrid {
+        float cellSize;
+        QMap<QPair<int,int,int>, QVector<int>> cells;
+
+        void build(const QVector<FluidParticle>& particles, float radius);
+        QVector<int> query(const QVector3D& position, float radius) const;
+        void clear();
+    };
+
+    SpatialHashGrid m_spatialGrid;
+
     float computeDensity(const QVector3D& position);
     QVector3D computeDensityGradient(const QVector3D& position);
+    QVector3D computeSurfaceTension(const QVector3D& position, const QVector3D& normal);
     void computePressures();
 
     QVector<QVector3D> m_boundaries;
@@ -203,7 +236,12 @@ public:
     struct HairStrand {
         QVector<QVector3D> points;
         QVector<QVector3D> velocities;
+        QVector<QVector3D> restPositions;  // Rest pose for clumping
+        QVector<float> thickness;         // Per-vertex thickness
+        QVector<float> ages;              // Per-vertex age for ICE
         int rootVertex;
+        float curlFactor;                 // Per-strand curl amount
+        float clumpFactor;                // Per-strand clumping amount
     };
 
     QVector<HairStrand> strands;
@@ -215,13 +253,58 @@ public:
     float dynamics = 0.5f;
     float damping = 0.1f;
 
+    // Collision parameters
     bool useCollision = true;
     float collisionRadius = 0.02f;
+
+    // Hair-hair collision
+    bool useHairCollision = true;
+    float hairHairRadius = 0.01f;
+    float hairHairStiffness = 10.0f;
+
+    // Clumping parameters
+    bool useClumping = false;
+    float clumpStrength = 0.0f;
+    float clumpRadius = 0.1f;
+
+    // Curl parameters
+    bool useCurling = false;
+    float curlRadius = 0.0f;
+    float curlFrequency = 1.0f;
+
+    // Guide-follow parameters
+    bool useGuideFollow = false;
+    int guideStrandCount = 0;  // Number of guide strands at start
+    float guideInfluence = 0.5f;
+
+    // Texture-driven hair parameters
+    struct TextureMap {
+        QByteArray data;        // Raw texture data (RGBA)
+        int width = 0;
+        int height = 0;
+        int channels = 4;
+        
+        // Sample texture at UV coordinates
+        QVector4D sample(float u, float v) const;
+    };
+    
+    TextureMap densityTexture;    // Controls hair density
+    TextureMap stiffnessTexture;  // Controls hair stiffness
+    TextureMap curlTexture;       // Controls curl amount
+    TextureMap thicknessTexture;  // Controls hair thickness
+    
+    bool useTextureDensity = false;
+    bool useTextureStiffness = false;
+    bool useTextureCurl = false;
+    bool useTextureThickness = false;
 
     void addStrand(int rootVertex, int count);
     void removeStrand(int index);
 
     void simulate(float deltaTime);
+    
+    // Texture-driven parameter application
+    void applyTextureParameters();
 
     QVector<QVector3D> getCompletedStrands() const;
 
@@ -230,8 +313,26 @@ signals:
 
 private:
     void simulateStrand(HairStrand& strand, float deltaTime);
+    void applyHairHairCollision();
+    void applyClumping();
+    void applyCurling();
+    void applyGuideFollow();
+    
+    float sampleTextureChannel(const TextureMap& tex, float u, float v, int channel) const;
 
     QVector<int> m_rootVertices;
+
+    // Spatial hash for hair-hair collision
+    struct StrandSpatialHash {
+        float cellSize;
+        QMap<QPair<int,int,int>, QVector<QPair<int,int>>> cells; // strand index, point index
+
+        void build(const QVector<HairStrand>& strands, float radius);
+        QVector<QPair<int,int>> query(const QVector3D& position, float radius) const;
+        void clear();
+    };
+
+    StrandSpatialHash m_strandHash;
 };
 
 } // namespace physics

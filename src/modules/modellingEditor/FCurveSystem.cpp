@@ -15,6 +15,11 @@ QVariantMap FCurveKey::toVariant() const
     m["inTangent"] = inTangent;
     m["outTangent"] = outTangent;
     m["locked"] = locked;
+    m["tangentMode"] = static_cast<int>(tangentMode);
+    m["inHandleFrame"] = inHandleFrame;
+    m["inHandleValue"] = inHandleValue;
+    m["outHandleFrame"] = outHandleFrame;
+    m["outHandleValue"] = outHandleValue;
     return m;
 }
 
@@ -36,6 +41,10 @@ void FCurveChannel::setKey(float frame, float value, FCurveInterp interp)
             keys[i].interpolation = interp;
             keys[i].locked = false;
             sort();
+            int newIdx = nearestKey(frame);
+            if (newIdx >= 0 && keys[newIdx].tangentMode == FCurveTangentMode::Auto) {
+                computeAutoTangent(newIdx);
+            }
             return;
         }
     }
@@ -45,6 +54,17 @@ void FCurveChannel::setKey(float frame, float value, FCurveInterp interp)
     k.interpolation = interp;
     keys.append(k);
     sort();
+    int newIdx = nearestKey(frame);
+    if (newIdx >= 0) {
+        computeAutoTangent(newIdx);
+        // Update neighbors if they are in Auto mode
+        if (newIdx > 0 && keys[newIdx-1].tangentMode == FCurveTangentMode::Auto) {
+            computeAutoTangent(newIdx - 1);
+        }
+        if (newIdx < keys.size() - 1 && keys[newIdx+1].tangentMode == FCurveTangentMode::Auto) {
+            computeAutoTangent(newIdx + 1);
+        }
+    }
 }
 
 bool FCurveChannel::removeKey(float frame, float tolerance)
@@ -63,6 +83,19 @@ bool FCurveChannel::moveKey(int idx, float newFrame)
     if (idx < 0 || idx >= keys.size()) return false;
     keys[idx].frame = newFrame;
     sort();
+    // Recompute tangents for moved key and neighbors if in Auto mode
+    int newIdx = nearestKey(newFrame);
+    if (newIdx >= 0) {
+        if (keys[newIdx].tangentMode == FCurveTangentMode::Auto || keys[newIdx].tangentMode == FCurveTangentMode::Clamped) {
+            computeAutoTangent(newIdx);
+        }
+        if (newIdx > 0 && (keys[newIdx-1].tangentMode == FCurveTangentMode::Auto || keys[newIdx-1].tangentMode == FCurveTangentMode::Clamped)) {
+            computeAutoTangent(newIdx - 1);
+        }
+        if (newIdx < keys.size() - 1 && (keys[newIdx+1].tangentMode == FCurveTangentMode::Auto || keys[newIdx+1].tangentMode == FCurveTangentMode::Clamped)) {
+            computeAutoTangent(newIdx + 1);
+        }
+    }
     return true;
 }
 
@@ -70,6 +103,16 @@ bool FCurveChannel::setValue(int idx, float value)
 {
     if (idx < 0 || idx >= keys.size()) return false;
     keys[idx].value = value;
+    // Recompute tangents for changed key and neighbors if in Auto mode
+    if (keys[idx].tangentMode == FCurveTangentMode::Auto || keys[idx].tangentMode == FCurveTangentMode::Clamped) {
+        computeAutoTangent(idx);
+    }
+    if (idx > 0 && (keys[idx-1].tangentMode == FCurveTangentMode::Auto || keys[idx-1].tangentMode == FCurveTangentMode::Clamped)) {
+        computeAutoTangent(idx - 1);
+    }
+    if (idx < keys.size() - 1 && (keys[idx+1].tangentMode == FCurveTangentMode::Auto || keys[idx+1].tangentMode == FCurveTangentMode::Clamped)) {
+        computeAutoTangent(idx + 1);
+    }
     return true;
 }
 
@@ -78,6 +121,117 @@ bool FCurveChannel::setInterpolation(int idx, FCurveInterp interp)
     if (idx < 0 || idx >= keys.size()) return false;
     keys[idx].interpolation = interp;
     return true;
+}
+
+bool FCurveChannel::setTangentMode(int idx, FCurveTangentMode mode)
+{
+    if (idx < 0 || idx >= keys.size()) return false;
+    keys[idx].tangentMode = mode;
+    if (mode == FCurveTangentMode::Auto || mode == FCurveTangentMode::Clamped) {
+        computeAutoTangent(idx);
+    }
+    return true;
+}
+
+void FCurveChannel::computeAutoTangent(int idx)
+{
+    if (idx < 0 || idx >= keys.size()) return;
+    FCurveKey& k = keys[idx];
+
+    float prevSlope = 0.0f;
+    float nextSlope = 0.0f;
+
+    if (idx > 0) {
+        float span = k.frame - keys[idx-1].frame;
+        if (span > 1e-6f) {
+            prevSlope = (k.value - keys[idx-1].value) / span;
+        }
+    }
+    if (idx < keys.size() - 1) {
+        float span = keys[idx+1].frame - k.frame;
+        if (span > 1e-6f) {
+            nextSlope = (keys[idx+1].value - k.value) / span;
+        }
+    }
+
+    if (k.tangentMode == FCurveTangentMode::Clamped) {
+        // Clamp tangent to not overshoot neighbor values
+        float minVal = (idx > 0) ? qMin(keys[idx-1].value, k.value) : k.value;
+        float maxVal = (idx > 0) ? qMax(keys[idx-1].value, k.value) : k.value;
+        if (idx < keys.size() - 1) {
+            minVal = qMin(minVal, keys[idx+1].value);
+            maxVal = qMax(minVal, keys[idx+1].value);
+        }
+        float maxSlope = (maxVal - minVal) * 2.0f;
+        prevSlope = qBound(-maxSlope, prevSlope, maxSlope);
+        nextSlope = qBound(-maxSlope, nextSlope, maxSlope);
+    }
+
+    if (idx == 0) {
+        k.inTangent = nextSlope;
+        k.outTangent = nextSlope;
+    } else if (idx == keys.size() - 1) {
+        k.inTangent = prevSlope;
+        k.outTangent = prevSlope;
+    } else {
+        k.inTangent = prevSlope;
+        k.outTangent = nextSlope;
+    }
+
+    // Handle length in frames (proportional to span)
+    float handleLen = 20.0f;
+    if (idx > 0 && idx < keys.size() - 1) {
+        handleLen = (keys[idx+1].frame - keys[idx-1].frame) * 0.25f;
+    } else if (idx > 0) {
+        handleLen = (k.frame - keys[idx-1].frame) * 0.25f;
+    } else if (idx < keys.size() - 1) {
+        handleLen = (keys[idx+1].frame - k.frame) * 0.25f;
+    }
+    handleLen = qMax(handleLen, 5.0f);
+
+    updateHandlesFromTangent(idx);
+}
+
+void FCurveChannel::updateHandlesFromTangent(int idx)
+{
+    if (idx < 0 || idx >= keys.size()) return;
+    FCurveKey& k = keys[idx];
+
+    float handleLen = 20.0f;
+    if (idx > 0 && idx < keys.size() - 1) {
+        handleLen = (keys[idx+1].frame - keys[idx-1].frame) * 0.25f;
+    } else if (idx > 0) {
+        handleLen = (k.frame - keys[idx-1].frame) * 0.25f;
+    } else if (idx < keys.size() - 1) {
+        handleLen = (keys[idx+1].frame - k.frame) * 0.25f;
+    }
+    handleLen = qMax(handleLen, 5.0f);
+
+    k.inHandleFrame = -handleLen;
+    k.inHandleValue = -k.inTangent * handleLen;
+    k.outHandleFrame = handleLen;
+    k.outHandleValue = k.outTangent * handleLen;
+}
+
+void FCurveChannel::updateTangentFromHandles(int idx)
+{
+    if (idx < 0 || idx >= keys.size()) return;
+    FCurveKey& k = keys[idx];
+
+    if (qAbs(k.inHandleFrame) > 1e-6f) {
+        k.inTangent = k.inHandleValue / k.inHandleFrame;
+    }
+    if (qAbs(k.outHandleFrame) > 1e-6f) {
+        k.outTangent = k.outHandleValue / k.outHandleFrame;
+    }
+
+    // If aligned mode, sync the other handle
+    if (k.tangentMode == FCurveTangentMode::Aligned) {
+        float avgSlope = (k.inTangent + k.outTangent) * 0.5f;
+        k.inTangent = avgSlope;
+        k.outTangent = avgSlope;
+        updateHandlesFromTangent(idx);
+    }
 }
 
 int FCurveChannel::nearestKey(float frame) const
@@ -97,9 +251,65 @@ float FCurveChannel::evaluate(float frame) const
     if (keys.isEmpty()) return 0.0f;
     if (keys.size() == 1) return keys[0].value;
 
-    // Extrapolation: hold first/last value.
-    if (frame <= keys.first().frame) return keys.first().value;
-    if (frame >= keys.last().frame) return keys.last().value;
+    // Pre-extrapolation
+    if (frame < keys.first().frame) {
+        switch (preExtrapolation) {
+        case FCurveExtrapolation::Linear: {
+            if (keys.size() < 2) return keys[0].value;
+            float span = keys[1].frame - keys[0].frame;
+            if (span <= 1e-6f) return keys[0].value;
+            float slope = (keys[1].value - keys[0].value) / span;
+            return keys[0].value + slope * (frame - keys[0].frame);
+        }
+        case FCurveExtrapolation::Cycle: {
+            float range = keys.last().frame - keys[0].frame;
+            if (range <= 1e-6f) return keys[0].value;
+            float offset = fmodf(keys[0].frame - frame, range);
+            float f = keys.last().frame - offset;
+            return evaluate(f);
+        }
+        case FCurveExtrapolation::CycleOffset: {
+            float range = keys.last().frame - keys[0].frame;
+            if (range <= 1e-6f) return keys[0].value;
+            float offset = fmodf(keys[0].frame - frame, range);
+            float f = keys.last().frame - offset;
+            return evaluate(f) - (keys.last().value - keys[0].value);
+        }
+        case FCurveExtrapolation::Constant:
+        default:
+            return keys[0].value;
+        }
+    }
+
+    // Post-extrapolation
+    if (frame > keys.last().frame) {
+        switch (postExtrapolation) {
+        case FCurveExtrapolation::Linear: {
+            if (keys.size() < 2) return keys.last().value;
+            float span = keys.last().frame - keys[keys.size()-2].frame;
+            if (span <= 1e-6f) return keys.last().value;
+            float slope = (keys.last().value - keys[keys.size()-2].value) / span;
+            return keys.last().value + slope * (frame - keys.last().frame);
+        }
+        case FCurveExtrapolation::Cycle: {
+            float range = keys.last().frame - keys[0].frame;
+            if (range <= 1e-6f) return keys.last().value;
+            float offset = fmodf(frame - keys[0].frame, range);
+            float f = keys[0].frame + offset;
+            return evaluate(f);
+        }
+        case FCurveExtrapolation::CycleOffset: {
+            float range = keys.last().frame - keys[0].frame;
+            if (range <= 1e-6f) return keys.last().value;
+            float offset = fmodf(frame - keys[0].frame, range);
+            float f = keys[0].frame + offset;
+            return evaluate(f) + (keys.last().value - keys[0].value);
+        }
+        case FCurveExtrapolation::Constant:
+        default:
+            return keys.last().value;
+        }
+    }
 
     // Find segment [i, i+1].
     int i = 0;
@@ -183,6 +393,28 @@ QStringList FCurveData::channelNames() const
     return names;
 }
 
+void FCurveData::pushUndoState()
+{
+    undoStack.append(channels);
+    redoStack.clear();
+    // Limit undo stack size
+    if (undoStack.size() > 50) undoStack.removeFirst();
+}
+
+void FCurveData::undo()
+{
+    if (undoStack.isEmpty()) return;
+    redoStack.append(channels);
+    channels = undoStack.takeLast();
+}
+
+void FCurveData::redo()
+{
+    if (redoStack.isEmpty()) return;
+    undoStack.append(channels);
+    channels = redoStack.takeLast();
+}
+
 QVariantMap FCurveData::toVariant() const
 {
     QVariantMap m;
@@ -192,6 +424,8 @@ QVariantMap FCurveData::toVariant() const
         QVariantMap cm;
         cm["name"] = c.name;
         cm["keys"] = c.toVariant();
+        cm["preExtrapolation"] = fcurveExtrapolationToString(c.preExtrapolation);
+        cm["postExtrapolation"] = fcurveExtrapolationToString(c.postExtrapolation);
         channelsMap[c.name] = cm;
     }
     m["channels"] = channelsMap;
@@ -207,6 +441,8 @@ FCurveData FCurveData::fromVariant(const QVariantMap& m)
         FCurveChannel ch;
         ch.name = it.key();
         QVariantMap cm = it.value().toMap();
+        ch.preExtrapolation = fcurveExtrapolationFromString(cm.value("preExtrapolation").toString());
+        ch.postExtrapolation = fcurveExtrapolationFromString(cm.value("postExtrapolation").toString());
         QVariantList keys = cm.value("keys").toList();
         for (const auto& kv : keys) {
             QVariantMap km = kv.toMap();
@@ -217,6 +453,11 @@ FCurveData FCurveData::fromVariant(const QVariantMap& m)
             k.inTangent = km.value("inTangent").toFloat();
             k.outTangent = km.value("outTangent").toFloat();
             k.locked = km.value("locked").toBool();
+            k.tangentMode = static_cast<FCurveTangentMode>(km.value("tangentMode", 0).toInt());
+            k.inHandleFrame = km.value("inHandleFrame", 0.0f).toFloat();
+            k.inHandleValue = km.value("inHandleValue", 0.0f).toFloat();
+            k.outHandleFrame = km.value("outHandleFrame", 0.0f).toFloat();
+            k.outHandleValue = km.value("outHandleValue", 0.0f).toFloat();
             ch.keys.append(k);
         }
         ch.sort();

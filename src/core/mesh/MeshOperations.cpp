@@ -1,6 +1,7 @@
 #include "MeshOperations.h"
 #include "BooleanOps.h"
 #include "ShapeKeyData.h"
+#include "OCCTBridge.h"
 #include "../FileFormat/MeshData.h"
 #include <QVector3D>
 #include <QVector2D>
@@ -1313,10 +1314,15 @@ bool MeshOperations::performNURBSBoolean(
 
 NURBSSurface MeshOperations::booleanUnion(const NURBSSurface& surfaceA,
                                           const NURBSSurface& surfaceB) {
+    if (OCCTBridge::isAvailable()) {
+        // Convert NURBS to mesh, perform exact boolean, convert back
+        MeshData meshA = nurbsToMesh(surfaceA);
+        MeshData meshB = nurbsToMesh(surfaceB);
+        MeshData result = OCCTBridge::booleanUnionExact(meshA, meshB);
+        return meshToNURBS(result);
+    }
     MeshData resultMesh;
     if (performNURBSBoolean(surfaceA, surfaceB, Operation::Union, resultMesh)) {
-        // Try to rebuild NURBS from the result mesh (currently not supported)
-        // Return the mesh as-is by converting back (will be empty for now)
         return meshToNURBS(resultMesh);
     }
     return NURBSSurface();
@@ -1324,6 +1330,12 @@ NURBSSurface MeshOperations::booleanUnion(const NURBSSurface& surfaceA,
 
 NURBSSurface MeshOperations::booleanDifference(
     const NURBSSurface& surfaceA, const NURBSSurface& surfaceB) {
+    if (OCCTBridge::isAvailable()) {
+        MeshData meshA = nurbsToMesh(surfaceA);
+        MeshData meshB = nurbsToMesh(surfaceB);
+        MeshData result = OCCTBridge::booleanDifferenceExact(meshA, meshB);
+        return meshToNURBS(result);
+    }
     MeshData resultMesh;
     if (performNURBSBoolean(surfaceA, surfaceB, Operation::Difference, resultMesh)) {
         return meshToNURBS(resultMesh);
@@ -1333,6 +1345,12 @@ NURBSSurface MeshOperations::booleanDifference(
 
 NURBSSurface MeshOperations::booleanIntersection(
     const NURBSSurface& surfaceA, const NURBSSurface& surfaceB) {
+    if (OCCTBridge::isAvailable()) {
+        MeshData meshA = nurbsToMesh(surfaceA);
+        MeshData meshB = nurbsToMesh(surfaceB);
+        MeshData result = OCCTBridge::booleanIntersectionExact(meshA, meshB);
+        return meshToNURBS(result);
+    }
     MeshData resultMesh;
     if (performNURBSBoolean(surfaceA, surfaceB, Operation::Intersection, resultMesh)) {
         return meshToNURBS(resultMesh);
@@ -2982,16 +3000,37 @@ MeshData MeshOperations::extrudeFaces(const MeshData& mesh, const QVector<QVecto
 // Bevel (chamfer): pushes a set of edges outward along each adjacent face
 // normal by an edge-dependent distance, replacing every beveled edge with a
 // strip of `segments` quads and re-stitching the adjacent faces to the strip.
+// Profile curve evaluation for advanced bevels.
+// t: parameter in [0,1], profileType: 0=Linear, 1=Concave, 2=Convex, 3=Custom
+// tension: [0,1] controls curve strength. Returns remapped t in [0,1].
+static float evaluateBevelProfile(float t, int profileType, float tension) {
+    t = qBound(0.0f, t, 1.0f);
+    tension = qBound(0.0f, tension, 1.0f);
+    switch (profileType) {
+    case 1: // Concave (inward curve)
+        return t * t * (1.0f - tension) + (1.0f - (1.0f - t) * (1.0f - t)) * tension;
+    case 2: // Convex (outward curve)
+        return (1.0f - (1.0f - t) * (1.0f - t)) * (1.0f - tension) + t * t * tension;
+    case 3: { // Custom (power curve controlled by tension)
+        float exponent = 1.0f + tension * 4.0f; // range [1,5]
+        return std::pow(t, exponent);
+    }
+    default: // 0: Linear
+        return t;
+    }
+}
+
 // Corners shared by several beveled edges stay watertight because each
 // (face, vertex) offset copy is created once with the average of the radii of
 // the beveled edges incident to that corner.
-MeshData MeshOperations::bevelEdges(const MeshData& mesh, float distance, int segments, float angleLimit)
+MeshData MeshOperations::bevelEdges(const MeshData& mesh, float distance, int segments, float angleLimit, int profileType, float tension)
 {
-    return bevelChain(mesh, QVector<int>(), QVector<float>{ distance }, segments, angleLimit);
+    return bevelChain(mesh, QVector<int>(), QVector<float>{ distance }, segments, angleLimit, profileType, tension);
 }
 
 MeshData MeshOperations::bevelChain(const MeshData& mesh, const QVector<int>& edgeIndices,
-                                    const QVector<float>& radii, int segments, float angleLimit)
+                                    const QVector<float>& radii, int segments, float angleLimit,
+                                    int profileType, float tension)
 {
     if (segments < 1) segments = 1;
     if (mesh.faces.isEmpty()) return mesh;
@@ -3119,7 +3158,9 @@ MeshData MeshOperations::bevelChain(const MeshData& mesh, const QVector<int>& ed
 
         int prevA = a0, prevB = b0;
         for (int s = 1; s <= segments; ++s) {
-            const float t = float(s) / float(segments);
+            const float tRaw = float(s) / float(segments);
+            const float t = evaluateBevelProfile(tRaw, profileType, tension);
+            const float tPrev = (s == 1) ? 0.0f : evaluateBevelProfile(float(s - 1) / float(segments), profileType, tension);
             int curA, curB;
             if (s == segments) {
                 curA = a1;
@@ -6064,14 +6105,50 @@ QImage MeshOperations::uvDensityHeatmap(const MeshData& mesh, int width, int hei
     return img;
 }
 NURBSSurface MeshOperations::offsetSurface(const NURBSSurface& surface, float distance) {
+    if (OCCTBridge::isAvailable()) {
+        MeshData mesh = nurbsToMesh(surface);
+        MeshData offsetMesh = OCCTBridge::offsetSurfaceExact(mesh, distance);
+        return meshToNURBS(offsetMesh);
+    }
+    // Fallback: simple Y-axis translation
     NURBSSurface out = surface;
     for (auto& row : out.controlPoints)
         for (auto& p : row) p += QVector3D(0, distance, 0);
     return out;
 }
 QVector<int> MeshOperations::retargetSkeleton(const QVector<QVector3D>& srcJoints, const QVector<QVector3D>& dstJoints) {
-    Q_UNUSED(dstJoints); QVector<int> map; map.reserve(srcJoints.size());
-    for (int i = 0; i < srcJoints.size(); ++i) map.append(i < dstJoints.size() ? i : -1);
+    QVector<int> map;
+    if (srcJoints.isEmpty() || dstJoints.isEmpty()) return map;
+    
+    map.reserve(srcJoints.size());
+    
+    // For each source joint, find the closest destination joint by position
+    for (int i = 0; i < srcJoints.size(); ++i) {
+        const QVector3D& srcPos = srcJoints[i];
+        int bestIdx = -1;
+        float bestDist = std::numeric_limits<float>::max();
+        
+        for (int j = 0; j < dstJoints.size(); ++j) {
+            float dist = QVector3D::distanceSquaredTo(srcPos, dstJoints[j]);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestIdx = j;
+            }
+        }
+        
+        // Only accept match if distance is reasonable (within 10% of average skeleton size)
+        float avgSize = 0.0f;
+        for (const auto& p : srcJoints) avgSize += p.length();
+        avgSize /= srcJoints.size();
+        float threshold = avgSize * 0.1f;
+        
+        if (bestIdx >= 0 && std::sqrt(bestDist) < threshold) {
+            map.append(bestIdx);
+        } else {
+            map.append(-1); // no match found
+        }
+    }
+    
     return map;
 }
 MeshData MeshOperations::applyClusterDeform(const MeshData& mesh, const QVector<int>& indices, const QVector3D& delta, float weight) {

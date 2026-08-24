@@ -65,6 +65,7 @@ struct ICEParticleNodeType {
         OutputPoints,
         OutputMesh,
         OutputRibbons,
+        OutputVolumetric,  // New: Volumetric rendering output
         
         // Flow control
         Branch,
@@ -246,6 +247,13 @@ private:
     static void evalOutputPoints(const QUuid&, const ui::GraphNode&, ICEParticleState&, float, const QMap<QUuid, QVariant>&);
     static void evalOutputRibbons(const QUuid&, const ui::GraphNode&, ICEParticleState&, float, const QMap<QUuid, QVariant>&);
     static void evalOutputMesh(const QUuid&, const ui::GraphNode&, ICEParticleState&, float, const QMap<QUuid, QVariant>&);
+    static void evalOutputVolumetric(const QUuid&, const ui::GraphNode&, ICEParticleState&, float, const QMap<QUuid, QVariant>&);
+    
+    // Age-based size curve evaluation
+    static float evaluateAgeSizeCurve(float age, float lifetime, const QVector<QPair<float, float>>& curve);
+    
+    // Depth sorting for volumetric rendering
+    static void sortByDepth(QVector<QVector3D>& positions, QVector<float>& sizes, QVector<QVector4D>& colors, const QVector3D& cameraPos);
 };
 
 } // namespace ks
