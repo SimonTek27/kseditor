@@ -1,6 +1,6 @@
 #include "CspConfigEditorModule.h"
-#include "../ServerConfigEditor/CspShaderCompiler.h"
-#include "../../core/sys/LogManager.h"
+#include "../editor/ServerConfigEditor/CspShaderCompiler.h"
+#include "../sys/LogManager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>

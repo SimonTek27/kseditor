@@ -7,7 +7,7 @@
 #include <QByteArray>
 #include <QDateTime>
 
-#include "../../core/Math/MathCore.h"
+#include "../Math/MathCore.h"
 #include "FBXParser.h"
 
 /**

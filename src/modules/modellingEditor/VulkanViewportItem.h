@@ -84,7 +84,7 @@ protected:
     void wheelEvent(QWheelEvent* event) override;
     void hoverMoveEvent(QHoverEvent* event) override;
     void hoverLeaveEvent(QHoverEvent* event) override;
-    void tabletEvent(QTabletEvent* event) override;
+    void tabletEvent(QTabletEvent* event);
 
 signals:
     void camYawChanged();

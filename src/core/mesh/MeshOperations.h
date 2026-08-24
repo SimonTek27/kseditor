@@ -689,10 +689,23 @@ public:
     bool bevelEdges = true;
     bool useClampOverlap = true;
     float clampOverlap = 0.05f;
-    int profileType = 0;
+int profileType = 0;
     float profileTension = 0.5f;
     int miterType = 0;
 };
+//
+// Create an empty mesh data structure.
+//
+inline MeshData createEmpty() {
+    MeshData md;
+    md.vertices.clear();
+    md.indices.clear();
+    md.normals.clear();
+    md.uvs.clear();
+    md.uv2Indices.clear();
+    md.faceMaterialIds.clear();
+    return md;
+}
 
 class ArrayOptions {
 public:

@@ -2,7 +2,7 @@
 
 #include "ConfigLoader.h"
 #include "PPFilterPreset.h"
-#include "../../core/Graphics/ShaderParamRegistry.h"
+#include "../Graphics/ShaderParamRegistry.h"
 #include <QString>
 
 class KsIntegration

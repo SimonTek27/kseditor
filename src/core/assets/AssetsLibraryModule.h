@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../core/editor/EditorModule.h"
+#include "../editor/EditorModule.h"
 #include "AssetPreviewWidget.h"
 #include "AssetManager.h"
 #include "CloudSyncManager.h"

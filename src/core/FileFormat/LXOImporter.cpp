@@ -118,7 +118,11 @@ bool importLXO(const QByteArray& data, MeshData& out, QString* error) {
                             uint16_t vidx;
                             memcpy(&vidx, entryStart + entryIdx * (2 + dim * 4), 2);
                             // read u,v floats (next dim*4 bytes)
-                            float* uvf = reinterpret_cast<float*>(entryStart + entryIdx * (2 + dim * 4) + 2);
+                            float uvf[2];
+                            memcpy(uvf, entryStart + entryIdx * (2 + dim * 4) + 2, 2 * sizeof(float));
+                            if (vidx < (unsigned)md.vertices.size()) {
+                                md.vertices[vidx].uv = QVector2D(uvf[0], uvf[1]);
+                            }
                             if (vidx < (unsigned)md.vertices.size()) {
                                 md.vertices[vidx].uv = QVector2D(uvf[0], uvf[1]);
                             }
@@ -130,7 +134,8 @@ bool importLXO(const QByteArray& data, MeshData& out, QString* error) {
         } else if (!strcmp(chunkId, "BBOX")) {
             // Bounding box: 6 floats LE (xmin,ymin,zmin,xmax,ymax,zmax)
             if (chunkSize >= 24) {
-                float* b = reinterpret_cast<float*>(const_cast<char*>(chunkData));
+                float b[6];
+                memcpy(b, chunkData, 6 * sizeof(float));
                 md.boundingBoxMin = QVector3D(b[0], b[1], b[2]);
                 md.boundingBoxMax = QVector3D(b[3], b[4], b[5]);
             }

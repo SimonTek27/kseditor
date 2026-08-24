@@ -5,7 +5,7 @@
 #include <QFileInfo>
 #include <cstdlib>
 #define STB_VORBIS_HEADER_ONLY
-#include "stb_vorbis.c"
+#include "../../../external/stb/stb_vorbis.c"
 
 AudioFormatConverter::AudioFormatConverter(QObject *parent)
     : QObject(parent)

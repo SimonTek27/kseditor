@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../../core/editor/EditorModule.h"
+#include "../../../../core/editor/EditorModule.h"
 #include <QDockWidget>
 #include <QTableWidget>
 #include <QDoubleSpinBox>

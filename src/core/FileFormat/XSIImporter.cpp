@@ -33,7 +33,7 @@ bool importXSIScene(const QByteArray& data, ks::MeshData& out, QString* error) {
         line = line.trimmed();
         
         // Skip comments
-        if (line.startsWith('//') || line.startsWith('#')) continue;
+        if (line.startsWith("//") || line.startsWith("#")) continue;
         
         // Mesh begin
         if (line.contains(QRegularExpression("^Mesh\\s*\\{")) || 

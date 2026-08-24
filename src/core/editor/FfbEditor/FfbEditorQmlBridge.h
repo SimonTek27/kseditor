@@ -5,8 +5,8 @@
 #include <QStringList>
 #include <QVariantMap>
 #include <QVariantList>
-#include "../editor/EditorModule.h"
-#include "../editor/ModuleGuiBase.h"
+#include "../EditorModule.h"
+#include "../ModuleGuiBase.h"
 #include "FfbConfigTool.h"
 
 namespace ks {

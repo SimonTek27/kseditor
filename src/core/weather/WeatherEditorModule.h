@@ -42,7 +42,7 @@
 #include <QGraphicsPixmapItem>
 #include <QGraphicsRectItem>
 #include <QHeaderView>
-#include "../../core/editor/EditorModule.h"
+#include "../editor/EditorModule.h"
 
 namespace ks {
 namespace weather {

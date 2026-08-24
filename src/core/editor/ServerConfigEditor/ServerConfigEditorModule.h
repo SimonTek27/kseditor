@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../editor/EditorModule.h"
+#include "../EditorModule.h"
 #include "ServerConfigEditor.h"
 #include <QDockWidget>
 #include <QLineEdit>

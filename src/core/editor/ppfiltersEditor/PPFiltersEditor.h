@@ -9,8 +9,8 @@
 #include <memory>
 #include <QPlainTextEdit>
 
-#include "../../core/Config/PPFilterPreset.h"
-#include "../../core/Graphics/VulkanIntegration.h"
+#include "../../Config/PPFilterPreset.h"
+#include "../../Graphics/VulkanIntegration.h"
 #include "PPFilterColorGrading.h"
 
 #if HAS_QT3D

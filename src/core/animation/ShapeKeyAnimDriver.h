@@ -55,9 +55,9 @@ struct GraphCurve {
                 t = qBound(0.0f, t, 1.0f);
 
                 switch (keyframes[i].interpolation) {
-                case InterpolationStep:
+                case Keyframe::InterpolationStep:
                     return keyframes[i].value;
-                case InterpolationSmooth: {
+                case Keyframe::InterpolationSmooth: {
                     // Hermite cubic interpolation
                     float t2 = t * t;
                     float t3 = t2 * t;
@@ -68,7 +68,7 @@ struct GraphCurve {
                     return h00*keyframes[i].value + h10*span*0.5f
                          + h01*keyframes[i+1].value + h11*span*0.5f;
                 }
-                case InterpolationLinear:
+                case Keyframe::InterpolationLinear:
                 default:
                     return keyframes[i].value + (keyframes[i+1].value - keyframes[i].value) * t;
                 }

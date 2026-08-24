@@ -1,9 +1,9 @@
 #pragma once
 
 #include "../../editor/EditorModule.h"
-#include "../../textEditor/CodeEditor.h"
-#include "../../textEditor/SyntaxHighlighter.h"
-#include "../../textEditor/FindReplaceDialog.h"
+#include "../../editor/textEditor/CodeEditor.h"
+#include "../../editor/textEditor/SyntaxHighlighter.h"
+#include "../../editor/textEditor/FindReplaceDialog.h"
 #include <QDockWidget>
 #include <QPushButton>
 #include <QLabel>

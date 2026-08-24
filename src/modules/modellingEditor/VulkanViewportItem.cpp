@@ -193,7 +193,6 @@ void VulkanViewportItem::tabletEvent(QTabletEvent* event)
     case QEvent::TabletPress:
         m_lastMousePos = pos;
         if (event->button() == Qt::LeftButton || event->buttons() & Qt::LeftButton) m_lmbDown = true;
-        if (event->deviceType() == QTabletEvent::Eraser) m_lmbDown = true;
         event->accept();
         break;
     case QEvent::TabletMove: {
@@ -209,7 +208,6 @@ void VulkanViewportItem::tabletEvent(QTabletEvent* event)
     }
     case QEvent::TabletRelease:
         if (event->button() == Qt::LeftButton) m_lmbDown = false;
-        if (event->deviceType() == QTabletEvent::Eraser) m_lmbDown = false;
         m_lmbDown = false;
         m_mmbDown = false;
         m_rmbDown = false;

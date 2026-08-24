@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../core/editor/EditorModule.h"
+#include "../EditorModule.h"
 #include "AiSplineEditor.h"
 #include "AiBehaviorModel.h"
 #include "AIEditorQmlBridge.h"

@@ -1,0 +1,48 @@
+{
+  "version": 3,
+  "vendor": {
+    "kseditor": {
+      "autoFormat": true
+    }
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "MSVC Debug",
+      "description": "Build with MSVC toolchain in Debug mode",
+      "generator": "Visual Studio 18 2026",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_STANDARD": "17",
+        "QT6_PATH": "C:/Qt/6.11.1/msvc2022_64"
+      },
+      "binaryDir": "${sourceDir}/out/build/msvc"
+    },
+    {
+      "name": "release",
+      "displayName": "MSVC Release",
+      "description": "Build with MSVC toolchain in Release mode",
+      "generator": "Visual Studio 18 2026",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_STANDARD": "17",
+        "QT6_PATH": "C:/Qt/6.11.1/msvc2022_64"
+      },
+      "binaryDir": "${sourceDir}/out/build/msvc-release"
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default-debug",
+      "displayName": "Build Debug",
+      "configurePreset": "default",
+      "jobs": 4
+    },
+    {
+      "name": "default-release",
+      "displayName": "Build Release",
+      "configurePreset": "release",
+      "jobs": 4
+    }
+  ]
+}

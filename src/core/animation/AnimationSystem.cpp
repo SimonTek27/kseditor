@@ -289,9 +289,13 @@ QVariant AnimationCurve::interpolate(const Keyframe& a, const Keyframe& b, doubl
     if (a.value.userType() != b.value.userType())
         return a.value;
 
-    double span = b.time - a.time;
+double span = b.time - a.time;
 
-    switch (a.value.userType()) {
+// Forward declaration of lerp (defined in anonymous namespace later)
+double lerp(double a, double b, double t, const QString& interpolation,
+            double inTangentA = 0.0, double outTangentB = 0.0, double span = 1.0);
+
+switch (a.value.userType()) {
     case QMetaType::Double:
     case QMetaType::Float:
         return QVariant(lerp(a.value.toDouble(), b.value.toDouble(), t, a.interpolation,

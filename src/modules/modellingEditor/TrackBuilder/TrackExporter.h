@@ -9,7 +9,7 @@
 #include "TrackBuilderTypes.h"
 #include "RoadBuilder.h"
 #include "TerrainEngine.h"
-#include "assettocorsa/acFiles/KN5Types.h"
+#include "../../../plugins/simulators/kunos/assettocorsa/acFiles/KN5Types.h"
 #include <QObject>
 #include <QString>
 #include <QDir>

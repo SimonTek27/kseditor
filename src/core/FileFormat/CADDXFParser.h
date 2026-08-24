@@ -46,6 +46,7 @@ public:
 private:
     DXFScene m_scene;
     QString m_lastError;
+    QMap<QString, QVector<DXFEntity>> m_blocks;
 
     bool parseContent(const QString& content);
     void parseEntities(const QVector<QPair<int, QString>>& groups, int& pos);

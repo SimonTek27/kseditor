@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <QString>
 #include <QVector>
-#include "Math/MathCore.h"
+#include "../Math/MathCore.h"
 
 namespace ks {
 

@@ -1,6 +1,7 @@
 #include "Rhino3dmParser.h"
 #include <QDebug>
 #include <QFileInfo>
+#include <QBuffer>
 
 namespace ks {
 

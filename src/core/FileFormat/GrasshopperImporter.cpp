@@ -163,6 +163,15 @@ bool importGrasshopperDefinition(const QByteArray& data, ks::MeshData& out, QStr
     return true;
 }
 
+void importMeshDataToScene(ks::Scene& scene, const ks::MeshData& md, const QString& name) {
+    // Add mesh to scene - create a simple object with the mesh data
+    // This is a basic implementation; full scene integration would be more complex
+    ks::SceneObject* obj = new ks::SceneObject();
+    obj->setMeshData(md);
+    obj->setName(name);
+    scene.addObject(obj);
+}
+
 bool importGrasshopperToScene(ks::Scene& scene, const QByteArray& data, QString* error) {
     // Basic Grasshopper import - create mesh from definition
     MeshData md;

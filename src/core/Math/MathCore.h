@@ -1,5 +1,10 @@
 #pragma once
 
+// Prevent Windows.h from defining min/max macros
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 #include <cmath>
 #include <cstring>
 #include <algorithm>
