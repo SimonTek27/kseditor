@@ -13,6 +13,7 @@
 #include <QMatrix4x4>
 #include <QQuaternion>
 #include <QTimer>
+#include "KitSystem.h"
 #include <QtMath>
 
 #include "core/editor/BaseEditor.h"
@@ -364,8 +365,6 @@ public:
     Q_INVOKABLE void clearProportionalCenter();
 
     // Kit/Preset system
-    Q_INVOKABLE bool createKit(const QString& name);
-    Q_INVOKABLE QStringList kitList() const;
     Q_INVOKABLE PresetData presetData(const QString& name) const;
     Q_INVOKABLE QStringList presetList() const;
     Q_INVOKABLE bool savePreset(const QString& name, const QString& category);

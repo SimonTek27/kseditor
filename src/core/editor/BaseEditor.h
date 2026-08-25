@@ -220,6 +220,8 @@ private slots:
     void onPaintStrengthChanged(double strength);
     void onPaintHardnessChanged(double hardness);
     void onPaintFalloffChanged(int type);
+    void onUnwrapClicked();
+    void onPackChartsClicked();
 
 private:
     void setupUI();
@@ -268,6 +270,13 @@ private:
     QComboBox* m_sculptBrushCombo = nullptr;
     QWidget* m_uvPanel = nullptr;
     QComboBox* m_uvProjectionCombo = nullptr;
+    QComboBox* m_uvUnwrapMethodCombo = nullptr;
+    QDoubleSpinBox* m_seamAngleSpin = nullptr;
+    QDoubleSpinBox* m_packMarginSpin = nullptr;
+    QCheckBox* m_shareUVCheck = nullptr;
+    QPushButton* m_unwrapBtn = nullptr;
+    QPushButton* m_packChartsBtn = nullptr;
+    QLabel* m_uvPreviewLabel = nullptr;
 };
 
 class ToolBarWidget : public QWidget {

@@ -1,5 +1,5 @@
 #include "ShaderGraphWidget.h"
-#include "core/ui/NodeGraphScene.h"
+#include "resources/ui/NodeGraphScene.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 

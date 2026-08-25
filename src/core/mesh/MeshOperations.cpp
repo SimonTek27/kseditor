@@ -1,5 +1,5 @@
 #include "MeshOperations.h"
-#include "BooleanOps.h"
+#include "modules/modellingEditor/BooleanOps.h"
 #include "ShapeKeyData.h"
 #include "OCCTBridge.h"
 #include "../FileFormat/MeshData.h"

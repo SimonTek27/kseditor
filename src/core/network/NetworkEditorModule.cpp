@@ -559,7 +559,7 @@ void NetworkEditorModule::setupSettingsTab() {
     QGroupBox* cloudGroup = createGroupBox("Cloud Storage Provider");
     QFormLayout* cloudLayout = new QFormLayout(cloudGroup);
     
-    m_cloudProviderEdit = createComboBox({"AWS S3", "Google Cloud Storage", "Azure Blob", "MinIO", "Custom S3-Compatible", "WebDAV", "Nextcloud"});
+    m_cloudProviderEdit = createComboBox({"AWS S3", "Google Cloud Storage", "Azure Blob", "MinIO", "Custom S3-Compatible", "WebDAV", "Nextcloud", "TrueNAS", "Google Drive", "Dropbox", "OneDrive", "Local"});
     cloudLayout->addRow("Provider:", m_cloudProviderEdit);
     
     m_cloudRegionCombo = createComboBox({"us-east-1", "us-west-1", "us-west-2", "eu-west-1", "eu-central-1", "ap-southeast-1", "ap-northeast-1", "Custom"});

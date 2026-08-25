@@ -12,7 +12,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QDebug>
-#include "../sys/LogManager.h"
+#include "../../sys/LogManager.h"
 
 namespace ks {
 

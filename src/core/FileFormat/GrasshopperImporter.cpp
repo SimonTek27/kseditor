@@ -130,8 +130,12 @@ bool importGrasshopperDefinition(const QByteArray& data, ks::MeshData& out, QStr
         return false;
     }
     
-    out = MeshOperations::createEmpty();
-    out.vertices = positions;
+    out = ks::createEmpty();
+    for (const auto& pos : positions) {
+        Vertex v;
+        v.position = pos;
+        out.vertices.append(v);
+    }
     out.indices = indices;
     
     // Generate normals
@@ -161,27 +165,6 @@ bool importGrasshopperDefinition(const QByteArray& data, ks::MeshData& out, QStr
     }
     
     return true;
-}
-
-void importMeshDataToScene(ks::Scene& scene, const ks::MeshData& md, const QString& name) {
-    // Add mesh to scene - create a simple object with the mesh data
-    // This is a basic implementation; full scene integration would be more complex
-    ks::SceneObject* obj = new ks::SceneObject();
-    obj->setMeshData(md);
-    obj->setName(name);
-    scene.addObject(obj);
-}
-
-bool importGrasshopperToScene(ks::Scene& scene, const QByteArray& data, QString* error) {
-    // Basic Grasshopper import - create mesh from definition
-    MeshData md;
-    bool success = importGrasshopperDefinition(data, md, error);
-    
-    if (success && !md.vertices.isEmpty()) {
-        importMeshDataToScene(scene, md, QString("Grasshopper_import"));
-    }
-    
-    return success;
 }
 
 } // namespace fileformat

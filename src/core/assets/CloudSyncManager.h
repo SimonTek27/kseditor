@@ -19,7 +19,15 @@ enum class CloudProviderType {
     GoogleDrive,
     Dropbox,
     OneDrive,
-    Local
+    Local,
+    TrueNAS,
+    AWS_S3,
+    GoogleCloudStorage,
+    AzureBlob,
+    MinIO,
+    CustomS3Compatible,
+    WebDAV,
+    Nextcloud
 };
 
 struct CloudSyncConfig {

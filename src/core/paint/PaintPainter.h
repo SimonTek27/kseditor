@@ -17,6 +17,8 @@ struct PaintBrush {
     float strength = 1.0f;
     float flow = 1.0f;
     float pressure = 1.0f;
+    float tiltX = 0.0f;
+    float tiltY = 0.0f;
     QColor color = Qt::black;
     QColor secondaryColor = Qt::white;
     QPoint cloneSource;

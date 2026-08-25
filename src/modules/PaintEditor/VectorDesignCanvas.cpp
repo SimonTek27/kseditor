@@ -10,6 +10,7 @@
 #include <QtMath>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QTabletEvent>
 
 namespace ks {
 
@@ -415,6 +416,218 @@ void VectorDesignCanvas::keyPressEvent(QKeyEvent* event)
     }
     QGraphicsView::keyPressEvent(event);
 }
+
+void VectorDesignCanvas::tabletEvent(QTabletEvent* event)
+{
+    QPointF scenePos = mapToScene(event->position().toPoint());
+    float pressure = event->pressure();
+    float tiltX = event->tiltX();
+    float tiltY = event->tiltY();
+
+    switch (event->type()) {
+    case QTabletEvent::TabletPress: {
+        if (m_activeTool == SelectTool) {
+            handleSelectPress(event);
+            break;
+        }
+        m_isDrawing = true;
+        m_drawStartPos = scenePos;
+        m_currentPos = scenePos;
+
+        VectorShapeData data;
+        data.pressure = pressure;
+        data.tiltX = tiltX;
+        data.tiltY = tiltY;
+        data.fillColor = m_fillColor;
+        data.strokeColor = m_strokeColor;
+        data.strokeWidth = m_strokeWidth;
+        data.filled = m_drawFilled;
+
+        switch (m_activeTool) {
+        case RectangleTool:
+            data.type = VectorShapeData::Rectangle;
+            break;
+        case EllipseTool:
+            data.type = VectorShapeData::Ellipse;
+            break;
+        case LineTool:
+            data.type = VectorShapeData::Line;
+            data.points.append(scenePos);
+            data.points.append(scenePos);
+            break;
+        case PenTool:
+        case PolygonTool:
+            m_currentPoints.clear();
+            m_currentPoints.append(scenePos);
+            m_isDrawing = true;
+            if (m_activeTool == PolygonTool || m_activeTool == PenTool) {
+                if (m_polyPreview) {
+                    m_scene->removeItem(m_polyPreview);
+                    delete m_polyPreview;
+                    m_polyPreview = nullptr;
+                }
+            }
+            break;
+        default:
+            break;
+        }
+
+        m_currentShape = createShapeItem(data);
+        m_scene->addItem(m_currentShape);
+        event->accept();
+        return;
+    }
+    case QTabletEvent::TabletMove: {
+        if (!m_isDrawing) {
+            event->accept();
+            return;
+        }
+
+        m_currentPos = scenePos;
+
+        if (m_activeTool == PolygonTool || m_activeTool == PenTool) {
+            if (m_polyPreview && m_currentPoints.size() >= 1) {
+                QVector<QPointF> previewPoints = m_currentPoints;
+                previewPoints.append(scenePos);
+
+                VectorShapeData previewData;
+                previewData.type = VectorShapeData::Path;
+                previewData.points = previewPoints;
+                previewData.pressure = pressure;
+                previewData.tiltX = tiltX;
+                previewData.tiltY = tiltY;
+                previewData.fillColor = m_fillColor;
+                previewData.strokeColor = m_strokeColor;
+                previewData.strokeWidth = m_strokeWidth;
+                previewData.filled = false;
+
+                if (m_polyPreview) {
+                    m_scene->removeItem(m_polyPreview);
+                    delete m_polyPreview;
+                }
+                m_polyPreview = createShapeItem(previewData);
+                m_scene->addItem(m_polyPreview);
+            }
+            event->accept();
+            return;
+        }
+
+        if (!m_currentShape) {
+            event->accept();
+            return;
+        }
+
+        VectorShapeData data = m_currentShape->shapeData();
+
+        switch (m_activeTool) {
+        case RectangleTool:
+        case EllipseTool: {
+            QRectF rect = QRectF(m_drawStartPos, m_currentPos).normalized();
+            data.position = rect.topLeft();
+            data.size = QPointF(rect.size().width(), rect.size().height());
+            data.pressure = pressure;
+            data.tiltX = tiltX;
+            data.tiltY = tiltY;
+            break;
+        }
+        case LineTool:
+            data.points.clear();
+            data.points.append(m_drawStartPos);
+            data.points.append(m_currentPos);
+            data.pressure = pressure;
+            data.tiltX = tiltX;
+            data.tiltY = tiltY;
+            break;
+        case PenTool:
+        case PolygonTool: {
+            // Find closest point or add new point
+            bool found = false;
+            for (int i = 0; i < m_currentPoints.size(); ++i) {
+                float dist = (m_currentPoints[i] - scenePos).manhattanLength();
+                if (dist < 20.0f) {
+                    m_currentPoints[i] = scenePos;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                m_currentPoints.append(scenePos);
+            }
+            data.type = VectorShapeData::Path;
+            data.points = m_currentPoints;
+            data.pressure = pressure;
+            data.tiltX = tiltX;
+            data.tiltY = tiltY;
+            break;
+        }
+        default:
+            break;
+        }
+
+        data.fillColor = m_fillColor;
+        data.strokeColor = m_strokeColor;
+        data.strokeWidth = m_strokeWidth;
+        m_currentShape->setShapeData(data);
+        update();
+        event->accept();
+        break;
+    }
+    case QTabletEvent::TabletRelease: {
+        if (m_isDrawing && m_activeTool == PolygonTool && m_currentPoints.size() >= 2) {
+            VectorShapeData data;
+            data.type = VectorShapeData::Polygon;
+            data.points = m_currentPoints;
+            data.pressure = pressure;
+            data.tiltX = tiltX;
+            data.tiltY = tiltY;
+            data.fillColor = m_fillColor;
+            data.strokeColor = m_strokeColor;
+            data.strokeWidth = m_strokeWidth;
+            data.filled = m_drawFilled;
+
+            auto* item = createShapeItem(data);
+            m_scene->addItem(item);
+
+            if (m_polyPreview) {
+                m_scene->removeItem(m_polyPreview);
+                delete m_polyPreview;
+                m_polyPreview = nullptr;
+            }
+
+            m_currentPoints.clear();
+            m_isDrawing = false;
+            emit shapeAdded(data);
+            emit shapesChanged();
+        } else if (m_isDrawing && m_activeTool == PenTool && m_currentPoints.size() >= 2) {
+            VectorShapeData data;
+            data.type = VectorShapeData::Path;
+            data.points = m_currentPoints;
+            data.pressure = pressure;
+            data.tiltX = tiltX;
+            data.tiltY = tiltY;
+            data.fillColor = m_fillColor;
+            data.strokeColor = m_strokeColor;
+            data.strokeWidth = m_strokeWidth;
+            data.filled = false;
+
+            auto* item = createShapeItem(data);
+            m_scene->addItem(item);
+
+            m_currentPoints.clear();
+            m_isDrawing = false;
+            emit shapeAdded(data);
+            emit shapesChanged();
+        }
+        m_isDrawing = false;
+        event->accept();
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+// ─── Tool handling ──────────────────────────────────────────────────
 
 void VectorDesignCanvas::drawBackground(QPainter* painter, const QRectF& rect)
 {

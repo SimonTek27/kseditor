@@ -2,7 +2,7 @@
 #include "CodeEditor.h"
 #include "SyntaxHighlighter.h"
 #include "FindReplaceDialog.h"
-#include "../sys/LogManager.h"
+#include "../../sys/LogManager.h"
 
 #include <functional>
 #include <QShortcut>

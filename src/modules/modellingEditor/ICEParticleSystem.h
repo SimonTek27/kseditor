@@ -12,7 +12,7 @@
 #include <QMatrix4x4>
 
 #include "../../core/physics/PhysicsSystem.h"
-#include "core/ui/NodeGraphEditor.h"
+#include "../../../resources/ui/NodeGraphEditor.h"
 
 namespace ks {
 

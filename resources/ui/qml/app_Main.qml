@@ -31,7 +31,9 @@ Rectangle {
         "character": 17,
         "modeler": 18,
         "paint": 19,
-        "ace": 20
+        "ace": 20,
+        "document": 21,
+        "sheetpad": 22
     })
 
     property string currentMode: "home"
@@ -97,7 +99,9 @@ Rectangle {
                         { icon: "qrc:/icons/assets.svg",     mode: "formattools" },
                         { icon: "qrc:/icons/settings.svg",   mode: "cspconfig" },
                         { icon: "qrc:/icons/skeleton.svg", mode: "character" },
-                        { icon: "qrc:/icons/car-model.svg", mode: "ace" }
+                        { icon: "qrc:/icons/car-model.svg", mode: "ace" },
+                        { icon: "qrc:/icons/document.svg",  mode: "document" },
+                        { icon: "qrc:/icons/sheetpad.svg",  mode: "sheetpad" }
                     ]
                     Button {
                         required property var modelData
@@ -170,27 +174,39 @@ Rectangle {
 
                     Item { height: 20 }
 
-                    RowLayout {
-                        Layout.alignment: Qt.AlignHCenter
-                        spacing: 15
-                        Button {
-                            width: 140; height: 48; text: "New Project"
-                            onClicked: switchTo("modeler")
-                            background: Rectangle { color: "#E10600"; radius: 3 }
-                            contentItem: Text { text: parent.text; color: "#121212"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                        }
-                        Button {
-                            width: 140; height: 48; text: "Open Project"
-                            onClicked: switchTo("modeler")
-                            background: Rectangle { color: "#252526"; radius: 3; border.color: "#444"; border.width: 1 }
-                            contentItem: Text { text: parent.text; color: "#ffffff"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                        }
-                        Button {
-                            width: 140; height: 48; text: "Recent"
-                            onClicked: switchTo("modeler")
-                            background: Rectangle { color: "#252526"; radius: 3; border.color: "#444"; border.width: 1 }
-                            contentItem: Text { text: parent.text; color: "#ffffff"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                        }
+RowLayout {
+                            Layout.alignment: Qt.AlignHCenter
+                            spacing: 15
+                            Button {
+                                width: 140; height: 48; text: "New Project"
+                                onClicked: switchTo("modeler")
+                                background: Rectangle { color: "#E10600"; radius: 3 }
+                                contentItem: Text { text: parent.text; color: "#121212"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                            }
+                            Button {
+                                width: 140; height: 48; text: "Open Project"
+                                onClicked: switchTo("modeler")
+                                background: Rectangle { color: "#252526"; radius: 3; border.color: "#444"; border.width: 1 }
+                                contentItem: Text { text: parent.text; color: "#ffffff"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                            }
+                            Button {
+                                width: 140; height: 48; text: "Recent"
+                                onClicked: switchTo("modeler")
+                                background: Rectangle { color: "#252526"; radius: 3; border.color: "#444"; border.width: 1 }
+                                contentItem: Text { text: parent.text; color: "#ffffff"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                            }
+                            Button {
+                                width: 140; height: 48; text: "Document Editor"
+                                onClicked: switchTo("document")
+                                background: Rectangle { color: "#E10600"; radius: 3 }
+                                contentItem: Text { text: parent.text; color: "#121212"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                            }
+                            Button {
+                                width: 140; height: 48; text: "Sheet Editor"
+                                onClicked: switchTo("sheetpad")
+                                background: Rectangle { color: "#E10600"; radius: 3 }
+                                contentItem: Text { text: parent.text; color: "#121212"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                            }
                     }
 
                     Item { height: 10 }
@@ -255,7 +271,9 @@ Rectangle {
                                 { icon: "qrc:/icons/font.svg",        label: "Font\nCreator",      mode: "fonts" },
                                 { icon: "qrc:/icons/sound.svg",       label: "Audio\nStudio",      mode: "audio" },
                                 { icon: "qrc:/icons/waveform.svg",    label: "Audio\nEditor",      mode: "audio" },
-                                { icon: "qrc:/icons/physics.svg",     label: "Physics\nEditor",    mode: "physics" }
+                                { icon: "qrc:/icons/physics.svg",     label: "Physics\nEditor",    mode: "physics" },
+                                { icon: "qrc:/icons/document.svg",    label: "Document\nEditor",     mode: "document" },
+                                { icon: "qrc:/icons/sheetpad.svg",    label: "Sheet\nEditor",       mode: "sheetpad" }
                             ]
                             Button {
                                 required property var modelData
@@ -431,6 +449,20 @@ onStatusChanged: if (status === Loader.Error) console.error("TelemetryViewer.qml
                 active: currentMode === "ace"
 source: "modules/simulator/ace_ContentBrowser.qml"
 onStatusChanged: if (status === Loader.Error) console.error("ace_ContentBrowser.qml failed to load")
+            }
+
+            // ── 21: Document Editor ─────────────────────────────────────────
+            Loader {
+                active: currentMode === "document"
+source: "pages/page_ksDocumentEditor.qml"
+onStatusChanged: if (status === Loader.Error) console.error("page_ksDocumentEditor.qml failed to load")
+            }
+
+            // ── 22: Sheet Editor ────────────────────────────────────────────
+            Loader {
+                active: currentMode === "sheetpad"
+source: "pages/page_ksSpreadsheetEditor.qml"
+onStatusChanged: if (status === Loader.Error) console.error("page_ksSpreadsheetEditor.qml failed to load")
             }
         }
 

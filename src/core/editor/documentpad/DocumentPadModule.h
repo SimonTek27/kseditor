@@ -6,6 +6,8 @@
 
 namespace ks {
 
+class DocumentPad;
+
 class DocumentPadModule : public EditorModule {
     Q_OBJECT
 public:

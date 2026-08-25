@@ -122,6 +122,16 @@ void PaintPainter::paintSingleDab(QImage& image, const QImage& mask, const QPoin
 
     QImage img = image.convertToFormat(QImage::Format_ARGB32);
 
+    // Compute brush angle from tilt (tiltX is horizontal tilt, tiltY is vertical tilt)
+    // Tilt angle in degrees: 0 = vertical brush, 90 = horizontal brush
+    float brushAngle = 0.0f;
+    if (brush.tiltX != 0.0f || brush.tiltY != 0.0f) {
+        // atan2 returns angle from x-axis; convert to typical brush angle convention
+        brushAngle = qAtan2(brush.tiltY, brush.tiltX) * 180.0f / float(M_PI);
+        // Normalize to 0-180 range for symmetric brush
+        if (brushAngle < 0) brushAngle += 180.0f;
+    }
+
     for (int y = y0; y <= y1; ++y) {
         for (int x = x0; x <= x1; ++x) {
             if (x < 0 || y < 0 || x >= img.width() || y >= img.height()) continue;
@@ -143,6 +153,15 @@ void PaintPainter::paintSingleDab(QImage& image, const QImage& mask, const QPoin
             }
             float alpha = effOpacity * falloff * maskAt(mask, x, y);
             if (airbrush) alpha *= brush.flow * pressure;
+
+            // Apply tilt-based dispersion: tilt modifies effective radius perpendicular to brush angle
+            float dispersion = 1.0f;
+            if (brush.tiltX != 0.0f || brush.tiltY != 0.0f) {
+                // Tilt increases spread perpendicular to the tilt direction
+                float tiltMag = std::sqrt(brush.tiltX * brush.tiltX + brush.tiltY * brush.tiltY);
+                dispersion = 1.0f + tiltMag * 0.5f; // max ~50% extra spread at max tilt
+            }
+
             if (alpha <= 0.0f) continue;
 
             QRgb base = img.pixel(x, y);
@@ -150,7 +169,7 @@ void PaintPainter::paintSingleDab(QImage& image, const QImage& mask, const QPoin
                 int a = int(qAlpha(base) * (1.0f - alpha));
                 img.setPixel(x, y, qRgba(qRed(base), qGreen(base), qBlue(base), a));
             } else {
-                img.setPixel(x, y, blendPixel(base, brush.color.rgb(), alpha));
+                img.setPixel(x, y, blendPixel(base, brush.color.rgb(), alpha * dispersion));
             }
         }
     }

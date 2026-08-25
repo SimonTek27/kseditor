@@ -7,6 +7,7 @@
 #include "core/editor/EditorConfig.h"
 #include "core/textEditor/TextEditorModule.h"
 #include "core/tools/AutoSave.h"
+#include "core/tools/ScientificCalculator.h"
 #include "../modules/modellingEditor/wizard/CarWizard.h"
 #include "../modules/modellingEditor/wizard/TrackWizard.h"
 #include "../modules/modellingEditor/wizard/CharacterWizard.h"
@@ -1314,6 +1315,7 @@ void MainWindow::setupMenuBar()
     setupEditMenu();
     setupViewMenu();
     setupModulesMenu();
+    setupToolsMenu();
     setupSettingsMenu();
     setupHelpMenu();
 }
@@ -1543,6 +1545,18 @@ void MainWindow::setupModulesMenu()
     });
 }
 
+void MainWindow::setupToolsMenu()
+{
+    QMenu* toolsMenu = m_menuBar->addMenu(tr("&Tools"));
+
+    QAction* calcAct = new QAction(tr("&Calculator"), this);
+    calcAct->setShortcut(QKeySequence(static_cast<int>(Qt::CTRL) | static_cast<int>(Qt::SHIFT) | static_cast<int>(Qt::Key_C)));
+    connect(calcAct, &QAction::triggered, this, []() {
+        ks::ScientificCalculator::launch();
+    });
+    toolsMenu->addAction(calcAct);
+}
+
 void MainWindow::setupSettingsMenu()
 {
     QMenu* settingsMenu = m_menuBar->addMenu(tr("Se&ttings"));
@@ -1626,6 +1640,13 @@ void MainWindow::setupToolBar()
 
     m_mainToolBar->addAction(tr("Undo"), this, &MainWindow::undo)->setToolTip(tr("Undo"));
     m_mainToolBar->addAction(tr("Redo"), this, &MainWindow::redo)->setToolTip(tr("Redo"));
+
+    m_mainToolBar->addSeparator();
+
+    QAction* calcToolAct = m_mainToolBar->addAction(tr("Calc"), this, []() {
+        ks::ScientificCalculator::launch();
+    });
+    calcToolAct->setToolTip(tr("Calculator (Ctrl+Shift+C)"));
 
     m_moduleToolBar = addToolBar(tr("Module Toolbar"));
     m_moduleToolBar->setObjectName("ModuleToolBar");

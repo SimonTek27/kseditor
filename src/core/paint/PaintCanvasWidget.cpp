@@ -571,6 +571,8 @@ void PaintCanvasWidget::tabletEvent(QTabletEvent* event)
 
     QPoint imagePos = imagePosFromView(event->position().toPoint());
     float pressure = event->pressure();
+    float tiltX = event->tiltX();
+    float tiltY = event->tiltY();
 
     switch (event->type()) {
     case QTabletEvent::TabletPress: {
@@ -589,6 +591,8 @@ void PaintCanvasWidget::tabletEvent(QTabletEvent* event)
         brush.flow = m_brushFlow;
         brush.strength = m_brushStrength;
         brush.pressure = pressure;
+        brush.tiltX = tiltX;
+        brush.tiltY = tiltY;
         brush.color = m_primaryColor;
         brush.secondaryColor = m_secondaryColor;
         brush.cloneSource = m_hasCloneSource ? m_cloneSource : imagePos;
@@ -640,6 +644,8 @@ void PaintCanvasWidget::tabletEvent(QTabletEvent* event)
             updateBrush.flow = m_brushFlow;
             updateBrush.strength = m_brushStrength;
             updateBrush.pressure = pressure;
+            updateBrush.tiltX = tiltX;
+            updateBrush.tiltY = tiltY;
             updateBrush.color = m_primaryColor;
             updateBrush.secondaryColor = m_secondaryColor;
             updateBrush.cloneSource = m_hasCloneSource ? m_cloneSource : m_lastImage;
@@ -663,6 +669,8 @@ void PaintCanvasWidget::tabletEvent(QTabletEvent* event)
             endBrush.flow = m_brushFlow;
             endBrush.strength = m_brushStrength;
             endBrush.pressure = pressure;
+            endBrush.tiltX = tiltX;
+            endBrush.tiltY = tiltY;
             endBrush.color = m_primaryColor;
             endBrush.secondaryColor = m_secondaryColor;
             endBrush.cloneSource = m_hasCloneSource ? m_cloneSource : m_lastImage;

@@ -63,8 +63,6 @@ bool importLXO(const QByteArray& data, MeshData& out, QString* error) {
                     float* f = reinterpret_cast<float*>(const_cast<char*>(chunkData) + i * 12);
                     Vertex v;
                     v.position = QVector3D(f[0], f[1], f[2]);
-                    v.uv = QVector2D(0, 0);        // placeholder, VMAP will override
-                    v.color = QVector4D(0.8f, 0.8f, 0.8f, 1.0f);
                     md.vertices.append(v);
                 }
             }
@@ -120,11 +118,13 @@ bool importLXO(const QByteArray& data, MeshData& out, QString* error) {
                             // read u,v floats (next dim*4 bytes)
                             float uvf[2];
                             memcpy(uvf, entryStart + entryIdx * (2 + dim * 4) + 2, 2 * sizeof(float));
-                            if (vidx < (unsigned)md.vertices.size()) {
-                                md.vertices[vidx].uv = QVector2D(uvf[0], uvf[1]);
-                            }
-                            if (vidx < (unsigned)md.vertices.size()) {
-                                md.vertices[vidx].uv = QVector2D(uvf[0], uvf[1]);
+                            if (vidx < (unsigned)md.uvs.size()) {
+                                md.uvs[vidx] = QVector2D(uvf[0], uvf[1]);
+                            } else if (vidx < (unsigned)md.vertices.size()) {
+                                while (md.uvs.size() <= vidx) {
+                                    md.uvs.append(QVector2D(0, 0));
+                                }
+                                md.uvs[vidx] = QVector2D(uvf[0], uvf[1]);
                             }
                             entryIdx++;
                         }
@@ -154,3 +154,4 @@ bool importLXO(const QByteArray& data, MeshData& out, QString* error) {
     return true;
 }
 } // namespace fileformat
+} // namespace ks

@@ -1,6 +1,6 @@
 #include "FfbEditorQmlBridge.h"
 #include "FfbConfigTool.h"
-#include "../sys/LogManager.h"
+#include "../../sys/LogManager.h"
 #include <QGroupBox>
 #include <QFormLayout>
 #include <QSlider>

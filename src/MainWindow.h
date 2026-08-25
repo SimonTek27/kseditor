@@ -193,6 +193,7 @@ private:
     void setupModulesMenu();
     void setupSettingsMenu();
     void setupHelpMenu();
+    void setupToolsMenu();
     void setupToolBar();
     void setupStatusBar();
     void setupDockWidgets();

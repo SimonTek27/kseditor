@@ -851,7 +851,6 @@ void ToolSettingsWidget::onPackChartsClicked() {
     QString marginText = QString::number(m_packMarginSpin->value()) + "px";
     emit uvPackChartsRequested(m_packMarginSpin->value(), m_shareUVCheck->isChecked());
 }
-}
 
 void ToolSettingsWidget::setToolType(ToolType type) {
     m_currentTool = type;

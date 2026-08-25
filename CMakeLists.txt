@@ -130,6 +130,20 @@ else()
 	add_compile_definitions(HAS_PYTHON=0)
 endif()
 
+# ============================================================================
+# zlib (for FBX compressed data)
+# ============================================================================
+find_package(ZLIB QUIET)
+if(ZLIB_FOUND)
+	set(HAS_ZLIB TRUE)
+	message(STATUS "zlib found: ${ZLIB_INCLUDE_DIRS}")
+	add_compile_definitions(HAS_ZLIB=1)
+else()
+	set(HAS_ZLIB FALSE)
+	message(STATUS "zlib not found")
+	add_compile_definitions(HAS_ZLIB=0)
+endif()
+
 if(Vulkan_FOUND)
 	message(STATUS "Vulkan SDK found: ${Vulkan_INCLUDE_DIRS}")
 	add_compile_definitions(HAS_VULKAN=1)
@@ -172,6 +186,13 @@ target_include_directories(kseditor_lib PUBLIC
 	"${CMAKE_CURRENT_SOURCE_DIR}/external/eigen"
 )
 
+# Add Qt6 private headers (for qzipreader_p.h etc.)
+if(QT6_PATH)
+	target_include_directories(kseditor_lib PUBLIC
+		"${QT6_PATH}/include/QtCore/6.11.1"
+	)
+endif()
+
 target_link_libraries(kseditor_lib PUBLIC
 	Qt6::Core
 	Qt6::Gui
@@ -191,6 +212,10 @@ target_link_libraries(kseditor_lib PUBLIC
 
 if(HAS_MIKKTSPACE)
 	target_link_libraries(kseditor_lib PUBLIC mikktspace)
+endif()
+
+if(ZLIB_FOUND)
+	target_link_libraries(kseditor_lib PUBLIC ZLIB::ZLIB)
 endif()
 
 if(HAS_BULLET)

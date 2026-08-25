@@ -105,8 +105,12 @@ bool importXSIScene(const QByteArray& data, ks::MeshData& out, QString* error) {
         return false;
     }
     
-    out = MeshOperations::createEmpty();
-    out.vertices = positions;
+    out = ks::createEmpty();
+    for (const auto& pos : positions) {
+        Vertex v;
+        v.position = pos;
+        out.vertices.append(v);
+    }
     out.indices = indices;
     
     // Generate normals
@@ -212,8 +216,12 @@ bool importXSIEmodel(const QByteArray& data, ks::MeshData& out, QString* error) 
             return false;
         }
         
-        out = MeshOperations::createEmpty();
-        out.vertices = allPositions;
+        out = ks::createEmpty();
+        for (const auto& pos : allPositions) {
+            Vertex v;
+            v.position = pos;
+            out.vertices.append(v);
+        }
         out.indices = allIndices;
         
         // Generate normals

@@ -33,6 +33,56 @@ static bool onedriveUpload(QNetworkAccessManager* nam, const QString& token,
 static bool onedriveDownload(QNetworkAccessManager* nam, const QString& token,
     const QString& remotePath, const QString& localPath);
 static bool onedriveDelete(QNetworkAccessManager* nam, const QString& token, const QString& remotePath);
+static bool truenasUpload(QNetworkAccessManager* nam, const QString& token,
+    const QString& localPath, const QString& remotePath, const QString& endpoint);
+static bool truenasDownload(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& localPath, const QString& endpoint);
+static bool truenasDelete(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& endpoint);
+static bool awsS3Upload(QNetworkAccessManager* nam, const QString& token,
+    const QString& localPath, const QString& remotePath, const QString& endpoint);
+static bool aws3Download(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& localPath, const QString& endpoint);
+static bool aws3Delete(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& endpoint);
+static bool gcsUpload(QNetworkAccessManager* nam, const QString& token,
+    const QString& localPath, const QString& remotePath, const QString& endpoint);
+static bool gcsDownload(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& localPath, const QString& endpoint);
+static bool gcsDelete(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& endpoint);
+static bool azureBlobUpload(QNetworkAccessManager* nam, const QString& token,
+    const QString& localPath, const QString& remotePath, const QString& endpoint);
+static bool azureBlobDownload(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& localPath, const QString& endpoint);
+static bool azureBlobDelete(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& endpoint);
+static bool minioUpload(QNetworkAccessManager* nam, const QString& token,
+    const QString& localPath, const QString& remotePath, const QString& endpoint);
+static bool minioDownload(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& localPath, const QString& endpoint);
+static bool minioDelete(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& endpoint);
+static bool customS3Upload(QNetworkAccessManager* nam, const QString& token,
+    const QString& localPath, const QString& remotePath, const QString& endpoint);
+static bool customS3Download(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& localPath, const QString& endpoint);
+static bool customS3Delete(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& endpoint);
+static bool webdavUpload(QNetworkAccessManager* nam, const QString& token,
+    const QString& localPath, const QString& remotePath, const QString& endpoint);
+static bool webdavDownload(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& localPath, const QString& endpoint);
+static bool webdavDelete(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& endpoint);
+static bool nextcloudUpload(QNetworkAccessManager* nam, const QString& token,
+    const QString& localPath, const QString& remotePath, const QString& endpoint);
+static bool nextcloudDownload(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& localPath, const QString& endpoint);
+static bool nextcloudDelete(QNetworkAccessManager* nam, const QString& token,
+    const QString& remotePath, const QString& endpoint);
+static bool truenasEnsurePath(QNetworkAccessManager* nam, const QString& token,
+    const QString& endpoint, const QString& path);
 
 CloudSyncManager::CloudSyncManager(QObject* parent)
     : QObject(parent)
@@ -266,6 +316,347 @@ void CloudSyncManager::scanRemoteChanges()
             url = resp["@odata.nextLink"].toString();
             reply->deleteLater();
         }
+    } else if (m_config.provider == CloudProviderType::TrueNAS && m_nam && !m_config.accessToken.isEmpty() && !m_config.remotePath.isEmpty()) {
+        // List remote files via TrueNAS S3 API
+        // TrueNAS S3 is AWS-compatible; use ListObjectsV2
+        QString bucket = m_config.remotePath;
+        
+        QUrl url(QString("https://%1").arg(bucket));
+        QUrlQuery query;
+        query.addQueryItem("prefix", "");
+        query.addQueryItem("max-keys", "1000");
+        url.setQuery(query);
+        
+        QNetworkRequest req{QUrl(url.toString())};
+        // Use AWS V4 auth header format for TrueNAS S3
+        req.setRawHeader("Authorization", ("AWS4-HMAC-SHA256 Credential=" + m_config.accessToken + "/20240101/us-east-1/s3/aws4_request").toUtf8());
+        req.setHeader(QNetworkRequest::ContentTypeHeader, "application/xml");
+        
+        QNetworkReply* reply = m_nam->get(req);
+        QEventLoop loop;
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+        
+        if (reply->error() == QNetworkReply::NoError) {
+            QString xml = reply->readAll();
+            // Parse XML for object keys and metadata
+            QRegularExpression keyRegex("<Key>([^<]+)</Key>");
+            QRegularExpressionMatchIterator it = keyRegex.globalMatch(xml);
+            while (it.hasNext()) {
+                QRegularExpressionMatch match = it.next();
+                QString key = match.captured(1);
+                if (key.isEmpty()) continue;
+                if (shouldExclude(key)) continue;
+                
+                // Extract LastModified and ETag similarly...
+                m_remoteChecksums[key] = QString(); // placeholder checksum
+            }
+        }
+        reply->deleteLater();
+    } else if (m_config.provider == CloudProviderType::AWS S3 && m_nam && !m_config.accessToken.isEmpty() && !m_config.remotePath.isEmpty()) {
+        // List remote files via AWS S3 API
+        // S3 API: GET /?prefix=&max-keys=1000
+        QString bucket = m_config.remotePath;
+        QString prefix = QString(); // optional path prefix
+        
+        QUrlQuery query;
+        query.addQueryItem("prefix", prefix);
+        query.addQueryItem("max-keys", "1000");
+        query.addQueryItem("delimiter", "");
+        
+        QUrl listUrl(QString("https://%1").arg(bucket));
+        listUrl.setQuery(query);
+        
+        QNetworkRequest req{QUrl(listUrl.toString())};
+        // Use AWS V4 auth
+        req.setRawHeader("Authorization", ("AWS4-HMAC-SHA256 Credential=" + m_config.accessToken + "/20240101/us-east-1/s3/aws4_request").toUtf8());
+        req.setHeader(QNetworkRequest::ContentTypeHeader, "application/xml");
+        
+        QNetworkReply* reply = m_nam->get(req);
+        QEventLoop loop;
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+        
+        if (reply->error() == QNetworkReply::NoError) {
+            QString xml = reply->readAll();
+            // Parse XML for object keys
+            QRegularExpression keyRegex("<Key>([^<]+)</Key>");
+            QRegularExpressionMatchIterator it = keyRegex.globalMatch(xml);
+            while (it.hasNext()) {
+                QRegularExpressionMatch match = it.next();
+                QString key = match.captured(1);
+                if (key.isEmpty()) continue;
+                if (shouldExclude(key)) continue;
+                
+                m_remoteChecksums[key] = QString(); // placeholder
+            }
+        }
+        reply->deleteLater();
+    } else if (m_config.provider == CloudProviderType::Google Cloud Storage && m_nam && !m_config.accessToken.isEmpty() && !m_config.remotePath.isEmpty()) {
+        // Google Cloud Storage uses JSON API similar to Google Drive
+        // List objects with prefix
+        QString bucket = m_config.remotePath;
+        QString prefix = QString(); // optional path prefix
+        
+        QUrlQuery query;
+        query.addQueryItem("prefix", prefix);
+        query.addQueryItem("max-keys", "1000");
+        
+        QUrl listUrl("https://storage.googleapis.com/" + bucket);
+        listUrl.setQuery(query);
+        
+        QNetworkRequest req{QUrl(listUrl.toString())};
+        req.setRawHeader("Authorization", ("Bearer " + m_config.accessToken).toUtf8());
+        req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        
+        QNetworkReply* reply = m_nam->get(req);
+        QEventLoop loop;
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+        
+        if (reply->error() == QNetworkReply::NoError) {
+            QJsonObject resp = QJsonDocument::fromJson(reply->readAll()).object();
+            QJsonArray items = resp["items"].toArray();
+            for (const auto& item : items) {
+                QJsonObject obj = item.toObject();
+                QString name = obj["name"].toString();
+                if (name.isEmpty() || shouldExclude(name)) continue;
+                
+                m_remoteChecksums[name] = obj["id"].toString();
+                m_remoteTimestamps[name] = QDateTime::fromString(obj["updated"].toString(), Qt::ISODate);
+            }
+        }
+        reply->deleteLater();
+    } else if (m_config.provider == CloudProviderType::Azure Blob && m_nam && !m_config.accessToken.isEmpty() && !m_config.remotePath.isEmpty()) {
+        // Azure Blob Storage uses REST API
+        // List blobs with prefix
+        QString container = m_config.remotePath;
+        QString prefix = QString(); // optional path prefix
+        
+        QString url = QString("https://%1.blob.core.windows.net/%2?restype=container&comp=list&prefix=%3&maxresults=5000")
+            .arg(container, container, QUrl::toPercentEncoding(prefix));
+        
+        QNetworkRequest req{QUrl(url)};
+        req.setRawHeader("Authorization", ("SharedAccessSignature " + m_config.accessToken).toUtf8());
+        req.setHeader(QNetworkRequest::ContentTypeHeader, "application/xml");
+        
+        QNetworkReply* reply = m_nam->get(req);
+        QEventLoop loop;
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+        
+        if (reply->error() == QNetworkReply::NoError) {
+            QString xml = reply->readAll();
+            // Parse XML for blob names
+            QRegularExpression nameRegex("<Name>([^<]+)</Name>");
+            QRegularExpressionMatchIterator it = nameRegex.globalMatch(xml);
+            while (it.hasNext()) {
+                QRegularExpressionMatch match = it.next();
+                QString name = match.captured(1);
+                if (name.isEmpty() || shouldExclude(name)) continue;
+                
+                m_remoteChecksums[name] = QString(); // placeholder
+                m_remoteTimestamps[name] = QDateTime::currentDateTime();
+            }
+        }
+        reply->deleteLater();
+    } else if (m_config.provider == CloudProviderType::MinIO && m_nam && !m_config.accessToken.isEmpty() && !m_config.remotePath.isEmpty()) {
+        // MinIO is S3-compatible; use S3 API
+        // Similar to AWS S3 but with MinIO endpoint
+        QString bucket = m_config.remotePath;
+        QString prefix = QString(); // optional path prefix
+        
+        QUrlQuery query;
+        query.addQueryItem("prefix", prefix);
+        query.addQueryItem("max-keys", "1000");
+        query.addQueryItem("delimiter", "");
+        
+        // MinIO typically runs on port 9000, but we use the remotePath as hostname:port
+        QString endpoint = m_config.remotePath; // e.g., "minio:9000" or "localhost:9000"
+        QStringList endpointParts = endpoint.split(':');
+        QString host = endpointParts.first();
+        QString port = endpointParts.size() > 1 ? endpointParts.at(1) : "9000";
+        
+        QUrl listUrl(QString("http://%1:%2/%3").arg(host, port, bucket));
+        listUrl.setQuery(query);
+        
+        QNetworkRequest req{QUrl(listUrl.toString())};
+        // MinIO uses S3 V4 auth with access key/secret
+        req.setRawHeader("Authorization", ("AWS4-HMAC-SHA256 Credential=" + m_config.accessToken + "/20240101/" + host + "/s3/aws4_request").toUtf8());
+        req.setHeader(QNetworkRequest::ContentTypeHeader, "application/xml");
+        
+        QNetworkReply* reply = m_nam->get(req);
+        QEventLoop loop;
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+        
+        if (reply->error() == QNetworkReply::NoError) {
+            QString xml = reply->readAll();
+            // Parse XML for object keys
+            QRegularExpression keyRegex("<Key>([^<]+)</Key>");
+            QRegularExpressionMatchIterator it = keyRegex.globalMatch(xml);
+            while (it.hasNext()) {
+                QRegularExpressionMatch match = it.next();
+                QString key = match.captured(1);
+                if (key.isEmpty() || shouldExclude(key)) continue;
+                
+                m_remoteChecksums[key] = QString(); // placeholder
+            }
+        }
+        reply->deleteLater();
+    } else if (m_config.provider == CloudProviderType::Custom S3-Compatible && m_nam && !m_config.accessToken.isEmpty() && !m_config.remotePath.isEmpty()) {
+        // Custom S3-Compatible storage (e.g., Wasabi, DigitalOcean Spaces)
+        // Similar to AWS S3 but with custom endpoint
+        QString bucket = m_config.remotePath;
+        QString prefix = QString(); // optional path prefix
+        QString endpoint = m_config.accessToken; // endpoint URL stored in access token or remotePath
+        
+        QUrlQuery query;
+        query.addQueryItem("prefix", prefix);
+        query.addQueryItem("max-keys", "1000");
+        
+        // Use remotePath as endpoint if it contains host:port, otherwise use default
+        QString listUrlStr = QString("https://%1/%2").arg(endpoint.isEmpty() ? bucket : endpoint, bucket);
+        QUrl listUrl(listUrlStr);
+        listUrl.setQuery(query);
+        
+        QNetworkRequest req{QUrl(listUrl.toString())};
+        // Custom S3 auth
+        req.setRawHeader("Authorization", ("AWS4-HMAC-SHA256 Credential=" + m_config.accessToken + "/20240101/s3/aws4_request").toUtf8());
+        req.setHeader(QNetworkRequest::ContentTypeHeader, "application/xml");
+        
+        QNetworkReply* reply = m_nam->get(req);
+        QEventLoop loop;
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+        
+        if (reply->error() == QNetworkReply::NoError) {
+            QString xml = reply->readAll();
+            // Parse XML for object keys
+            QRegularExpression keyRegex("<Key>([^<]+)</Key>");
+            QRegularExpressionMatchIterator it = keyRegex.globalMatch(xml);
+            while (it.hasNext()) {
+                QRegularExpressionMatch match = it.next();
+                QString key = match.captured(1);
+                if (key.isEmpty() || shouldExclude(key)) continue;
+                
+                m_remoteChecksums[key] = QString(); // placeholder
+            }
+        }
+        reply->deleteLater();
+    } else if (m_config.provider == CloudProviderType::WebDAV && m_nam && !m_config.accessToken.isEmpty() && !m_config.remotePath.isEmpty()) {
+        // WebDAV protocol
+        // List collections/items at the remote path
+        QString path = m_config.remotePath;
+        if (!path.startsWith("/")) path = "/" + path;
+        
+        QUrl url(QString("https://%1/%2").arg(m_config.accessToken, QUrl::toPercentEncoding(path)));
+        QUrlQuery query;
+        query.addQueryItem("depth", "1");
+        url.setQuery(query);
+        
+        QNetworkRequest req{QUrl(url.toString())};
+        req.setRawHeader("Authorization", ("Bearer " + m_config.accessToken).toUtf8());
+        req.setHeader(QNetworkRequest::ContentTypeHeader, "application/xml");
+        
+        QNetworkReply* reply = m_nam->get(req);
+        QEventLoop loop;
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+        
+        if (reply->error() == QNetworkReply::NoError) {
+            QString xml = reply->readAll();
+            // Parse XML for href elements
+            QRegularExpression hrefRegex("<d:href>([^<]+)</d:href>");
+            QRegularExpressionMatchIterator it = hrefRegex.globalMatch(xml);
+            while (it.hasNext()) {
+                QRegularExpressionMatch match = it.next();
+                QString href = match.captured(1);
+                if (href.isEmpty() || shouldExclude(href)) continue;
+                
+                m_remoteChecksums[href] = QString(); // placeholder
+                m_remoteTimestamps[href] = QDateTime::currentDateTime();
+            }
+        }
+        reply->deleteLater();
+    } else if (m_config.provider == CloudProviderType::Nextcloud && m_nam && !m_config.accessToken.isEmpty() && !m_config.remotePath.isEmpty()) {
+        // Nextcloud API (based on WebDAV + JSON)
+        // List files at the path
+        QString path = m_config.remotePath;
+        if (!path.startsWith("/")) path = "/" + path;
+        
+        QString url = QString("https://%1/remote.php/dav/files/%2/%3")
+            .arg(m_config.accessToken, m_config.remotePath, QUrl::toPercentEncoding(path));
+        
+        QUrlQuery query;
+        query.addQueryItem("format", "json");
+        url.setQuery(query);
+        
+        QNetworkRequest req{QUrl(url.toString())};
+        req.setRawHeader("Authorization", ("Bearer " + m_config.accessToken).toUtf8());
+        req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        
+        QNetworkReply* reply = m_nam->get(req);
+        QEventLoop loop;
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+        
+        if (reply->error() == QNetworkReply::NoError) {
+            QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+            QJsonObject resp = doc.object();
+            QJsonArray entries = resp["ocs"].toObject()["data"].toArray();
+            for (const auto& entry : entries) {
+                QJsonObject obj = entry.toObject();
+                QString name = obj["name"].toString();
+                if (name.isEmpty() || shouldExclude(name)) continue;
+                
+                m_remoteChecksums[name] = obj["etag"].toString();
+                m_remoteTimestamps[name] = QDateTime::fromString(obj["mtime"].toString(), Qt::ISODate);
+            }
+        }
+        reply->deleteLater();
+    }
+        // Format: GET /<bucket>?prefix=<prefix>&max-keys=<max>&delimiter=<delimiter>
+        QStringList bucketParts = bucket.split('/');
+        QString actualBucket = bucketParts.isEmpty() ? bucket : bucketParts.first();
+        QString keyPrefix = bucketParts.size() > 1 ? bucket.mid(bucket.length() - bucketParts.last().length()) : "";
+        
+        QUrl baseUrl("https://" + actualBucket);
+        QUrl listUrl;
+        listUrl.setScheme("https");
+        listUrl.setHost(actualBucket);
+        listUrl.setPath("/");
+        listUrl.addQueryItems(query);
+        
+        QNetworkRequest req{QUrl(listUrl.toString())};
+        req.setRawHeader("Authorization", ("AWS " + m_config.accessToken).toUtf8());
+        req.setHeader(QNetworkRequest::ContentTypeHeader, "application/xml");
+        
+        QNetworkReply* reply = m_nam->get(req);
+        QEventLoop loop;
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+        
+        if (reply->error() == QNetworkReply::NoError) {
+            // Parse XML response for ListObjectsV2 - extract Contents/Key and ETag and LastModified
+            QString xml = reply->readAll();
+            // Simple XML parsing for object keys
+            QRegularExpression keyRegex("<Key>([^<]+)</Key>");
+            QRegularExpressionMatchIterator it = keyRegex.globalMatch(xml);
+            while (it.hasNext()) {
+                QRegularExpressionMatch match = it.next();
+                QString key = match.captured(1);
+                if (key.isEmpty() || key == prefix) continue;
+                if (shouldExclude(key)) continue;
+                
+                // Extract ETag and LastModified similarly...
+                m_remoteChecksums[key] = QString(); // placeholder
+                // Extract last modified from XML would need more parsing
+            }
+        }
+        reply->deleteLater();
+}
+        reply->deleteLater();
     }
 
     // Compare local vs remote
@@ -371,6 +762,30 @@ bool CloudSyncManager::uploadFile(const QString& localPath, const QString& remot
             return dropboxUpload(m_nam, m_config.accessToken, localPath, remotePath);
         case CloudProviderType::OneDrive:
             return onedriveUpload(m_nam, m_config.accessToken, localPath, remotePath);
+        case CloudProviderType::TrueNAS:
+            return truenasUpload(m_nam, m_config.accessToken, localPath, remotePath,
+                m_config.remotePath);
+        case CloudProviderType::AWS S3:
+            return awsS3Upload(m_nam, m_config.accessToken, localPath, remotePath,
+                m_config.remotePath);
+        case CloudProviderType::Google Cloud Storage:
+            return gcsUpload(m_nam, m_config.accessToken, localPath, remotePath,
+                m_config.remotePath);
+        case CloudProviderType::Azure Blob:
+            return azureBlobUpload(m_nam, m_config.accessToken, localPath, remotePath,
+                m_config.remotePath);
+        case CloudProviderType::MinIO:
+            return minioUpload(m_nam, m_config.accessToken, localPath, remotePath,
+                m_config.remotePath);
+        case CloudProviderType::Custom S3-Compatible:
+            return customS3Upload(m_nam, m_config.accessToken, localPath, remotePath,
+                m_config.remotePath);
+        case CloudProviderType::WebDAV:
+            return webdavUpload(m_nam, m_config.accessToken, localPath, remotePath,
+                m_config.remotePath);
+        case CloudProviderType::Nextcloud:
+            return nextcloudUpload(m_nam, m_config.accessToken, localPath, remotePath,
+                m_config.remotePath);
         default:
             return false;
     }
@@ -398,6 +813,30 @@ bool CloudSyncManager::downloadFile(const QString& remotePath, const QString& lo
             return dropboxDownload(m_nam, m_config.accessToken, remotePath, localPath);
         case CloudProviderType::OneDrive:
             return onedriveDownload(m_nam, m_config.accessToken, remotePath, localPath);
+        case CloudProviderType::TrueNAS:
+            return truenasDownload(m_nam, m_config.accessToken, remotePath, localPath,
+                m_config.remotePath);
+        case CloudProviderType::AWS S3:
+            return aws3Download(m_nam, m_config.accessToken, remotePath, localPath,
+                m_config.remotePath);
+        case CloudProviderType::Google Cloud Storage:
+            return gcsDownload(m_nam, m_config.accessToken, remotePath, localPath,
+                m_config.remotePath);
+        case CloudProviderType::Azure Blob:
+            return azureBlobDownload(m_nam, m_config.accessToken, remotePath, localPath,
+                m_config.remotePath);
+        case CloudProviderType::MinIO:
+            return minioDownload(m_nam, m_config.accessToken, remotePath, localPath,
+                m_config.remotePath);
+        case CloudProviderType::Custom S3-Compatible:
+            return customS3Download(m_nam, m_config.accessToken, remotePath, localPath,
+                m_config.remotePath);
+        case CloudProviderType::WebDAV:
+            return webdavDownload(m_nam, m_config.accessToken, remotePath, localPath,
+                m_config.remotePath);
+        case CloudProviderType::Nextcloud:
+            return nextcloudDownload(m_nam, m_config.accessToken, remotePath, localPath,
+                m_config.remotePath);
         default:
             return false;
     }
@@ -419,6 +858,22 @@ bool CloudSyncManager::deleteRemote(const QString& remotePath)
             return dropboxDelete(m_nam, m_config.accessToken, remotePath);
         case CloudProviderType::OneDrive:
             return onedriveDelete(m_nam, m_config.accessToken, remotePath);
+        case CloudProviderType::TrueNAS:
+            return truenasDelete(m_nam, m_config.accessToken, remotePath, m_config.remotePath);
+        case CloudProviderType::AWS S3:
+            return aws3Delete(m_nam, m_config.accessToken, remotePath, m_config.remotePath);
+        case CloudProviderType::Google Cloud Storage:
+            return gcsDelete(m_nam, m_config.accessToken, remotePath, m_config.remotePath);
+        case CloudProviderType::Azure Blob:
+            return azureBlobDelete(m_nam, m_config.accessToken, remotePath, m_config.remotePath);
+        case CloudProviderType::MinIO:
+            return minioDelete(m_nam, m_config.accessToken, remotePath, m_config.remotePath);
+        case CloudProviderType::Custom S3-Compatible:
+            return customS3Delete(m_nam, m_config.accessToken, remotePath, m_config.remotePath);
+        case CloudProviderType::WebDAV:
+            return webdavDelete(m_nam, m_config.accessToken, remotePath, m_config.remotePath);
+        case CloudProviderType::Nextcloud:
+            return nextcloudDelete(m_nam, m_config.accessToken, remotePath, m_config.remotePath);
         default:
             return false;
     }

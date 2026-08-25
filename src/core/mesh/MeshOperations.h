@@ -61,7 +61,8 @@ struct MeshData {
     float     metallic      = 0.f;
     float     roughness     = 0.5f;
 
-    QVector<Vertex>     vertices;
+    QVector<Vertex>  vertices;
+    QVector<int> indices;       // Face vertex indices (for quick access)
     QVector<Face>       faces;
     QVector<Edge>       edges;
     QVector<QVector3D>  normals;
@@ -702,8 +703,7 @@ inline MeshData createEmpty() {
     md.indices.clear();
     md.normals.clear();
     md.uvs.clear();
-    md.uv2Indices.clear();
-    md.faceMaterialIds.clear();
+    md.faces.clear();
     return md;
 }
 

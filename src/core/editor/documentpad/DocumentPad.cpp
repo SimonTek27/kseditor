@@ -29,7 +29,6 @@ DocumentPad::DocumentPad(QWidget* parent)
 
     // Set up the text edit
     m_textEdit->setAcceptRichText(true);
-    m_textEdit->setDocumentInteractionMode(QTextEdit::Interactive);
     m_textEdit->setUndoRedoEnabled(true);
 
     // Set up a simple syntax highlighter for rich text (basic HTML-like handling)
@@ -83,15 +82,15 @@ m_actionNew = new QAction(QIcon(":/icons/document-new.svg"), tr("&New"), this);
     mactionPaste->setShortcut(QKeySequence::Paste);
     mactionPaste->setStatusTip(tr("Paste from clipboard"));
 
-    mactionUndo = new QAction(QIcon(":/icons/edit-undo.svg"), tr("&Undo"), this);
-    mactionUndo->setShortcut(QKeySequence::Undo);
-    mactionUndo->setStatusTip(tr("Undo the last action"));
-    mactionUndo->setEnabled(false);
+    m_actionUndo = new QAction(QIcon(":/icons/edit-undo.svg"), tr("&Undo"), this);
+    m_actionUndo->setShortcut(QKeySequence::Undo);
+    m_actionUndo->setStatusTip(tr("Undo the last action"));
+    m_actionUndo->setEnabled(false);
 
-    mactionRedo = new QAction(QIcon(":/icons/edit-redo.svg"), tr("&Redo"), this);
-    mactionRedo->setShortcut(QKeySequence::Redo);
-    mactionRedo->setStatusTip(tr("Redo the last undone action"));
-    mactionRedo->setEnabled(false);
+    m_actionRedo = new QAction(QIcon(":/icons/edit-redo.svg"), tr("&Redo"), this);
+    m_actionRedo->setShortcut(QKeySequence::Redo);
+    m_actionRedo->setStatusTip(tr("Redo the last undone action"));
+    m_actionRedo->setEnabled(false);
 
     // Format actions - DocumentPad specific
     mactionBold = new QAction(QIcon(":/icons/documentpad-bold.svg"), tr("&Bold"), this);
@@ -149,8 +148,8 @@ void DocumentPad::setupToolbar()
     m_toolbar->addAction(mactionCopy);
     m_toolbar->addAction(mactionPaste);
     m_toolbar->addSeparator();
-    m_toolbar->addAction(mactionUndo);
-    m_toolbar->addAction(mactionRedo);
+    m_toolbar->addAction(m_actionUndo);
+    m_toolbar->addAction(m_actionRedo);
     m_toolbar->addSeparator();
 
     // Format toolbar
@@ -286,11 +285,11 @@ void DocumentPad::saveDocument()
         QTextStream out(&file);
         out << m_textEdit->toPlainText();
     } else if (suffix == "rtf") {
-        QTextDocumentWriter writer(&file, QTextDocumentWriter::Format::RTF);
+        QTextDocumentWriter writer(&file, "rtf");
         writer.write(m_textEdit->document());
     } else {
         // Default: save as RTF for .doc/.docx compatibility
-        QTextDocumentWriter writer(&file, QTextDocumentWriter::Format::RTF);
+        QTextDocumentWriter writer(&file, "rtf");
         writer.write(m_textEdit->document());
     }
 
@@ -322,11 +321,11 @@ void DocumentPad::saveDocumentAs()
         QTextStream out(&file);
         out << m_textEdit->toPlainText();
     } else if (suffix == "rtf") {
-        QTextDocumentWriter writer(&file, QTextDocumentWriter::Format::RTF);
+        QTextDocumentWriter writer(&file, "rtf");
         writer.write(m_textEdit->document());
     } else {
         // Save as RTF for .doc/.docx compatibility
-        QTextDocumentWriter writer(&file, QTextDocumentWriter::Format::RTF);
+        QTextDocumentWriter writer(&file, "rtf");
         writer.write(m_textEdit->document());
     }
 
@@ -381,34 +380,34 @@ void DocumentPad::redo()
 void DocumentPad::setBold()
 {
     QTextCharFormat fmt;
-    fmt.setFontWeight(m_textEdit->fontWeight() == QFont::Bold ? QFont::Normal : QFont::Bold);
+    fmt.setFontWeight(m_textEdit->currentCharFormat().fontWeight() == QFont::Bold ? QFont::Normal : QFont::Bold);
     mergeFormatOnSelection(fmt);
 }
 
 void DocumentPad::setItalic()
 {
     QTextCharFormat fmt;
-    fmt.setFontItalic(!m_textEdit->fontItalic());
+    fmt.setFontItalic(!m_textEdit->currentCharFormat().fontItalic());
     mergeFormatOnSelection(fmt);
 }
 
 void DocumentPad::setUnderline()
 {
     QTextCharFormat fmt;
-    fmt.setFontUnderline(!m_textEdit->fontUnderline());
+    fmt.setFontUnderline(!m_textEdit->currentCharFormat().fontUnderline());
     mergeFormatOnSelection(fmt);
 }
 
 void DocumentPad::setStrikeThrough()
 {
     QTextCharFormat fmt;
-    fmt.setFontStrikeOut(!m_textEdit->fontStrikeOut());
+    fmt.setFontStrikeOut(!m_textEdit->currentCharFormat().fontStrikeOut());
     mergeFormatOnSelection(fmt);
 }
 
 void DocumentPad::setFontColor()
 {
-    QColor color = QColorDialog::getColor(m_textEdit->textColor(), this, tr("Select Text Color"));
+    QColor color = QColorDialog::getColor(m_textEdit->currentCharFormat().foreground().color(), this, tr("Select Text Color"));
     if (color.isValid()) {
         QTextCharFormat fmt;
         fmt.setForeground(color);
@@ -449,12 +448,12 @@ void DocumentPad::onTextChanged()
 
 void DocumentPad::onUndoAvailable(bool available)
 {
-    mactionUndo->setEnabled(available);
+    m_actionUndo->setEnabled(available);
 }
 
 void DocumentPad::onRedoAvailable(bool available)
 {
-    mactionRedo->setEnabled(available);
+    m_actionRedo->setEnabled(available);
 }
 
 void DocumentPad::onSelectionChanged()
@@ -523,22 +522,6 @@ void DocumentPad::onUnderline()
 void DocumentPad::onStrikeThrough()
 {
     setStrikeThrough();
-}
-
-void DocumentPad::setFontColor()
-{
-    setFontColor();
-}
-
-void DocumentPad::setFontSize(int index)
-{
-    // Could implement font size selection from a list
-    Q_UNUSED(index);
-}
-
-void DocumentPad::setFontFamily(const QString& text)
-{
-    setFontFamily(text);
 }
 
 void DocumentPad::onAbout()

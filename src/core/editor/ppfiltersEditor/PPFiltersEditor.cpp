@@ -26,8 +26,8 @@
 #include <QSyntaxHighlighter>
 #include <QTextCharFormat>
 #include "core/editor/EditorConfig.h"
-#include "core/textEditor/CodeEditor.h"
-#include "core/textEditor/SyntaxHighlighter.h"
+#include "core/editor/textEditor/CodeEditor.h"
+#include "core/editor/textEditor/SyntaxHighlighter.h"
 
 // Main Editor Implementation
 KSPFiltersEditor::KSPFiltersEditor(QWidget *parent)

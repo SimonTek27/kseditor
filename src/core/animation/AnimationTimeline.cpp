@@ -155,7 +155,8 @@ float AnimationTimeline::evaluateTrack(const QString& animId, const QString& tra
 
     // Extrapolation: hold first/last
     if (frame <= kfs.constBegin().key()) return kfs.constBegin().value().value;
-    if (frame >= kfs.constLast().key()) return kfs.constLast().value().value;
+    auto lastIt = std::prev(kfs.constEnd());
+    if (frame >= lastIt.key()) return lastIt.value().value;
 
     auto it = kfs.lowerBound(frame);
     if (it == kfs.constBegin()) return it.value().value;

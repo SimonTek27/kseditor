@@ -29,6 +29,9 @@ struct VectorShapeData {
     float opacity = 1.0f;
     float rotation = 0.0f;
     bool filled = true;
+    float pressure = 1.0f;
+    float tiltX = 0.0f;
+    float tiltY = 0.0f;
 
     QJsonObject toJson() const;
     static VectorShapeData fromJson(const QJsonObject& json);

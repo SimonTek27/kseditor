@@ -1,5 +1,6 @@
 #include "DocumentPadModule.h"
 #include "DocumentPad.h"
+#include "../../sys/LogManager.h"
 
 #include <QDockWidget>
 #include <QMainWindow>

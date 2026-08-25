@@ -5,7 +5,10 @@
 #include <cstring>
 #include <QtCore>
 #include <QDebug>
+
+#if HAS_ZLIB
 #include <zlib.h>
+#endif
 
 namespace ks {
 
@@ -247,6 +250,7 @@ bool FBXParser::parseBinary(const std::vector<char>& data)
                                 }
                             }
                         }
+#if HAS_ZLIB
                     } else if (encoding == 1 && propPos + 13 + byteLen <= data.size()) {
                         std::vector<char> decompressed(arrCount * 4);
                         uLongf decompressedSize = static_cast<uLongf>(decompressed.size());
@@ -306,6 +310,14 @@ bool FBXParser::parseBinary(const std::vector<char>& data)
                                 }
                             }
                         }
+#else
+                    } else if (encoding == 1 && propPos + 13 + byteLen <= data.size()) {
+                        qWarning() << "FBX: ZLIB compressed data encountered but zlib is not available";
+                        size_t skip = skipProperty(propPos);
+                        if (skip == 0) break;
+                        propPos += skip;
+                        continue;
+#endif
                     }
                     break; // Found the array, done with this node
                 }

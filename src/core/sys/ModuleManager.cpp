@@ -43,6 +43,7 @@
 #include "../../core/editor/ppfiltersEditor/PPFiltersQmlBridge.h"
 #include "../../core/ServerConfigEditor/ServerConfigEditorModule.h"
 #include "../../core/editor/documentpad/DocumentPadModule.h"
+#include "../../core/editor/sheetpad/SheetPadModule.h"
 #include "../../core/vcs/VcsEditorModule.h"
 #include "../../core/archive/ArchiveEditorModule.h"
 #include "../vr/VREditorModule.h"
@@ -59,6 +60,8 @@
 #include "../../core/modmanager/ModManagerEditorModule.h"
 #include "../../core/sys/SystemEditorModule.h"
 #include "../../core/tools/ToolsEditorModule.h"
+#include "../../core/editor/DocumentPrinter.h"
+#include "../../core/editor/DocumentScanner.h"
 #include "../../core/ui/UIEditorModule.h"
 
 #include <QVBoxLayout>
@@ -131,6 +134,7 @@ void ModuleManager::loadModules()
     registerModule(new ks::IdeEditorModule(this));
     registerModule(new ks::CockpitInstrumentsModule(this));
     registerModule(new ks::DocumentPadModule(this));
+    registerModule(new ks::SheetPadModule(this));
     registerModule(new ks::PPFiltersEditorModule(this));
     registerModule(new ks::CareerEditorModule(this));
     registerModule(new ks::ServerConfigEditorModule(this));
@@ -152,6 +156,8 @@ void ModuleManager::loadModules()
     registerModule(new ks::sys::SystemEditorModule(this));
     registerModule(new ks::tools::ToolsEditorModule(this));
     registerModule(new ks::ui::UIEditorModule(this));
+    registerModule(new ks::DocumentPrinterModule(this));
+    registerModule(new ks::DocumentScannerModule(this));
 
     // Sort modules by priority (higher priority first)
     std::sort(m_modules.begin(), m_modules.end(), [](ks::EditorModule* a, ks::EditorModule* b) {

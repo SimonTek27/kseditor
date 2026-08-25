@@ -25,6 +25,9 @@ QJsonObject VectorShapeData::toJson() const
     json["opacity"] = opacity;
     json["rotation"] = rotation;
     json["filled"] = filled;
+    json["pressure"] = pressure;
+    json["tiltX"] = tiltX;
+    json["tiltY"] = tiltY;
 
     QJsonArray ptsArr;
     for (const QPointF& pt : points) {
@@ -50,6 +53,9 @@ VectorShapeData VectorShapeData::fromJson(const QJsonObject& json)
     data.opacity = json["opacity"].toDouble(1.0);
     data.rotation = json["rotation"].toDouble(0.0);
     data.filled = json["filled"].toBool(true);
+    data.pressure = json["pressure"].toDouble(1.0);
+    data.tiltX = json["tiltX"].toDouble(0.0);
+    data.tiltY = json["tiltY"].toDouble(0.0);
 
     QJsonArray ptsArr = json["points"].toArray();
     for (const QJsonValue& val : ptsArr) {

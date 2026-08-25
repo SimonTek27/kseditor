@@ -80,6 +80,7 @@ private:
     void setupToolbar();
     void setupMenu();
     void setupConnects();
+    void mergeFormatOnSelection(const QTextCharFormat& format);
     QByteArray loadSettings();
     void saveSettings();
 
@@ -94,10 +95,10 @@ private:
     QAction* m_actionSave;
     QAction* m_actionSaveAs;
     QAction* m_actionCut;
+    QAction* m_actionUndo;
+    QAction* m_actionRedo;
     QAction* mactionCopy;
     QAction* mactionPaste;
-    QAction* mactionUndo;
-    QAction* mactionRedo;
     QAction* mactionBold;
     QAction* mactionItalic;
     QAction* mactionUnderline;

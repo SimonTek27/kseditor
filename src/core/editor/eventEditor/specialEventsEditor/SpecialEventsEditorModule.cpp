@@ -1,5 +1,5 @@
 #include "SpecialEventsEditorModule.h"
-#include "../../../core/sys/LogManager.h"
+#include "../../../sys/LogManager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>

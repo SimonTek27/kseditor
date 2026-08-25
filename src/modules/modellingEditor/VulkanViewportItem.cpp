@@ -188,6 +188,8 @@ void VulkanViewportItem::wheelEvent(QWheelEvent* event) {
 void VulkanViewportItem::tabletEvent(QTabletEvent* event)
 {
     float pressure = qBound(0.05f, float(event->pressure()), 1.0f);
+    float tiltX = event->tiltX();
+    float tiltY = event->tiltY();
     QPointF pos = event->position();
     switch (event->type()) {
     case QEvent::TabletPress:
@@ -200,9 +202,18 @@ void VulkanViewportItem::tabletEvent(QTabletEvent* event)
         m_lastMousePos = pos;
         float scaledX = float(delta.x()) * (0.5f + 0.5f * pressure);
         float scaledY = float(delta.y()) * (0.5f + 0.5f * pressure);
+        // Tilt modulates camera roll: tiltX controls roll (rotation around camera Z axis)
+        float rollAngle = tiltX * 0.5f; // tiltX -> roll, scaled modestly
         if (m_lmbDown) orbit(scaledX, scaledY);
         else if (m_rmbDown) pan(scaledX, scaledY);
         else if (m_mmbDown) zoom(scaledY);
+        // Apply roll when left button is down for natural camera orientation
+        if (m_lmbDown && std::abs(rollAngle) > 0.01f) {
+            // Roll is applied as a small additional yaw/pitch adjustment
+            float rollFactor = std::abs(rollAngle) * 0.1f;
+            if (rollAngle > 0) orbit(-rollFactor, 0);
+            else orbit(rollFactor, 0);
+        }
         event->accept();
         break;
     }

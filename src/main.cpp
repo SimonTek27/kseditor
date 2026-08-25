@@ -253,6 +253,22 @@ static int appMain(int argc, char *argv[])
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::FfbEditorQmlBridge::instance(); });
     qmlRegisterSingletonType<ks::ShowroomEditorQmlBridge>("ksEditor.ShowroomEditor", 1, 0, "ShowroomEditor",
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::ShowroomEditorQmlBridge::instance(); });
+
+    // Register photogrammetry capture bridge
+    qmlRegisterSingletonType<ks::PhotogrammetryCapture>("ksEditor.Photogrammetry", 1, 0, "PhotogrammetryCapture",
+        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::PhotogrammetryCapture::instance(); });
+
+    // Register turntable scanner bridge
+    qmlRegisterSingletonType<ks::TurntableScanner>("ksEditor.TurntableScanner", 1, 0, "TurntableScanner",
+        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::TurntableScanner::instance(); });
+
+    // Register structured light scanner bridge
+    qmlRegisterSingletonType<ks::StructuredLightScanner>("ksEditor.StructuredLight", 1, 0, "StructuredLightScanner",
+        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::StructuredLightScanner::instance(); });
+
+    // Register stereo vision scanner bridge
+    qmlRegisterSingletonType<ks::StereoVisionScanner>("ksEditor.StereoVision", 1, 0, "StereoVisionScanner",
+        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::StereoVisionScanner::instance(); });
     qmlRegisterSingletonType<ks::AssetsLibraryQmlBridge>("ksEditor.AssetsLibrary", 1, 0, "AssetsLibrary",
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::AssetsLibraryQmlBridge::instance(); });
     qmlRegisterSingletonType<ks::audio::AudioEffectsQmlBridge>("ksEditor.AudioEffects", 1, 0, "AudioEffects",

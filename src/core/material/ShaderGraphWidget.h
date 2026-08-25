@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ShaderGraph.h"
-#include "core/ui/NodeGraphEditor.h"
+#include "../../../resources/ui/NodeGraphEditor.h"
 #include <QWidget>
 #include <QSplitter>
 #include <QTreeWidget>
