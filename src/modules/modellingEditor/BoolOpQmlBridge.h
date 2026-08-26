@@ -19,6 +19,11 @@ public:
 
     bool isAvailable() const;
 
+    static BoolOpQmlBridge& instance() {
+        static BoolOpQmlBridge inst;
+        return inst;
+    }
+
     void setScene(SceneGraph* scene) { m_scene = scene; }
     SceneGraph* scene() const { return m_scene; }
 

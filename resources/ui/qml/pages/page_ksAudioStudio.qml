@@ -79,7 +79,8 @@ Rectangle {
         { key: "recording", label: "Recording",    icon: "\u25CF" },
         { key: "banks",     label: "Sound Banks",  icon: "\uF1C0" },
         { key: "batch",     label: "Batch",        icon: "\uF0AE" },
-        { key: "export",    label: "Export",       icon: "\uF019" }
+        { key: "export",    label: "Export",       icon: "\uF019" },
+        { key: "stems",     label: "Stem Separation", icon: "\uD83C\uDFB6" }
     ]
 
     // ---- Browser categories (asset groups) ----
@@ -152,7 +153,8 @@ Rectangle {
                 { label: "Record", icon: "\u25CF", cmd: "panel_recording", check: function(){ return activePanel === "recording" } },
                 { label: "Banks", icon: "\uF1C0", cmd: "panel_banks", check: function(){ return activePanel === "banks" } },
                 { label: "Batch", icon: "\uF0AE", cmd: "panel_batch", check: function(){ return activePanel === "batch" } },
-                { label: "Export", icon: "\uF019", cmd: "panel_export", check: function(){ return activePanel === "export" } }
+                { label: "Export", icon: "\uF019", cmd: "panel_export", check: function(){ return activePanel === "export" } },
+                { label: "Stems", icon: "\uD83C\uDFB6", cmd: "panel_stems", check: function(){ return activePanel === "stems" } }
             ]},
             { name: "Panels", buttons: [
                 { label: "Browser", icon: "\u2630", cmd: "browser", check: function(){ return browserVisible } },
@@ -1403,6 +1405,9 @@ Rectangle {
 
                             // ---------------- EXPORT ----------------
                             Item { AudioExportPanel { anchors.fill: parent } }
+
+                            // ---------------- STEM SEPARATION ----------------
+                            Item { AIAudioStemSeparator { anchors.fill: parent } }
                         }
                     }
                 }

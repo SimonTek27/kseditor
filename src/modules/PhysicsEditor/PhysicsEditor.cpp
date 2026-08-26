@@ -85,6 +85,9 @@ void PhysicsEditorModule::buildUI() {
     toolbar->addWidget(acdBtn);
     toolbar->addWidget(suspBtn);
     toolbar->addWidget(ffbBtn);
+    toolbar->addWidget(cfmBtn);
+    auto* thBtn = new QPushButton(tr("Tire Thermal"), this);
+    toolbar->addWidget(thBtn);
     toolbar->addWidget(tyreCurveBtn);
     toolbar->addWidget(validBtn);
     toolbar->addWidget(tyreTempBtn);
@@ -137,6 +140,12 @@ void PhysicsEditorModule::buildUI() {
     m_ffbPreview = new FfbPreviewWidget(this);
     m_contentStack->addWidget(m_ffbPreview);
 
+    m_cfdWidget = new CfdWidget(this);
+    m_contentStack->addWidget(m_cfdWidget);
+
+    m_tireThermalWidget = new TireThermalWidget(this);
+    m_contentStack->addWidget(m_tireThermalWidget);
+
     m_validator = new CarValidatorWidget(this);
     m_contentStack->addWidget(m_validator);
 
@@ -173,6 +182,8 @@ void PhysicsEditorModule::buildUI() {
     connect(acdBtn, &QPushButton::clicked, this, &PhysicsEditorModule::onShowAcdBrowser);
     connect(suspBtn, &QPushButton::clicked, this, &PhysicsEditorModule::onShowSuspGeometry);
     connect(ffbBtn, &QPushButton::clicked, this, &PhysicsEditorModule::onShowFfbPreview);
+    connect(cfmBtn, &QPushButton::clicked, this, &PhysicsEditorModule::onShowCfdWidget);
+    connect(thBtn, &QPushButton::clicked, this, &PhysicsEditorModule::onShowTireThermalWidget);
     connect(tyreCurveBtn, &QPushButton::clicked, this, &PhysicsEditorModule::onShowTireCurveEditor);
     connect(validBtn, &QPushButton::clicked, this, &PhysicsEditorModule::onShowCarValidator);
     connect(tyreTempBtn, &QPushButton::clicked, this, &PhysicsEditorModule::onShowTyreTempModel);
@@ -227,6 +238,14 @@ void PhysicsEditorModule::onShowSuspGeometry() {
 
 void PhysicsEditorModule::onShowFfbPreview() {
     m_contentStack->setCurrentWidget(m_ffbPreview);
+}
+
+void PhysicsEditorModule::onShowCfdWidget() {
+    m_contentStack->setCurrentWidget(m_cfdWidget);
+}
+
+void PhysicsEditorModule::onShowTireThermalWidget() {
+    m_contentStack->setCurrentWidget(m_tireThermalWidget);
 }
 
 void PhysicsEditorModule::onShowTireCurveEditor() {

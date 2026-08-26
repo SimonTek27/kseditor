@@ -52,7 +52,6 @@
 #include "core/modmanager/ModManagerQmlBridge.h"
 #include "core/editor/ppfiltersEditor/PPFiltersQmlBridge.h"
 #include "core/3dprint/ThreeDPrintQmlBridge.h"
-#include "core/Audio/KsACSndEventBridge.h"
 #include "core/FfbEditor/FfbEditorQmlBridge.h"
 #include "modules/displayEditor/CockpitInstrumentsQmlBridge.h"
 #include "modules/LicensePlatesEditor/LicensePlatesQmlBridge.h"
@@ -228,6 +227,9 @@ static int appMain(int argc, char *argv[])
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::AIEditorQmlBridge::instance(); });
     qmlRegisterSingletonType<ks::FormatToolsQmlBridge>("ksEditor.FormatTools", 1, 0, "FormatTools",
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::FormatToolsQmlBridge::instance(); });
+    // Register AI Stem Separation bridge
+    qmlRegisterSingletonType<ks::audio::AIAudioStemSeparator>("ksEditor.AIAudioStemSeparator", 1, 0, "AIAudioStemSeparator",
+        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::audio::AIAudioStemSeparator::instance(); });
     // Plugin registers "ksEditor.Workshop" singleton
     qmlRegisterSingletonType<ks::ModManagerQmlBridge>("ksEditor.ModManager", 1, 0, "ModManager",
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::ModManagerQmlBridge::instance(); });
@@ -291,8 +293,7 @@ static int appMain(int argc, char *argv[])
     qmlRegisterType<ks::QmlParticleInstancing>("ksEditor.Modeler", 1, 0, "ParticleInstancing");
     qmlRegisterSingletonType<ks::editor::BoolOpQmlBridge>("ksEditor.BoolOp", 1, 0, "BoolOp",
         [](QQmlEngine*, QJSEngine*) -> QObject* {
-            static ks::editor::BoolOpQmlBridge* bridge = new ks::editor::BoolOpQmlBridge();
-            return bridge;
+            return &ks::editor::BoolOpQmlBridge::instance();
         });
     qmlRegisterSingletonType<ks::SymmetryQmlBridge>("ksEditor.Symmetry", 1, 0, "Symmetry",
         [](QQmlEngine*, QJSEngine*) -> QObject* {

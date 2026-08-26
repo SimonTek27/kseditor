@@ -29,6 +29,8 @@
 #include "widgets/FfbPreviewWidget.h"
 #include "widgets/CarValidatorWidget.h"
 #include "widgets/TyreTempModelWidget.h"
+#include "widgets/CfdWidget.h"
+#include "widgets/TireThermalWidget.h"
 #include "../../plugins/simulators/kunos/assettocorsa/physics/TireCurveEditor.h"
 
 namespace ks {
@@ -101,6 +103,8 @@ private:
     FfbPreviewWidget*             m_ffbPreview;
     CarValidatorWidget*           m_validator;
     TyreTempModelWidget*          m_tyreTempModel;
+    CfdWidget*                    m_cfdWidget;
+    TireThermalWidget*            m_tireThermalWidget;
     TireCurveEditor*              m_tireCurveEditor;
     QLabel*                       m_statusLabel;
     QLabel*                       m_carLabel;
