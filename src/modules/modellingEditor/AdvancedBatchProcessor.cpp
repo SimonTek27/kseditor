@@ -60,6 +60,7 @@ bool BatchWorker::processKN5(const ModelBatchTask& task) {
 	if (header.size() < 4 || header[0] != 'K' || header[1] != 'N' || header[2] != '5') {
 		return false;
 	}
+	QByteArray fileData = inputFile.readAll();
 	inputFile.close();
 
 	// Copy with optional texture compression

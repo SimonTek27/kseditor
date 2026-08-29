@@ -1,0 +1,147 @@
+﻿Versione di MSBuild 18.9.1+a81b43525 per .NET Framework
+
+  Automatic UIC for target mikktspace
+  mikktspace.vcxproj -> E:\Users\Simon\source\repos\kseditor\build\Release\mikktspace.lib
+  Automatic MOC and UIC for target kseditor_lib
+  AutoMoc warning
+  ---------------
+  "SRC:/src/core/editor/DocumentPrinter.cpp"
+  includes the moc file "DocumentPrinter.moc", but does not contain a Q_OBJECT, Q_GADGET, Q_NAMESPACE, Q_NAMESPACE_EXPORT, Q_GADGET_EXPORT or Q_ENUM_NS macro.
+  
+  AutoMoc warning
+  ---------------
+  "SRC:/src/core/editor/DocumentScanner.cpp"
+  includes the moc file "DocumentScanner.moc", but does not contain a Q_OBJECT, Q_GADGET, Q_NAMESPACE, Q_NAMESPACE_EXPORT, Q_GADGET_EXPORT or Q_ENUM_NS macro.
+  
+  3DPrintTypes.cpp
+  GCodeGenerator.cpp
+E:\Users\Simon\source\repos\kseditor\src\core\3dprint\GCodeGenerator.cpp(74,19): warning C4858: rimozione del valore restituito: Use QThreadPool::start(Callable&&) if you don't need the returned QFuture [E:\Users\Simon\source\repos\kseditor\build\kseditor_lib.vcxproj]
+  PrintPreview.cpp
+  PrinterProfile.cpp
+  SliceSettings.cpp
+  SlicerEngine.cpp
+E:\Users\Simon\source\repos\kseditor\src\core\3dprint\SlicerEngine.cpp(247,19): warning C4858: rimozione del valore restituito: Use QThreadPool::start(Callable&&) if you don't need the returned QFuture [E:\Users\Simon\source\repos\kseditor\build\kseditor_lib.vcxproj]
+  SupportGenerator.cpp
+  ThreeDPrintEditorModule.cpp
+  ThreeDPrintModule.cpp
+  ThreeDPrintQmlBridge.cpp
+E:\Users\Simon\source\repos\kseditor\src\core\3dprint\ThreeDPrintQmlBridge.cpp(209,19): warning C4858: rimozione del valore restituito: Use QThreadPool::start(Callable&&) if you don't need the returned QFuture [E:\Users\Simon\source\repos\kseditor\build\kseditor_lib.vcxproj]
+E:\Users\Simon\source\repos\kseditor\src\core\3dprint\ThreeDPrintQmlBridge.cpp(223,19): warning C4858: rimozione del valore restituito: Use QThreadPool::start(Callable&&) if you don't need the returned QFuture [E:\Users\Simon\source\repos\kseditor\build\kseditor_lib.vcxproj]
+  AIAudioEngine.cpp
+  AIAudioStemSeparator.cpp
+  AudioAnalysis.cpp
+  AudioBank.cpp
+  AudioBankGenerator.cpp
+  AudioClip.cpp
+  AudioContainers.cpp
+  AudioCore.cpp
+  AudioEffects.cpp
+  AudioEngineSimIntegration.cpp
+  Generazione del codice in corso...
+E:\Users\Simon\source\repos\kseditor\src\core\3dprint\SupportGenerator.cpp(565,1): warning C4715: 'ks::printing::SupportGenerator::needsSupport': non tutti i percorsi di controllo restituiscono un valore [E:\Users\Simon\source\repos\kseditor\build\kseditor_lib.vcxproj]
+  Compilazione in corso...
+  AudioExporter.cpp
+  AudioFormatConverter.cpp
+  AudioGenerator.cpp
+  AudioGraph.cpp
+  AudioManager.cpp
+  AudioMixer.cpp
+  AudioModuleBridge.cpp
+  AudioNodes.cpp
+  AudioProcessing.cpp
+  AudioQMLBridge.cpp
+  AudioRecording.cpp
+  AudioSpatial.cpp
+  AudioStudioTypes.cpp
+  AudioTimeStretch.cpp
+  AudioTools.cpp
+  AudioTypes.cpp
+  AudioUtilities.cpp
+  AudioVST3Host.cpp
+  AudioVSTHost.cpp
+  AudioWaveformBridge.cpp
+  Generazione del codice in corso...
+  Compilazione in corso...
+  CarAcoustics.cpp
+  DSPLibrary.cpp
+  FFTProcessor.cpp
+  KsACSndEventBridge.cpp
+  LADSPAHost.cpp
+  RPMProfile.cpp
+  RPMRecorder.cpp
+  StbVorbisImpl.cpp
+  Studio.cpp
+  TextToSpeech.cpp
+  VCAMixerSystem.cpp
+  WaveProcessor.cpp
+  WaveformEngine.cpp
+  ConfigIntegration.cpp
+  ConfigLoader.cpp
+  ConfigSchema.cpp
+  CspConfigEditorModule.cpp
+  CspConfigParser.cpp
+  PPFilterPreset.cpp
+  ACGuidsParser.cpp
+  Generazione del codice in corso...
+  Compilazione in corso...
+  AiSpline.cpp
+  AlembicParser.cpp
+  Audio.cpp
+  BankParser.cpp
+  BankParserFactory.cpp
+  BankParserFmod1x.cpp
+  BankParserFmod2x.cpp
+  BankParserRegistry.cpp
+  BankVersion.cpp
+  BankWriter.cpp
+  BankWriterFactory.cpp
+  BankWriterFmod1x.cpp
+  BankWriterFmod2x.cpp
+  BankWriterRegistry.cpp
+  CADAdvancedParsers.cpp
+  CADConverter.cpp
+  CADDXFParser.cpp
+  CADFormatDetector.cpp
+  CADOBJParser.cpp
+  CADSTLParser.cpp
+  Generazione del codice in corso...
+  Compilazione in corso...
+  FBXParser.cpp
+  FSPROExporter.cpp
+  FSPROImporter.cpp
+  FileFormatEditorModule.cpp
+  FormatValidator.cpp
+  GLBParser.cpp
+  GrasshopperImporter.cpp
+  INIParser.cpp
+  JSONParser.cpp
+  KS3DReader.cpp
+  KS3DWriter.cpp
+  KSAudioExporter.cpp
+  KSAudioImporter.cpp
+  KSAudioValidator.cpp
+  LXOImporter.cpp
+  Project.cpp
+  Rhino3dmParser.cpp
+  USDAExporter.cpp
+  USDParser.cpp
+  XSIImporter.cpp
+  Generazione del codice in corso...
+  Compilazione in corso...
+  ColorSpace.cpp
+  GraphicsEditorModule.cpp
+  PBRUtils.cpp
+  RenderGraph.cpp
+  SceneData.cpp
+  SceneGraph.cpp
+  SceneMesh.cpp
+  SceneObject.cpp
+  ShaderMaterial.cpp
+  ShaderParamRegistry.cpp
+  TextureTools.cpp
+  VulkanComputePipeline.cpp
+  VulkanIntegration.cpp
+  VulkanRenderer.cpp
+  VulkanShaderLoader.cpp
+  CoroutineManager.cpp
+  HotReloadManager.cpp

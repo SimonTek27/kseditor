@@ -8,76 +8,76 @@ namespace ks {
 
 // ─── KsPaths ─────────────────────────────────────────────────────────────────
 
-QString KsPaths::getContentDirectory(const QString& ksRoot) {
+QString ACKsPaths::getContentDirectory(const QString& ksRoot) {
     return ksRoot + "/content";
 }
 
-QString KsPaths::getCarsDirectory(const QString& ksRoot) {
+QString ACKsPaths::getCarsDirectory(const QString& ksRoot) {
     return ksRoot + "/content/cars";
 }
 
-QString KsPaths::getTracksDirectory(const QString& ksRoot) {
+QString ACKsPaths::getTracksDirectory(const QString& ksRoot) {
     return ksRoot + "/content/tracks";
 }
 
-QString KsPaths::getSkinsDirectory(const QString& carPath) {
+QString ACKsPaths::getSkinsDirectory(const QString& carPath) {
     return carPath + "/skins";
 }
 
-QString KsPaths::getCarSkinDirectory(const QString& carPath, const QString& skinName) {
+QString ACKsPaths::getCarSkinDirectory(const QString& carPath, const QString& skinName) {
     return carPath + "/skins/" + skinName;
 }
 
-QString KsPaths::getDriverDirectory(const QString& ksRoot) {
+QString ACKsPaths::getDriverDirectory(const QString& ksRoot) {
     return ksRoot + "/content/driver";
 }
 
-QString KsPaths::getSfxDirectory(const QString& ksRoot) {
+QString ACKsPaths::getSfxDirectory(const QString& ksRoot) {
     return ksRoot + "/content/sfx";
 }
 
-QString KsPaths::getTexturesDirectory(const QString& ksRoot) {
+QString ACKsPaths::getTexturesDirectory(const QString& ksRoot) {
     return ksRoot + "/content/textures";
 }
 
-QString KsPaths::getFontsDirectory(const QString& ksRoot) {
+QString ACKsPaths::getFontsDirectory(const QString& ksRoot) {
     return ksRoot + "/content/fonts";
 }
 
-QString KsPaths::getShowroomDirectory(const QString& ksRoot) {
+QString ACKsPaths::getShowroomDirectory(const QString& ksRoot) {
     return ksRoot + "/content/showroom";
 }
 
-QString KsPaths::getWeatherDirectory(const QString& ksRoot) {
+QString ACKsPaths::getWeatherDirectory(const QString& ksRoot) {
     return ksRoot + "/content/weather";
 }
 
-QString KsPaths::getTracksWeatherDirectory(const QString& trackPath) {
+QString ACKsPaths::getTracksWeatherDirectory(const QString& trackPath) {
     return trackPath + "/weather";
 }
 
-QStringList KsPaths::getCarNames(const QString& ksRoot) {
+QStringList ACKsPaths::getCarNames(const QString& ksRoot) {
     QString carsDir = getCarsDirectory(ksRoot);
     QDir dir(carsDir);
     if (!dir.exists()) return QStringList();
     return dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
 }
 
-QStringList KsPaths::getTrackNames(const QString& ksRoot) {
+QStringList ACKsPaths::getTrackNames(const QString& ksRoot) {
     QString tracksDir = getTracksDirectory(ksRoot);
     QDir dir(tracksDir);
     if (!dir.exists()) return QStringList();
     return dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
 }
 
-QStringList KsPaths::getSkinNames(const QString& carPath) {
+QStringList ACKsPaths::getSkinNames(const QString& carPath) {
     QString skinsDir = getSkinsDirectory(carPath);
     QDir dir(skinsDir);
     if (!dir.exists()) return QStringList();
     return dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
 }
 
-QString KsPaths::getMainCarFile(const QString& carPath) {
+QString ACKsPaths::getMainCarFile(const QString& carPath) {
     QDir dir(carPath);
     QStringList kn5Files = dir.entryList(QStringList() << "*.kn5", QDir::Files);
     if (!kn5Files.isEmpty()) {
@@ -86,7 +86,7 @@ QString KsPaths::getMainCarFile(const QString& carPath) {
     return QString();
 }
 
-bool KsPaths::isValidInstallation(const QString& path) {
+bool ACKsPaths::isValidInstallation(const QString& path) {
     if (path.isEmpty()) return false;
     QDir dir(path);
     if (!dir.exists()) return false;
@@ -100,7 +100,7 @@ bool KsPaths::isValidInstallation(const QString& path) {
     return carsDir.exists() || tracksDir.exists();
 }
 
-QStringList KsPaths::findAllInstallations() {
+QStringList ACKsPaths::findAllInstallations() {
     QStringList installations;
 
     QStringList searchPaths;
@@ -151,15 +151,15 @@ QStringList KsPaths::findAllInstallations() {
     return installations;
 }
 
-QStringList KsPaths::getCarList(const QString& simPath) {
+QStringList ACKsPaths::getCarList(const QString& simPath) {
     return getCarNames(simPath);
 }
 
-QStringList KsPaths::getTrackList(const QString& simPath) {
+QStringList ACKsPaths::getTrackList(const QString& simPath) {
     return getTrackNames(simPath);
 }
 
-QString KsPaths::findCarPath(const QString& simPath, const QString& carName) {
+QString ACKsPaths::findCarPath(const QString& simPath, const QString& carName) {
     QString carsDir = getCarsDirectory(simPath);
     QString carPath = carsDir + "/" + carName;
     if (QDir(carPath).exists()) {
@@ -168,7 +168,7 @@ QString KsPaths::findCarPath(const QString& simPath, const QString& carName) {
     return QString();
 }
 
-QString KsPaths::findTrackPath(const QString& simPath, const QString& trackName) {
+QString ACKsPaths::findTrackPath(const QString& simPath, const QString& trackName) {
     QString tracksDir = getTracksDirectory(simPath);
     QString trackPath = tracksDir + "/" + trackName;
     if (QDir(trackPath).exists()) {
@@ -177,11 +177,11 @@ QString KsPaths::findTrackPath(const QString& simPath, const QString& trackName)
     return QString();
 }
 
-QString KsPaths::getUiDirectory(const QString& simPath) {
+QString ACKsPaths::getUiDirectory(const QString& simPath) {
     return simPath + "/system/ui";
 }
 
-QString KsPaths::findBestInstallation() {
+QString ACKsPaths::findBestInstallation() {
     QStringList installations = findAllInstallations();
     if (installations.isEmpty()) return QString();
 

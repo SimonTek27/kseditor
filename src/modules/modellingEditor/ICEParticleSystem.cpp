@@ -1150,7 +1150,7 @@ void ICEParticleEvaluator::evalOutputVolumetric(const QUuid&, const ui::GraphNod
         for (const auto& v : arr) {
             QJsonArray pair = v.toArray();
             if (pair.size() >= 2) {
-                ageSizeCurve.append({pair[0].toFloat(), pair[1].toFloat()});
+                ageSizeCurve.append({pair[0].toDouble(), pair[1].toDouble()});
             }
         }
         

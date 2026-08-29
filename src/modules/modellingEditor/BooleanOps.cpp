@@ -185,15 +185,17 @@ BoolOpResult BooleanOperations::performOperationImpl(
 
 #else
     // Fallback implementation without CGAL.
+    struct Vec3 { float x = 0, y = 0, z = 0; };
     auto computeAABB = [](const GeoMeshData& mesh) -> std::pair<Vec3, Vec3> {
-        if (mesh.vertices.empty()) return {};
-        Vec3 minV = {mesh.vertices[0].x, mesh.vertices[0].y, mesh.vertices[0].z};
+        if (mesh.vertices.empty()) return std::pair<Vec3, Vec3>();
+        Vec3 minV{static_cast<float>(mesh.vertices[0].x), static_cast<float>(mesh.vertices[0].y), static_cast<float>(mesh.vertices[0].z)};
         Vec3 maxV = minV;
         for (const auto& v : mesh.vertices) {
-            minV.x = (std::min)(minV.x, v.x); minV.y = (std::min)(minV.y, v.y); minV.z = (std::min)(minV.z, v.z);
-            maxV.x = (std::max)(maxV.x, v.x); maxV.y = (std::max)(maxV.y, v.y); maxV.z = (std::max)(maxV.z, v.z);
+            float vx = static_cast<float>(v.x); float vy = static_cast<float>(v.y); float vz = static_cast<float>(v.z);
+            minV.x = (std::min)(minV.x, vx); minV.y = (std::min)(minV.y, vy); minV.z = (std::min)(minV.z, vz);
+            maxV.x = (std::max)(maxV.x, vx); maxV.y = (std::max)(maxV.y, vy); maxV.z = (std::max)(maxV.z, vz);
         }
-        return {minV, maxV};
+        return std::pair<Vec3, Vec3>(minV, maxV);
     };
 
     auto aabbsOverlap = [](const std::pair<Vec3, Vec3>& a, const std::pair<Vec3, Vec3>& b) -> bool {

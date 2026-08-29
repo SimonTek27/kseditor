@@ -46,14 +46,14 @@ void WorkshopDownloader::setOutputDirectory(const QString& dir) {
     m_outputDir = dir;
 }
 
-void WorkshopDownloader::downloadItem(const WorkshopItem& item) {
+void WorkshopDownloader::downloadItem(const ACWorkshopItem& item) {
     m_queue.append(item);
     if (!m_downloading) {
         startNextDownload();
     }
 }
 
-void WorkshopDownloader::downloadItems(const QVector<WorkshopItem>& items) {
+void WorkshopDownloader::downloadItems(const QVector<ACWorkshopItem>& items) {
     m_queue.append(items);
     if (!m_downloading) {
         startNextDownload();
@@ -85,7 +85,7 @@ void WorkshopDownloader::startNextDownload() {
     }
 
     m_downloading = true;
-    WorkshopItem item = m_queue.takeFirst();
+    ACWorkshopItem item = m_queue.takeFirst();
 
     QString installPath = getCategoryInstallPath(item.category);
     QString fileName = QString("%1_%2.acd").arg(item.workshopId).arg(item.title.replace("/", "_"));
@@ -312,7 +312,7 @@ void WorkshopModule::searchItems(const QString& query) {
     });
 }
 
-void WorkshopModule::downloadItem(const WorkshopItem& item) {
+void WorkshopModule::downloadItem(const ACWorkshopItem& item) {
     QString defaultPath = QFileDialog::getExistingDirectory(nullptr,
         "Select Content Directory",
         QDir::homePath() + "/Documents/Assetto Corsa");
@@ -347,7 +347,7 @@ void WorkshopModule::downloadSelected() {
     }
 }
 
-void WorkshopModule::handlePostDownload(const WorkshopItem& item, const QString& packagePath) {
+void WorkshopModule::handlePostDownload(const ACWorkshopItem& item, const QString& packagePath) {
     // Extract ZIP to a temp directory
     QString extractDir = QDir::tempPath() + "/ksEditor_workshop/" + QString::number(item.workshopId);
     QDir().mkpath(extractDir);
@@ -449,7 +449,7 @@ void WorkshopModule::viewInstalled() {
         QDir dir(dirPath);
         if (dir.exists()) {
             for (const QString& item : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-                WorkshopItem item2;
+                ACWorkshopItem item2;
                 item2.title = item;
                 item2.localPath = dirPath + "/" + item;
                 item2.installed = true;
@@ -462,7 +462,7 @@ void WorkshopModule::viewInstalled() {
     emit workshopLoaded(m_installedItems);
 }
 
-void WorkshopModule::openInBrowser(const WorkshopItem& item) {
+void WorkshopModule::openInBrowser(const ACWorkshopItem& item) {
     QDesktopServices::openUrl(item.workshopUrl);
 }
 
@@ -495,12 +495,12 @@ void WorkshopModule::parseWorkshopPage(const QString& html) {
     m_items.clear();
 
     // Primary regex: extract workshop ID, title, and author from Steam Workshop HTML
-    QRegularExpression itemRegex("data-publishedfileid=\"(\\d+)\"[^>]*>.*?<div class=\"workshopItemTitle\">([^<]+)</div>.*?<div class=\"workshopItemAuthor\">[^:]*:([^<]+)</div>");
+    QRegularExpression itemRegex("data-publishedfileid=\"(\\d+)\"[^>]*>.*?<div class=\"ACWorkshopItemTitle\">([^<]+)</div>.*?<div class=\"ACWorkshopItemAuthor\">[^:]*:([^<]+)</div>");
     QRegularExpressionMatchIterator it = itemRegex.globalMatch(html);
 
     while (it.hasNext()) {
         QRegularExpressionMatch match = it.next();
-        WorkshopItem item;
+        ACWorkshopItem item;
         item.workshopId = match.captured(1).toULongLong();
         item.title = match.captured(2).trimmed();
         item.author = match.captured(3).trimmed();
@@ -727,7 +727,7 @@ void WorkshopQmlBridge::parseWorkshopHTML(const QString& html) {
     QStringList lines = html.split("\n");
     for (const auto& line : lines) {
         if (line.contains("resource-title") || line.contains("resource-author")) {
-            WorkshopItem item;
+            ACWorkshopItem item;
             item.workshopId = m_items.size() + 1;
             item.category = m_currentCategory;
             item.installed = false;
@@ -822,7 +822,7 @@ void WorkshopModule::updateItem(quint64 workshopId) {
     // Find the item and re-download
     for (const auto& item : m_installedItems) {
         if (item.workshopId == workshopId) {
-            WorkshopItem updatedItem = item;
+            ACWorkshopItem updatedItem = item;
             m_downloader->downloadItem(updatedItem);
 
             connect(m_downloader, &WorkshopDownloader::downloadFinished, this,

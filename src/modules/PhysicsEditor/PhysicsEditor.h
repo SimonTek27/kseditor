@@ -71,6 +71,8 @@ public slots:
     void onShowTireCurveEditor();
     void onShowSuspGeometry();
     void onShowFfbPreview();
+    void onShowCfdWidget();
+    void onShowTireThermalWidget();
     void onShowCarValidator();
     void onShowTyreTempModel();
     double estimateLapTime(double trackLengthM, double avgCornerSpeedKmh,

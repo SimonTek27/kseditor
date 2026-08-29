@@ -12,7 +12,7 @@ KsAssettoCorsaRunner* KsAssettoCorsaRunner::s_instance = nullptr;
 KsAssettoCorsaRunner::KsAssettoCorsaRunner(QObject* parent)
     : QObject(parent)
 {
-    QStringList installs = KsPaths::findAllInstallations();
+    QStringList installs = ACKsPaths::findAllInstallations();
     if (!installs.isEmpty()) {
         m_ksPath = installs.first();
     } else {
@@ -54,7 +54,7 @@ QString KsAssettoCorsaRunner::findKsExecutable() const {
     };
 
     // Add Steam install paths
-    QStringList installs = KsPaths::findAllInstallations();
+    QStringList installs = ACKsPaths::findAllInstallations();
     for (const QString& path : installs) {
         candidates << path + "/assetto_corsa.exe";
         candidates << path + "/acs.exe";

@@ -1,7 +1,7 @@
 #ifndef INTERACTIVERETOPOOOL_H
 #define INTERACTIVERETOPOOOL_H
 
-#include "modules/modellingEditor/MeshTypes.h"
+#include "MeshOperations.h"
 #include <QObject>
 #include <QVector>
 #include <QVector3D>

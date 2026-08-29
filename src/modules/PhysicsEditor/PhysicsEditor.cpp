@@ -85,6 +85,7 @@ void PhysicsEditorModule::buildUI() {
     toolbar->addWidget(acdBtn);
     toolbar->addWidget(suspBtn);
     toolbar->addWidget(ffbBtn);
+    auto* cfmBtn = new QPushButton(tr("CFD"), this);
     toolbar->addWidget(cfmBtn);
     auto* thBtn = new QPushButton(tr("Tire Thermal"), this);
     toolbar->addWidget(thBtn);

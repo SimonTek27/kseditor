@@ -1,9 +1,12 @@
 #include "LUTParser.h"
 
+#include <QFile>
+#include <QFileInfo>
 #include <QTextStream>
 #include <QDebug>
 #include <QVector3D>
 #include <QColor>
+#include <QtMath>
 
 namespace ks {
 namespace plugins {
@@ -235,6 +238,35 @@ QImage LUTParser::lutToImage(const LUTData& lut, int stripHeight) {
         }
     }
     return img;
+}
+
+bool LUTParser::validate(const LUTData& lut) {
+    return lut.valid && lut.table.size() == lut.size * lut.size * lut.size;
+}
+
+LUTData LUTParser::loadFromImage(const QString& path) {
+    LUTData out;
+    loadImage(path, out);
+    return out;
+}
+
+LUTData LUTParser::loadFromStrip(const QString& path, int size) {
+    LUTData out;
+    loadImage(path, out);
+    return out;
+}
+
+bool LUTParser::saveToStrip(const LUTData& lut, const QString& path, int stripHeight) {
+    return saveImage(path, lut);
+}
+
+LUTData LUTParser::interpolate(const LUTData& a, const LUTData& b, float t) {
+    if (!a.valid || !b.valid || a.size != b.size) return a;
+    LUTData result = a;
+    for (int i = 0; i < result.table.size(); ++i) {
+        result.table[i] = a.table[i] * (1.0f - t) + b.table[i] * t;
+    }
+    return result;
 }
 
 } // namespace assettocorsa

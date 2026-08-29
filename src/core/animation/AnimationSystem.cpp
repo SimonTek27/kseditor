@@ -284,16 +284,17 @@ QVariant AnimationCurve::evaluate(double time) const
     return QVariant();
 }
 
+namespace {
+double lerp(double a, double b, double t, const QString& interpolation,
+            double inTangentA, double outTangentB, double span);
+}
+
 QVariant AnimationCurve::interpolate(const Keyframe& a, const Keyframe& b, double t) const
 {
     if (a.value.userType() != b.value.userType())
         return a.value;
 
 double span = b.time - a.time;
-
-// Forward declaration of lerp (defined in anonymous namespace later)
-double lerp(double a, double b, double t, const QString& interpolation,
-            double inTangentA = 0.0, double outTangentB = 0.0, double span = 1.0);
 
 switch (a.value.userType()) {
     case QMetaType::Double:

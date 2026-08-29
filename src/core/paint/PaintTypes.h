@@ -10,6 +10,7 @@ namespace paint {
 
 // Paint tool set
 enum class PaintTool {
+    None,
     Move,
     Zoom,
     Pan,

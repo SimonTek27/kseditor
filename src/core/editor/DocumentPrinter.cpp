@@ -5,6 +5,8 @@
 #include <QFileInfo>
 #include <QDir>
 
+#if HAS_QPRINTER
+
 namespace ks {
 
 DocumentPrinter::DocumentPrinter(QObject* parent)
@@ -198,5 +200,7 @@ bool DocumentPrinterModule::exportFile(const QString& filePath) {
 }
 
 } // namespace ks
+
+#endif // HAS_QPRINTER
 
 #include "DocumentPrinter.moc"

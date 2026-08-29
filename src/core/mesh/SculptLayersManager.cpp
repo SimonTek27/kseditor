@@ -1,6 +1,7 @@
 #include "SculptLayer.h"
 #include <cmath>
 #include <algorithm>
+#include <QSet>
 
 SculptLayersManager::SculptLayersManager(QObject* parent) : QObject(parent) {}
 

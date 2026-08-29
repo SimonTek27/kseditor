@@ -188,8 +188,8 @@ void VulkanViewportItem::wheelEvent(QWheelEvent* event) {
 void VulkanViewportItem::tabletEvent(QTabletEvent* event)
 {
     float pressure = qBound(0.05f, float(event->pressure()), 1.0f);
-    float tiltX = event->tiltX();
-    float tiltY = event->tiltY();
+    float tiltX = event->xTilt();
+    float tiltY = event->yTilt();
     QPointF pos = event->position();
     switch (event->type()) {
     case QEvent::TabletPress:

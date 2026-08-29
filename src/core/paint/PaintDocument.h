@@ -5,6 +5,7 @@
 #include <QRect>
 #include <QVector>
 #include "PaintTypes.h"
+#include "PaintPhotoshop.h"
 #include "PaintVector.h"
 
 namespace ks {
@@ -112,8 +113,8 @@ public:
     bool removeLayerComp(const QString& name);
 
     // Selection tools
-    QPainterPath quickSelectionPath(const QImage& img, const QPoint& seed, float tolerance=20) const;
-    QPainterPath objectSelectionPath(const QImage& img, const QRect& roi) const;
+    QImage quickSelectionPath(const QImage& img, const QPoint& seed, float tolerance=20) const;
+    QImage objectSelectionPath(const QImage& img, const QRect& roi) const;
     QPainterPath magicWandPath(const QImage& img, const QPoint& pos, int tolerance=32, bool contiguous=true) const;
     QImage quickSelectionMask(const QImage& img, const QPoint& seed, float tolerance=20) const;
     QImage objectSelectionMask(const QImage& img, const QRect& roi) const;
@@ -234,6 +235,9 @@ private:
     QImage m_brushPattern;
     PaintVectorDocument* m_vectorDoc = nullptr;
     PaintPhotoshopEngine* m_photoshopEngine = nullptr;
+
+    Snapshot snapshot() const;
+    void restore(const Snapshot& snap);
 };
 
 } // namespace paint

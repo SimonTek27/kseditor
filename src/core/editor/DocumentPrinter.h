@@ -1,10 +1,15 @@
 #pragma once
 
 #include "EditorModule.h"
+
+#if __has_include(<QPrinter>)
 #include <QPrinter>
 #include <QPrintDialog>
 #include <QPrintPreviewDialog>
 #include <QPageSetupDialog>
+#define HAS_QPRINTER 1
+#endif
+
 #include <QPdfWriter>
 #include <QPainter>
 #include <QTextDocument>
@@ -14,6 +19,8 @@
 #include <QStandardPaths>
 
 namespace ks {
+
+#if HAS_QPRINTER
 
 class DocumentPrinter : public QObject {
     Q_OBJECT
@@ -80,5 +87,7 @@ signals:
 private:
     std::unique_ptr<DocumentPrinter> m_printer;
 };
+
+#endif // HAS_QPRINTER
 
 } // namespace ks

@@ -7,6 +7,8 @@
 #include <QDoubleSpinBox>
 #include <QSlider>
 
+#if HAS_TIRE_3D
+
 namespace ks {
 
 TireThermalWidget::TireThermalWidget(QWidget* parent)
@@ -21,36 +23,26 @@ TireThermalWidget::~TireThermalWidget() {
 void TireThermalWidget::buildUI() {
     auto* mainLayout = new QVBoxLayout(this);
 
-    // 3D chart for tire thermal visualization
-    m_chart3D = new QChart3D(this);
-    m_chart3D->setTitle("Tire Thermal Mesh");
-    m_chart3D->setTheme(Q3DTheme::Theme::Chocolate);
+    m_chart3D = new Q3DScatter();
+    m_chart3D->activeTheme()->setType(Q3DTheme::ThemeChocolate);
+    m_chart3D->scene()->activeCamera()->setCameraPreset(Q3DScene::CameraPresetIsometricRight);
 
-    // Create scatter series for each tire
     QString tireNames[4] = {"FL", "FR", "RL", "RR"};
     QColor tireColors[4] = {Qt::red, Qt::blue, Qt::green, Qt::magenta};
 
     for (int i = 0; i < 4; i++) {
-        m_tireSeries[i] = new QScatterSeries();
-        m_tireSeries[i]->setName(tireNames[i]);
+        m_tireSeries[i] = new QScatter3DSeries();
         m_tireSeries[i]->setItemSize(0.5f);
-        m_tireSeries[i]->setColor(tireColors[i]);
+        m_tireSeries[i]->setBaseColor(tireColors[i]);
         m_chart3D->addSeries(m_tireSeries[i]);
     }
 
-    // Set up axes
-    m_chart3D->axisX()->setTitle("X (m)");
-    m_chart3D->axisX()->setRange(-1.5, 1.5);
-    m_chart3D->axisY()->setTitle("Temperature (°C)");
-    m_chart3D->axisY()->setRange(0, 130);
-    m_chart3D->axisZ()->setTitle("Z (m)");
-    m_chart3D->axisZ()->setRange(-1.5, 1.5);
+    auto* chartContainer = QWidget::createWindowContainer(m_chart3D);
+    chartContainer->setMinimumHeight(300);
 
-    // Tire parameter controls
     auto* paramsGroup = new QGroupBox("Tire Parameters", this);
     auto* paramsLayout = new QFormLayout(paramsGroup);
 
-    // Temperature displays
     for (int i = 0; i < 4; i++) {
         QGroupBox* tireGroup = new QGroupBox(tireNames[i], this);
         auto* tireLayout = new QFormLayout(tireGroup);
@@ -70,15 +62,15 @@ void TireThermalWidget::buildUI() {
         wearIn->setSingleStep(0.1);
         wearIn->setValue(0.0);
 
-        connect(coreIn, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, i]() {
+        connect(coreIn, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, i, coreIn]() {
             m_tireData[i].coreTemp = coreIn->value();
             updateTireVisualization();
         });
-        connect(surfIn, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, i]() {
+        connect(surfIn, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, i, surfIn]() {
             m_tireData[i].surfaceTemp = surfIn->value();
             updateTireVisualization();
         });
-        connect(wearIn, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, i]() {
+        connect(wearIn, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, i, wearIn]() {
             m_tireData[i].wearLevel = wearIn->value();
             updateTireVisualization();
         });
@@ -87,50 +79,16 @@ void TireThermalWidget::buildUI() {
         tireLayout->addRow("Surf Temp:", surfIn);
         tireLayout->addRow("Wear:", wearIn);
 
-        // Store references for later update
-        // (In a full impl, would use QMap or array)
+        paramsLayout->addRow(tireGroup);
     }
 
-    // Simplified - just use the first tire's controls as example
-    QDoubleSpinBox* coreIn = new QDoubleSpinBox(this);
-    coreIn->setRange(-50, 200);
-    coreIn->setValue(80);
-    coreIn->setSuffix("°C");
-    connect(coreIn, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this]() {
-        m_tireData[0].coreTemp = coreIn->value();
-        updateTireVisualization();
-    });
-
-    QDoubleSpinBox* surfIn = new QDoubleSpinBox(this);
-    surfIn->setRange(-50, 200);
-    surfIn->setValue(100);
-    surfIn->setSuffix("°C");
-    connect(surfIn, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this]() {
-        m_tireData[0].surfaceTemp = surfIn->value();
-        updateTireVisualization();
-    });
-
-    QDoubleSpinBox* wearIn = new QDoubleSpinBox(this);
-    wearIn->setRange(0.0, 1.0);
-    wearIn->setSingleStep(0.1);
-    wearIn->setValue(0.0);
-    connect(wearIn, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this]() {
-        m_tireData[0].wearLevel = wearIn->value();
-        updateTireVisualization();
-    });
-
-    paramsLayout->addRow("Front Left Core Temp:", coreIn);
-    paramsLayout->addRow("Front Left Surf Temp:", surfIn);
-    paramsLayout->addRow("Front Left Wear:", wearIn);
-
-    // Controls for tire position
     auto* posGroup = new QGroupBox("Tire Position", this);
     auto* posLayout = new QFormLayout(posGroup);
 
     QDoubleSpinBox* xInput = new QDoubleSpinBox(this);
     xInput->setRange(-5, 5);
-    xInput->setValue(0.8);  // typical front tire position
-    connect(xInput, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this]() {
+    xInput->setValue(0.8);
+    connect(xInput, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, xInput]() {
         m_tireData[0].position.setX(xInput->value());
         updateTireVisualization();
     });
@@ -138,7 +96,7 @@ void TireThermalWidget::buildUI() {
     QDoubleSpinBox* zInput = new QDoubleSpinBox(this);
     zInput->setRange(-5, 5);
     zInput->setValue(0.0);
-    connect(zInput, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this]() {
+    connect(zInput, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, zInput]() {
         m_tireData[0].position.setZ(zInput->value());
         updateTireVisualization();
     });
@@ -146,20 +104,20 @@ void TireThermalWidget::buildUI() {
     posLayout->addRow("X Position (m):", xInput);
     posLayout->addRow("Z Position (m):", zInput);
 
-    // Add widgets to main layout
-    mainLayout->addWidget(m_chart3D, 1);
+    m_statusLabel = new QLabel("No data", this);
+
+    mainLayout->addWidget(chartContainer, 1);
     mainLayout->addWidget(paramsGroup);
     mainLayout->addWidget(posGroup);
     mainLayout->addWidget(m_statusLabel);
 
-    // Initialize with default data
     for (int i = 0; i < 4; i++) {
         m_tireData[i].position = QVector3D(
-            i < 2 ? 0.8 : -0.8,  // FL/FR vs RL/RR
+            i < 2 ? 0.8 : -0.8,
             0,
-            i % 2 == 0 ? 0.6 : -0.6  // Left/Right
+            i % 2 == 0 ? 0.6 : -0.6
         );
-        m_tireData[i].dimensions = QVector3D(0.3, 0.1, 0.9);  // width, height, depth
+        m_tireData[i].dimensions = QVector3D(0.3, 0.1, 0.9);
         updateTireVisualization();
     }
 }
@@ -187,47 +145,43 @@ void TireThermalWidget::updateAllTires(float flCore, float flSurface, float flWe
 }
 
 void TireThermalWidget::updateTireVisualization() {
-    // Update the 3D scatter series with tire temperature data
-    // Plot points based on temperature across the tire surface
-
-    // For each tire, plot a grid of points colored by temperature
-    // This is a simplified visualization - real impl would use actual mesh data
-
     m_statusLabel->setText(QString("Tire: Core %1°C, Surf %2°C, Wear %3%")
         .arg(m_tireData[0].coreTemp, 0, 'f', 1)
         .arg(m_tireData[0].surfaceTemp, 0, 'f', 1)
         .arg(m_tireData[0].wearLevel, 0, 'f', 1));
 
-    // Clear and rebuild series data
     for (int i = 0; i < 4; i++) {
-        m_tireSeries[i]->clear();
+        QList<QScatterDataItem> items;
 
-        // Generate temperature points across the tire surface
         int resolution = 10;
         for (int x = 0; x <= resolution; x++) {
             for (int z = 0; z <= resolution; z++) {
-                // Sample position on tire surface
                 float u = float(x) / float(resolution);
                 float w = float(z) / float(resolution);
 
-                // Calculate temperature at this point (simplified interpolation)
                 float core = m_tireData[i].coreTemp;
                 float surf = m_tireData[i].surfaceTemp;
                 float wear = m_tireData[i].wearLevel;
 
-                // Temperature varies across tire - inner warmer, outer cooler
-                float tempVariation = 10.0 * (0.5 - (float(x) - 5.0) / 10.0 * (float(z) - 5.0) / 10.0);
+                float tempVariation = 10.0f * (0.5f - (float(x) - 5.0f) / 10.0f * (float(z) - 5.0f) / 10.0f);
                 float localTemp = surf + tempVariation;
 
-                // Position on tire surface
-                float xPos = m_tireData[i].position.x() + (u - 0.5) * m_tireData[i].dimensions.x();
-                float yPos = localTemp;  // Temperature as height
-                float zPos = m_tireData[i].position.z() + (w - 0.5) * m_tireData[i].dimensions.z();
+                float xPos = m_tireData[i].position.x() + (u - 0.5f) * m_tireData[i].dimensions.x();
+                float yPos = localTemp;
+                float zPos = m_tireData[i].position.z() + (w - 0.5f) * m_tireData[i].dimensions.z();
 
-                m_tireSeries[i]->append(QVector3D(xPos, yPos, zPos), localTemp);
+                items.append(QScatterDataItem(QVector3D(xPos, yPos, zPos)));
             }
         }
+
+        m_tireSeries[i]->dataProxy()->addRows(items);
     }
 }
 
 } // namespace ks
+
+#else
+
+// Constructor and destructor are inline in the header when HAS_TIRE_3D is 0
+
+#endif

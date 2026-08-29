@@ -14,7 +14,7 @@ namespace {
     std::string s_installPath;
     ACEContentQmlBridge* s_contentBridge = nullptr;
     ACEPackageQmlBridge* s_packageBridge = nullptr;
-    ACEProtobufQmlBridge* s_protobufBridge = nullptr;
+    ACEProtobufQmlBridgeEvo* s_protobufBridge = nullptr;
 }
 
 extern "C" {
@@ -48,7 +48,7 @@ KS_ASSETTOCORSAEVO_API bool initializePlugin() {
 
     s_contentBridge = new ACEContentQmlBridge();
     s_packageBridge = new ACEPackageQmlBridge();
-    s_protobufBridge = new ACEProtobufQmlBridge();
+    s_protobufBridge = new ACEProtobufQmlBridgeEvo();
 
     qDebug() << "[ksAssettoCorsaEVO] Plugin initialized successfully";
     return true;

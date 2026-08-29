@@ -56,11 +56,18 @@
 #include "core/mesh/ProjectionPainter.h"
 #include <QVector4D>
 #include <QImage>
+#include <QJsonObject>
 #include "modules/modellingEditor/KitSystem.h"
 
 namespace ks {
 
-struct FluidSimulator;
+namespace physics { struct FluidSimulator; }
+
+struct PresetData {
+    QString name;
+    QString category;
+    QJsonObject data;
+};
 
 class SceneObjectQml : public QObject {
     Q_OBJECT
@@ -363,13 +370,34 @@ public:
     Q_INVOKABLE int proportionalFalloffType() const;
     Q_INVOKABLE bool pickProportionalCenter(float pickX, float pickY, float pickZ);
     Q_INVOKABLE void clearProportionalCenter();
+    Q_INVOKABLE bool hasProportionalCenter() const;
+    Q_INVOKABLE QVector3D proportionalCenter() const;
 
     // Kit/Preset system
-    Q_INVOKABLE PresetData presetData(const QString& name) const;
+    Q_INVOKABLE modelling::PresetData presetData(const QString& name) const;
     Q_INVOKABLE QStringList presetList() const;
     Q_INVOKABLE bool savePreset(const QString& name, const QString& category);
     Q_INVOKABLE bool deletePreset(const QString& name);
     Q_INVOKABLE void applyPresetToObject(const QString& presetName, int objectId);
+
+    void setScene(SceneGraph* scene);
+    SceneGraph* sceneGraph() const { return m_scene; }
+    void setEditor(core_BaseEditor* editor);
+
+    QJsonObject modifierStackSnapshot(int objectId) const;
+    bool modifierStackRestore(int objectId, const QJsonObject& state);
+    QJsonObject modifierStackToJson(const ModifierStack* stack) const;
+    ModifierStack* modifierStackFromJson(const QJsonObject& o);
+
+    Q_INVOKABLE void extrudeFaces(const QList<int>& faceIndices, float distance);
+    Q_INVOKABLE void bevelEdges(const QList<int>& edgeIndices, float amount, int segments);
+    Q_INVOKABLE void subdivideFaces(const QList<int>& faceIndices, int cuts);
+    Q_INVOKABLE void insetFaces(const QList<int>& faceIndices, float amount);
+
+    Q_INVOKABLE void undo();
+    Q_INVOKABLE void redo();
+    Q_INVOKABLE bool canUndo() const;
+    Q_INVOKABLE bool canRedo() const;
 
 private:
     ks::modelling::KitSystem m_kitSystem;
@@ -388,9 +416,6 @@ private:
                                              float tx, float ty, float tz,
                                              float falloffRadius = 0.0f);
 
-    Q_INVOKABLE void extrudeFaces(const QList<int>& faceIndices, float distance);
-    Q_INVOKABLE void bevelEdges(const QList<int>& edgeIndices, float amount, int segments);
-    Q_INVOKABLE void subdivideFaces(const QList<int>& faceIndices, int cuts);
     Q_INVOKABLE void triangulateMesh();
     Q_INVOKABLE void flipNormals();
     Q_INVOKABLE void recalculateNormals();
@@ -399,7 +424,6 @@ private:
     Q_INVOKABLE void mirrorMesh(int axis);
     Q_INVOKABLE void booleanOperation(int operation, int targetObjectId = -1);
     Q_INVOKABLE QVariantList getMeshObjects() const;
-    Q_INVOKABLE void insetFaces(const QList<int>& faceIndices, float amount);
     // Sketch-to-solid (Plasticity P1): revolves the selected object's geometry
     // (treated as a 2D sketch profile) around `axis` (0=X,1=Y,2=Z) through
     // `angle` degrees with `steps` rings, optionally capping the open ends.
@@ -1027,6 +1051,7 @@ private:
     Q_INVOKABLE void quadRemeshClear(int objectId);
     Q_INVOKABLE void quadRemeshClearAll();
 
+public:
     // Raytraced viewport accessors
     bool rayTraceEnabled() const { return m_rayTraceEnabled; }
     void setRayTraceEnabled(bool enabled);
@@ -1170,11 +1195,6 @@ private:
     Q_INVOKABLE void hairPause();
     Q_INVOKABLE bool hairRunning() const { return m_hairRunning; }
     Q_INVOKABLE void hairRemoveAll();
-
-    Q_INVOKABLE void undo();
-    Q_INVOKABLE void redo();
-    Q_INVOKABLE bool canUndo() const;
-    Q_INVOKABLE bool canRedo() const;
 
     // Keyboard shortcuts
     Q_INVOKABLE bool loadShortcuts(const QString& filePath);
@@ -1333,16 +1353,6 @@ private:
 
     Q_INVOKABLE QStringList getSupportedImportFormats() const;
     Q_INVOKABLE QStringList getSupportedExportFormats() const;
-
-    void setScene(SceneGraph* scene);
-    SceneGraph* sceneGraph() const { return m_scene; }
-    void setEditor(core_BaseEditor* editor);
-
-    // Modifier stack snapshot/restore for undo/redo (used by ModifierStackCommand).
-    QJsonObject modifierStackSnapshot(int objectId) const;
-    bool modifierStackRestore(int objectId, const QJsonObject& state);
-    QJsonObject modifierStackToJson(const ModifierStack* stack) const;
-    ModifierStack* modifierStackFromJson(const QJsonObject& o);
 
 signals:
     void editorTypeChanged(const QString& type);
@@ -1575,7 +1585,7 @@ private:
     QTimer* m_hairTimer = nullptr;
     bool m_hairRunning = false;
     QMap<int, int> m_hairObjects; // surface objectId -> hair SceneObject id
-    ks::FluidSimulator* m_fluidSimulator = nullptr;
+    ks::physics::FluidSimulator* m_fluidSimulator = nullptr;
     void hairTick();
     void rebuildHairMesh(int surfaceObjectId);
     void dynTick();

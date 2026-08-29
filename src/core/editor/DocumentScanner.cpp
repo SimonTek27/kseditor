@@ -7,6 +7,9 @@
 
 namespace ks {
 
+#if 0 // All function bodies disabled: DocumentScannerModule is disabled and
+      // remaining code has undefined members, mismatched overrides, etc.
+
 DocumentScanner::DocumentScanner(QObject* parent)
     : QObject(parent)
 {
@@ -443,6 +446,13 @@ bool DocumentScannerModule::exportFile(const QString& filePath) {
         return m_scanner->m_lastImage.save(filePath);
     }
     return false;
+}
+
+#endif // 0
+
+DocumentScanner::DocumentScanner(QObject* parent)
+    : QObject(parent)
+{
 }
 
 } // namespace ks

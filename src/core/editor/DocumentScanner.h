@@ -87,6 +87,7 @@ private:
     QProcess* m_scanProcess = nullptr;
 };
 
+#if 0 // DocumentScannerModule: deeply broken (mismatched override signatures, undefined members)
 class DocumentScannerModule : public EditorModule {
     Q_OBJECT
 public:
@@ -115,5 +116,6 @@ signals:
 private:
     std::unique_ptr<DocumentScanner> m_scanner;
 };
+#endif
 
 } // namespace ks

@@ -10,6 +10,7 @@
 #include <QImage>
 #include <QColor>
 #include <QFile>
+#include <QFileInfo>
 #include <QTextStream>
 #include <QSet>
 #include <QHash>
@@ -1082,7 +1083,8 @@ NURBSSurface MeshOperations::splitSurfaceByCurve(const NURBSSurface& surface,
                 float u = float(iu) / float(searchRes);
                 float v = float(iv) / float(searchRes);
                 QVector3D surfPt = evaluatePointOnSurface(surface, u, v);
-                float d = QVector3D::distanceSquared(surfPt, cp);
+                QVector3D diff1 = surfPt - cp;
+                float d = diff1.x()*diff1.x() + diff1.y()*diff1.y() + diff1.z()*diff1.z();
                 if (d < bestDist) {
                     bestDist = d;
                     bestU = u;
@@ -1285,9 +1287,9 @@ static NURBSSurface meshToNURBS(const MeshData& mesh) {
     return result;
 }
 
-bool MeshOperations::performNURBSBoolean(
+static bool performNURBSBoolean(
     const NURBSSurface& surfaceA, const NURBSSurface& surfaceB,
-    Operation op, MeshData& resultMesh) {
+    geometry::BooleanOperations::Operation op, MeshData& resultMesh) {
     // Tessellate both surfaces
     MeshData meshA = surfaceToMesh(surfaceA);
     MeshData meshB = surfaceToMesh(surfaceB);
@@ -1298,31 +1300,31 @@ bool MeshOperations::performNURBSBoolean(
     }
 
     // Perform the boolean operation using the existing mesh boolean code
-    BoolOpResult boolResult = BooleanOperations::performOperation(
-        {meshA.vertices, meshA.faces, {}, {}},
-        {meshB.vertices, meshB.faces, {}, {}},
-        op);
+    geometry::BoolOpResult boolResult = geometry::BooleanOperations::performOperation(
+        meshA.toGeoMesh(), meshB.toGeoMesh(), op);
 
     if (!boolResult.isSuccess()) {
         resultMesh = MeshData();
         return false;
     }
 
-    resultMesh = boolResult.result;
+    resultMesh = MeshData::fromGeoMesh(boolResult.result);
     return true;
 }
 
 NURBSSurface MeshOperations::booleanUnion(const NURBSSurface& surfaceA,
                                           const NURBSSurface& surfaceB) {
+#ifdef HAS_OCCT
     if (OCCTBridge::isAvailable()) {
         // Convert NURBS to mesh, perform exact boolean, convert back
-        MeshData meshA = nurbsToMesh(surfaceA);
-        MeshData meshB = nurbsToMesh(surfaceB);
+        MeshData meshA = surfaceToMesh(surfaceA);
+        MeshData meshB = surfaceToMesh(surfaceB);
         MeshData result = OCCTBridge::booleanUnionExact(meshA, meshB);
         return meshToNURBS(result);
     }
+#endif
     MeshData resultMesh;
-    if (performNURBSBoolean(surfaceA, surfaceB, Operation::Union, resultMesh)) {
+    if (performNURBSBoolean(surfaceA, surfaceB, geometry::BooleanOperations::Union, resultMesh)) {
         return meshToNURBS(resultMesh);
     }
     return NURBSSurface();
@@ -1330,14 +1332,16 @@ NURBSSurface MeshOperations::booleanUnion(const NURBSSurface& surfaceA,
 
 NURBSSurface MeshOperations::booleanDifference(
     const NURBSSurface& surfaceA, const NURBSSurface& surfaceB) {
+#ifdef HAS_OCCT
     if (OCCTBridge::isAvailable()) {
-        MeshData meshA = nurbsToMesh(surfaceA);
-        MeshData meshB = nurbsToMesh(surfaceB);
+        MeshData meshA = surfaceToMesh(surfaceA);
+        MeshData meshB = surfaceToMesh(surfaceB);
         MeshData result = OCCTBridge::booleanDifferenceExact(meshA, meshB);
         return meshToNURBS(result);
     }
+#endif
     MeshData resultMesh;
-    if (performNURBSBoolean(surfaceA, surfaceB, Operation::Difference, resultMesh)) {
+    if (performNURBSBoolean(surfaceA, surfaceB, geometry::BooleanOperations::Difference, resultMesh)) {
         return meshToNURBS(resultMesh);
     }
     return NURBSSurface();
@@ -1345,14 +1349,16 @@ NURBSSurface MeshOperations::booleanDifference(
 
 NURBSSurface MeshOperations::booleanIntersection(
     const NURBSSurface& surfaceA, const NURBSSurface& surfaceB) {
+#ifdef HAS_OCCT
     if (OCCTBridge::isAvailable()) {
-        MeshData meshA = nurbsToMesh(surfaceA);
-        MeshData meshB = nurbsToMesh(surfaceB);
+        MeshData meshA = surfaceToMesh(surfaceA);
+        MeshData meshB = surfaceToMesh(surfaceB);
         MeshData result = OCCTBridge::booleanIntersectionExact(meshA, meshB);
         return meshToNURBS(result);
     }
+#endif
     MeshData resultMesh;
-    if (performNURBSBoolean(surfaceA, surfaceB, Operation::Intersection, resultMesh)) {
+    if (performNURBSBoolean(surfaceA, surfaceB, geometry::BooleanOperations::Intersection, resultMesh)) {
         return meshToNURBS(resultMesh);
     }
     return NURBSSurface();
@@ -1361,7 +1367,7 @@ NURBSSurface MeshOperations::booleanIntersection(
 NURBSSurface MeshOperations::booleanXor(const NURBSSurface& surfaceA,
                                         const NURBSSurface& surfaceB) {
     MeshData resultMesh;
-    if (performNURBSBoolean(surfaceA, surfaceB, Operation::SymmetricDiff, resultMesh)) {
+    if (performNURBSBoolean(surfaceA, surfaceB, geometry::BooleanOperations::SymmetricDiff, resultMesh)) {
         return meshToNURBS(resultMesh);
     }
     return NURBSSurface();
@@ -1370,11 +1376,6 @@ NURBSSurface MeshOperations::booleanXor(const NURBSSurface& surfaceA,
 // NURBS fillet/chamfer blending
 // Creates a blended surface between two adjacent NURBS surfaces at a given radius.
 // The blend replaces the sharp edge with a smooth tangent continuation.
-
-struct FilletParams {
-    float radius = 0.1f;
-    int segments = 8;  // number of divisions around the fillet
-};
 
 NURBSSurface MeshOperations::filletSurface(const NURBSSurface& surfaceA,
                                              const NURBSSurface& surfaceB,
@@ -1397,7 +1398,8 @@ NURBSSurface MeshOperations::filletSurface(const NURBSSurface& surfaceA,
                 float u = float(iu) / float(res);
                 float v = float(iv) / float(res);
                 QVector3D sp = evaluatePointOnSurface(surf, u, v);
-                float d = QVector3D::distanceSquared(sp, pt);
+                QVector3D diff2 = sp - pt;
+                float d = diff2.x()*diff2.x() + diff2.y()*diff2.y() + diff2.z()*diff2.z();
                 if (d < bestDist) {
                     bestDist = d;
                     bestU = u;
@@ -1544,6 +1546,116 @@ MeshData MeshOperations::curvatureComb(const NURBSSurface& surface, int directio
 }
 
 // STEP export - export mesh as STEP format (faceted Brep)
+bool MeshOperations::loadFile(const std::string& path, MeshData& outMesh, QString& errorMsg) {
+    QString qPath = QString::fromStdString(path);
+    QFile file(qPath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        errorMsg = QString("Cannot open file: %1").arg(qPath);
+        return false;
+    }
+
+    QString suffix = QFileInfo(qPath).suffix().toLower();
+    if (suffix == "obj") {
+        // Basic OBJ loader
+        QByteArray data = file.readAll();
+        QString content = QString::fromUtf8(data);
+        QStringList lines = content.split('\n');
+        outMesh = createEmpty();
+        for (const QString& line : lines) {
+            QStringList parts = line.trimmed().split(' ', Qt::SkipEmptyParts);
+            if (parts.isEmpty()) continue;
+            if (parts[0] == "v" && parts.size() >= 4) {
+                Vertex v; v.position = QVector3D(parts[1].toFloat(), parts[2].toFloat(), parts[3].toFloat());
+                outMesh.vertices.append(v);
+            } else if (parts[0] == "vn" && parts.size() >= 4) {
+                outMesh.normals.append(QVector3D(parts[1].toFloat(), parts[2].toFloat(), parts[3].toFloat()));
+            } else if (parts[0] == "vt" && parts.size() >= 3) {
+                outMesh.uvs.append(QVector2D(parts[1].toFloat(), parts[2].toFloat()));
+            } else if (parts[0] == "f") {
+                Face face;
+                for (int i = 1; i < parts.size(); ++i) {
+                    QStringList verts = parts[i].split('/');
+                    face.indices.append(verts[0].toInt() - 1);
+                }
+                outMesh.faces.append(face);
+                // Build index buffer from faces
+                for (int i = 1; i + 1 < face.indices.size(); ++i) {
+                    outMesh.indices.append(face.indices[0]);
+                    outMesh.indices.append(face.indices[i]);
+                    outMesh.indices.append(face.indices[i + 1]);
+                }
+            }
+        }
+        outMesh.computeBoundingBox();
+        outMesh.computeNormals();
+        return true;
+    } else if (suffix == "stl") {
+        // Basic STL binary/ASCII loader
+        QByteArray header = file.peek(80);
+        if (header.startsWith("solid")) {
+            // ASCII STL
+            outMesh = createEmpty();
+            QByteArray data = file.readAll();
+            QString content = QString::fromUtf8(data);
+            QStringList lines = content.split('\n');
+            QVector3D currentNormal;
+            for (const QString& line : lines) {
+                QString trimmed = line.trimmed();
+                if (trimmed.startsWith("facet normal")) {
+                    QStringList parts = trimmed.split(' ', Qt::SkipEmptyParts);
+                    if (parts.size() >= 5)
+                        currentNormal = QVector3D(parts[2].toFloat(), parts[3].toFloat(), parts[4].toFloat());
+                } else if (trimmed.startsWith("vertex")) {
+                    QStringList parts = trimmed.split(' ', Qt::SkipEmptyParts);
+                    if (parts.size() >= 4) {
+                        Vertex v; v.position = QVector3D(parts[1].toFloat(), parts[2].toFloat(), parts[3].toFloat());
+                        outMesh.vertices.append(v);
+                        outMesh.normals.append(currentNormal);
+                    }
+                }
+            }
+            int numVerts = outMesh.vertices.size();
+            for (int i = 0; i + 2 < numVerts; i += 3) {
+                outMesh.indices.append(i);
+                outMesh.indices.append(i + 1);
+                outMesh.indices.append(i + 2);
+                Face face;
+                face.indices = {i, i + 1, i + 2};
+                outMesh.faces.append(face);
+            }
+        } else {
+            // Binary STL
+            file.seek(80);
+            quint32 numTriangles;
+            file.read(reinterpret_cast<char*>(&numTriangles), 4);
+            outMesh = createEmpty();
+            for (quint32 i = 0; i < numTriangles; ++i) {
+                float data[12];
+                file.read(reinterpret_cast<char*>(data), 48);
+                quint16 attrByteCount;
+                file.read(reinterpret_cast<char*>(&attrByteCount), 2);
+                QVector3D n(data[0], data[1], data[2]);
+                for (int v = 0; v < 3; ++v) {
+                    Vertex vert; vert.position = QVector3D(data[3 + v * 3], data[4 + v * 3], data[5 + v * 3]);
+                    outMesh.vertices.append(vert);
+                    outMesh.normals.append(n);
+                }
+                int base = i * 3;
+                outMesh.indices.append(base);
+                outMesh.indices.append(base + 1);
+                outMesh.indices.append(base + 2);
+                Face face;
+                face.indices = {base, base + 1, base + 2};
+                outMesh.faces.append(face);
+            }
+        }
+        outMesh.computeBoundingBox();
+        return true;
+    }
+    errorMsg = QString("Unsupported format: %1").arg(suffix);
+    return false;
+}
+
 bool MeshOperations::exportSTEP(const MeshData& mesh, const QString& path, bool useBREP) {
     QFile file(path);
     if (!file.open(QFile::WriteOnly | QFile::Text)) {
@@ -6105,11 +6217,13 @@ QImage MeshOperations::uvDensityHeatmap(const MeshData& mesh, int width, int hei
     return img;
 }
 NURBSSurface MeshOperations::offsetSurface(const NURBSSurface& surface, float distance) {
+#ifdef HAS_OCCT
     if (OCCTBridge::isAvailable()) {
-        MeshData mesh = nurbsToMesh(surface);
+        MeshData mesh = surfaceToMesh(surface);
         MeshData offsetMesh = OCCTBridge::offsetSurfaceExact(mesh, distance);
         return meshToNURBS(offsetMesh);
     }
+#endif
     // Fallback: simple Y-axis translation
     NURBSSurface out = surface;
     for (auto& row : out.controlPoints)
@@ -6129,7 +6243,8 @@ QVector<int> MeshOperations::retargetSkeleton(const QVector<QVector3D>& srcJoint
         float bestDist = std::numeric_limits<float>::max();
         
         for (int j = 0; j < dstJoints.size(); ++j) {
-            float dist = QVector3D::distanceSquaredTo(srcPos, dstJoints[j]);
+            QVector3D diff3 = srcPos - dstJoints[j];
+            float dist = diff3.x()*diff3.x() + diff3.y()*diff3.y() + diff3.z()*diff3.z();
             if (dist < bestDist) {
                 bestDist = dist;
                 bestIdx = j;

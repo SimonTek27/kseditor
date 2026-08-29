@@ -10,12 +10,12 @@
 #include "../../modules/LicensePlatesEditor/LicensePlateEditorModule.h"
 #include "../modmanager/ContentRepair.h"
 #include "../tools/FormatToolsQmlBridge.h"
-#include "../FfbEditor/FfbEditorQmlBridge.h"
+#include "../editor/FfbEditor/FfbEditorQmlBridge.h"
 #include "../../modules/ShowroomEditor/ShowroomEditorModule.h"
 #include "../../modules/PaintEditor/PaintEditorModule.h"
-#include "../AIEditor/AIEditorModule.h"
-#include "../eventEditor/championshipEditor/ChampionshipEditorModule.h"
-#include "../textEditor/TextEditorModule.h"
+#include "../editor/AIEditor/AIEditorModule.h"
+#include "../editor/eventEditor/championshipEditor/ChampionshipEditorModule.h"
+#include "../editor/textEditor/TextEditorModule.h"
 #include "../../modules/PhysicsEditor/SetupEditor/SetupEditorQmlBridge.h"
 #include "../../modules/PhysicsEditor/telemetry/TelemetryViewerQmlBridge.h"
 #include "../weather/WeatherEditorModule.h"
@@ -26,11 +26,11 @@
 #include "../../modules/PaintEditor/SkinIniEditorModule.h"
 #include "../../modules/PaintEditor/GUISkinEditorModule.h"
 #include "../../modules/sound/editor/SoundEditorModule.h"
-#include "plugins/simulators/kunos/assettocorsa/FormatToolsEditorModule.h"
+#include "../../plugins/simulators/kunos/assettocorsa/FormatToolsEditorModule.h"
 #include "../../core/Scripting/luaScript/LuaScriptEditorModule.h"
-#include "../../core/eventEditor/specialEventsEditor/SpecialEventsEditorModule.h"
-#include "../../core/eventEditor/raceConfigEditor/RaceConfigEditorModule.h"
-#include "../../core/eventEditor/careerEditor/CareerEditorModule.h"
+#include "../../core/editor/eventEditor/specialEventsEditor/SpecialEventsEditorModule.h"
+#include "../../core/editor/eventEditor/raceConfigEditor/RaceConfigEditorModule.h"
+#include "../../core/editor/eventEditor/careerEditor/CareerEditorModule.h"
 #include "../../modules/ShowroomEditor/ShowroomPPEditorModule.h"
 #include "../../modules/modellingEditor/TrackBuilder/cameratrackEditor/TrackCameraEditorModule.h"
 #include "../../modules/modellingEditor/CarBuilder/cameracarEditor/CameraEditorModule.h"
@@ -39,16 +39,16 @@
 #include "../../modules/ideeditor/IdeEditorModule.h"
 #include "../../modules/fontEditor/FontCreatorQmlBridge.h"
 #include "../../modules/fontEditor/FontCreatorEditorModule.h"
-#include "../../modules/displayEditor/CockpitInstrumentsModule.h"
+#include "../../modules/cockpitInstruments/CockpitInstrumentsModule.h"
 #include "../../core/editor/ppfiltersEditor/PPFiltersQmlBridge.h"
-#include "../../core/ServerConfigEditor/ServerConfigEditorModule.h"
+#include "../editor/ServerConfigEditor/ServerConfigEditorModule.h"
 #include "../../core/editor/documentpad/DocumentPadModule.h"
 #include "../../core/editor/sheetpad/SheetPadModule.h"
 #include "../../core/vcs/VcsEditorModule.h"
 #include "../../core/archive/ArchiveEditorModule.h"
-#include "../vr/VREditorModule.h"
+#include "../devices/vr/VREditorModule.h"
 #include "../../core/animation/AnimationEditorModule.h"
-#include "../../core/3dprint/ThreeDPrintEditorModule.h"
+#include "../../core/devices/3dprint/ThreeDPrintEditorModule.h"
 #include "../../core/Audio/AudioEditorModule.h"
 #include "../../core/material/MaterialEditorModule.h"
 #include "../../core/network/NetworkEditorModule.h"
@@ -62,7 +62,7 @@
 #include "../../core/tools/ToolsEditorModule.h"
 #include "../../core/editor/DocumentPrinter.h"
 #include "../../core/editor/DocumentScanner.h"
-#include "../../core/ui/UIEditorModule.h"
+#include "../../../resources/ui/UIEditorModule.h"
 
 #include <QVBoxLayout>
 #include <QLabel>
@@ -156,8 +156,12 @@ void ModuleManager::loadModules()
     registerModule(new ks::sys::SystemEditorModule(this));
     registerModule(new ks::tools::ToolsEditorModule(this));
     registerModule(new ks::ui::UIEditorModule(this));
+#if HAS_QPRINTER
     registerModule(new ks::DocumentPrinterModule(this));
+#endif
+#if 0 // DocumentScannerModule disabled
     registerModule(new ks::DocumentScannerModule(this));
+#endif
 
     // Sort modules by priority (higher priority first)
     std::sort(m_modules.begin(), m_modules.end(), [](ks::EditorModule* a, ks::EditorModule* b) {

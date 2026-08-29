@@ -24,7 +24,7 @@
 #include "core/Graphics/SceneObject.h"
 #include "SceneParamAccess.h"
 #include "core/Graphics/SceneMesh.h"
-#include "assettocorsa/acFiles/KN5Parser.h"
+#include "plugins/simulators/kunos/assettocorsa/acFiles/KN5Parser.h"
 #include "core/Math/MathCore.h"
 #include "core/FileFormat/FBXParser.h"
 #include "core/FileFormat/GLBParser.h"
@@ -61,6 +61,8 @@
 #include <QSet>
 #include <cmath>
 #include <limits>
+#include <QStandardPaths>
+#include "core/physics/PhysicsSimulations.h"
 
 class ks::KSModelerQml::MaterialNodeEditorImpl {
 public:
@@ -314,7 +316,7 @@ KSModelerQml::KSModelerQml(QObject* parent)
         [this](int objectId) -> QString { return m_fabricNormalCache.value(objectId); });
     
     // Initialize built-in presets and kits
-    m_kitSystem->initializeBuiltInPresets();
+    m_kitSystem.initializeBuiltInPresets();
 }
 
 KSModelerQml::~KSModelerQml() {
@@ -1604,28 +1606,21 @@ bool KSModelerQml::importXSI(const QString& path) {
     emit sceneChanged(); return true;
 }
 
-bool KSModelerQml::createKit(const QString& name) {
-    m_kitSystem.createKit(name);
-    emit kitAdded(name);
-    emit presetsChanged();
-    return true;
-}
-
-QStringList KSModelerQml::kitList() const {
-    return m_kitSystem.getAllKitNames();
-}
-
-PresetData KSModelerQml::presetData(const QString& name) const {
+modelling::PresetData KSModelerQml::presetData(const QString& name) const {
     return m_kitSystem.getPreset(name);
 }
 
 QStringList KSModelerQml::presetList() const {
-    return m_kitSystem.presetList();
+    QStringList names;
+    for (const auto& p : m_kitSystem.getPresets()) {
+        names.append(p.name);
+    }
+    return names;
 }
 
 bool KSModelerQml::savePreset(const QString& name, const QString& category) {
     // Find or create preset
-    PresetData preset;
+    modelling::PresetData preset;
     preset.name = name;
     preset.category = category;
     preset.color = QVector4D(1, 1, 1, 1);
@@ -1634,7 +1629,7 @@ bool KSModelerQml::savePreset(const QString& name, const QString& category) {
     // Check if exists
     bool exists = false;
     for (int i = 0; i < m_kitSystem.presetCount(); ++i) {
-        if (m_kitSystem.getPreset(m_kitSystem.presets[i].name).name == name) {
+        if (m_kitSystem.getPresets()[i].name == name) {
             exists = true;
             break;
         }
@@ -1652,11 +1647,11 @@ bool KSModelerQml::deletePreset(const QString& name) {
 }
 
 void KSModelerQml::applyPresetToObject(const QString& presetName, int objectId) {
-    PresetData preset = m_kitSystem.getPreset(presetName);
+    modelling::PresetData preset = m_kitSystem.getPreset(presetName);
     if (preset.name.isEmpty()) return;
     
     // Find the object and apply preset parameters
-    SceneObject* obj = m_scene->object(objectId);
+    SceneObject* obj = m_scene->findObjectById(objectId);
     if (!obj) return;
     
     // Apply position, rotation, scale from preset
@@ -1664,15 +1659,10 @@ void KSModelerQml::applyPresetToObject(const QString& presetName, int objectId) 
     QVector3D rot = preset.rotation;
     QVector3D scale = preset.scale;
     
-    // This is a simplified application - in a full implementation,
-    // we'd apply material, etc.
-    if (obj->type() == SceneObject::Type::Mesh) {
-        Mesh* mesh = static_cast<Mesh*>(obj);
-        // Apply transform
-        mesh->transform().setTranslation(pos);
-        mesh->transform().setRotation(QVector3D(rot.x(), rot.y(), rot.z()));
-        mesh->transform().setScale(scale);
-    }
+    // Apply transform using SceneObject methods
+    obj->setPosition(pos);
+    obj->setRotationEuler(rot);
+    obj->setScale(scale);
 }
 
 bool KSModelerQml::importGrasshopper(const QString& path) {
@@ -1683,15 +1673,16 @@ bool KSModelerQml::importGrasshopper(const QString& path) {
     
     MeshData md;
     QString errorMsg;
-    bool success = fileformat::importGrasshopperToScene(m_scene, data, &errorMsg);
+    bool success = ks::fileformat::importGrasshopperDefinition(data, md, &errorMsg);
     
     if (!success) {
         emit error("Grasshopper import failed: " + errorMsg);
         return false;
     }
     
+    int meshCount = m_scene->findObjectsByType(SceneObject::Type::Mesh).size();
     emit statusMessage("Grasshopper import: geometry loaded (" + 
-        QString::number(m_scene->meshes.size()) + " meshes)");
+        QString::number(meshCount) + " meshes)");
     
     emit sceneChanged(); return true;
 }
@@ -1781,7 +1772,7 @@ bool KSModelerQml::fluidSimulate(int frames, float viscosity) {
 
     // Get or create fluid simulator
     if (!m_fluidSimulator) {
-        m_fluidSimulator = new ks::FluidSimulator(this);
+        m_fluidSimulator = new ks::physics::FluidSimulator(this);
     }
 
     m_fluidSimulator->viscosity = viscosity;
@@ -2182,13 +2173,13 @@ bool KSModelerQml::exportKN5(const QString& path) {
     for (SceneObject* obj : m_scene->allObjects()) {
         if (obj->type() != SceneObject::Type::Mesh || !obj->mesh()) continue;
         
-        Mesh mesh;
+        KN5Parser::Mesh mesh;
         mesh.name = obj->name();
         mesh.nodeIndex = nodeIdx++;
         mesh.castShadows = true;
         mesh.isVisible = true;
         mesh.isTransparent = false;
-        mesh.materialType = Mesh::MaterialType::Standard;
+        mesh.materialType = KN5Parser::Mesh::MaterialType::Standard;
         
         MeshData md = sceneMeshToMeshData(obj);
         auto pit = m_smoothGroups.constFind(obj->id());
@@ -2227,15 +2218,15 @@ bool KSModelerQml::exportKN5(const QString& path) {
         
         // Bounding box from mesh data
         if (!verts.isEmpty()) {
-            mesh.boundingMin = verts[0].position.toVector3D();
-            mesh.boundingMax = verts[0].position.toVector3D();
+            mesh.boundingMin = {verts[0].position.x(), verts[0].position.y(), verts[0].position.z()};
+            mesh.boundingMax = mesh.boundingMin;
             for (int i = 1; i < verts.size(); ++i) {
-                mesh.boundingMin.setX(qMin(mesh.boundingMin.x(), verts[i].position.x()));
-                mesh.boundingMin.setY(qMin(mesh.boundingMin.y(), verts[i].position.y()));
-                mesh.boundingMin.setZ(qMin(mesh.boundingMin.z(), verts[i].position.z()));
-                mesh.boundingMax.setX(qMax(mesh.boundingMax.x(), verts[i].position.x()));
-                mesh.boundingMax.setY(qMax(mesh.boundingMax.y(), verts[i].position.y()));
-                mesh.boundingMax.setZ(qMax(mesh.boundingMax.z(), verts[i].position.z()));
+                mesh.boundingMin.x = qMin(mesh.boundingMin.x, verts[i].position.x());
+                mesh.boundingMin.y = qMin(mesh.boundingMin.y, verts[i].position.y());
+                mesh.boundingMin.z = qMin(mesh.boundingMin.z, verts[i].position.z());
+                mesh.boundingMax.x = qMax(mesh.boundingMax.x, verts[i].position.x());
+                mesh.boundingMax.y = qMax(mesh.boundingMax.y, verts[i].position.y());
+                mesh.boundingMax.z = qMax(mesh.boundingMax.z, verts[i].position.z());
             }
         }
         mesh.boundingRadius = 0.0f;
@@ -2247,8 +2238,8 @@ bool KSModelerQml::exportKN5(const QString& path) {
         sub.vertexCount = verts.size();
         sub.indexOffset = idxOffset;
         sub.indexCount = idxs.size();
-        sub.boundingMin = mesh.boundingMin;
-        sub.boundingMax = mesh.boundingMax;
+        sub.boundingMin = {mesh.boundingMin.x, mesh.boundingMin.y, mesh.boundingMin.z};
+        sub.boundingMax = {mesh.boundingMax.x, mesh.boundingMax.y, mesh.boundingMax.z};
         mesh.subMeshes.append(sub);
         
         vertIdx += verts.size();
@@ -5064,8 +5055,8 @@ bool KSModelerQml::tilingApplyToObject(int objectId, const QByteArray& tiledImag
     QString tempPath = QDir::tempPath() + "/kseditor_tiled_" + QUuid::createUuid().toString().mid(1, 8) + ".png";
     img.save(tempPath);
 
-    if (obj->mesh()->materialName.isEmpty()) {
-        obj->mesh()->materialName = "TiledMaterial";
+    if (obj->mesh()->geometry().name.isEmpty()) {
+        obj->mesh()->geometry().name = "TiledMaterial";
     }
 
     emit statusMessage("Tiling: applied tiled texture to object " + obj->name());
@@ -6101,15 +6092,15 @@ bool KSModelerQml::resolveUVOverlaps()
     return true;
 }
 QVariantList KSModelerQml::analyzeUVDensity(int objectId) {
-    auto* o=m_scene?m_scene->objectById(objectId):nullptr; if(!o) o=m_selectedObject?m_selectedObject->object():nullptr; if(!o||!o->mesh()) return {};
+    auto* o=m_scene?m_scene->findObjectById(objectId):nullptr; if(!o) o=m_selectedObject?m_selectedObject->object():nullptr; if(!o||!o->mesh()) return {};
     auto vals=MeshOperations::analyzeUVDensity(sceneMeshToMeshData(o)); QVariantList r; for(float v:vals) r.append(v); return r;
 }
 QString KSModelerQml::uvDensityHeatmap(int objectId, int w, int h) {
-    auto* o=m_scene?m_scene->objectById(objectId):nullptr; if(!o) o=m_selectedObject?m_selectedObject->object():nullptr; if(!o||!o->mesh()) return {};
+    auto* o=m_scene?m_scene->findObjectById(objectId):nullptr; if(!o) o=m_selectedObject?m_selectedObject->object():nullptr; if(!o||!o->mesh()) return {};
     QImage img=MeshOperations::uvDensityHeatmap(sceneMeshToMeshData(o),w,h); QString p=QDir::temp().filePath(QString("ks_uvdensity_%1.png").arg(objectId)); img.save(p); return p;
 }
 QString KSModelerQml::uvOverlapHeatmap(int objectId, int w, int h) {
-    auto* o=m_scene?m_scene->objectById(objectId):nullptr; if(!o) o=m_selectedObject?m_selectedObject->object():nullptr; if(!o||!o->mesh()) return {};
+    auto* o=m_scene?m_scene->findObjectById(objectId):nullptr; if(!o) o=m_selectedObject?m_selectedObject->object():nullptr; if(!o||!o->mesh()) return {};
     QImage img=MeshOperations::uvOverlapHeatmap(sceneMeshToMeshData(o),w,h); QString p=QDir::temp().filePath(QString("ks_uvoverlap_%1.png").arg(objectId)); img.save(p); return p;
 }
 bool KSModelerQml::createXRef(const QString& path, float x, float y, float z) {
@@ -6173,7 +6164,7 @@ bool KSModelerQml::createXRef(const QString& path, float x, float y, float z) {
     } else {
         // Fallback: create a placeholder box
         auto md = MeshOperations::createBox(1,1,1);
-        o = m_scene->createObject(SceneObject::Type::Mesh, QFileInfo(path).baseName());
+        o = m_scene->createObject(QFileInfo(path).baseName(), SceneObject::Type::Mesh);
         importMeshDataToScene(m_scene, md, QFileInfo(path).baseName());
         auto allObjs = m_scene->allObjects();
         if (allObjs.isEmpty()) return false;
@@ -6289,12 +6280,13 @@ bool KSModelerQml::applyClusterDeform(const QList<int>& indices, float dx,float 
     md=MeshOperations::applyClusterDeform(md,idx,QVector3D(dx,dy,dz),wgt); meshDataToSceneMesh(obj,md); emit sceneChanged(); return true;
 }
 bool KSModelerQml::applyBlendShape(int targetObjectId, float weight) {
-    if(!m_scene||!m_selectedObject) return false; auto* src=m_selectedObject->object(); auto* dst=m_scene->objectById(targetObjectId); if(!src||!dst||!src->mesh()||!dst->mesh()) return false;
+    if(!m_scene||!m_selectedObject) return false; auto* src=m_selectedObject->object(); auto* dst=m_scene->findObjectById(targetObjectId); if(!src||!dst||!src->mesh()||!dst->mesh()) return false;
     MeshData a=sceneMeshToMeshData(src), b=sceneMeshToMeshData(dst); auto r=MeshOperations::applyBlendShape(a,b,qBound(0.0f,weight,1.0f)); meshDataToSceneMesh(src,r); emit sceneChanged(); return true;
 }
 QVariantList KSModelerQml::fcurveFilteredKeys(int objectId, const QString& channel, float from, float to) const {
     QVariantList r; auto it=m_fcurves.constFind(objectId); if(it==m_fcurves.constEnd()) return r;
-    for(auto &k: it->channels.value(channel).keys) if(k.frame>=from&&k.frame<=to){ QVariantMap m; m["frame"]=k.frame; m["value"]=k.value; m["interp"]=k.interpolation; r.append(m);} return r;
+    const auto* ch=it->channel(channel); if(!ch) return r;
+    for(const auto &k: ch->keys) if(k.frame>=from&&k.frame<=to){ QVariantMap m; m["frame"]=k.frame; m["value"]=k.value; m["interp"]=static_cast<int>(k.interpolation); r.append(m);} return r;
 }
 bool KSModelerQml::bevelEdgesAdvanced(const QList<int>& edgeIndices, float distance, int segments, int profileType, float tension) {
     if (!m_selectedObject) return false;

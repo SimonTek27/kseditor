@@ -1,5 +1,5 @@
 #include "ksAssettoCorsa_export.h"
-#include "KsPlugin.h"
+#include "../KsPlugin.h"
 #include "WorkshopModule.h"
 #include "ContentBrowser.h"
 #include "QmlBridges.h"

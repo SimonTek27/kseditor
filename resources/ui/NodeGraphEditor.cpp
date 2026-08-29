@@ -248,15 +248,18 @@ void NodeGraphView::handleConnection(const QPointF& pos) {
     if (!m_scene || !m_connecting) return;
 
     QGraphicsItem* item = m_scene->itemAt(pos, QTransform());
-    if (auto* portItem = qgraphicsitem_cast<GraphPortItem*>(item)) {
-        if (portItem->isOutput()) {
-            m_connectingFromNodeId = portItem->nodeId();
-            m_connectingFromPortId = portItem->portId();
-        } else {
-            if (!m_connectingFromNodeId.isEmpty()) {
-                emit connectionCreated(m_connectingFromNodeId, m_connectingFromPortId,
-                                       portItem->nodeId(), portItem->portId());
-                m_connecting = false;
+    if (auto* nodeItem = qgraphicsitem_cast<GraphNodeItem*>(item)) {
+        auto hit = nodeItem->hitTestPort(pos);
+        if (!hit.portId.isNull()) {
+            if (!hit.isInput) {
+                m_connectingFromNode = nodeItem->nodeId();
+                m_connectingFromPort = hit.portId;
+            } else {
+                if (!m_connectingFromNode.isNull()) {
+                    emit connectionCreated(m_connectingFromNode, m_connectingFromPort,
+                                           nodeItem->nodeId(), hit.portId);
+                    m_connecting = false;
+                }
             }
         }
     }
@@ -571,10 +574,9 @@ void GraphConnectionItem::contextMenuEvent(QGraphicsSceneContextMenuEvent* event
     QMenu menu;
     QAction* deleteAction = menu.addAction("Delete Connection");
     QAction* selectedAction = menu.exec(event->screenPos());
-    if (selectedAction == deleteAction) {
-        emit connectionDeleted(m_connectionData);
-        scene()->removeItem(this);
-        delete this;
+        if (selectedAction == deleteAction) {
+            scene()->removeItem(this);
+            delete this;
     }
 }
 
@@ -1512,7 +1514,7 @@ void GradientEditorWidget::contextMenuEvent(QContextMenuEvent* event) {
             int barWidth = width() - 20;
             float pos = static_cast<float>(event->pos().x() - barLeft) / static_cast<float>(barWidth);
             pos = qBound(0.0f, pos, 1.0f);
-            addStop(pos, m_color);
+            addStop(pos);
             update();
         }
     }

@@ -56,6 +56,8 @@ public:
     void setDyntopo(bool enabled);
     bool isDyntopoEnabled() const { return m_dyntopoEnabled; }
 
+    void setRetopoMode(bool enabled);
+
     void setDetail(float detail);
     float getDetail() const { return m_detail; }
 
@@ -107,6 +109,7 @@ private:
     SculptModeType m_sculptMode;
 
     bool m_dyntopoEnabled;
+    bool m_retopoMode;
     float m_detail;
     bool m_autoMaskEnabled;
     float m_brushRadius = 1.0f;

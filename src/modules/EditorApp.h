@@ -20,13 +20,13 @@
 #include "modellingEditor/TrackBuilder/TrackLightingEditorModule.h"
 #include "modellingEditor/TrackBuilder/DRSZoneEditorModule.h"
 #include "modellingEditor/TrackBuilder/cameratrackEditor/TrackCameraEditorModule.h"
-#include "../core/eventEditor/raceConfigEditor/RaceConfigEditorModule.h"
-#include "../core/eventEditor/specialEventsEditor/SpecialEventsEditorModule.h"
-#include "../core/eventEditor/careerEditor/CareerEditorModule.h"
+#include "../core/editor/eventEditor/raceConfigEditor/RaceConfigEditorModule.h"
+#include "../core/editor/eventEditor/specialEventsEditor/SpecialEventsEditorModule.h"
+#include "../core/editor/eventEditor/careerEditor/CareerEditorModule.h"
 #include "PaintEditor/GUISkinEditorModule.h"
 #include "../core/Scripting/luaScript/LuaScriptEditorModule.h"
 #include "../core/Scripting/python/PythonScriptEngine.h"
-#include "../core/vr/VREditorModule.h"
+#include "../core/devices/vr/VREditorModule.h"
 
 namespace ks {
 namespace geometry { class Scene3D; }

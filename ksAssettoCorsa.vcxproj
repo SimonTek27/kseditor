@@ -392,7 +392,7 @@
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\plugins\simulators\kunos\assettocorsa\acCSP\moc_CspConfigHandler.cpp" />
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\plugins\simulators\kunos\assettocorsa\moc_ACSharedMemory.cpp" />
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\plugins\simulators\kunos\assettocorsa\moc_ACLivePreviewBridge.cpp" />
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\plugins\simulators\kunos\assettocorsa\assettocorsa.h" />
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\plugins\simulators\kunos\assettocorsa\ksassettocorsa.h" />
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\plugins\simulators\kunos\assettocorsa\assettocorsa_core.h" />
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\plugins\simulators\kunos\assettocorsa\ksAssettoCorsa_export.h" />
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\plugins\simulators\kunos\assettocorsa\ContentBrowser.h" />

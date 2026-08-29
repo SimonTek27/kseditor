@@ -4,6 +4,7 @@
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
+#include <QDateTime>
 #include "Collaboration.h"
 
 namespace ks {
@@ -72,6 +73,8 @@ private:
     int m_port = 8080;
     QString m_userName = "User";
     QStringList m_followedUsers;
+    QString m_documentId;
+    int m_lastSyncedVersion = 0;
 };
 
 }

@@ -4,9 +4,9 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 
-namespace ks {
+#include "SpreadsheetModel.h"
 
-class SpreadsheetModel;
+namespace ks {
 
 class SpreadsheetView : public QTableView {
     Q_OBJECT

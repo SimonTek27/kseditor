@@ -17,13 +17,13 @@
 #include <QTranslator>
 #include <QLocale>
 
-#include "core/ui/FileTreeWidget.h"
-#include "core/ui/ProjectSearchWidget.h"
-#include "core/ui/TerminalWidget.h"
+#include "../resources/ui/FileTreeWidget.h"
+#include "../resources/ui/ProjectSearchWidget.h"
+#include "../resources/ui/TerminalWidget.h"
 #include "core/vcs/GitStatusWidget.h"
 #include "sys/ModuleManager.h"
 #include "sys/SettingsManager.h"
-#include "../../../resources/ui/RibbonUI.h"
+#include "../resources/ui/RibbonUI.h"
 #include "core/tools/TemplateManager.h"
 #include "core/tools/FileDiffEngine.h"
 #include "core/tools/AutoSave.h"
@@ -46,7 +46,7 @@ namespace ks { class CrashRecovery; }
 class ProjectBuilder;
 class MainWindowPrivate;
 
-#include "core/ui/CustomTitleBar.h"
+#include "../resources/ui/CustomTitleBar.h"
 
 class MainWindow : public QMainWindow
 {

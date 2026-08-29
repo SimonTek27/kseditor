@@ -6,6 +6,7 @@ SculptMode::SculptMode(QObject* parent)
     : QObject(parent)
     , m_currentTool(ToolDraw)
     , m_isStroking(false)
+    , m_retopoMode(false)
 {
     m_brush.radius = 0.5f;
     m_brush.strength = 0.5f;
@@ -18,7 +19,15 @@ SculptMode::~SculptMode() = default;
 
 void SculptMode::setMeshData(const QVector<QVector3D>& vertices, const QVector<int>& faces)
 {
-    m_vertices = vertices;
+    m_vertices.clear();
+    m_vertices.reserve(vertices.size());
+    for (const auto& v : vertices) {
+        Vertex vert;
+        vert.position = v;
+        vert.normal = QVector3D(0, 1, 0);
+        vert.mask = 0.0f;
+        m_vertices.append(vert);
+    }
     m_faceIndices = faces;
     rebuildNormals();
 }
@@ -67,14 +76,14 @@ void SculptMode::addPoint(const QVector3D& point, const QVector3D& normal, float
     float radiusSq = m_brush.radius * m_brush.radius;
 
     for (int i = 0; i < m_vertices.size(); ++i) {
-        QVector3D& vert = m_vertices[i];
+        QVector3D& vert = m_vertices[i].position;
         float distSq = (vert - point).lengthSquared();
 
         if (distSq < radiusSq) {
             float falloff = 1.0f - (sqrt(distSq) / m_brush.radius);
             float strength = m_brush.strength * falloff * sp.pressure;
 
-            QVector3D vertNormal = (i < m_normals.size()) ? m_normals[i] : QVector3D(0, 1, 0);
+            QVector3D vertNormal = m_vertices[i].normal;
             sculptPoint(vert, vertNormal, strength);
         }
     }
@@ -125,15 +134,15 @@ void SculptMode::quadDrawSplitEdge(int edgeIndex)
         m_vertices.append(newVert);
 
         // Find and split faces containing this edge
-        for (int fi = 0; fi + 2 < m_mesh->faces.size(); fi += 3) {
-            int faceVerts[3] = {m_mesh->faces[fi], m_mesh->faces[fi+1], m_mesh->faces[fi+2]};
+        for (int fi = 0; fi + 2 < m_faces.size(); fi += 3) {
+            int faceVerts[3] = {m_faces[fi], m_faces[fi+1], m_faces[fi+2]};
             for (int e = 0; e < 3; ++e) {
                 int ev0 = faceVerts[e];
                 int ev1 = faceVerts[(e+1)%3];
                 if ((ev0 == v1 && ev1 == v2) || (ev0 == v2 && ev1 == v1)) {
                     int opp = faceVerts[(e+2)%3];
-                    m_mesh->faces[fi] = v1; m_mesh->faces[fi+1] = newIdx; m_mesh->faces[fi+2] = opp;
-                    m_mesh->faces.append(newIdx); m_mesh->faces.append(v2); m_mesh->faces.append(opp);
+                    m_faces[fi] = v1; m_faces[fi+1] = newIdx; m_faces[fi+2] = opp;
+                    m_faces.append(newIdx); m_faces.append(v2); m_faces.append(opp);
                     break;
                 }
             }
@@ -146,6 +155,11 @@ void SculptMode::endStroke()
     m_isStroking = false;
     rebuildNormals();
     emit strokeEnded();
+}
+
+void SculptMode::setRetopoMode(bool enabled)
+{
+    m_retopoMode = enabled;
 }
 
 void SculptMode::sculptPoint(QVector3D& vertex, const QVector3D& normal, float strength)
@@ -209,7 +223,7 @@ void SculptMode::smoothVertex(QVector3D& vertex, float strength)
 
     for (int i = 0; i < qMin(10, m_vertices.size()); ++i) {
         if (i < m_vertices.size()) {
-            avg += m_vertices[i];
+            avg += m_vertices[i].position;
             count++;
         }
     }
@@ -249,7 +263,7 @@ int SculptMode::findNearestVertex(const QVector3D& point) const
     float minDist = 1e10f;
 
     for (int i = 0; i < m_vertices.size(); ++i) {
-        float dist = (m_vertices[i] - point).lengthSquared();
+        float dist = (m_vertices[i].position - point).lengthSquared();
         if (dist < minDist) {
             minDist = dist;
             nearest = i;
@@ -279,15 +293,18 @@ void SculptMode::rebuildNormals()
 
         if (i0 >= m_vertices.size() || i1 >= m_vertices.size() || i2 >= m_vertices.size()) continue;
 
-        QVector3D v0 = m_vertices[i0];
-        QVector3D v1 = m_vertices[i1];
-        QVector3D v2 = m_vertices[i2];
+        QVector3D v0 = m_vertices[i0].position;
+        QVector3D v1 = m_vertices[i1].position;
+        QVector3D v2 = m_vertices[i2].position;
 
         QVector3D normal = QVector3D::crossProduct(v1 - v0, v2 - v0);
 
         m_normals[i0] += normal;
         m_normals[i1] += normal;
         m_normals[i2] += normal;
+        m_vertices[i0].normal = m_normals[i0];
+        m_vertices[i1].normal = m_normals[i1];
+        m_vertices[i2].normal = m_normals[i2];
     }
 
     for (QVector3D& n : m_normals) {

@@ -152,6 +152,8 @@ signals:
     void connectionContextMenuRequested(const QUuid& connectionId, const QPoint& globalPos);
     void backgroundContextMenuRequested(const QPoint& globalPos);
     void nodesDropped(const QVector<QString>& types, const QPointF& position);
+    void connectionCreated(const QUuid& fromNodeId, const QUuid& fromPortId,
+                           const QUuid& toNodeId, const QUuid& toPortId);
 
 private:
     NodeGraphScene* m_scene;

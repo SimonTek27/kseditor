@@ -1,5 +1,5 @@
 #include "CspConfigHandler.h"
-#include "../../../../../core/ServerConfigEditor/CspShaderCompiler.h"
+#include "core/editor/ServerConfigEditor/CspShaderCompiler.h"
 #include <QFile>
 #include <QTextStream>
 #include <QFileInfo>

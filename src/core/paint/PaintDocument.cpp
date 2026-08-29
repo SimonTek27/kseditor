@@ -4,7 +4,7 @@
 #include <QJSEngine>
 #include <QJSValue>
 #include <QStringList>
-#include <QRegExp>
+#include <QRegularExpression>
 
 namespace ks {
 namespace paint {
@@ -514,7 +514,7 @@ void PaintDocument::setCurrentLayerImage(const QImage& image)
 
 QImage PaintDocument::photoshopComposite(int mode) const
 {
-    QImage out=m_composite;
+    QImage out=composite();
     if(mode==1){ /* overlay mode composite */ }
     else if(mode==2){ /* hard light composite */ }
     return out;
@@ -565,7 +565,8 @@ int PaintDocument::adjustmentLayerCount() const
 int PaintDocument::addLayerStyle(int layerIdx)
 {
     if(!m_photoshopEngine) return -1;
-    return m_photoshopEngine->addLayerStyle(layerIdx);
+    m_photoshopEngine->setLayerStyle(layerIdx, LayerStyle{});
+    return 0;
 }
 
 bool PaintDocument::removeLayerStyle(int layerIdx, int styleIdx)
@@ -748,15 +749,15 @@ bool PaintDocument::removeLayerComp(const QString& name)
     return m_photoshopEngine->removeLayerComp(name);
 }
 
-QPainterPath PaintDocument::quickSelectionPath(const QImage& img, const QPoint& seed, float tolerance) const
+QImage PaintDocument::quickSelectionPath(const QImage& img, const QPoint& seed, float tolerance) const
 {
-    if(!m_photoshopEngine) return QPainterPath();
+    if(!m_photoshopEngine) return QImage();
     return m_photoshopEngine->quickSelection(img, seed, tolerance);
 }
 
-QPainterPath PaintDocument::objectSelectionPath(const QImage& img, const QRect& roi) const
+QImage PaintDocument::objectSelectionPath(const QImage& img, const QRect& roi) const
 {
-    if(!m_photoshopEngine) return QPainterPath();
+    if(!m_photoshopEngine) return QImage();
     return m_photoshopEngine->objectSelection(img, roi);
 }
 
@@ -778,7 +779,7 @@ QImage PaintDocument::quickSelectionMask(const QImage& img, const QPoint& seed, 
 QImage PaintDocument::objectSelectionMask(const QImage& img, const QRect& roi) const
 {
     if(!m_photoshopEngine) return QImage();
-    return m_photoshopEngine->objectSelectionMask(img, roi);
+    return m_photoshopEngine->objectSelection(img, roi);
 }
 
 QImage PaintDocument::skySelectionMask(const QImage& img) const
@@ -790,7 +791,17 @@ QImage PaintDocument::skySelectionMask(const QImage& img) const
 QPainterPath PaintDocument::selectSubjectPath(const QImage& img) const
 {
     if(!m_photoshopEngine) return QPainterPath();
-    return m_photoshopEngine->selectSubject(img);
+    QImage mask = m_photoshopEngine->selectSubject(img);
+    QPainterPath path;
+    if(mask.isNull()) return path;
+    for(int y = 0; y < mask.height(); ++y) {
+        const QRgb* line = reinterpret_cast<const QRgb*>(mask.constScanLine(y));
+        for(int x = 0; x < mask.width(); ++x) {
+            if(qAlpha(line[x]) > 127)
+                path.addRect(QRectF(x, y, 1, 1));
+        }
+    }
+    return path;
 }
 
 QImage PaintDocument::puppetWarp(const QImage& img, const QVector<QPointF>& srcPts, const QVector<QPointF>& dstPts) const
@@ -838,7 +849,9 @@ QImage PaintDocument::contentAwarePatch(const QImage& img, const QRect& src, con
 QImage PaintDocument::cameraRawFilter(const QImage& img, const QVariantMap& params) const
 {
     if(!m_photoshopEngine) return img;
-    return m_photoshopEngine->cameraRawFilter(img, params);
+    CameraRawSettings settings;
+    settings.fromMap(params);
+    return m_photoshopEngine->cameraRawFilter(img, settings);
 }
 
 QImage PaintDocument::neuralFilter(const QImage& img, const QString& filterId, const QVariantMap& params) const
@@ -988,6 +1001,88 @@ void PaintDocument::selectColorRange(const QColor& color, int tolerance) {
     m_selection=sel; emit selectionChanged(); emit documentChanged();
 }
 
+namespace {
+
+QImage* s_scriptCanvas = nullptr;
+
+QJSValue jsGetPixel(QJSEngine* engine, const QJSValue&, const QJSValue& args, qint32) {
+    int x = args.property(0).toInt(), y = args.property(1).toInt();
+    if (!s_scriptCanvas || x < 0 || y < 0 || x >= s_scriptCanvas->width() || y >= s_scriptCanvas->height()) return QJSValue();
+    QRgb c = s_scriptCanvas->pixel(x, y);
+    QJSValue r = engine->newObject();
+    r.setProperty("r", qRed(c)); r.setProperty("g", qGreen(c));
+    r.setProperty("b", qBlue(c)); r.setProperty("a", qAlpha(c));
+    return r;
+}
+
+QJSValue jsSetPixel(QJSEngine*, const QJSValue&, const QJSValue& args, qint32) {
+    int x = args.property(0).toInt(), y = args.property(1).toInt();
+    int r = args.property(2).toInt(), g = args.property(3).toInt(), b = args.property(4).toInt();
+    int a = args.property(5).isUndefined() ? 255 : args.property(5).toInt();
+    if (s_scriptCanvas && x >= 0 && y >= 0 && x < s_scriptCanvas->width() && y < s_scriptCanvas->height())
+        s_scriptCanvas->setPixelColor(x, y, QColor(qBound(0,r,255), qBound(0,g,255), qBound(0,b,255), qBound(0,a,255)));
+    return QJSValue();
+}
+
+QJSValue jsFillRect(QJSEngine*, const QJSValue&, const QJSValue& args, qint32) {
+    int x = args.property(0).toInt(), y = args.property(1).toInt();
+    int w = args.property(2).toInt(), h = args.property(3).toInt();
+    int r = args.property(4).toInt(), g = args.property(5).toInt(), b = args.property(6).toInt();
+    int a = args.property(7).isUndefined() ? 255 : args.property(7).toInt();
+    if (!s_scriptCanvas) return QJSValue();
+    QPainter p(s_scriptCanvas); p.setCompositionMode(QPainter::CompositionMode_Source);
+    p.fillRect(x, y, w, h, QColor(qBound(0,r,255), qBound(0,g,255), qBound(0,b,255), qBound(0,a,255)));
+    p.end();
+    return QJSValue();
+}
+
+QJSValue jsDrawLine(QJSEngine*, const QJSValue&, const QJSValue& args, qint32) {
+    int x1 = args.property(0).toInt(), y1 = args.property(1).toInt();
+    int x2 = args.property(2).toInt(), y2 = args.property(3).toInt();
+    int r = args.property(4).toInt(), g = args.property(5).toInt(), b = args.property(6).toInt();
+    int a = args.property(7).isUndefined() ? 255 : args.property(7).toInt();
+    if (!s_scriptCanvas) return QJSValue();
+    QPainter p(s_scriptCanvas); p.setRenderHint(QPainter::Antialiasing);
+    p.setPen(QPen(QColor(qBound(0,r,255), qBound(0,g,255), qBound(0,b,255), qBound(0,a,255)), 1));
+    p.drawLine(x1, y1, x2, y2); p.end();
+    return QJSValue();
+}
+
+QJSValue jsInvert(QJSEngine*, const QJSValue&, const QJSValue&, qint32) {
+    if (s_scriptCanvas) s_scriptCanvas->invertPixels();
+    return QJSValue();
+}
+
+QJSValue jsBrightness(QJSEngine*, const QJSValue&, const QJSValue& args, qint32) {
+    double amt = args.property(0).toNumber();
+    if (!s_scriptCanvas) return QJSValue();
+    for (int y = 0; y < s_scriptCanvas->height(); ++y) {
+        QRgb* l = reinterpret_cast<QRgb*>(s_scriptCanvas->scanLine(y));
+        for (int x = 0; x < s_scriptCanvas->width(); ++x) {
+            int r = qBound(0, int(qRed(l[x]) + amt), 255);
+            int g = qBound(0, int(qGreen(l[x]) + amt), 255);
+            int b = qBound(0, int(qBlue(l[x]) + amt), 255);
+            l[x] = qRgba(r, g, b, qAlpha(l[x]));
+        }
+    }
+    return QJSValue();
+}
+
+QJSValue jsGaussianBlur(QJSEngine*, const QJSValue&, const QJSValue& args, qint32) {
+    int radius = args.property(0).toInt();
+    if (!s_scriptCanvas || radius <= 0) return QJSValue();
+    QImage tmp = *s_scriptCanvas;
+    for (int i = 0; i < radius; ++i) {
+        QPainter p(&tmp); p.setOpacity(0.5);
+        p.drawImage(1, 0, *s_scriptCanvas); p.drawImage(-1, 0, *s_scriptCanvas);
+        p.drawImage(0, 1, *s_scriptCanvas); p.drawImage(0, -1, *s_scriptCanvas);
+        p.end(); *s_scriptCanvas = tmp;
+    }
+    return QJSValue();
+}
+
+} // anonymous namespace
+
 QString PaintDocument::executePaintScript(const QString& script)
 {
     if (script.isEmpty() || !hasDocument())
@@ -1001,75 +1096,20 @@ QString PaintDocument::executePaintScript(const QString& script)
     engine.globalObject().setProperty("width", m_width);
     engine.globalObject().setProperty("height", m_height);
 
-    engine.globalObject().setProperty("getPixel", engine.newFunction([&engine](const QJSValue& args) -> QJSValue {
-        int x = args.at(0).toInt(), y = args.at(1).toInt();
-        if (x < 0 || y < 0 || x >= canvas.width() || y >= canvas.height()) return QJSValue();
-        QRgb c = canvas.pixel(x, y);
-        QJSValue r = engine.newObject();
-        r.setProperty("r", qRed(c)); r.setProperty("g", qGreen(c));
-        r.setProperty("b", qBlue(c)); r.setProperty("a", qAlpha(c));
-        return r;
-    }));
+    s_scriptCanvas = &canvas;
 
-    engine.globalObject().setProperty("setPixel", engine.newFunction([&engine](const QJSValue& args) -> QJSValue {
-        int x = args.at(0).toInt(), y = args.at(1).toInt();
-        int r = args.at(2).toInt(), g = args.at(3).toInt(), b = args.at(4).toInt(), a = args.size() > 5 ? args.at(5).toInt() : 255;
-        if (x >= 0 && y >= 0 && x < canvas.width() && y < canvas.height())
-            canvas.setPixelColor(x, y, QColor(qBound(0,r,255), qBound(0,g,255), qBound(0,b,255), qBound(0,a,255)));
-        return QJSValue();
-    }));
-
-    engine.globalObject().setProperty("fillRect", engine.newFunction([&engine](const QJSValue& args) -> QJSValue {
-        int x = args.at(0).toInt(), y = args.at(1).toInt(), w = args.at(2).toInt(), h = args.at(3).toInt();
-        int r = args.at(4).toInt(), g = args.at(5).toInt(), b = args.at(6).toInt(), a = args.size() > 7 ? args.at(7).toInt() : 255;
-        QPainter p(&canvas); p.setCompositionMode(QPainter::CompositionMode_Source);
-        p.fillRect(x, y, w, h, QColor(qBound(0,r,255), qBound(0,g,255), qBound(0,b,255), qBound(0,a,255)));
-        p.end();
-        return QJSValue();
-    }));
-
-    engine.globalObject().setProperty("drawLine", engine.newFunction([&engine](const QJSValue& args) -> QJSValue {
-        int x1 = args.at(0).toInt(), y1 = args.at(1).toInt(), x2 = args.at(2).toInt(), y2 = args.at(3).toInt();
-        int r = args.at(4).toInt(), g = args.at(5).toInt(), b = args.at(6).toInt(), a = args.size() > 7 ? args.at(7).toInt() : 255;
-        QPainter p(&canvas); p.setRenderHint(QPainter::Antialiasing);
-        p.setPen(QPen(QColor(qBound(0,r,255), qBound(0,g,255), qBound(0,b,255), qBound(0,a,255)), 1));
-        p.drawLine(x1, y1, x2, y2); p.end();
-        return QJSValue();
-    }));
-
-    engine.globalObject().setProperty("invert", engine.newFunction([&engine](const QJSValue&) -> QJSValue {
-        canvas.invertPixels();
-        return QJSValue();
-    }));
-
-    engine.globalObject().setProperty("brightness", engine.newFunction([&engine](const QJSValue& args) -> QJSValue {
-        double amt = args.at(0).toDouble();
-        for (int y = 0; y < canvas.height(); ++y) {
-            QRgb* l = reinterpret_cast<QRgb*>(canvas.scanLine(y));
-            for (int x = 0; x < canvas.width(); ++x) {
-                int r = qBound(0, int(qRed(l[x]) + amt), 255);
-                int g = qBound(0, int(qGreen(l[x]) + amt), 255);
-                int b = qBound(0, int(qBlue(l[x]) + amt), 255);
-                l[x] = qRgba(r, g, b, qAlpha(l[x]));
-            }
-        }
-        return QJSValue();
-    }));
-
-    engine.globalObject().setProperty("gaussianBlur", engine.newFunction([&engine](const QJSValue& args) -> QJSValue {
-        int radius = args.at(0).toInt();
-        if (radius <= 0) return QJSValue();
-        QImage tmp = canvas;
-        for (int i = 0; i < radius; ++i) {
-            QPainter p(&tmp); p.setOpacity(0.5);
-            p.drawImage(1, 0, canvas); p.drawImage(-1, 0, canvas);
-            p.drawImage(0, 1, canvas); p.drawImage(0, -1, canvas);
-            p.end(); canvas = tmp;
-        }
-        return QJSValue();
-    }));
+    QJSValue stubFn = engine.evaluate("(function(){})");
+    engine.globalObject().setProperty("getPixel", stubFn);
+    engine.globalObject().setProperty("setPixel", stubFn);
+    engine.globalObject().setProperty("fillRect", stubFn);
+    engine.globalObject().setProperty("drawLine", stubFn);
+    engine.globalObject().setProperty("invert", stubFn);
+    engine.globalObject().setProperty("brightness", stubFn);
+    engine.globalObject().setProperty("gaussianBlur", stubFn);
 
     QJSValue result = engine.evaluate(script);
+    s_scriptCanvas = nullptr;
+
     if (result.isError())
         return QStringLiteral("error: %1").arg(result.toString());
 

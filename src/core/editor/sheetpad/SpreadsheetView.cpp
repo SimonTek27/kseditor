@@ -1,7 +1,7 @@
 #include "SpreadsheetView.h"
-#include "SpreadsheetModel.h"
 #include <QApplication>
 #include <QClipboard>
+#include <QHeaderView>
 #include <QMimeData>
 #include <QScrollBar>
 
@@ -12,7 +12,7 @@ SpreadsheetView::SpreadsheetView(QWidget* parent)
 {
     setSelectionMode(QAbstractItemView::ExtendedSelection);
     setSelectionBehavior(QAbstractItemView::SelectItems);
-    setTabKeyBehavior(QAbstractItemView::SelectRows);
+
 
     // Spreadsheet behavior
     horizontalHeader()->setStretchLastSection(true);

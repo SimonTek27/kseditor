@@ -421,13 +421,16 @@ void VectorDesignCanvas::tabletEvent(QTabletEvent* event)
 {
     QPointF scenePos = mapToScene(event->position().toPoint());
     float pressure = event->pressure();
-    float tiltX = event->tiltX();
-    float tiltY = event->tiltY();
+    float tiltX = 0.0f;
+    float tiltY = 0.0f;
 
     switch (event->type()) {
     case QTabletEvent::TabletPress: {
         if (m_activeTool == SelectTool) {
-            handleSelectPress(event);
+            QMouseEvent mouseEvent(QEvent::MouseButtonPress, event->position(),
+                                   event->globalPosition(), event->button(),
+                                   event->buttons(), event->modifiers());
+            handleSelectPress(&mouseEvent);
             break;
         }
         m_isDrawing = true;

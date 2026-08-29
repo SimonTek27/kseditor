@@ -1417,8 +1417,8 @@ bool ImportExport3D::exportKS3D(geometry::Scene3D* scene, const QString& path)
 }
 
 bool ImportExport3D::import3DM(const QString& path, geometry::Scene3D* scene) {
-    if (!scene || !QFile::exists(path)) { emit error("File not found: " + path); return false; }
-    emit statusMessage("Importing 3DM: " + path);
+    if (!scene || !QFile::exists(path)) { qWarning() << "[ImportExport3D] File not found:" << path; return false; }
+    qInfo() << "[ImportExport3D] Importing 3DM:" << path;
 
     // Try native3dm parsing first
     ks::Rhino3dmParser parser;
@@ -1446,11 +1446,9 @@ bool ImportExport3D::import3DM(const QString& path, geometry::Scene3D* scene) {
                 mesh3d->setIndices(indices);
                 mesh3d->computeNormals();
 
-                auto* obj = new geometry::SceneObject();
-                obj->setMesh(mesh3d);
-                obj->setName(rhinoMesh.name.isEmpty() ?
-                    QString("3DM_Mesh_%1").arg(i) : rhinoMesh.name);
-                scene->addObject(obj);
+                QString objName = rhinoMesh.name.isEmpty() ?
+                    QString("3DM_Mesh_%1").arg(i) : rhinoMesh.name;
+                scene->addObject(objName, mesh3d);
             }
 
             qInfo() << "[ImportExport3D] Imported" << meshCount << "meshes from 3DM file (native parser)";
@@ -1465,7 +1463,7 @@ bool ImportExport3D::import3DM(const QString& path, geometry::Scene3D* scene) {
 
 bool ImportExport3D::export3DM(geometry::Scene3D* scene, const QString& path) {
     if (!scene) return false;
-    emit statusMessage("Exporting 3DM: " + path);
+    qInfo() << "[ImportExport3D] Exporting 3DM:" << path;
     QString objPath = path; objPath.replace(QRegularExpression("\\.3dm$", QRegularExpression::CaseInsensitiveOption), ".obj");
     bool ok = exportOBJ(scene, objPath);
     if (ok) qInfo() << "[ImportExport3D] Exported 3DM as OBJ to:" << objPath;

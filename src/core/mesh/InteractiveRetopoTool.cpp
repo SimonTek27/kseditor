@@ -317,7 +317,10 @@ bool InteractiveRetopoTool::relaxMesh(int iterations, float strength) {
     if (!m_lowPolyMesh || m_lowPolyMesh->vertices.isEmpty()) return false;
 
     for (int iter = 0; iter < iterations; ++iter) {
-        QVector<QVector3D> newPositions = m_lowPolyMesh->vertices;
+        QVector<QVector3D> newPositions;
+        newPositions.reserve(m_lowPolyMesh->vertices.size());
+        for (const auto& v : m_lowPolyMesh->vertices)
+            newPositions.append(v.position);
 
         for (int i = 0; i < m_lowPolyMesh->vertices.size(); ++i) {
             QVector3D avgPos;
@@ -339,12 +342,12 @@ bool InteractiveRetopoTool::relaxMesh(int iterations, float strength) {
                 avgPos /= neighborCount;
                 QVector3D snapped = snapToHighPoly(m_lowPolyMesh->vertices[i].position +
                                                   (avgPos - m_lowPolyMesh->vertices[i].position) * strength);
-                newPositions[i].position = snapped;
+                newPositions[i] = snapped;
             }
         }
 
         for (int i = 0; i < m_lowPolyMesh->vertices.size(); ++i) {
-            m_lowPolyMesh->vertices[i].position = newPositions[i].position;
+            m_lowPolyMesh->vertices[i].position = newPositions[i];
         }
     }
 

@@ -7,6 +7,7 @@
 #include <QDir>
 #include <QQueue>
 #include <QSet>
+#include <QHash>
 #include <QCryptographicHash>
 #include <algorithm>
 
@@ -613,7 +614,7 @@ QString ShaderGraphManager::generateGLSL(const QUuid& graphId, const QString& en
     // Generate function for each node
     output += "// Node functions\n";
     for (const auto& node : graph->nodes) {
-        QString funcName = "node_" + QString::number(node.id.toString().hash() & 0xFFFF, 16);
+        QString funcName = "node_" + QString::number(qHash(node.id.toString()) & 0xFFFF, 16);
         output += "// Node: " + node.title + " (" + node.id.toString() + ")\n";
 
         QString returnType = "vec4";
@@ -830,12 +831,12 @@ QString ShaderGraphManager::generateGLSL(const QUuid& graphId, const QString& en
     output += "\nvoid main() {\n";
     for (const auto& node : graph->nodes) {
         if (node.type == ShaderNodeType::OutputMaterial || node.type == ShaderNodeType::OutputSurface) {
-            QString funcName = "node_" + QString::number(node.id.toString().hash() & 0xFFFF, 16);
+            QString funcName = "node_" + QString::number(qHash(node.id.toString()) & 0xFFFF, 16);
             for (const auto& conn : graph->connections) {
                 if (conn.toNodeId == node.id) {
                     for (const auto& srcNode : graph->nodes) {
                         if (srcNode.id == conn.fromNodeId) {
-                            QString srcFunc = "node_" + QString::number(srcNode.id.toString().hash() & 0xFFFF, 16);
+                            QString srcFunc = "node_" + QString::number(qHash(srcNode.id.toString()) & 0xFFFF, 16);
                             output += "    " + funcName + "(" + srcFunc + "(";
                             QStringList inputArgs;
                             for (const auto& in : srcNode.inputs) {
@@ -1673,7 +1674,7 @@ bool ShaderExporter::exportAllPermutations(const QUuid& graphId, const ShaderExp
     ShaderGraph* graph = ShaderGraphManager::instance()->getGraph(graphId);
     if (!graph) return false;
 
-    QDir outputDir(options.outputPath);
+    QDir outputDir(options.outputDirectory);
     if (!outputDir.exists()) {
         outputDir.mkpath(".");
     }
@@ -1687,7 +1688,7 @@ bool ShaderExporter::exportAllPermutations(const QUuid& graphId, const ShaderExp
         QString permDir = outputDir.filePath(perm.name);
         outputDir.mkpath(perm.name);
         ShaderExportOptions permOpts = options;
-        permOpts.outputPath = permDir;
+        permOpts.outputDirectory = permDir;
         allOk &= exportPermutation(perm, permOpts);
     }
 

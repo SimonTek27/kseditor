@@ -12,7 +12,7 @@
 
 namespace ks {
 
-class KsPaths {
+class ACKsPaths {
 public:
     static QString getContentDirectory(const QString& ksRoot);
     static QString getCarsDirectory(const QString& ksRoot);

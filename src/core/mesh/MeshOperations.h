@@ -445,6 +445,9 @@ struct RadialMenu {
     static bool exportHiddenLineSVG(const MeshData& mesh, const QString& path,
                                     int viewAxis = 2, float lineWidth = 0.3f);
 
+    // File loading
+    static bool loadFile(const std::string& path, MeshData& outMesh, QString& errorMsg);
+
     // Advanced snapping
     enum class SnapType { None = 0, Vertex = 1, Edge = 2, Face = 4, Midpoint = 8, Grid = 16, Tangent = 32 };
     static QVector3D snapPoint(const QVector3D& worldPoint, int snapTypes);

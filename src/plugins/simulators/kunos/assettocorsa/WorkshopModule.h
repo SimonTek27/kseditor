@@ -13,7 +13,7 @@
 
 namespace ks {
 
-struct WorkshopItem {
+struct ACWorkshopItem {
     quint64 workshopId;
     QString title;
     QString description;
@@ -26,7 +26,7 @@ struct WorkshopItem {
     bool installed;
     QString localPath;
 
-    bool operator==(const WorkshopItem& other) const {
+    bool operator==(const ACWorkshopItem& other) const {
         return workshopId == other.workshopId;
     }
 };
@@ -38,8 +38,8 @@ public:
     ~WorkshopDownloader();
 
     void setOutputDirectory(const QString& dir);
-    void downloadItem(const WorkshopItem& item);
-    void downloadItems(const QVector<WorkshopItem>& items);
+    void downloadItem(const ACWorkshopItem& item);
+    void downloadItems(const QVector<ACWorkshopItem>& items);
     void cancelDownload(quint64 workshopId);
     void cancelAll();
 
@@ -60,13 +60,12 @@ private:
 
     QString m_outputDir;
     QNetworkAccessManager* m_networkManager = nullptr;
-    QVector<WorkshopItem> m_queue;
+    QVector<ACWorkshopItem> m_queue;
     QMap<quint64, QNetworkReply*> m_activeDownloads;
     QMap<quint64, QByteArray> m_buffers;
     bool m_downloading = false;
 };
 
-// ── Update info for installed workshop items ─────────────────────────────
 struct WorkshopUpdateInfo {
     quint64 workshopId;
     QString title;
@@ -76,7 +75,6 @@ struct WorkshopUpdateInfo {
     QString changelog;
 };
 
-// ── Dependency info ─────────────────────────────────────────────────────
 struct WorkshopDependency {
     quint64 workshopId;
     QString title;
@@ -106,30 +104,28 @@ public slots:
     void refreshWorkshop();
     void browseCategory(const QString& category);
     void searchItems(const QString& query);
-    void downloadItem(const WorkshopItem& item);
+    void downloadItem(const ACWorkshopItem& item);
     void downloadSelected();
     void viewInstalled();
-    void openInBrowser(const WorkshopItem& item);
+    void openInBrowser(const ACWorkshopItem& item);
 
-    // ── Update checking ──────────────────────────────────────────────────
     void checkForUpdates();
     void updateItem(quint64 workshopId);
     void updateAll();
     int pendingUpdates() const { return m_pendingUpdates.size(); }
     QVector<WorkshopUpdateInfo> getPendingUpdates() const { return m_pendingUpdates; }
 
-    // ── Dependency resolution ────────────────────────────────────────────
     void resolveDependencies(quint64 workshopId);
     QVector<WorkshopDependency> getDependencies(quint64 workshopId) const;
     QVector<WorkshopDependency> getConflicts(quint64 workshopId) const;
     bool canInstall(quint64 workshopId, QStringList& blockingConflicts);
 
 signals:
-    void workshopLoaded(const QVector<WorkshopItem>& items);
+    void workshopLoaded(const QVector<ACWorkshopItem>& items);
     void downloadProgress(quint64 workshopId, int percent);
     void downloadCompleted(quint64 workshopId);
     void statusMessage(const QString& message);
-    void itemsLoaded(const QVector<WorkshopItem>& items);
+    void itemsLoaded(const QVector<ACWorkshopItem>& items);
     void updatesAvailable(int count);
     void updateProgress(quint64 workshopId, int percent);
     void updateCompleted(quint64 workshopId, bool success);
@@ -140,20 +136,18 @@ private:
     void parseWorkshopPage(const QString& html);
     QString getWorkshopUrlForCategory(const QString& category);
     void checkItemVersion(quint64 workshopId, const QString& currentVersion);
-    void handlePostDownload(const WorkshopItem& item, const QString& packagePath);
+    void handlePostDownload(const ACWorkshopItem& item, const QString& packagePath);
 
     QNetworkAccessManager* m_networkManager = nullptr;
     WorkshopDownloader* m_downloader = nullptr;
-    QVector<WorkshopItem> m_items;
-    QVector<WorkshopItem> m_installedItems;
+    QVector<ACWorkshopItem> m_items;
+    QVector<ACWorkshopItem> m_installedItems;
     QString m_currentCategory;
 
-    // Update tracking
     QVector<WorkshopUpdateInfo> m_pendingUpdates;
     QSet<quint64> m_updatingItems;
     QMap<quint64, QString> m_installedVersions;
 
-    // Dependency tracking
     QMap<quint64, QVector<WorkshopDependency>> m_dependencyCache;
 };
 
@@ -202,7 +196,7 @@ private:
     int m_itemCount = 0;
     QString m_currentCategory;
     QString m_outputDir;
-    QVector<WorkshopItem> m_items;
+    QVector<ACWorkshopItem> m_items;
     QNetworkAccessManager* m_networkManager = nullptr;
     WorkshopDownloader* m_downloader = nullptr;
 };

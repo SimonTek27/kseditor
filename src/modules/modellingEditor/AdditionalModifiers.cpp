@@ -2009,7 +2009,7 @@ MeshData BevelModifierEx::apply(const MeshData& input)
     if (profileShape == BevelModifierEx::ProfileShape::Concave) {
         // Concave profile: offset beveled vertices inward (toward the edge midpoint)
         // by inverting the convex rounding direction.
-        MeshData::ensureEdgeList(result);
+        MeshOperations::ensureEdgeList(result);
         for (int i = 0; i < result.edges.size(); ++i) {
             int v1 = result.edges[i].v1;
             int v2 = result.edges[i].v2;
@@ -2017,18 +2017,15 @@ MeshData BevelModifierEx::apply(const MeshData& input)
                 continue;
             QVector3D mid = (result.vertices[v1].position + result.vertices[v2].position) * 0.5f;
             QVector3D toMid = (mid - result.vertices[v1].position).normalized() * width * profileValue;
-            // Pull beveled vertices inward toward edge midpoint
             for (int s = 1; s < segments; ++s) {
                 float t = (float)s / segments;
-                float concaveFactor = t * (1.0f - t) * 4.0f; // parabolic concave
+                float concaveFactor = t * (1.0f - t) * 4.0f;
                 result.vertices[v1].position += toMid * concaveFactor;
                 result.vertices[v2].position += toMid * concaveFactor;
             }
         }
     } else if (profileShape == BevelModifierEx::ProfileShape::Custom) {
-        // Custom profile: remap vertex positions along the bevel using profileValue
-        // as a power curve (0 = flat, 0.5 = linear, 1 = rounded).
-        MeshData::ensureEdgeList(result);
+        MeshOperations::ensureEdgeList(result);
         for (int i = 0; i < result.edges.size(); ++i) {
             int v1 = result.edges[i].v1;
             int v2 = result.edges[i].v2;

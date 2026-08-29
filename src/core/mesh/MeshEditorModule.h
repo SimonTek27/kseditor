@@ -5,6 +5,7 @@
 #include <QTabWidget>
 
 namespace ks { class Skeleton; }
+class SculptMode;
 #include <QTreeWidget>
 #include <QTableWidget>
 #include <QComboBox>
@@ -67,6 +68,7 @@ private slots:
     void onDecimateMesh();
     void onRemesh();
     void onSmoothMesh();
+    void onRetopoMesh();
     void onShowContextMenu(const QPoint& pos);
 
 private:
@@ -77,6 +79,7 @@ private:
     void setupExportTab();
     void refreshMeshList();
     void refreshBoneList();
+    void loadXRef(const QString& path);
 
     QTabWidget* m_tabWidget = nullptr;
 
@@ -107,6 +110,7 @@ private:
     QPushButton* m_remeshBtn = nullptr;
     QSpinBox* m_remeshResSpin = nullptr;
     QPushButton* m_decimateBtn = nullptr;
+    QPushButton* m_retopoBtn = nullptr;
     QDoubleSpinBox* m_decimateRatioSpin = nullptr;
     QLabel* m_sculptInfoLabel = nullptr;
 
@@ -134,6 +138,7 @@ private:
 
     MeshData m_currentMesh;
     ks::Skeleton* m_skeleton = nullptr;
+    SculptMode* m_sculptMode = nullptr;
     QString m_currentMeshPath;
 };
 

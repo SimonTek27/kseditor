@@ -4,9 +4,15 @@
 #include <QPainterPath>
 #include <QTransform>
 #include <QColor>
+#include <QFont>
 #include <QGradient>
 #include <QXmlStreamReader>
+#if __has_include(<QSvgRenderer>)
 #include <QSvgRenderer>
+#define HAS_QSVG 1
+#else
+#define HAS_QSVG 0
+#endif
 #include <QVector>
 #include <QMap>
 #include <QVariantMap>

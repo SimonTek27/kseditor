@@ -537,7 +537,7 @@ MeshData NodeTree::processNode(Node* node, MeshData input)
             if (voxelSize <= 0) voxelSize = 0.25f;
             if (input.vertices.isEmpty()) return input;
             // Build a spatial hash of input vertex positions
-            QHash<QPair<int,int,int>, int> voxelMap;
+            QHash<qint64, int> voxelMap;
             QVector3D bbMin = input.vertices[0].position;
             for (const Vertex& v : input.vertices) {
                 bbMin = QVector3D(qMin(bbMin.x(), v.position.x()), qMin(bbMin.y(), v.position.y()), qMin(bbMin.z(), v.position.z()));
@@ -547,18 +547,21 @@ MeshData NodeTree::processNode(Node* node, MeshData input)
                 int vx = (int)std::floor((v.position.x() - bbMin.x()) / voxelSize);
                 int vy = (int)std::floor((v.position.y() - bbMin.y()) / voxelSize);
                 int vz = (int)std::floor((v.position.z() - bbMin.z()) / voxelSize);
-                voxelMap[qMakePair(qMakePair(vx, vy), vz)] = i;
+                qint64 key = (qint64(vx) << 32) | (qint64(vy) << 16) | qint64(vz);
+                voxelMap[key] = i;
             }
             // Generate surface quads where a voxel has an empty neighbor
             MeshData result;
             const int dirs[6][3] = {{1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1}};
             for (auto it = voxelMap.constBegin(); it != voxelMap.constEnd(); ++it) {
-                int cx = it.key().first.first;
-                int cy = it.key().first.second;
-                int cz = it.key().second;
+                qint64 key = it.key();
+                int cx = int((key >> 32) & 0xFFFF);
+                int cy = int((key >> 16) & 0xFFFF);
+                int cz = int(key & 0xFFFF);
                 for (int d = 0; d < 6; ++d) {
                     int nx = cx + dirs[d][0], ny = cy + dirs[d][1], nz = cz + dirs[d][2];
-                    if (!voxelMap.contains(qMakePair(qMakePair(nx, ny), nz))) {
+                    qint64 nkey = (qint64(nx) << 32) | (qint64(ny) << 16) | qint64(nz);
+                    if (!voxelMap.contains(nkey)) {
                         // This face is on the surface - add a small quad
                         float sx = bbMin.x() + cx * voxelSize;
                         float sy = bbMin.y() + cy * voxelSize;

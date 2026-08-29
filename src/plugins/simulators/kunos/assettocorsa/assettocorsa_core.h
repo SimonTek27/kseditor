@@ -36,7 +36,7 @@
 
 // ============================================================================
 // assettocorsa_core.h — File formats and physics types
-// Extracted from assettocorsa.h
+// Extracted from ksassettocorsa.h
 // ============================================================================
 
 #ifndef KS_CONSTANTS_H

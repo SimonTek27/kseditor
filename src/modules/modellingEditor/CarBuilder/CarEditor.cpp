@@ -7,7 +7,7 @@
 #include <QDir>
 #include <QImage>
 #include <cstring>
-#include "assettocorsa/acFiles/KN5Parser.h"
+#include "plugins/simulators/kunos/assettocorsa/acFiles/KN5Parser.h"
 
 namespace ks {
 
@@ -278,8 +278,12 @@ bool CarEditor::exportToAC(const QString& outputPath)
         sub.vertexCount = 24;
         sub.indexOffset = idxOffset;
         sub.indexCount = 36;
-        sub.boundingMin = mesh.boundingMin;
-        sub.boundingMax = mesh.boundingMax;
+        sub.boundingMin.x = mesh.boundingMin.x;
+        sub.boundingMin.y = mesh.boundingMin.y;
+        sub.boundingMin.z = mesh.boundingMin.z;
+        sub.boundingMax.x = mesh.boundingMax.x;
+        sub.boundingMax.y = mesh.boundingMax.y;
+        sub.boundingMax.z = mesh.boundingMax.z;
         mesh.subMeshes.append(sub);
 
         vertIdx += 24;

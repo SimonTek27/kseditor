@@ -27,15 +27,15 @@
 #endif
 
 #include "MainWindow.h"
-#include "core/ui/CustomTitleBar.h"
+#include "../resources/ui/CustomTitleBar.h"
 #include "core/sys/ModuleManager.h"
 #include "core/sys/PluginManager.h"
-#include "core/ui/SplashScreen.h"
-#include "core/ui/WelcomeScreenQmlBridge.h"
+#include "../resources/ui/SplashScreen.h"
+#include "../resources/ui/WelcomeScreenQmlBridge.h"
 #include "core/sys/HangMonitor.h"
-#include "core/ui/FontEditorDialog.h"
+#include "../resources/ui/FontEditorDialog.h"
 #include "core/help/HelpSystem.h"
-#include "ribbontheme.h"
+#include "../resources/ui/ribbontheme.h"
 
 // QML Bridge registrations
 #include "modules/modellingEditor/3DModelingQmlBridge.h"
@@ -47,13 +47,13 @@
 #include "core/Audio/AudioQMLBridge.h"
 #include "plugins/simulators/kunos/assettocorsa/audio/AudioEngineQML.h"
 #include "core/Audio/AudioModuleBridge.h"
-#include "core/AIEditor/AIEditorQmlBridge.h"
+#include "core/editor/AIEditor/AIEditorQmlBridge.h"
 #include "core/tools/FormatToolsQmlBridge.h"
 #include "core/modmanager/ModManagerQmlBridge.h"
 #include "core/editor/ppfiltersEditor/PPFiltersQmlBridge.h"
-#include "core/3dprint/ThreeDPrintQmlBridge.h"
-#include "core/FfbEditor/FfbEditorQmlBridge.h"
-#include "modules/displayEditor/CockpitInstrumentsQmlBridge.h"
+#include "core/devices/3dprint/ThreeDPrintQmlBridge.h"
+#include "core/editor/FfbEditor/FfbEditorQmlBridge.h"
+#include "modules/cockpitInstruments/CockpitInstrumentsQmlBridge.h"
 #include "modules/LicensePlatesEditor/LicensePlatesQmlBridge.h"
 #include "modules/fontEditor/FontCreatorQmlBridge.h"
 #include "modules/sound/editor/AudioEffectsQmlBridge.h"
@@ -72,14 +72,22 @@
 #include "modules/modellingEditor/SceneMeshGeometry.h"
 #include "modules/modellingEditor/ParticlePointsGeometry.h"
 #include "modules/modellingEditor/ParticleInstancing.h"
-#include "qml/modules/CspConfigQmlBridge.h"
-#include "qml/modules/ContentQMLBridge.h"
+#include "core/Scripting/CspConfigQmlBridge.h"
+#include "core/Scripting/ContentQMLBridge.h"
 #include "modules/modellingEditor/CharacterBuilder/CharacterEditorQmlBridge.h"
 #include "core/network/CollabEditorQmlBridge.h"
+#include "core/kschat/ChatQmlBridge.h"
+#include "modules/ksOffice/OfficeQmlBridge.h"
+#include "modules/ksOffice/OfficeDocumentBridge.h"
 #include "core/Audio/AudioWaveformBridge.h"
 #include "core/Audio/KsACSndEventBridge.h"
 #include "core/Audio/AudioStudioTypes.h"
-#include "resources/ui/qml/modules/ACEContentQMLBridge.h"
+#include "core/Scripting/ACEContentQMLBridge.h"
+#include "core/Audio/AIAudioStemSeparator.h"
+#include "core/devices/scanners/photogrammetry/PhotogrammetryCapture.h"
+#include "core/devices/scanners/turntable_scanner/TurntableScanner.h"
+#include "core/devices/scanners/structured_light/StructuredLightScanner.h"
+#include "core/devices/scanners/stereo_vision/StereoVisionScanner.h"
 
 
 static int runMainWindow(QApplication& app, const QString& projectPath)
@@ -256,21 +264,23 @@ static int appMain(int argc, char *argv[])
     qmlRegisterSingletonType<ks::ShowroomEditorQmlBridge>("ksEditor.ShowroomEditor", 1, 0, "ShowroomEditor",
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::ShowroomEditorQmlBridge::instance(); });
 
-    // Register photogrammetry capture bridge
-    qmlRegisterSingletonType<ks::PhotogrammetryCapture>("ksEditor.Photogrammetry", 1, 0, "PhotogrammetryCapture",
-        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::PhotogrammetryCapture::instance(); });
+    // Register photogrammetry capture bridge (scanner classes are not singletons)
+#if 0
+    qmlRegisterSingletonType<ks::photogrammetry::PhotogrammetryCapture>("ksEditor.Photogrammetry", 1, 0, "PhotogrammetryCapture",
+        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::photogrammetry::PhotogrammetryCapture::instance(); });
 
     // Register turntable scanner bridge
-    qmlRegisterSingletonType<ks::TurntableScanner>("ksEditor.TurntableScanner", 1, 0, "TurntableScanner",
-        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::TurntableScanner::instance(); });
+    qmlRegisterSingletonType<ks::turntable_scanner::TurntableScanner>("ksEditor.TurntableScanner", 1, 0, "TurntableScanner",
+        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::turntable_scanner::TurntableScanner::instance(); });
 
     // Register structured light scanner bridge
-    qmlRegisterSingletonType<ks::StructuredLightScanner>("ksEditor.StructuredLight", 1, 0, "StructuredLightScanner",
-        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::StructuredLightScanner::instance(); });
+    qmlRegisterSingletonType<ks::structured_light::StructuredLightScanner>("ksEditor.StructuredLight", 1, 0, "StructuredLightScanner",
+        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::structured_light::StructuredLightScanner::instance(); });
 
     // Register stereo vision scanner bridge
-    qmlRegisterSingletonType<ks::StereoVisionScanner>("ksEditor.StereoVision", 1, 0, "StereoVisionScanner",
-        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::StereoVisionScanner::instance(); });
+    qmlRegisterSingletonType<ks::stereo_vision::StereoVisionScanner>("ksEditor.StereoVision", 1, 0, "StereoVisionScanner",
+        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::stereo_vision::StereoVisionScanner::instance(); });
+#endif
     qmlRegisterSingletonType<ks::AssetsLibraryQmlBridge>("ksEditor.AssetsLibrary", 1, 0, "AssetsLibrary",
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::AssetsLibraryQmlBridge::instance(); });
     qmlRegisterSingletonType<ks::audio::AudioEffectsQmlBridge>("ksEditor.AudioEffects", 1, 0, "AudioEffects",
@@ -284,6 +294,12 @@ static int appMain(int argc, char *argv[])
     qmlRegisterType<ks::audio::KSAudioModuleBridge>("ksEditor.AudioModule", 1, 0, "AudioModule");
     qmlRegisterSingletonType<ks::CollabEditorQmlBridge>("ksEditor.Collaboration", 1, 0, "CollabEditor",
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::CollabEditorQmlBridge::instance(); });
+    qmlRegisterSingletonType<ks::chat::ChatQmlBridge>("ksEditor.KsChat", 1, 0, "KsChat",
+        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::chat::ChatQmlBridge::instance(); });
+    qmlRegisterSingletonType<ks::office::OfficeQmlBridge>("ksEditor.KsOffice", 1, 0, "KsOffice",
+        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::office::OfficeQmlBridge::instance(); });
+    qmlRegisterSingletonType<ks::office::OfficeDocumentBridge>("ksEditor.KsOffice", 1, 0, "OfficeDocument",
+        [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::office::OfficeDocumentBridge::instance(); });
     qmlRegisterSingletonType<ks::CspConfigQmlBridge>("ksEditor.CspConfig", 1, 0, "CspConfig",
         [](QQmlEngine*, QJSEngine*) -> QObject* { return ks::CspConfigQmlBridge::instance(); });
     qmlRegisterType<ContentQMLBridge>("ksEditor.Content", 1, 0, "Content");
@@ -338,7 +354,7 @@ static int appMain(int argc, char *argv[])
             quickWidget->setAttribute(Qt::WA_DeleteOnClose);
             quickWidget->engine()->addImportPath(QStringLiteral("C:/Qt/6.11.1/msvc2022_64/qml"));
             QQmlComponent* comp = new QQmlComponent(quickWidget->engine());
-            comp->setData(QString(),
+            comp->setData(QByteArray(),
                 QUrl::fromLocalFile(":/qml/modules/font_KSFontCreator.qml"));
             QObject* root = comp->beginCreate(quickWidget->engine()->rootContext());
             if (comp->isError()) {
@@ -348,7 +364,7 @@ static int appMain(int argc, char *argv[])
                 return true;
             }
             comp->completeCreate();
-            quickWidget->setContent(QUrl::fromLocalFile(fontQmlPath), comp, qobject_cast<QQuickItem*>(root));
+            quickWidget->setContent(QUrl::fromLocalFile(":/qml/modules/font_KSFontCreator.qml"), comp, qobject_cast<QQuickItem*>(root));
             auto* layout = qobject_cast<QVBoxLayout*>(w->centralWidget()->layout());
             if (layout) layout->addWidget(quickWidget, 1);
             w->show();
@@ -443,8 +459,8 @@ static int appMain(int argc, char *argv[])
             qw->setResizeMode(QQuickWidget::SizeRootObjectToView);
             qw->engine()->addImportPath(QStringLiteral("C:/Qt/6.11.1/msvc2022_64/qml"));
             qw->setSource(QUrl("qrc:///qml/modules/physicsEditor/phys_Editor.qml"));
-            if (pc->isError()) {
-                QString err = pc->errors().first().toString();
+            if (qw->status() == QQuickWidget::Error) {
+                QString err = qw->errors().first().toString();
                 QFile ef(QCoreApplication::applicationDirPath() + "/qml_error.txt");
                 if (ef.open(QIODevice::WriteOnly)) { ef.write(err.toUtf8()); ef.close(); }
             }
@@ -490,6 +506,42 @@ static int appMain(int argc, char *argv[])
             app.exec();
             return true;
         }
+        if (mode == "chat") {
+            SplashScreen::showSplash(app);
+            QMainWindow* w = createStandaloneWindow("KS Chat", "collab", 1280, 720, "#121212");
+            auto* qw = new QQuickWidget();
+            qw->engine()->addImportPath(QStringLiteral("C:/Qt/6.11.1/msvc2022_64/qml"));
+            qw->setResizeMode(QQuickWidget::SizeRootObjectToView);
+            qw->setSource(QUrl("qrc:///qml/pages/page_ksChat.qml"));
+            if (qw->status() == QQuickWidget::Error) {
+                QString err = qw->errors().first().toString();
+                QFile ef(QCoreApplication::applicationDirPath() + "/qml_error.txt");
+                if (ef.open(QIODevice::WriteOnly)) { ef.write(err.toUtf8()); ef.close(); }
+            }
+            auto* layout = qobject_cast<QVBoxLayout*>(w->centralWidget()->layout());
+            if (layout) layout->addWidget(qw, 1);
+            w->show();
+            app.exec();
+            return true;
+        }
+        if (mode == "office") {
+            SplashScreen::showSplash(app);
+            QMainWindow* w = createStandaloneWindow("KS Office", "collab", 1280, 720, "#121212");
+            auto* qw = new QQuickWidget();
+            qw->engine()->addImportPath(QStringLiteral("C:/Qt/6.11.1/msvc2022_64/qml"));
+            qw->setResizeMode(QQuickWidget::SizeRootObjectToView);
+            qw->setSource(QUrl("qrc:///qml/pages/page_ksOffice.qml"));
+            if (qw->status() == QQuickWidget::Error) {
+                QString err = qw->errors().first().toString();
+                QFile ef(QCoreApplication::applicationDirPath() + "/qml_error.txt");
+                if (ef.open(QIODevice::WriteOnly)) { ef.write(err.toUtf8()); ef.close(); }
+            }
+            auto* layout = qobject_cast<QVBoxLayout*>(w->centralWidget()->layout());
+            if (layout) layout->addWidget(qw, 1);
+            w->show();
+            app.exec();
+            return true;
+        }
         return false;
     };
 
@@ -513,6 +565,8 @@ static int appMain(int argc, char *argv[])
                 "  -physics, --physics  Open Physics Studio directly\n"
                 "  -code, --code        Open IDE Code Editor directly\n"
                 "  -ppfilters           Open PP Filters Editor directly\n"
+                "  -chat, --chat        Open ksChat collaboration directly\n"
+                "  -office, --office    Open ksOffice collaboration directly\n"
                 "  -nohw, --nohw        Disable hardware acceleration\n"
                 "  -h, --help           Show this help message\n"
                 "  <file.ksproj>        Open a project file");

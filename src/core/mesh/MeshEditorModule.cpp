@@ -4,6 +4,7 @@
 #include "ModifierSystem.h"
 #include "WeightPainting.h"
 #include "SkeletonSystem.h"
+#include "SculptMode.h"
 #include "../tools/LODGenerator.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>

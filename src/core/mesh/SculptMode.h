@@ -4,6 +4,7 @@
 #include <QVector3D>
 #include <QVector2D>
 #include <QMap>
+#include <QPair>
 
 class SculptMode : public QObject
 {
@@ -65,13 +66,27 @@ public:
     void setBrushStrength(float strength);
 
     void beginStroke(const QVector3D& point);
-    void addPoint(const QVector3D& point, const QVector3D& normal);
+    void addPoint(const QVector3D& point, const QVector3D& normal, float pressure = 1.0f);
     void endStroke();
+
+    void setRetopoMode(bool enabled);
+    bool isRetopoMode() const { return m_retopoMode; }
 
     void quadDrawSplitEdge(int edgeIndex);
 
-QVector<QVector3D> getVertices() const { return m_vertices; }
+QVector<QVector3D> getVertices() const { 
+        QVector<QVector3D> result; 
+        result.reserve(m_vertices.size()); 
+        for (const auto& v : m_vertices) result.append(v.position); 
+        return result; 
+    }
     QVector<int> getFaces() const { return m_faceIndices; }
+
+    struct Vertex {
+        QVector3D position;
+        QVector3D normal;
+        float mask = 0.0f;
+    };
 
 signals:
     void strokeStarted();
@@ -87,14 +102,13 @@ private:
 
     SculptTool m_currentTool;
     BrushSettings m_brush;
-
-    QVector<QVector3D> m_vertices;
+    QVector<Vertex> m_vertices;
+    QVector<int> m_faces;
     QVector<int> m_faceIndices;
     QVector<QVector3D> m_normals;
 
     bool m_isStroking;
     QVector<StrokePoint> m_currentStroke;
-    bool m_retopoMode;
 
     void sculptPoint(QVector3D& vertex, const QVector3D& normal, float strength);
     void drawVertex(QVector3D& vertex, const QVector3D& direction, float strength);
@@ -104,11 +118,12 @@ private:
     void grabVertex(QVector3D& vertex, const QVector3D& delta, float strength);
     void inflateVertex(QVector3D& vertex, float strength);
     void snakeHookVertex(QVector3D& vertex, const QVector3D& direction, float strength);
-    bool isRetopoMode() const { return m_retopoMode; }
-
     int findNearestVertex(const QVector3D& point) const;
     QVector3D computeVertexNormal(int index) const;
     void rebuildNormals();
+
+protected:
+    bool m_retopoMode = false;
 };
 
 class SelectionTools : public QObject

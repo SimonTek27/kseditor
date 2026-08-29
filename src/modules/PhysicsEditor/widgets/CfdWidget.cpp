@@ -10,6 +10,8 @@
 
 namespace ks {
 
+#if HAS_3D
+
 CfdWidget::CfdWidget(QWidget* parent)
     : QWidget(parent)
 {
@@ -22,14 +24,14 @@ CfdWidget::~CfdWidget() {
 void CfdWidget::buildUI() {
     auto* mainLayout = new QVBoxLayout(this);
 
-    // Chart view for 3D CFD visualization
-    m_chart3D = new QChart3D(this);
-    m_chart3D->setTheme(Q3DTheme::Theme::BrownSand);
+    // 3D scatter view for CFD visualization
+    m_chart3D = new Q3DScatter();
+    m_chart3D->activeTheme()->setType(Q3DTheme::ThemeBrownSand);
 
     // Create scatter series for pressure field
-    m_pressureSeries = new QScatterSeries();
+    m_pressureSeries = new QScatter3DSeries();
     m_pressureSeries->setItemSize(0.1f);
-    m_pressureSeries->setColor(Qt::blue);
+    m_pressureSeries->setBaseColor(Qt::blue);
     m_chart3D->addSeries(m_pressureSeries);
 
     // Axes
@@ -39,6 +41,8 @@ void CfdWidget::buildUI() {
     m_chart3D->axisY()->setRange(-5.0, 20.0);
     m_chart3D->axisZ()->setTitle("Z (m)");
     m_chart3D->axisZ()->setRange(-50.0, 50.0);
+
+    auto* chartContainer = QWidget::createWindowContainer(m_chart3D, this);
 
     // UI controls
     auto* controlsGroup = new QGroupBox("CFD Parameters", this);
@@ -80,8 +84,7 @@ void CfdWidget::buildUI() {
         emit carParametersChanged(QVector3D(), m_speedInput->value(), m_slipAngleInput->value());
     });
 
-    m_positionInput = new QVector3D(this);  // simplified, would use proper widget
-    // Position could be handled separately
+    // Position would be handled with proper 3D input widgets
 
     carLayout->addRow("Speed (km/h):", m_speedInput);
     carLayout->addRow("Slip Angle (deg):", m_slipAngleInput);
@@ -90,8 +93,7 @@ void CfdWidget::buildUI() {
     auto* windGroup = new QGroupBox("Wind Tunnel", this);
     auto* windLayout = new QFormLayout(windGroup);
 
-    m_windDirectionInput = new QVector3D(this);
-    // Simplified - in real app would have 3 spin boxes
+    // Wind direction would be handled with proper 3D input widgets
 
     windLayout->addRow("Wind Speed (m/s):", new QDoubleSpinBox(this));
     windLayout->addRow("Air Density:", new QDoubleSpinBox(this));
@@ -108,7 +110,7 @@ void CfdWidget::buildUI() {
     m_statusLabel->setStyleSheet("font-style: italic;");
 
     // Add widgets to main layout
-    mainLayout->addWidget(m_chart3D, 1);
+    mainLayout->addWidget(chartContainer, 1);
     mainLayout->addWidget(controlsGroup);
     mainLayout->addWidget(carGroup);
     mainLayout->addWidget(windGroup);
@@ -171,5 +173,7 @@ void CfdWidget::onResolutionChanged(int index) {
 void CfdWidget::onPreviewModeChanged(int index) {
     m_statusLabel->setText(QString("Preview mode: %1").arg(index == 0 ? "Pressure" : index == 1 ? "Velocity" : "Vorticity"));
 }
+
+#endif // HAS_3D
 
 } // namespace ks

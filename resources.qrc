@@ -323,5 +323,20 @@
     <qresource prefix="/qml/pages">
         <file>resources/ui/qml/pages/page_ksDocumentEditor.qml</file>
         <file>resources/ui/qml/pages/page_ksSpreadsheetEditor.qml</file>
+        <file>resources/ui/qml/pages/page_ksChat.qml</file>
+        <file>resources/ui/qml/pages/page_ksOffice.qml</file>
+        <file>resources/ui/qml/pages/page_WelcomeScreen.qml</file>
+    </qresource>
+    <qresource prefix="/qml/modules/kschat">
+        <file>resources/ui/qml/modules/kschat/ChatPage.qml</file>
+        <file>resources/ui/qml/modules/kschat/MessageList.qml</file>
+        <file>resources/ui/qml/modules/kschat/MessageBubble.qml</file>
+        <file>resources/ui/qml/modules/kschat/ChatInput.qml</file>
+    </qresource>
+    <qresource prefix="/qml/modules/ksOffice">
+        <file>resources/ui/qml/modules/ksOffice/OfficePage.qml</file>
+        <file>resources/ui/qml/modules/ksOffice/OfficeMessageList.qml</file>
+        <file>resources/ui/qml/modules/ksOffice/OfficeMessageBubble.qml</file>
+        <file>resources/ui/qml/modules/ksOffice/OfficeChatInput.qml</file>
     </qresource>
 </RCC>

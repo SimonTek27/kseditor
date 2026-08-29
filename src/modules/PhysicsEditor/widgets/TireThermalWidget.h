@@ -3,10 +3,21 @@
 #include <QWidget>
 #include <QChart>
 #include <QChartView>
-#include <Q3DBubbleSeries>
-#include <Q3DScatterTheme>
+#include <QLabel>
+#include <QVector3D>
+
+#if __has_include(<Q3DScatter>)
+#include <Q3DScatter>
+#include <QScatter3DSeries>
+#include <Q3DTheme>
+#define HAS_TIRE_3D 1
+#else
+#define HAS_TIRE_3D 0
+#endif
 
 namespace ks {
+
+#if HAS_TIRE_3D
 
 class TireThermalWidget : public QWidget {
     Q_OBJECT
@@ -14,11 +25,9 @@ public:
     explicit TireThermalWidget(QWidget* parent = nullptr);
     ~TireThermalWidget();
 
-    // Update tire temperature data from physics simulator
     void updateTireData(int wheelIndex, float coreTemp, float surfaceTemp, float wearLevel,
                         const QVector3D& position, const QVector3D& dimension);
 
-    // Set all four tires data
     void updateAllTires(float flCore, float flSurface, float flWear,
                         float frCore, float frSurface, float frWear,
                         float rlCore, float rlSurface, float rlWear,
@@ -29,11 +38,11 @@ signals:
 
 private:
     void buildUI();
+    void updateTireVisualization();
 
-    QChart3D* m_chart3D = nullptr;
-    QScatterSeries* m_tireSeries[4] = {nullptr, nullptr, nullptr, nullptr};
+    Q3DScatter* m_chart3D = nullptr;
+    QScatter3DSeries* m_tireSeries[4] = {nullptr, nullptr, nullptr, nullptr};
 
-    // Per-tire data
     struct TireData {
         QVector3D position;
         QVector3D dimensions;
@@ -44,5 +53,20 @@ private:
 
     QLabel* m_statusLabel = nullptr;
 };
+
+#else
+
+class TireThermalWidget : public QWidget {
+    Q_OBJECT
+public:
+    explicit TireThermalWidget(QWidget* parent = nullptr) : QWidget(parent) {}
+    ~TireThermalWidget() override = default;
+    void updateTireData(int, float, float, float, const QVector3D&, const QVector3D&) {}
+    void updateAllTires(float, float, float, float, float, float, float, float, float, float, float, float) {}
+signals:
+    void tireDataUpdated(int);
+};
+
+#endif
 
 } // namespace ks

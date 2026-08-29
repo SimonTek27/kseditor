@@ -56,7 +56,7 @@ public:
 private:
     static AIAudioStemSeparator* s_instance;
 
-    Q_SLOTS:
+    private slots:
     void separate(const QString& inputFilePath, const QString& outputDir);
 
 signals:

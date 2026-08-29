@@ -96,7 +96,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\plugins\simulators\kunos\assettocorsa\assettocorsa.h">
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\plugins\simulators\kunos\assettocorsa\ksassettocorsa.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\plugins\simulators\kunos\assettocorsa\assettocorsa_core.h">

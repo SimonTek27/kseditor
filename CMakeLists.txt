@@ -21,6 +21,8 @@ if(MSVC)
 	add_compile_definitions(NOMINMAX)
 	# Force synchronous PDB writes for parallel compilation
 	add_compile_options(/FS)
+	# Allow large object files
+	add_compile_options(/bigobj)
 endif()
 
 # Auto-detect Qt6 path from environment or cache
@@ -46,8 +48,15 @@ endif()
 
 set(QML_IMPORT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/resources/ui/qml CACHE PATH "QML import paths")
 
-find_package(Qt6 COMPONENTS Core Gui Widgets Network Qml Quick Quick3D QuickControls2 QuickWidgets Multimedia OpenGL Sql Charts WebSockets REQUIRED)
+find_package(Qt6 COMPONENTS Core Gui Widgets Network Qml Quick Quick3D QuickControls2 QuickWidgets Multimedia OpenGL Sql Charts WebSockets Svg DataVisualization QUIET)
 find_package(Vulkan QUIET)
+
+if(NOT Qt6Svg_FOUND)
+    message(STATUS "Qt6 Svg not found, PaintVector SVG features will be disabled")
+endif()
+if(NOT Qt6DataVisualization_FOUND)
+    message(STATUS "Qt6 DataVisualization not found, CfdWidget will be disabled")
+endif()
 
 # ============================================================================
 # Eigen 3.4+ (header-only linear algebra)
@@ -167,16 +176,39 @@ file(GLOB_RECURSE KSEDITOR_MODULES_SOURCES
 	"src/modules/*.cpp"
 )
 
-file(GLOB_RECURSE KSEDITOR_MAIN_SOURCES
-	"src/*.h"
-	"src/*.cpp"
+file(GLOB_RECURSE KSEDITOR_PLUGINS_SOURCES
+	"src/plugins/*.h"
+	"src/plugins/*.cpp"
+)
+
+file(GLOB_RECURSE KSEDITOR_RESOURCES_UI_SOURCES
+	"resources/ui/*.h"
+	"resources/ui/*.cpp"
+)
+
+file(GLOB KSEDITOR_MAIN_SOURCES
+	"src/main.cpp"
+	"src/MainWindow.cpp"
 	"resources.qrc"
 )
+
+# Enforce: src/core/ui must stay in resources/ui (single source of truth)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/core/ui")
+	file(GLOB _core_ui_headers "${CMAKE_CURRENT_SOURCE_DIR}/src/core/ui/*.h")
+	foreach(_hdr IN LISTS _core_ui_headers)
+		get_filename_component(_name "${_hdr}" NAME)
+		if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/resources/ui/${_name}")
+			message(FATAL_ERROR "src/core/ui/${_name} has no counterpart in resources/ui — src/core/ui must stay in resources/ui")
+		endif()
+	endforeach()
+endif()
 
 # Create main kseditor library
 add_library(kseditor_lib STATIC
 	${KSEDITOR_CORE_SOURCES}
 	${KSEDITOR_MODULES_SOURCES}
+	${KSEDITOR_PLUGINS_SOURCES}
+	${KSEDITOR_RESOURCES_UI_SOURCES}
 )
 
 target_include_directories(kseditor_lib PUBLIC
@@ -208,10 +240,21 @@ target_link_libraries(kseditor_lib PUBLIC
 	Qt6::Sql
 	Qt6::Charts
 	Qt6::WebSockets
+	dwmapi
+	opengl32
 )
 
 if(HAS_MIKKTSPACE)
 	target_link_libraries(kseditor_lib PUBLIC mikktspace)
+endif()
+
+target_compile_definitions(kseditor_lib PUBLIC
+	KSASSETTOCORSA_EXPORTS
+	KSASSETTOCORSAEVO_EXPORTS
+)
+
+if(Qt6Svg_FOUND)
+	target_link_libraries(kseditor_lib PUBLIC Qt6::Svg)
 endif()
 
 if(ZLIB_FOUND)
@@ -247,6 +290,17 @@ target_link_libraries(kseditor PRIVATE
 	Qt6::Core
 	Qt6::Gui
 	Qt6::Widgets
+)
+
+target_include_directories(kseditor PRIVATE
+	"${CMAKE_CURRENT_SOURCE_DIR}/src"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/core"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/plugins"
+)
+
+target_compile_definitions(kseditor PRIVATE
+	KSASSETTOCORSA_EXPORTS
+	KSASSETTOCORSAEVO_EXPORTS
 )
 
 # Set output directory

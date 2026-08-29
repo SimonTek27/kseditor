@@ -1,9 +1,9 @@
 #include "IdeEditorWidget.h"
 #include "IdeEditorFileBrowser.h"
 #include "IdeEditorSearchPanel.h"
-#include "../../core/textEditor/CodeEditor.h"
-#include "../../core/textEditor/SyntaxHighlighter.h"
-#include "../../core/textEditor/FindReplaceDialog.h"
+#include "../../core/editor/textEditor/CodeEditor.h"
+#include "../../core/editor/textEditor/SyntaxHighlighter.h"
+#include "../../core/editor/textEditor/FindReplaceDialog.h"
 #include "../../core/sys/LogManager.h"
 
 #include <QVBoxLayout>

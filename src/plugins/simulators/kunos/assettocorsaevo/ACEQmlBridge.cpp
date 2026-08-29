@@ -167,9 +167,9 @@ qint64 ACEPackageQmlBridge::getEntrySize(const QString& entryName) const {
     return m_parser->manifest().entries[idx].size;
 }
 
-// ─── ACEProtobufQmlBridge ───────────────────────────────────────────────────
+// ─── ACEProtobufQmlBridgeEvo ───────────────────────────────────────────────────
 
-QStringList ACEProtobufQmlBridge::s_knownProtoFiles = {
+QStringList ACEProtobufQmlBridgeEvo::s_knownProtoFiles = {
     "CarData.proto",
     "CarBehaviour.proto",
     "CarSetup.proto",
@@ -213,7 +213,7 @@ QStringList ACEProtobufQmlBridge::s_knownProtoFiles = {
     "BackendMessages.proto",
 };
 
-QVariantMap ACEProtobufQmlBridge::s_fieldNames = {
+QVariantMap ACEProtobufQmlBridgeEvo::s_fieldNames = {
     {"slip", "Tyre slip ratio"},
     {"lock", "Tyre lock state"},
     {"tyre_pressure", "Tyre pressure (PSI)"},
@@ -238,23 +238,23 @@ QVariantMap ACEProtobufQmlBridge::s_fieldNames = {
     {"DX0", "Longitudinal friction coefficient"},
 };
 
-ACEProtobufQmlBridge::ACEProtobufQmlBridge(QObject* parent)
+ACEProtobufQmlBridgeEvo::ACEProtobufQmlBridgeEvo(QObject* parent)
     : QObject(parent) {
 }
 
-QVariantMap ACEProtobufQmlBridge::decodeMessage(const QByteArray& data) {
+QVariantMap ACEProtobufQmlBridgeEvo::decodeMessage(const QByteArray& data) {
     return ProtobufDecoder::decodeMessage(data);
 }
 
-QString ACEProtobufQmlBridge::printMessage(const QVariantMap& message) {
+QString ACEProtobufQmlBridgeEvo::printMessage(const QVariantMap& message) {
     return ProtobufDecoder::printMessage(message);
 }
 
-QStringList ACEProtobufQmlBridge::extractStrings(const QByteArray& data, int minLength) {
+QStringList ACEProtobufQmlBridgeEvo::extractStrings(const QByteArray& data, int minLength) {
     return ProtobufDecoder::extractStrings(data, minLength);
 }
 
-QVariantMap ACEProtobufQmlBridge::decodeFileContent(const QString& packagePath, const QString& entryPath) {
+QVariantMap ACEProtobufQmlBridgeEvo::decodeFileContent(const QString& packagePath, const QString& entryPath) {
     ACEPackageParser parser;
     if (!parser.open(packagePath)) return QVariantMap();
     if (!parser.readManifest()) return QVariantMap();
@@ -265,17 +265,17 @@ QVariantMap ACEProtobufQmlBridge::decodeFileContent(const QString& packagePath, 
     return ProtobufDecoder::decodeMessage(data);
 }
 
-QVariantMap ACEProtobufQmlBridge::decodeHexString(const QString& hexString) {
+QVariantMap ACEProtobufQmlBridgeEvo::decodeHexString(const QString& hexString) {
     QByteArray data = QByteArray::fromHex(hexString.toUtf8());
     if (data.isEmpty()) return QVariantMap();
     return ProtobufDecoder::decodeMessage(data);
 }
 
-QStringList ACEProtobufQmlBridge::getKnownProtoFiles() const {
+QStringList ACEProtobufQmlBridgeEvo::getKnownProtoFiles() const {
     return s_knownProtoFiles;
 }
 
-QVariantMap ACEProtobufQmlBridge::getFieldNames() const {
+QVariantMap ACEProtobufQmlBridgeEvo::getFieldNames() const {
     return s_fieldNames;
 }
 

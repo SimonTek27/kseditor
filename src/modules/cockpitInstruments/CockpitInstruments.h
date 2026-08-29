@@ -266,6 +266,9 @@ public:
     bool exportToJson(const QString& filePath);
     bool exportAsImage(const QString& filePath, int width = 0, int height = 0);
     
+    // Helper methods
+    QString acItemTypeToString(AcItemType type) const;
+    
     // ── Animation System ─────────────────────────────────────────────────
     void setAnimation(const QString& elementId, const AnimationConfig& config);
     void removeAnimation(const QString& elementId);
@@ -324,7 +327,6 @@ private:
     ElementType stringToElementType(const QString& str) const;
     QString dataSourceToString(DataSource source) const;
     DataSource stringToDataSource(const QString& str) const;
-    QString acItemTypeToString(AcItemType type) const;
     AcItemType stringToAcItemType(const QString& str) const;
     QString colorToHex(const QColor& color) const;
     QColor hexToColor(const QString& hex) const;

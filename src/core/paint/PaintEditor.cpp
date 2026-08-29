@@ -28,6 +28,7 @@
 #include <QPushButton>
 #include <QImageReader>
 #include <QImageWriter>
+#include <QRandomGenerator>
 #include <QPainter>
 #include <QApplication>
 #include <QClipboard>
@@ -1198,13 +1199,13 @@ void PaintEditor::onFilterRequested()
         for (int y = 0; y < h; ++y) {
             for (int x = 0; x < w; ++x) {
                 QColor c = img.pixelColor(x, y);
-                int noise = (qrand() % 51) - 25;
+                int noise = (QRandomGenerator::global()->bounded(51)) - 25;
                 result.setPixelColor(x, y, QColor(qBound(0, c.red() + noise, 255), qBound(0, c.green() + noise, 255), qBound(0, c.blue() + noise, 255), c.alpha()));
             }
         }
     }
 
-    m_document->applyImageToCurrentLayer(result);
+    m_document->setCurrentLayerImage(result);
     m_canvas->update();
 }
 

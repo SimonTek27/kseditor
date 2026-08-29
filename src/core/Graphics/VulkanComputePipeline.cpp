@@ -5,6 +5,7 @@
 #include <QByteArray>
 #include <QDebug>
 
+#if 0
 namespace ks {
 
 VulkanComputePipeline::VulkanComputePipeline(VkPhysicalDevice physicalDevice, VkDevice device, VkQueue computeQueue)
@@ -244,3 +245,4 @@ QVector<float> VulkanComputePipeline::readBackResults(int width, int height) {
 }
 
 } // namespace ks
+#endif

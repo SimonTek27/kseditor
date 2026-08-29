@@ -4,6 +4,9 @@
 #include <QVector3D>
 #include <QVector>
 #include <QPair>
+#include <QRandomGenerator>
+#include <QFile>
+#include <QTextStream>
 
 namespace ks {
 namespace physics {
@@ -203,9 +206,13 @@ signals:
 
 private:
     // Spatial hash grid for O(n) neighbor search
+    struct CellKey {
+        int x, y, z;
+        bool operator<(const CellKey& o) const { return x < o.x || (x == o.x && (y < o.y || (y == o.y && z < o.z))); }
+    };
     struct SpatialHashGrid {
         float cellSize;
-        QMap<QPair<int,int,int>, QVector<int>> cells;
+        QMap<CellKey, QVector<int>> cells;
 
         void build(const QVector<FluidParticle>& particles, float radius);
         QVector<int> query(const QVector3D& position, float radius) const;
@@ -323,9 +330,13 @@ private:
     QVector<int> m_rootVertices;
 
     // Spatial hash for hair-hair collision
+    struct StrandCellKey {
+        int x, y, z;
+        bool operator<(const StrandCellKey& o) const { return x < o.x || (x == o.x && (y < o.y || (y == o.y && z < o.z))); }
+    };
     struct StrandSpatialHash {
         float cellSize;
-        QMap<QPair<int,int,int>, QVector<QPair<int,int>>> cells; // strand index, point index
+        QMap<StrandCellKey, QVector<QPair<int,int>>> cells; // strand index, point index
 
         void build(const QVector<HairStrand>& strands, float radius);
         QVector<QPair<int,int>> query(const QVector3D& position, float radius) const;

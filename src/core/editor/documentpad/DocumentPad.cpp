@@ -12,6 +12,7 @@
 #include <QTextDocumentWriter>
 #include <QTextDocumentFragment>
 #include <QGuiApplication>
+#include <QFontDialog>
 
 namespace ks {
 
@@ -95,34 +96,38 @@ m_actionNew = new QAction(QIcon(":/icons/document-new.svg"), tr("&New"), this);
     // Format actions - DocumentPad specific
     mactionBold = new QAction(QIcon(":/icons/documentpad-bold.svg"), tr("&Bold"), this);
     mactionBold->setStatusTip(tr("Make selection bold"));
-    connect(mactionBold, &QAction::triggered, this, &DocumentPad::setBold);
+    connect(mactionBold, &QAction::triggered, this, [this]() { setBold(); });
 
     mactionItalic = new QAction(QIcon(":/icons/documentpad-italic.svg"), tr("&Italic"), this);
     mactionItalic->setStatusTip(tr("Make selection italic"));
-    connect(mactionItalic, &QAction::triggered, this, &DocumentPad::setItalic);
+    connect(mactionItalic, &QAction::triggered, this, [this]() { setItalic(); });
 
     mactionUnderline = new QAction(QIcon(":/icons/documentpad-underline.svg"), tr("&Underline"), this);
     mactionUnderline->setStatusTip(tr("Underline selection"));
-    connect(mactionUnderline, &QAction::triggered, this, &DocumentPad::setUnderline);
+    connect(mactionUnderline, &QAction::triggered, this, [this]() { setUnderline(); });
 
     mactionStrikeThrough = new QAction(QIcon(":/icons/documentpad-strike.svg"), tr("Strikethrough"), this);
     mactionStrikeThrough->setStatusTip(tr("Strike through selection"));
-    connect(mactionStrikeThrough, &QAction::triggered, this, &DocumentPad::setStrikeThrough);
+    connect(mactionStrikeThrough, &QAction::triggered, this, [this]() { setStrikeThrough(); });
 
     mactionFontColor = new QAction(QIcon(":/icons/documentpad-font-color.svg"), tr("Font Color..."), this);
     mactionFontColor->setStatusTip(tr("Change font color"));
-    connect(mactionFontColor, &QAction::triggered, this, &DocumentPad::setFontColor);
+    connect(mactionFontColor, &QAction::triggered, this, [this]() { setFontColor(); });
 
     mactionFontSize = new QAction(QIcon(":/icons/documentpad-font-size.svg"), tr("Font Size..."), this);
     mactionFontSize->setStatusTip(tr("Change font size"));
 
     mactionFontFamily = new QAction(QIcon(":/icons/documentpad-font.svg"), tr("Font..."), this);
     mactionFontFamily->setStatusTip(tr("Change font family"));
-    connect(mactionFontFamily, &QAction::triggered, this, &DocumentPad::setFontFamily);
+    connect(mactionFontFamily, &QAction::triggered, this, [this]() {
+        bool ok;
+        QString family = QFontDialog::getFont(&ok, m_textEdit->font(), m_textEdit, tr("Select Font")).family();
+        if (ok) setFontFamily(family);
+    });
 
     mactionAbout = new QAction(QIcon(":/icons/documentpad-about.svg"), tr("About"), this);
     mactionAbout->setStatusTip(tr("About UltraPad"));
-    connect(mactionAbout, &QAction::triggered, this, &DocumentPad::onAbout);
+    connect(mactionAbout, &QAction::triggered, this, [this]() { onAbout(); });
 
     mactionMarginRuler = new QAction(QIcon(":/icons/documentpad-margin-ruler.svg"), tr("Margin Ruler"), this);
     mactionMarginRuler->setCheckable(true);
@@ -186,20 +191,24 @@ void DocumentPad::setupConnects()
     connect(m_textEdit, &QTextEdit::undoAvailable, this, &DocumentPad::onUndoAvailable);
     connect(m_textEdit, &QTextEdit::redoAvailable, this, &DocumentPad::onRedoAvailable);
 
-    connect(m_actionNew, &QAction::triggered, this, &DocumentPad::onNewFile);
-    connect(m_actionOpen, &QAction::triggered, this, &DocumentPad::onOpen);
-    connect(m_actionSave, &QAction::triggered, this, &DocumentPad::onSave);
-    connect(m_actionSaveAs, &QAction::triggered, this, &DocumentPad::onSaveAs);
-    connect(m_actionCut, &QAction::triggered, this, &DocumentPad::onCut);
-    connect(mactionCopy, &QAction::triggered, this, &DocumentPad::onCopy);
-    connect(mactionPaste, &QAction::triggered, this, &DocumentPad::onPaste);
-    connect(mactionBold, &QAction::triggered, this, &DocumentPad::onBold);
-    connect(mactionItalic, &QAction::triggered, this, &DocumentPad::onItalic);
-    connect(mactionUnderline, &QAction::triggered, this, &DocumentPad::onUnderline);
-    connect(mactionStrikeThrough, &QAction::triggered, this, &DocumentPad::onStrikeThrough);
-    connect(mactionFontColor, &QAction::triggered, this, &DocumentPad::setFontColor);
-    connect(mactionFontFamily, &QAction::triggered, this, &DocumentPad::setFontFamily);
-    connect(mactionAbout, &QAction::triggered, this, &DocumentPad::onAbout);
+    connect(m_actionNew, &QAction::triggered, this, [this]() { onNewFile(); });
+    connect(m_actionOpen, &QAction::triggered, this, [this]() { onOpen(); });
+    connect(m_actionSave, &QAction::triggered, this, [this]() { onSave(); });
+    connect(m_actionSaveAs, &QAction::triggered, this, [this]() { onSaveAs(); });
+    connect(m_actionCut, &QAction::triggered, this, [this]() { onCut(); });
+    connect(mactionCopy, &QAction::triggered, this, [this]() { onCopy(); });
+    connect(mactionPaste, &QAction::triggered, this, [this]() { onPaste(); });
+    connect(mactionBold, &QAction::triggered, this, [this]() { onBold(); });
+    connect(mactionItalic, &QAction::triggered, this, [this]() { onItalic(); });
+    connect(mactionUnderline, &QAction::triggered, this, [this]() { onUnderline(); });
+    connect(mactionStrikeThrough, &QAction::triggered, this, [this]() { onStrikeThrough(); });
+    connect(mactionFontColor, &QAction::triggered, this, [this]() { setFontColor(); });
+    connect(mactionFontFamily, &QAction::triggered, this, [this]() {
+        bool ok;
+        QString family = QFontDialog::getFont(&ok, m_textEdit->font(), m_textEdit, tr("Select Font")).family();
+        if (ok) setFontFamily(family);
+    });
+    connect(mactionAbout, &QAction::triggered, this, [this]() { onAbout(); });
 }
 
 void DocumentPad::newDocument()
@@ -528,6 +537,28 @@ void DocumentPad::onAbout()
 {
     QMessageBox::about(this, tr("About UltraPad"),
         tr("UltraPad\n\nA modern rich text editor for Windows.\n\nBased on the UltraPad project by lixkote.\n\nCopyright (c) 2024-2026"));
+}
+
+void DocumentPad::onFontColor()
+{
+    QColor color = QColorDialog::getColor(m_textEdit->textColor(), this, tr("Select Font Color"));
+    if (color.isValid()) {
+        QTextCharFormat fmt;
+        fmt.setForeground(color);
+        mergeFormatOnSelection(fmt);
+    }
+}
+
+void DocumentPad::onFontSizeChanged(int index)
+{
+    Q_UNUSED(index);
+}
+
+void DocumentPad::onFontFamilyChanged(const QString& text)
+{
+    QTextCharFormat fmt;
+    fmt.setFontFamily(text);
+    mergeFormatOnSelection(fmt);
 }
 
 } // namespace ks

@@ -81,6 +81,10 @@ struct NURBSSurface {
     int degreeV;
     bool periodicU;
     bool periodicV;
+    double uStart = 0.0;
+    double uEnd = 1.0;
+    double vStart = 0.0;
+    double vEnd = 1.0;
 
     NURBSSurface() : degreeU(3), degreeV(3), periodicU(false), periodicV(false) {}
 };

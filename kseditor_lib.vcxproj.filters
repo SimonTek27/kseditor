@@ -4,37 +4,10 @@
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\kseditor_lib_autogen\mocs_compilation_Debug.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\3DPrintTypes.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\GCodeGenerator.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\PrintPreview.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\PrinterProfile.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\SliceSettings.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\SlicerEngine.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\SupportGenerator.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\ThreeDPrintEditorModule.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\ThreeDPrintModule.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\ThreeDPrintQmlBridge.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\Audio\AIAudioEngine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\Audio\AIAudioStemSeparator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\Audio\AudioAnalysis.cpp">
@@ -337,6 +310,9 @@
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\Graphics\TextureTools.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\Graphics\VulkanComputePipeline.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\Graphics\VulkanIntegration.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -437,6 +413,63 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\assets\SimInstallDetector.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\3DPrintTypes.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\GCodeGenerator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\PrintPreview.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\PrinterProfile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\SliceSettings.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\SlicerEngine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\SupportGenerator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\ThreeDPrintEditorModule.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\ThreeDPrintModule.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\ThreeDPrintQmlBridge.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\scanners\photogrammetry\PhotogrammetryCapture.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\scanners\stereo_vision\StereoVisionScanner.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\scanners\structured_light\StructuredLightScanner.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\scanners\turntable_scanner\TurntableScanner.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\vr\VREditorModule.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\vr\XrInput.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\vr\XrIntegration.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\vr\XrManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\vr\XrViewportRenderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\editor\AIEditor\AIEditorModule.cpp">
@@ -587,6 +620,21 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\help\HelpSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\hwril\HilFfbInterface.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\kschat\ChatManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\kschat\ChatProtocol.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\kschat\ChatQmlBridge.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\kschat\ChatServer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\material\MaterialEditorModule.cpp">
@@ -772,9 +820,6 @@
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\paint\PaintVector.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\photogrammetry\PhotogrammetryCapture.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\physics\PhysicsEngine.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -791,12 +836,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\splitter\WindowSplitter.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\stereo_vision\StereoVisionScanner.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\structured_light\StructuredLightScanner.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\sys\DatabaseManager.cpp">
@@ -925,9 +964,6 @@
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\tools\VersionControl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\turntable_scanner\TurntableScanner.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\vcs\GitManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -935,21 +971,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\vcs\VcsEditorModule.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\vr\VREditorModule.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\vr\XrInput.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\vr\XrIntegration.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\vr\XrManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\vr\XrViewportRenderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\core\weather\WeatherConfigParser.cpp">
@@ -1090,6 +1111,9 @@
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\PhysicsEditor\widgets\CarValidatorWidget.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\PhysicsEditor\widgets\CfdWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\PhysicsEditor\widgets\EngineCurveWidget.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -1112,6 +1136,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\PhysicsEditor\widgets\TelemetryWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\PhysicsEditor\widgets\TireThermalWidget.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\PhysicsEditor\widgets\TyreTempModelWidget.cpp">
@@ -1178,6 +1205,21 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\ideeditor\IdeEditorWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\ksOffice\OfficeDocumentBridge.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\ksOffice\OfficeManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\ksOffice\OfficeProtocol.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\ksOffice\OfficeQmlBridge.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\ksOffice\OfficeServer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\3DModeling.cpp">
@@ -1471,6 +1513,63 @@
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\src\modules\sound\studio\StudioModule.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\AssetListModel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\CustomTitleBar.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\EditorUI.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\FileTreeWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\FontEditorDialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\NewProjectDialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\NodeGraphEditor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\NodeGraphScene.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\PackageWizard.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\ProfileManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\ProjectSearchWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\ReplaceDialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\RibbonUI.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\SoundWizard.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\SplashScreen.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\TerminalWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\UIEditorModule.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\WelcomeScreenQmlBridge.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="E:\Users\Simon\source\repos\kseditor\resources\ui\ribbontheme.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="E:\Users\Simon\source\repos\kseditor\kseditor_lib_autogen\mocs_compilation_Release.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -1482,37 +1581,10 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\3DPrintTypes.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\GCodeGenerator.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\GeometryUtils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\PrintPreview.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\PrinterProfile.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\SlicerEngine.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\SupportGenerator.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\ThreeDPrintEditorModule.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\ThreeDPrintModule.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\3dprint\ThreeDPrintQmlBridge.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Audio\AIAudioEngine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Audio\AIAudioStemSeparator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Audio\AudioAnalysis.h">
@@ -1812,6 +1884,9 @@
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Graphics\TextureTools.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Graphics\VulkanComputePipeline.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\Graphics\VulkanFunctions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -1918,6 +1993,66 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\assets\SimInstallDetector.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\3DPrintTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\GCodeGenerator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\GeometryUtils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\PrintPreview.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\PrinterProfile.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\SlicerEngine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\SupportGenerator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\ThreeDPrintEditorModule.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\ThreeDPrintModule.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\3dprint\ThreeDPrintQmlBridge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\scanners\photogrammetry\PhotogrammetryCapture.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\scanners\stereo_vision\StereoVisionScanner.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\scanners\structured_light\StructuredLightScanner.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\scanners\turntable_scanner\TurntableScanner.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\vr\VREditorModule.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\vr\XrConfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\vr\XrInput.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\vr\XrIntegration.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\vr\XrManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\devices\vr\XrViewportRenderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\editor\AIEditor\AIEditorModule.h">
@@ -2062,6 +2197,21 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\help\HelpSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\hwril\HilFfbInterface.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\kschat\ChatManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\kschat\ChatProtocol.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\kschat\ChatQmlBridge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\kschat\ChatServer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\material\MaterialEditorModule.h">
@@ -2253,9 +2403,6 @@
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\paint\PaintVector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\photogrammetry\PhotogrammetryCapture.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\physics\PhysicsEngine.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -2275,12 +2422,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\splitter\WindowSplitter.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\stereo_vision\StereoVisionScanner.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\structured_light\StructuredLightScanner.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\sys\DatabaseManager.h">
@@ -2412,7 +2553,19 @@
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\tools\VersionControl.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\turntable_scanner\TurntableScanner.h">
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\ui\FileTreeWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\ui\ProjectSearchWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\ui\SplashScreen.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\ui\TerminalWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\ui\WelcomeScreenQmlBridge.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\vcs\GitManager.h">
@@ -2422,24 +2575,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\vcs\VcsEditorModule.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\vr\VREditorModule.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\vr\XrConfig.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\vr\XrInput.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\vr\XrIntegration.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\vr\XrManager.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\vr\XrViewportRenderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\core\weather\WeatherConfigParser.h">
@@ -2574,6 +2709,9 @@
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\PhysicsEditor\widgets\CarValidatorWidget.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\PhysicsEditor\widgets\CfdWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\PhysicsEditor\widgets\EngineCurveWidget.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -2596,6 +2734,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\PhysicsEditor\widgets\TelemetryWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\PhysicsEditor\widgets\TireThermalWidget.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\PhysicsEditor\widgets\TyreTempModelWidget.h">
@@ -2659,6 +2800,21 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\ideeditor\IdeEditorWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\ksOffice\OfficeDocumentBridge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\ksOffice\OfficeManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\ksOffice\OfficeProtocol.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\ksOffice\OfficeQmlBridge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\ksOffice\OfficeServer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\modellingEditor\3DModeling.h">
@@ -2965,6 +3121,63 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="E:\Users\Simon\source\repos\kseditor\src\modules\sound\studio\StudioModule.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\AssetListModel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\CustomTitleBar.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\EditorUI.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\FileTreeWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\FontEditorDialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\NewProjectDialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\NodeGraphEditor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\NodeGraphScene.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\PackageWizard.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\ProfileManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\ProjectSearchWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\ReplaceDialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\RibbonUI.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\SoundWizard.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\SplashScreen.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\TerminalWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\UIEditorModule.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\WelcomeScreenQmlBridge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="E:\Users\Simon\source\repos\kseditor\resources\ui\ribbontheme.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

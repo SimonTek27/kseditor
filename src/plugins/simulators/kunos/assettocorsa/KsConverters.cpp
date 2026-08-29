@@ -18,7 +18,7 @@
 namespace ks {
 
 // ---------------------------------------------------------------------------
-// Type definitions (mirrors of the corresponding types in assettocorsa.h)
+// Type definitions (mirrors of the corresponding types in ksassettocorsa.h)
 // ---------------------------------------------------------------------------
 
 struct KsMeshVertex {

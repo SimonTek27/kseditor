@@ -523,7 +523,7 @@ void FluidSimulator::SpatialHashGrid::build(const QVector<FluidParticle>& partic
         int cx = static_cast<int>(std::floor(pos.x() / cellSize));
         int cy = static_cast<int>(std::floor(pos.y() / cellSize));
         int cz = static_cast<int>(std::floor(pos.z() / cellSize));
-        cells[qMakeTuple(cx, cy, cz)].append(i);
+        cells[{cx, cy, cz}].append(i);
     }
 }
 
@@ -537,7 +537,7 @@ QVector<int> FluidSimulator::SpatialHashGrid::query(const QVector3D& position, f
     for (int dx = -1; dx <= 1; ++dx) {
         for (int dy = -1; dy <= 1; ++dy) {
             for (int dz = -1; dz <= 1; ++dz) {
-                auto key = qMakeTuple(cx + dx, cy + dy, cz + dz);
+                auto key = CellKey{cx + dx, cy + dy, cz + dz};
                 auto it = cells.find(key);
                 if (it != cells.end()) {
                     result.append(it.value());
@@ -894,7 +894,7 @@ QVector<QPair<int,int>> HairSystem::StrandSpatialHash::query(const QVector3D& po
     for (int dx = -1; dx <= 1; ++dx) {
         for (int dy = -1; dy <= 1; ++dy) {
             for (int dz = -1; dz <= 1; ++dz) {
-                auto key = qMakePair(cx + dx, qMakePair(cy + dy, cz + dz));
+                auto key = StrandCellKey{cx + dx, cy + dy, cz + dz};
                 auto it = cells.find(key);
                 if (it != cells.end()) {
                     result.append(*it);

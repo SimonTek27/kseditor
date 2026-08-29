@@ -142,8 +142,8 @@ void AdvancedSculptMode::refineDynamicTopology(const QVector3D& point, const QVe
     // Find faces near brush area and split their long edges
     QVector<QPair<int,int>> edgesToSplit;
     
-    for (int fi = 0; fi + 2 < m_mesh->faces.size(); fi += 3) {
-        int f0 = m_mesh->faces[fi], f1 = m_mesh->faces[fi + 1], f2 = m_mesh->faces[fi + 2];
+    for (int fi = 0; fi + 2 < m_mesh->indices.size(); fi += 3) {
+        int f0 = m_mesh->indices[fi], f1 = m_mesh->indices[fi + 1], f2 = m_mesh->indices[fi + 2];
         if (f0 >= m_mesh->vertices.size() || f1 >= m_mesh->vertices.size() || f2 >= m_mesh->vertices.size())
             continue;
         
@@ -169,22 +169,22 @@ void AdvancedSculptMode::refineDynamicTopology(const QVector3D& point, const QVe
         if (v0 >= m_mesh->vertices.size() || v1 >= m_mesh->vertices.size()) continue;
         
         QVector3D midPoint = (m_mesh->vertices[v0].position + m_mesh->vertices[v1].position) * 0.5f;
-        Vertex newVertex;
+        ks::Vertex newVertex;
         newVertex.position = midPoint;
         newVertex.normal = (m_mesh->vertices[v0].normal + m_mesh->vertices[v1].normal).normalized();
         int newIdx = m_mesh->vertices.size();
         m_mesh->vertices.append(newVertex);
         
         // Find faces containing this edge and split them
-        for (int fi = 0; fi + 2 < m_mesh->faces.size(); fi += 3) {
-            int faceVerts[3] = {m_mesh->faces[fi], m_mesh->faces[fi+1], m_mesh->faces[fi+2]};
+        for (int fi = 0; fi + 2 < m_mesh->indices.size(); fi += 3) {
+            int faceVerts[3] = {m_mesh->indices[fi], m_mesh->indices[fi+1], m_mesh->indices[fi+2]};
             for (int e = 0; e < 3; ++e) {
                 int ev0 = faceVerts[e], ev1 = faceVerts[(e+1)%3];
                 if ((ev0 == v0 && ev1 == v1) || (ev0 == v1 && ev1 == v0)) {
                     // Split this face: replace edge (v0,v1) with two faces
                     int opp = faceVerts[(e+2)%3];
-                    m_mesh->faces[fi] = v0; m_mesh->faces[fi+1] = newIdx; m_mesh->faces[fi+2] = opp;
-                    m_mesh->faces.append(newIdx); m_mesh->faces.append(v1); m_mesh->faces.append(opp);
+                    m_mesh->indices[fi] = v0; m_mesh->indices[fi+1] = newIdx; m_mesh->indices[fi+2] = opp;
+                    m_mesh->indices.append(newIdx); m_mesh->indices.append(v1); m_mesh->indices.append(opp);
                     break;
                 }
             }
@@ -202,8 +202,8 @@ void AdvancedSculptMode::collapseLongEdges()
     QSet<int> verticesToRemove;
     
     // Find edges to collapse: merge shorter vertex into longer one
-    for (int fi = 0; fi + 2 < m_mesh->faces.size(); fi += 3) {
-        int f0 = m_mesh->faces[fi], f1 = m_mesh->faces[fi+1], f2 = m_mesh->faces[fi+2];
+    for (int fi = 0; fi + 2 < m_mesh->indices.size(); fi += 3) {
+        int f0 = m_mesh->indices[fi], f1 = m_mesh->indices[fi+1], f2 = m_mesh->indices[fi+2];
         if (f0 >= m_mesh->vertices.size() || f1 >= m_mesh->vertices.size() || f2 >= m_mesh->vertices.size())
             continue;
         
@@ -236,18 +236,18 @@ void AdvancedSculptMode::collapseLongEdges()
     
     // Remove faces that reference removed vertices
     QVector<int> facesToRemove;
-    for (int fi = 0; fi + 2 < m_mesh->faces.size(); fi += 3) {
-        int f0 = m_mesh->faces[fi], f1 = m_mesh->faces[fi+1], f2 = m_mesh->faces[fi+2];
+    for (int fi = 0; fi + 2 < m_mesh->indices.size(); fi += 3) {
+        int f0 = m_mesh->indices[fi], f1 = m_mesh->indices[fi+1], f2 = m_mesh->indices[fi+2];
         if (verticesToRemove.contains(f0) || verticesToRemove.contains(f1) || verticesToRemove.contains(f2)) {
             facesToRemove.append(fi);
         }
     }
     std::sort(facesToRemove.begin(), facesToRemove.end(), std::greater<int>());
     for (int fi : facesToRemove) {
-        if (fi + 2 < m_mesh->faces.size()) {
-            m_mesh->faces.removeAt(fi + 2);
-            m_mesh->faces.removeAt(fi + 1);
-            m_mesh->faces.removeAt(fi);
+        if (fi + 2 < m_mesh->indices.size()) {
+            m_mesh->indices.removeAt(fi + 2);
+            m_mesh->indices.removeAt(fi + 1);
+            m_mesh->indices.removeAt(fi);
         }
     }
 }
@@ -294,7 +294,7 @@ void AdvancedSculptMode::unmaskVertex(int index)
 void AdvancedSculptMode::invertMask()
 {
     if (!m_mesh) return;
-    for (Vertex& v : m_mesh->vertices) {
+    for (ks::Vertex& v : m_mesh->vertices) {
         v.mask = 1.0f - v.mask;
     }
 }
@@ -302,7 +302,7 @@ void AdvancedSculptMode::invertMask()
 void AdvancedSculptMode::clearMask()
 {
     if (!m_mesh) return;
-    for (Vertex& v : m_mesh->vertices) {
+    for (ks::Vertex& v : m_mesh->vertices) {
         v.mask = 0.0f;
     }
     m_maskedVertices.clear();

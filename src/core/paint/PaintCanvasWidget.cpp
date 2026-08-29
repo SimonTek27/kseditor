@@ -571,8 +571,8 @@ void PaintCanvasWidget::tabletEvent(QTabletEvent* event)
 
     QPoint imagePos = imagePosFromView(event->position().toPoint());
     float pressure = event->pressure();
-    float tiltX = event->tiltX();
-    float tiltY = event->tiltY();
+    float tiltX = event->rotation();
+    float tiltY = 0.0f;
 
     switch (event->type()) {
     case QTabletEvent::TabletPress: {

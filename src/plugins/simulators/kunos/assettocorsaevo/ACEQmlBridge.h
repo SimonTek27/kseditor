@@ -76,11 +76,11 @@ private:
     ACEPackageParser* m_parser;
 };
 
-class ACEProtobufQmlBridge : public QObject {
+class ACEProtobufQmlBridgeEvo : public QObject {
     Q_OBJECT
 
 public:
-    explicit ACEProtobufQmlBridge(QObject* parent = nullptr);
+    explicit ACEProtobufQmlBridgeEvo(QObject* parent = nullptr);
 
     Q_INVOKABLE QVariantMap decodeMessage(const QByteArray& data);
     Q_INVOKABLE QString printMessage(const QVariantMap& message);

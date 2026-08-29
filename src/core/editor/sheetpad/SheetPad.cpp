@@ -545,4 +545,9 @@ void SheetPad::onImportCSV() { importCSV(); }
 QString SheetPad::currentFilePath() const { return m_currentFile; }
 bool SheetPad::documentModified() const { return m_modified; }
 
+void SheetPad::onFontSizeChanged(int index)
+{
+    Q_UNUSED(index);
+}
+
 } // namespace ks

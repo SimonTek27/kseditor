@@ -11,8 +11,8 @@
 #include <QtGlobal>
 #include <algorithm>
 
-#include "assettocorsa/acFiles/KN5Types.h"
-#include "assettocorsa/acFiles/KN5Parser.h"
+#include "acFiles/KN5Types.h"
+#include "acFiles/KN5Parser.h"
 #include "FileFormat/FBXParser.h"
 #include "FileFormat/GLBParser.h"
 #include "FileFormat/CADOBJParser.h"
@@ -34,8 +34,6 @@ using KN5Parser::Bone;
 using KN5Parser::KN5_MAGIC;
 using KN5Parser::KN5_VERSION;
 using KN5Parser::KN5ParserImpl;
-
-#include "mesh/MeshOperations.h"
 
 FormatConverter::FormatConverter(QObject* parent)
     : QObject(parent) {

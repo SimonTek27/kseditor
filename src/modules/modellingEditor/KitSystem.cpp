@@ -83,6 +83,7 @@ QVector<QString> KitSystem::getAllKitNames() const {
 }
 
 bool KitSystem::saveToFile(const QString& path) const {
+    QJsonObject rootDoc;
     QJsonArray presetsArray;
     for (const auto& p : m_presets) {
         QJsonObject obj;
@@ -103,6 +104,7 @@ bool KitSystem::saveToFile(const QString& path) const {
         
         presetsArray.append(obj);
     }
+    rootDoc["presets"] = presetsArray;
     
     QJsonObject kitsArray;
     for (auto it = m_kits.constBegin(); it != m_kits.constEnd(); ++it) {
@@ -112,7 +114,7 @@ bool KitSystem::saveToFile(const QString& path) const {
         }
         kitsArray[it.key()] = presetNames;
     }
-    obj["kits"] = kitsArray;
+    rootDoc["kits"] = kitsArray;
     
     QJsonDocument doc(rootDoc);
     QFile file(path);
