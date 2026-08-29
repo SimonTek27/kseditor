@@ -136,7 +136,7 @@ Rhino stops at "a beautiful shell." It has no game UV texture atlas, no shader g
 - **Robust mesh booleans** (CGAL) on thin game-engine geometry; Rhino's mesh booleans are a side-feature.
 - **Modern real-time viewport** (Vulkan PBR, shader hot-reload) vs Rhino's CAD-accurate but game-irrelevant shading.
 - **Real NURBS exist now** (`MeshOperations::createSurface/loft/sweep/revolve/pipe`, CV slide, curvature combs) — a credible seed for the P1 kernel work, and honestly further along than most "mesh-first" DCCs.
-- **Open source (MIT), free, active** vs Rhino's commercial model (Rhino 9 WIP riding on R8 licenses at ~60% upgrade).
+- **Open source (GPL-3.0), free, active** vs Rhino's commercial model (Rhino 9 WIP riding on R8 licenses at ~60% upgrade).
 - **GeometryNodes node graph** — the same *paradigm* as Grasshopper, with a friendlier entry.
 
 ---

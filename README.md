@@ -141,7 +141,7 @@ kseditor/
 ├── CMakePresets.json           # CMake presets for IDEs
 ├── compile.bat / compile.sh    # Quick build scripts
 ├── build.bat                   # Full Windows build + deployment
-├── LICENSE.txt                 # MIT License
+├── LICENSE.txt                 # GPL-3.0 License
 ├── CONTRIBUTING.md             # Contribution guidelines
 ├── CHANGELOG.md                # Version history
 ├── docs/                       # Documentation
@@ -370,7 +370,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
 
 ## License
 
-**MIT License** - see [LICENSE.txt](LICENSE.txt) for details.
+**GPL-3.0 License** - see [LICENSE.txt](LICENSE.txt) for details.
 
 ---
 

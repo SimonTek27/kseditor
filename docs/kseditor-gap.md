@@ -134,7 +134,7 @@ ksEditor consists of three primary creative modules:
 
 **Closed in v1.17.0:** ICE compound library (GeometryNodes save/share via importGrasshopper/ice Compounds), expression editor + wire-parameter UI (expressionSet/Get + wireSetExpression), .scn/.exp/.emdl import stub (importXSI mesh fallback), fluid stub (fluidSimulate).
 
-**Where ksModeler wins:** Full AC pipeline, Vulkan PBR, CGAL booleans, Python 3, actively developed, MIT licensed.
+**Where ksModeler wins:** Full AC pipeline, Vulkan PBR, CGAL booleans, Python 3, actively developed, GPL-3.0 licensed.
 
 **Roadmap:** P1 Compound economy ✓, P2 Expressions ✓, P3 Stack interactivity, P4 Data rescue (.scn/.exp/.emdl) ✓, P5 Strands and fluid (stub).
 
@@ -350,7 +350,7 @@ These are ksEditor's decisive advantages that persist across every comparison:
 | **Car/track/character builders** | Wizard-driven domain workflows |
 | **Node-graph procedural modeling** | 50+ geometry node types |
 | **ICE-style particle system** | Node-graph dataflow, same paradigm as Bifrost |
-| **Free and open source (MIT)** | No subscription, no license management |
+| **Free and open source (GPL-3.0)** | No subscription, no license management |
 
 ---
 

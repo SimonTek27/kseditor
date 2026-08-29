@@ -138,7 +138,7 @@ Restoring a *compound economy* — let users write, save and share ICE-style com
 - Vulkan PBR viewport + hot-reload shaders.
 - CGAL booleans beat XSI boolean on real game geometry.
 - Python 3 + Node graph editor modern combination.
-- Actively developed, cross-platform, MIT licensed.
+- Actively developed, cross-platform, GPL-3.0 licensed.
 
 ---
 

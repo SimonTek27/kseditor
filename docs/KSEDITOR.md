@@ -123,7 +123,7 @@ On first launch, ksEditor runs a **Setup Wizard** that configures:
 | [Comparison](#comparison-with-other-modding-tools) | ksEditor vs Blender, 3ds Max, RTB, FMOD | Evaluators |
 | [Testing](#testing) | 22 Qt Test suites, running instructions | QA/Dev |
 | [Localization](#localization) | i18n status and translation guide | Translators |
-| [License](#license--third-party) | MIT License + third-party attribution | Legal |
+| [License](#license--third-party) | GPL-3.0 + third-party attribution | Legal |
 
 ---
 
@@ -1145,7 +1145,7 @@ Built-in profiler (`View → Profiler` or `Ctrl+Shift+P`):
 ## Frequently Asked Questions (FAQ)
 
 **Q: Is ksEditor free?**
-A: Yes. ksEditor is released under the MIT License. You can use, modify, and distribute it freely. Some third-party dependencies (Qt Commercial, FMOD Studio) have their own licenses for commercial use.
+A: Yes. ksEditor is released under the GPL-3.0 License. You can use, modify, and distribute it freely under the terms of the GPL, but third-party dependencies (Qt Commercial, FMOD Studio) have their own licenses for commercial use.
 
 **Q: Can I use ksEditor without owning Assetto Corsa?**
 A: Partially. The 3D modeler, audio editor, and livery tools work standalone. However, the SDKBackend, live telemetry, and AC-specific exporters require a valid AC installation.
@@ -1289,7 +1289,7 @@ ctest
 
 ## License & Third-Party
 
-**ksEditor:** MIT License — Copyright (c) 2014 Kunos Simulazioni s.r.l.
+**ksEditor:** GPL-3.0 License — Copyright (c) 2014 Kunos Simulazioni s.r.l.
 
 **Third-Party Libraries:**
 | Library | License | Purpose |

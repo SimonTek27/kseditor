@@ -74,4 +74,4 @@ ctest
 - Error messages
 
 ## License
-Public Domain
+GPL-3.0 License
