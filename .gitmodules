@@ -1,0 +1,3 @@
+[submodule "external/cwr"]
+	path = external/cwr
+	url = https://github.com/BohemiaInteractive/CWR.git

@@ -95,11 +95,18 @@ else()
 endif()
 
 # ============================================================================
-# Bullet Physics 3.25+ - DISABLED for compatibility
+# Bullet Physics 3.25+ - ENABLED for driving simulator
 # ============================================================================
-set(HAS_BULLET FALSE)
-message(STATUS "Bullet Physics disabled for compatibility")
-add_compile_definitions(HAS_BULLET=0)
+find_package(Bullet QUIET)
+if(BULLET_FOUND OR TARGET BulletDynamics)
+	set(HAS_BULLET TRUE)
+	message(STATUS "Bullet Physics enabled for driving simulator")
+	add_compile_definitions(HAS_BULLET=1)
+else()
+	set(HAS_BULLET FALSE)
+	message(STATUS "Bullet Physics NOT found - some physics features disabled")
+	add_compile_definitions(HAS_BULLET=0)
+endif()
 
 # ============================================================================
 # libigl 2.5+ (header-only geometry processing)
@@ -154,12 +161,69 @@ else()
 endif()
 
 if(Vulkan_FOUND)
-	message(STATUS "Vulkan SDK found: ${Vulkan_INCLUDE_DIRS}")
-	add_compile_definitions(HAS_VULKAN=1)
+    message(STATUS "Vulkan SDK found: ${Vulkan_INCLUDE_DIRS}")
+    add_compile_definitions(HAS_VULKAN=1)
 else()
-	message(STATUS "Vulkan SDK not found")
-	add_compile_definitions(HAS_VULKAN=0)
+    message(STATUS "Vulkan SDK not found")
+    add_compile_definitions(HAS_VULKAN=0)
 endif()
+
+# ============================================================================
+# ksnet - Multiplayer networking library (yojimbo-based) for client/server games
+# ============================================================================
+# Reliable UDP networking with encryption, authentication, and message serialization
+# Built on netcode + reliable + serialize (all vendored)
+# ============================================================================
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/core/engine/Network/ksnet/CMakeLists.txt")
+    add_subdirectory(src/core/engine/Network/ksnet EXCLUDE_FROM_ALL)
+    set(HAS_KSNET TRUE)
+    message(STATUS "ksnet multiplayer networking enabled")
+    add_compile_definitions(HAS_KSNET=1)
+else()
+    set(HAS_KSNET FALSE)
+    message(STATUS "ksnet not found - multiplayer disabled")
+    add_compile_definitions(HAS_KSNET=0)
+endif()
+
+# ============================================================================
+# KSEngine - Independent Engine Framework
+# ============================================================================
+add_subdirectory(src/core/engine EXCLUDE_FROM_ALL)
+set(HAS_KSENGINE TRUE)
+message(STATUS "KSEngine included as subdirectory")
+
+# ============================================================================
+# Examples
+# ============================================================================
+add_subdirectory(examples/MinimalSimulator EXCLUDE_FROM_ALL)
+
+# ============================================================================
+# Dear ImGui - Qt6 backend for Driving Simulator UI
+# ============================================================================
+# ksEditor will use ImGui for driving simulator UI panels (dashboard, telemetry, setup)
+# The Qt6 ImGui backend allows embedding ImGui windows inside Qt widgets/ dock widgets
+# ============================================================================
+
+find_package(imgui CONFIG QUIET)
+if(imgui_FOUND)
+    set(HAS_IMGUI TRUE)
+    message(STATUS "ImGui found: ${imgui_VERSION}")
+    add_compile_definitions(HAS_IMGUI=1)
+else()
+    set(HAS_IMGUI FALSE)
+    message(STATUS "ImGui not found - driving simulator UI panels will be disabled")
+    add_compile_definitions(HAS_IMGUI=0)
+endif()
+
+# ============================================================================
+# Driving Simulator Engine Modules
+# ============================================================================
+# Note: Source files are collected via GLOB_RECURSE in the main library target.
+# The subdirectories src/renderer, src/physics, src/audio, src/ui are included
+# automatically by the recursive file collection. No separate CMakeLists.txt
+# is required in each directory for the basic build.
+# ============================================================================
 
 # ============================================================================
 # Main Library and Application
@@ -169,6 +233,16 @@ endif()
 file(GLOB_RECURSE KSEDITOR_CORE_SOURCES
 	"src/core/*.h"
 	"src/core/*.cpp"
+	"src/core/**/*.h"
+	"src/core/**/*.cpp"
+)
+
+# Exclude broken weather editor files (use old WeatherConfig API that no longer exists)
+list(REMOVE_ITEM KSEDITOR_CORE_SOURCES
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/core/physics/weather/WeatherEditor.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/core/physics/weather/WeatherEditor.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/core/physics/weather/WeatherModule.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/core/physics/weather/WeatherModule.cpp"
 )
 
 file(GLOB_RECURSE KSEDITOR_MODULES_SOURCES
@@ -189,7 +263,7 @@ file(GLOB_RECURSE KSEDITOR_RESOURCES_UI_SOURCES
 file(GLOB KSEDITOR_MAIN_SOURCES
 	"src/main.cpp"
 	"src/MainWindow.cpp"
-	"resources.qrc"
+	resources.qrc
 )
 
 # Enforce: src/core/ui must stay in resources/ui (single source of truth)
@@ -204,28 +278,31 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/core/ui")
 endif()
 
 # Create main kseditor library
-add_library(kseditor_lib STATIC
+add_library(kslib STATIC
 	${KSEDITOR_CORE_SOURCES}
 	${KSEDITOR_MODULES_SOURCES}
 	${KSEDITOR_PLUGINS_SOURCES}
 	${KSEDITOR_RESOURCES_UI_SOURCES}
+	"src/EditorApp.cpp"
 )
 
-target_include_directories(kseditor_lib PUBLIC
+target_include_directories(kslib PUBLIC
 	"${CMAKE_CURRENT_SOURCE_DIR}/src"
 	"${CMAKE_CURRENT_SOURCE_DIR}/src/core"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/core/engine"
 	"${CMAKE_CURRENT_SOURCE_DIR}/src/plugins"
 	"${CMAKE_CURRENT_SOURCE_DIR}/external/eigen"
 )
 
 # Add Qt6 private headers (for qzipreader_p.h etc.)
 if(QT6_PATH)
-	target_include_directories(kseditor_lib PUBLIC
+	target_include_directories(kslib PUBLIC
 		"${QT6_PATH}/include/QtCore/6.11.1"
 	)
 endif()
 
-target_link_libraries(kseditor_lib PUBLIC
+target_link_libraries(kslib PUBLIC
+	ksengine
 	Qt6::Core
 	Qt6::Gui
 	Qt6::Widgets
@@ -245,39 +322,48 @@ target_link_libraries(kseditor_lib PUBLIC
 )
 
 if(HAS_MIKKTSPACE)
-	target_link_libraries(kseditor_lib PUBLIC mikktspace)
+	target_link_libraries(kslib PUBLIC mikktspace)
 endif()
 
-target_compile_definitions(kseditor_lib PUBLIC
+target_compile_definitions(kslib PUBLIC
 	KSASSETTOCORSA_EXPORTS
 	KSASSETTOCORSAEVO_EXPORTS
 )
 
 if(Qt6Svg_FOUND)
-	target_link_libraries(kseditor_lib PUBLIC Qt6::Svg)
+	target_link_libraries(kslib PUBLIC Qt6::Svg)
 endif()
 
 if(ZLIB_FOUND)
-	target_link_libraries(kseditor_lib PUBLIC ZLIB::ZLIB)
+	target_link_libraries(kslib PUBLIC ZLIB::ZLIB)
 endif()
 
 if(HAS_BULLET)
-	target_link_libraries(kseditor_lib PUBLIC Bullet3Common BulletDynamics BulletCollision LinearMath)
+	target_link_libraries(kslib PUBLIC Bullet3Common BulletDynamics BulletCollision LinearMath)
 endif()
 
 if(Vulkan_FOUND)
-	target_include_directories(kseditor_lib PUBLIC ${Vulkan_INCLUDE_DIRS})
-	target_link_libraries(kseditor_lib PUBLIC ${Vulkan_LIBRARIES})
+	target_include_directories(kslib PUBLIC ${Vulkan_INCLUDE_DIRS})
+	target_link_libraries(kslib PUBLIC ${Vulkan_LIBRARIES})
 endif()
 
 if(HAS_LUA)
-	target_link_libraries(kseditor_lib PUBLIC ${LUA_LIBRARIES})
-	target_include_directories(kseditor_lib PUBLIC ${LUA_INCLUDE_DIR})
+	target_link_libraries(kslib PUBLIC ${LUA_LIBRARIES})
+	target_include_directories(kslib PUBLIC ${LUA_INCLUDE_DIR})
 endif()
 
 if(HAS_PYTHON)
-	target_link_libraries(kseditor_lib PUBLIC ${Python3_LIBRARIES})
-	target_include_directories(kseditor_lib PUBLIC ${Python3_INCLUDE_DIRS})
+	target_link_libraries(kslib PUBLIC ${Python3_LIBRARIES})
+	target_include_directories(kslib PUBLIC ${Python3_INCLUDE_DIRS})
+endif()
+
+if(HAS_IMGUI)
+	target_link_libraries(kslib PUBLIC imgui::imgui)
+	target_compile_definitions(kslib PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLAD)
+endif()
+
+if(HAS_KSNET)
+	target_link_libraries(kslib PUBLIC Yojimbo::yojimbo)
 endif()
 
 # Create main executable
@@ -286,7 +372,7 @@ add_executable(kseditor
 )
 
 target_link_libraries(kseditor PRIVATE
-	kseditor_lib
+	kslib
 	Qt6::Core
 	Qt6::Gui
 	Qt6::Widgets
@@ -303,9 +389,77 @@ target_compile_definitions(kseditor PRIVATE
 	KSASSETTOCORSAEVO_EXPORTS
 )
 
+
+# Simulator application - standalone driving simulator
+add_executable(SimulatorApp
+	"src/SimulatorApp.cpp"
+	"src/simulator/InputManager.cpp"
+	"src/simulator/CameraController.cpp"
+	"src/simulator/DrivingRenderer.cpp"
+	"src/simulator/SimulationLoop.cpp"
+	"src/simulator/SimulatorAudio.cpp"
+	"src/simulator/AIController.cpp"
+	"src/simulator/RaceSessionManager.cpp"
+	"src/simulator/DashboardOverlay.cpp"
+	"src/simulator/SetupGarage.cpp"
+	"src/simulator/TelemetryOverlay.cpp"
+	"src/simulator/TrackLoader.cpp"
+	"src/simulator/MultiCarManager.cpp"
+	"src/simulator/PostProcessing.cpp"
+	"src/simulator/ReplayRecorder.cpp"
+	"src/simulator/GameMenuOverlay.cpp"
+)
+
+set_target_properties(SimulatorApp PROPERTIES AUTOMOC ON)
+
+target_link_libraries(SimulatorApp PRIVATE
+	kslib
+	Qt6::Core
+	Qt6::Gui
+	Qt6::Widgets
+	Qt6::OpenGL
+	opengl32
+)
+
+# Directory includi per i sottosistemi del motore core
+target_include_directories(SimulatorApp PRIVATE
+	"src/core/engine/Network"
+	"src/core/engine/Audio"
+	"src/core/engine/Graphics"
+	"src/core/engine/Physics"
+	"src/core/engine/Devices"
+	"src/simulator"
+)
+
+if(HAS_KSNET)
+	target_link_libraries(SimulatorApp PRIVATE Yojimbo::yojimbo)
+endif()
+
+# Copy Qt DLLs to output directory and create platforms/ subfolder
+add_custom_command(TARGET SimulatorApp POST_BUILD
+	COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:SimulatorApp>/platforms"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_PROPERTY:Qt6::Core,LOCATION>" "$<TARGET_FILE_DIR:SimulatorApp>/"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_PROPERTY:Qt6::Gui,LOCATION>" "$<TARGET_FILE_DIR:SimulatorApp>/"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_PROPERTY:Qt6::Widgets,LOCATION>" "$<TARGET_FILE_DIR:SimulatorApp>/"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_PROPERTY:Qt6::OpenGL,LOCATION>" "$<TARGET_FILE_DIR:SimulatorApp>/"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different "${Qt6_DIR}/../../../plugins/platforms/qwindows.dll" "$<TARGET_FILE_DIR:SimulatorApp>/platforms/"
+)
+
+target_include_directories(SimulatorApp PRIVATE
+	"${CMAKE_CURRENT_SOURCE_DIR}/src"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/core"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/plugins"
+	"${CMAKE_CURRENT_SOURCE_DIR}/src/simulator"
+)
+
+set_target_properties(SimulatorApp PROPERTIES
+	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+
 # Set output directory
 set_target_properties(kseditor PROPERTIES
 	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
-message(STATUS "ksEditor v${PROJECT_VERSION} configured successfully")
+message(STATUS "ksEditor v${PROJECT_VERSION} configured successfully - Driving Simulator Engine")

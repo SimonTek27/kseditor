@@ -81,6 +81,14 @@ stderr.txt
 stdout.txt
 test.ksproj
 template/
+*.log
+build_*.txt
+build2.txt
+build_engine_*.txt
+build_output*.txt
+IntegrationSummary.txt
+SimulatorApp.vcxproj
+SimulatorApp.vcxproj.filters
 
 # External dependencies (submodules/third-party source)
 external/openxr/
