@@ -1,0 +1,4 @@
+LIBRARY ksengineVideoModes
+EXPORTS
+    acGetVideoMode
+    acInitVideoModes

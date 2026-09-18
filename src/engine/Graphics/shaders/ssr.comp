@@ -1,0 +1,105 @@
+#version 450
+
+layout(push_constant) uniform SSRPC {
+    mat4 view;
+    mat4 proj;
+    mat4 invView;
+    mat4 invProj;
+    mat4 prevView;
+    mat4 prevProj;
+    vec2 screenSize;
+    int maxSteps;
+    int binarySearchSteps;
+    float thickness;
+    float maxDistance;
+    float intensity;
+    float roughnessThreshold;
+} pc;
+
+layout(set = 1, binding = 0, rgba8) uniform readonly image2D colorBuffer;
+layout(set = 1, binding = 1, rgba8) uniform readonly image2D normalBuffer;
+layout(set = 1, binding = 2, r32f) uniform readonly image2D depthBuffer;
+layout(set = 1, binding = 3, rgba8) uniform readonly image2D materialBuffer;
+layout(set = 1, binding = 4, rgba8) uniform writeonly image2D outColor;
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+vec3 viewPosFromDepth(vec2 uv, float depth) {
+    vec4 clipPos = vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+    vec4 viewPos = pc.invProj * clipPos;
+    return viewPos.xyz / viewPos.w;
+}
+
+vec2 uvFromViewPos(vec3 viewPos) {
+    vec4 clipPos = pc.proj * vec4(viewPos, 1.0);
+    vec2 ndc = clipPos.xy / clipPos.w;
+    return ndc * 0.5 + 0.5;
+}
+
+float sampleDepth(vec2 uv) {
+    ivec2 coord = ivec2(uv * pc.screenSize);
+    return imageLoad(depthBuffer, coord).r;
+}
+
+vec3 binarySearch(vec3 rayDir, vec3 rayPos) {
+    for (int i = 0; i < pc.binarySearchSteps; ++i) {
+        vec2 uv = uvFromViewPos(rayPos);
+        float depth = sampleDepth(uv);
+        vec3 hitView = viewPosFromDepth(uv, depth);
+        float diff = rayPos.z - hitView.z;
+        if (abs(diff) < pc.thickness) return rayPos;
+        rayPos += rayDir * 0.5;
+    }
+    return rayPos;
+}
+
+void main() {
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    vec2 fragUV = vec2(coord) / pc.screenSize;
+
+    float depth = sampleDepth(fragUV);
+    if (depth >= 1.0) {
+        imageStore(outColor, coord, vec4(0.0));
+        return;
+    }
+    vec3 viewPos = viewPosFromDepth(fragUV, depth);
+    vec3 normal = normalize(imageLoad(normalBuffer, coord).rgb * 2.0 - 1.0);
+    vec4 material = imageLoad(materialBuffer, coord);
+    float roughness = material.g;
+    if (roughness > pc.roughnessThreshold) {
+        imageStore(outColor, coord, vec4(0.0));
+        return;
+    }
+    vec3 viewNormal = normalize(mat3(pc.view) * normal);
+    vec3 incident = normalize(viewPos);
+    vec3 reflected = reflect(incident, viewNormal);
+    vec3 rayPos = viewPos;
+    vec3 rayDir = reflected * pc.maxDistance / float(pc.maxSteps);
+    bool hit = false;
+    for (int i = 0; i < pc.maxSteps; ++i) {
+        rayPos += rayDir;
+        vec2 uv = uvFromViewPos(rayPos);
+        if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) break;
+        float sceneDepth = sampleDepth(uv);
+        vec3 hitView = viewPosFromDepth(uv, sceneDepth);
+        float diff = rayPos.z - hitView.z;
+        if (abs(diff) < pc.thickness) {
+            rayPos = binarySearch(rayDir * 0.5, rayPos);
+            hit = true;
+            break;
+        }
+    }
+    if (hit) {
+        vec2 uv = uvFromViewPos(rayPos);
+        ivec2 hitCoord = ivec2(uv * pc.screenSize);
+        vec3 reflectionColor = imageLoad(colorBuffer, hitCoord).rgb;
+        float fade = 1.0 - smoothstep(0.8, 1.0, length(viewPos) / pc.maxDistance);
+        fade *= 1.0 - smoothstep(0.0, 0.1, uv.x);
+        fade *= 1.0 - smoothstep(0.0, 0.1, uv.y);
+        fade *= 1.0 - smoothstep(0.9, 1.0, uv.x);
+        fade *= 1.0 - smoothstep(0.9, 1.0, uv.y);
+        imageStore(outColor, coord, vec4(reflectionColor * fade * pc.intensity, fade));
+    } else {
+        imageStore(outColor, coord, vec4(0.0));
+    }
+}
