@@ -1,46 +1,41 @@
 #pragma once
 
-#include <QObject>
-#include <QTimer>
-#include <QSettings>
-#include "simracing/SimRacingDevices.h"
-#include "vr/XrManager.h"
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <string>
 
 namespace ks::device {
 
-// ============================================================================
-// DeviceManager
-// ============================================================================
-// Central hub for all input/display devices in the racing simulator.
-// Coordinates triple monitor rendering, VR headset, steering wheels,
-// pedals, shifters, and force feedback.
-//
-// Usage:
-//   auto* dm = DeviceManager::instance();
-//   dm->initialize();
-//   dm->tripleMonitor()->setConfig(config);
-//   dm->racingInput()->selectDevice(wheelIndex);
-// ============================================================================
+class TripleMonitorManager;
+class RacingInputManager;
+class XrManager;
 
-class DeviceManager : public QObject {
-    Q_OBJECT
+/**
+ * Central hub for input/display devices — Qt-free.
+ * Events use std::function callbacks (no QObject/signals).
+ */
+class DeviceManager {
 public:
     static DeviceManager* instance();
+    static DeviceManager* createInstance();
+    static void destroyInstance();
 
-    explicit DeviceManager(QObject* parent = nullptr);
-    ~DeviceManager() override;
+    DeviceManager();
+    ~DeviceManager();
 
-    // Lifecycle
+    DeviceManager(const DeviceManager&) = delete;
+    DeviceManager& operator=(const DeviceManager&) = delete;
+
     bool initialize();
     void shutdown();
     bool isInitialized() const { return m_initialized; }
 
-    // Sub-managers
     TripleMonitorManager* tripleMonitor() const { return m_tripleMonitor.get(); }
     RacingInputManager* racingInput() const { return m_racingInput.get(); }
     XrManager* vr() const { return m_vr.get(); }
 
-    // Rendering mode
     enum class RenderMode : uint8_t {
         SingleMonitor = 0,
         TripleMonitor,
@@ -48,35 +43,35 @@ public:
     };
 
     void setRenderMode(RenderMode mode);
-    RenderMode renderMode() const { return m_renderMode; }
+    RenderMode renderMode() const;
     bool isVRActive() const;
     bool isTripleActive() const;
 
-    // Unified device status
     struct DeviceStatus {
         bool tripleMonitorConnected = false;
         int monitorCount = 0;
         bool vrConnected = false;
         bool vrSessionRunning = false;
         bool steeringWheelConnected = false;
-        QString activeDeviceName;
+        std::string activeDeviceName;
     };
 
     DeviceStatus status() const;
+    void pollStatus();
 
-    // Profiles
-    void loadProfiles(const QString& basePath);
-    void saveProfiles(const QString& basePath) const;
+    void loadProfiles(const std::string& basePath);
+    void saveProfiles(const std::string& basePath) const;
 
-signals:
-    void renderModeChanged(RenderMode mode);
-    void deviceStatusChanged(const DeviceStatus& status);
-    void error(const QString& message);
+    void setRenderModeCallback(std::function<void(RenderMode)> cb);
+    void setDeviceStatusCallback(std::function<void(const DeviceStatus&)> cb);
+    void setErrorCallback(std::function<void(const std::string&)> cb);
 
 private:
     void onMonitorChanged();
     void onVRSessionChanged(bool running);
     void onInputDeviceChanged(int index);
+    void notifyStatus();
+    void notifyError(const std::string& msg);
 
     std::unique_ptr<TripleMonitorManager> m_tripleMonitor;
     std::unique_ptr<RacingInputManager> m_racingInput;
@@ -84,7 +79,11 @@ private:
 
     RenderMode m_renderMode = RenderMode::SingleMonitor;
     bool m_initialized = false;
-    QTimer m_statusTimer;
+
+    mutable std::mutex m_mutex;
+    std::function<void(RenderMode)> m_onRenderModeChanged;
+    std::function<void(const DeviceStatus&)> m_onDeviceStatusChanged;
+    std::function<void(const std::string&)> m_onError;
 
     static DeviceManager* s_instance;
 };
