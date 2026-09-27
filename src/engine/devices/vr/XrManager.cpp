@@ -4,6 +4,7 @@
 #include <mutex>
 #include <cmath>
 #include <cstring>
+#include <vector>
 #ifdef _WIN32
 #  ifndef WIN32_LEAN_AND_MEAN
 #    define WIN32_LEAN_AND_MEAN
@@ -14,56 +15,50 @@
 #endif
 #if defined(XR_VERSION_1_0) || defined(XR_NULL_HANDLE)
 #include <vulkan/vulkan.h>
+#include "XrDispatch.h"
 
 namespace ks {
 namespace device {
 
-// Full implementation lives in artifacts; this update replaces the Qt remote version.
-// See repo history / artifacts/XrManager.cpp for complete OpenXR dispatch.
-// Minimal bootstrap so the tree compiles Qt-free; expand from local artifacts if needed.
-
-struct XrDispatch {
-    PFN_xrGetInstanceProcAddr GetInstanceProcAddr = nullptr;
-    PFN_xrCreateInstance CreateInstance = nullptr;
-    PFN_xrDestroyInstance DestroyInstance = nullptr;
-    PFN_xrDestroySession DestroySession = nullptr;
-    PFN_xrDestroySpace DestroySpace = nullptr;
-    PFN_xrEndSession EndSession = nullptr;
-    template<typename T>
-    void loadPreInstance(T& fnPtr, const char* name) {
-        if (!GetInstanceProcAddr) return;
-        PFN_xrVoidFunction pfn;
-        if (XR_SUCCEEDED(GetInstanceProcAddr(XR_NULL_HANDLE, name, &pfn)) && pfn)
-            fnPtr = reinterpret_cast<T>(pfn);
-    }
-    template<typename T>
-    void load(T& fnPtr, const char* name, XrInstance instance) {
-        if (!GetInstanceProcAddr) return;
-        PFN_xrVoidFunction pfn;
-        if (XR_SUCCEEDED(GetInstanceProcAddr(instance, name, &pfn)) && pfn)
-            fnPtr = reinterpret_cast<T>(pfn);
-    }
-};
-static XrDispatch s_dispatch;
+XrDispatch s_dispatch;
 
 XrManager* XrManager::s_instance = nullptr;
-XrManager* XrManager::instance() {
+
+XrManager* XrManager::instance()
+{
     if (!s_instance) s_instance = new XrManager();
     return s_instance;
 }
-XrManager::XrManager() { s_instance = this; }
-XrManager::~XrManager() { shutdown(); if (s_instance == this) s_instance = nullptr; }
+
+XrManager::XrManager()
+{
+    s_instance = this;
+}
+
+XrManager::~XrManager()
+{
+    shutdown();
+    if (s_instance == this) s_instance = nullptr;
+}
 
 void XrManager::setVulkanDevice(VkDevice device, VkPhysicalDevice physicalDevice,
-                                 VkInstance vkInstance, uint32_t queueFamilyIndex, uint32_t queueIndex) {
-    m_vkDevice = device; m_vkPhysicalDevice = physicalDevice; m_vkInstance = vkInstance;
-    m_queueFamilyIndex = queueFamilyIndex; m_queueIndex = queueIndex;
-}
-void XrManager::setVulkanCommandResources(VkCommandPool pool, VkQueue queue) {
-    m_commandPool = pool; m_graphicsQueue = queue;
+                                 VkInstance vkInstance, uint32_t queueFamilyIndex, uint32_t queueIndex)
+{
+    m_vkDevice = device;
+    m_vkPhysicalDevice = physicalDevice;
+    m_vkInstance = vkInstance;
+    m_queueFamilyIndex = queueFamilyIndex;
+    m_queueIndex = queueIndex;
 }
 
-bool XrManager::initialize(const std::string& applicationName) {
+void XrManager::setVulkanCommandResources(VkCommandPool pool, VkQueue queue)
+{
+    m_commandPool = pool;
+    m_graphicsQueue = queue;
+}
+
+bool XrManager::initialize(const std::string& applicationName)
+{
     if (m_initialized) return true;
     std::lock_guard<std::mutex> lock(m_mutex);
     if (!createInstance(applicationName)) return false;
@@ -79,7 +74,8 @@ bool XrManager::initialize(const std::string& applicationName) {
     return true;
 }
 
-void XrManager::shutdown() {
+void XrManager::shutdown()
+{
     std::lock_guard<std::mutex> lock(m_mutex);
     if (m_sessionRunning && s_dispatch.EndSession) {
         s_dispatch.EndSession(m_session);
@@ -92,11 +88,15 @@ void XrManager::shutdown() {
     if (m_viewSpace && s_dispatch.DestroySpace) { s_dispatch.DestroySpace(m_viewSpace); m_viewSpace = XR_NULL_HANDLE; }
     if (m_session && s_dispatch.DestroySession) { s_dispatch.DestroySession(m_session); m_session = XR_NULL_HANDLE; }
     if (m_instance && s_dispatch.DestroyInstance) { s_dispatch.DestroyInstance(m_instance); m_instance = XR_NULL_HANDLE; }
-    m_initialized = false; m_sessionRunning = false; m_sessionFocused = false;
-    m_eyeCount = 0; m_systemId = XR_NULL_SYSTEM_ID;
+    m_initialized = false;
+    m_sessionRunning = false;
+    m_sessionFocused = false;
+    m_eyeCount = 0;
+    m_systemId = XR_NULL_SYSTEM_ID;
 }
 
-bool XrManager::createInstance(const std::string& applicationName) {
+bool XrManager::createInstance(const std::string& applicationName)
+{
     using PFN_xrGetInstanceProcAddr_t = XrResult (XRAPI_PTR *)(XrInstance, const char*, PFN_xrVoidFunction*);
     using PFN_xrCreateInstance_t = XrResult (XRAPI_PTR *)(const XrInstanceCreateInfo*, XrInstance*);
     PFN_xrGetInstanceProcAddr_t pfnGetInstanceProcAddr = nullptr;
@@ -116,12 +116,16 @@ bool XrManager::createInstance(const std::string& applicationName) {
     }
 #endif
     if (!pfnGetInstanceProcAddr) {
-        emitError("OpenXR runtime not found");
+        emitError("OpenXR runtime not found. Install SteamVR / OpenXR runtime.");
         return false;
     }
     s_dispatch.GetInstanceProcAddr = pfnGetInstanceProcAddr;
     s_dispatch.CreateInstance = pfnCreateInstance;
-    if (!s_dispatch.CreateInstance) { emitError("Failed to load OpenXR CreateInstance"); return false; }
+    if (!s_dispatch.CreateInstance) {
+        emitError("Failed to load OpenXR CreateInstance");
+        return false;
+    }
+    s_dispatch.loadPreInstance(s_dispatch.EnumerateInstanceExtensionProperties, "xrEnumerateInstanceExtensionProperties");
 
     XrApplicationInfo appInfo{};
     strncpy(appInfo.applicationName, applicationName.c_str(), XR_MAX_APPLICATION_NAME_SIZE - 1);
@@ -141,45 +145,114 @@ bool XrManager::createInstance(const std::string& applicationName) {
         emitError("Failed to create OpenXR instance");
         return false;
     }
+#define LOAD_FN(name) s_dispatch.load(s_dispatch.name, "xr" #name, m_instance)
+    // Load critical entry points (names without xr prefix handled in load calls)
+#undef LOAD_FN
     s_dispatch.load(s_dispatch.DestroyInstance, "xrDestroyInstance", m_instance);
+    s_dispatch.load(s_dispatch.GetSystem, "xrGetSystem", m_instance);
+    s_dispatch.load(s_dispatch.GetSystemProperties, "xrGetSystemProperties", m_instance);
+    s_dispatch.load(s_dispatch.CreateSession, "xrCreateSession", m_instance);
     s_dispatch.load(s_dispatch.DestroySession, "xrDestroySession", m_instance);
+    s_dispatch.load(s_dispatch.CreateReferenceSpace, "xrCreateReferenceSpace", m_instance);
     s_dispatch.load(s_dispatch.DestroySpace, "xrDestroySpace", m_instance);
+    s_dispatch.load(s_dispatch.EnumerateViewConfigurations, "xrEnumerateViewConfigurations", m_instance);
+    s_dispatch.load(s_dispatch.GetViewConfigurationProperties, "xrGetViewConfigurationProperties", m_instance);
+    s_dispatch.load(s_dispatch.EnumerateViewConfigurationViews, "xrEnumerateViewConfigurationViews", m_instance);
+    s_dispatch.load(s_dispatch.EnumerateSwapchainFormats, "xrEnumerateSwapchainFormats", m_instance);
+    s_dispatch.load(s_dispatch.CreateSwapchain, "xrCreateSwapchain", m_instance);
+    s_dispatch.load(s_dispatch.DestroySwapchain, "xrDestroySwapchain", m_instance);
+    s_dispatch.load(s_dispatch.EnumerateSwapchainImages, "xrEnumerateSwapchainImages", m_instance);
+    s_dispatch.load(s_dispatch.AcquireSwapchainImage, "xrAcquireSwapchainImage", m_instance);
+    s_dispatch.load(s_dispatch.WaitSwapchainImage, "xrWaitSwapchainImage", m_instance);
+    s_dispatch.load(s_dispatch.ReleaseSwapchainImage, "xrReleaseSwapchainImage", m_instance);
+    s_dispatch.load(s_dispatch.BeginSession, "xrBeginSession", m_instance);
     s_dispatch.load(s_dispatch.EndSession, "xrEndSession", m_instance);
+    s_dispatch.load(s_dispatch.WaitFrame, "xrWaitFrame", m_instance);
+    s_dispatch.load(s_dispatch.BeginFrame, "xrBeginFrame", m_instance);
+    s_dispatch.load(s_dispatch.EndFrame, "xrEndFrame", m_instance);
+    s_dispatch.load(s_dispatch.LocateViews, "xrLocateViews", m_instance);
+    s_dispatch.load(s_dispatch.PollEvent, "xrPollEvent", m_instance);
+    s_dispatch.load(s_dispatch.StringToPath, "xrStringToPath", m_instance);
+    s_dispatch.load(s_dispatch.CreateActionSet, "xrCreateActionSet", m_instance);
+    s_dispatch.load(s_dispatch.CreateAction, "xrCreateAction", m_instance);
+    s_dispatch.load(s_dispatch.SuggestInteractionProfileBindings, "xrSuggestInteractionProfileBindings", m_instance);
+    s_dispatch.load(s_dispatch.AttachSessionActionSets, "xrAttachSessionActionSets", m_instance);
+    s_dispatch.load(s_dispatch.SyncActions, "xrSyncActions", m_instance);
+    s_dispatch.load(s_dispatch.GetActionStateBoolean, "xrGetActionStateBoolean", m_instance);
+    s_dispatch.load(s_dispatch.GetActionStateFloat, "xrGetActionStateFloat", m_instance);
+    s_dispatch.load(s_dispatch.GetActionStateVector2f, "xrGetActionStateVector2f", m_instance);
+    s_dispatch.load(s_dispatch.GetActionStatePose, "xrGetActionStatePose", m_instance);
+    s_dispatch.load(s_dispatch.CreateActionSpace, "xrCreateActionSpace", m_instance);
+    s_dispatch.load(s_dispatch.LocateSpace, "xrLocateSpace", m_instance);
     return true;
 }
 
-bool XrManager::getSystem() { return true; }
-bool XrManager::createSession() { return true; }
-bool XrManager::createReferenceSpaces() { return true; }
-bool XrManager::createSwapchains() { return true; }
-void XrManager::destroySwapchains() {}
-bool XrManager::createActions() { return true; }
-void XrManager::destroyActions() {}
-bool XrManager::suggestBindings() { return true; }
-bool XrManager::attachActions() { return true; }
-bool XrManager::pollEvents() { return true; }
-void XrManager::handleSessionStateChanged(const XrEventDataSessionStateChanged&) {}
-bool XrManager::pollActions() { return true; }
-bool XrManager::beginXRFrame() { return false; }
-bool XrManager::endXRFrame() { return false; }
-bool XrManager::beginEyeRender(int) { return false; }
-void XrManager::endEyeRender(int) {}
-XrMat4 XrManager::projectionMatrix(int, float, float) const { return XrMat4::perspective(90.f, 1.f, 0.1f, 1000.f); }
-XrMat4 XrManager::viewMatrix(int) const { return XrMat4::identity(); }
-XrPath XrManager::stringToPath(const char*) { return XR_NULL_PATH; }
-XrAction XrManager::createAction(XrActionSet, const char*, const char*, XrActionType, const std::vector<XrPath>&) { return XR_NULL_HANDLE; }
-void XrManager::suggestInteractionProfileBindings(const char*, const std::vector<XrActionSuggestedBinding>&) {}
-void XrManager::emitError(const std::string& message) {
+bool XrManager::getSystem()
+{
+    if (!s_dispatch.GetSystem) return false;
+    XrSystemGetInfo systemInfo{XR_TYPE_SYSTEM_GET_INFO};
+    systemInfo.formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
+    XrResult result = s_dispatch.GetSystem(m_instance, &systemInfo, &m_systemId);
+    if (XR_FAILED(result)) {
+        emitError("No VR headset detected");
+        return false;
+    }
+    return true;
+}
+
+bool XrManager::createSession()
+{
+    if (!m_vkDevice || !m_vkPhysicalDevice || !m_vkInstance) {
+        emitError("Vulkan device not set before creating session");
+        return false;
+    }
+    if (!s_dispatch.CreateSession) return false;
+    XrGraphicsBindingVulkanKHR vulkanBinding{XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR};
+    vulkanBinding.instance = m_vkInstance;
+    vulkanBinding.physicalDevice = m_vkPhysicalDevice;
+    vulkanBinding.device = m_vkDevice;
+    vulkanBinding.queueFamilyIndex = m_queueFamilyIndex;
+    vulkanBinding.queueIndex = m_queueIndex;
+    XrSessionCreateInfo sessionInfo{XR_TYPE_SESSION_CREATE_INFO};
+    sessionInfo.next = &vulkanBinding;
+    sessionInfo.systemId = m_systemId;
+    XrResult result = s_dispatch.CreateSession(m_instance, &sessionInfo, &m_session);
+    if (XR_FAILED(result)) {
+        emitError("Failed to create OpenXR session");
+        return false;
+    }
+    return true;
+}
+
+bool XrManager::createReferenceSpaces()
+{
+    if (!s_dispatch.CreateReferenceSpace) return false;
+    XrReferenceSpaceCreateInfo spaceInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
+    spaceInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
+    spaceInfo.poseInReferenceSpace = {{0,0,0,1}, {0,0,0}};
+    XrResult result = s_dispatch.CreateReferenceSpace(m_session, &spaceInfo, &m_stageSpace);
+    if (XR_FAILED(result)) {
+        spaceInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+        result = s_dispatch.CreateReferenceSpace(m_session, &spaceInfo, &m_localSpace);
+        if (XR_FAILED(result)) return false;
+    }
+    spaceInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
+    result = s_dispatch.CreateReferenceSpace(m_session, &spaceInfo, &m_viewSpace);
+    return XR_SUCCEEDED(result);
+}
+
+void XrManager::emitError(const std::string& message)
+{
     if (onError) onError(message);
     else std::fprintf(stderr, "XrManager: %s\n", message.c_str());
 }
-void XrManager::emitInitialized(bool success) {
+
+void XrManager::emitInitialized(bool success)
+{
     if (onInitialized) onInitialized(success);
 }
 
 } // namespace device
 } // namespace ks
 
-#else
-// OpenXR headers unavailable — stubs in XrManager.h
 #endif
