@@ -2,135 +2,83 @@
 
 /**
  * @file ChassisSimulator.h
- * @brief Chassis dynamics, suspension, and weight transfer simulation
- * @copyright KS Physics Engine
+ * @brief Planar bicycle-ish chassis kinematics for yaw / sideslip — Qt-free
  */
 
 #include "PhysicsCoreTypes.h"
-#include <QObject>
+
+#include <algorithm>
+#include <cmath>
 
 namespace ks {
 namespace physics {
 
-// ============================================================================
-// Chassis Configuration
-// ============================================================================
-
 struct ChassisConfig {
-    double mass = 1500.0;               ///< Vehicle mass (kg)
-    double wheelBase = 2.7;             ///< Wheelbase (m)
-    double trackWidth = 1.6;            ///< Track width (m)
-    double cgHeight = 0.45;             ///< Center of gravity height (m)
-    double frontAxleDist = 1.35;        ///< Distance from CG to front axle (m)
-    double rearAxleDist = 1.35;         ///< Distance from CG to rear axle (m)
-    double rollStiffness = 15000.0;     ///< Roll stiffness (Nm/rad)
-    double yawInertia = 2500.0;         ///< Yaw moment of inertia (kg·m²)
+    float mass = 1300.0f;
+    float wheelBase = 2.7f;
+    float trackWidth = 1.6f;
+    float cgHeight = 0.45f;
+    float frontAxleDist = 1.35f;
+    float rearAxleDist = 1.35f;
+    float yawInertia = 2500.0f;
+    float corneringStiffnessFront = 80000.0f;
+    float corneringStiffnessRear = 90000.0f;
 };
-
-// ============================================================================
-// Suspension Configuration
-// ============================================================================
-
-struct SuspensionConfig {
-    double springRateFront = 30000.0;   ///< Front spring rate (N/m)
-    double springRateRear = 25000.0;    ///< Rear spring rate (N/m)
-    double damperRateFront = 3000.0;    ///< Front damper rate (Ns/m)
-    double damperRateRear = 2500.0;     ///< Rear damper rate (Ns/m)
-    double antiRollBarFront = 1000.0;   ///< Front anti-roll bar stiffness (Nm/rad)
-    double antiRollBarRear = 800.0;     ///< Rear anti-roll bar stiffness (Nm/rad)
-    double rideHeightFront = 0.05;      ///< Front ride height (m)
-    double rideHeightRear = 0.07;       ///< Rear ride height (m)
-};
-
-// ============================================================================
-// Weight Transfer Result
-// ============================================================================
-
-struct WeightTransferResultChassis {
-    double frontLeftLoad = 0.0;
-    double frontRightLoad = 0.0;
-    double rearLeftLoad = 0.0;
-    double rearRightLoad = 0.0;
-    double totalLoadTransfer = 0.0;
-    double lateralLoadTransfer = 0.0;
-    double longitudinalLoadTransfer = 0.0;
-    double rollAngle = 0.0;
-    double pitchAngle = 0.0;
-};
-
-// ============================================================================
-// Chassis State
-// ============================================================================
 
 struct ChassisState {
-    double yawRate = 0.0;
-    double lateralAccel = 0.0;
-    double longitudinalAccel = 0.0;
-    double rollAngle = 0.0;
-    double pitchAngle = 0.0;
-    double sideslipAngle = 0.0;
-    double speed = 0.0;
+    float yawRate = 0.0f;
+    float sideslip = 0.0f;
+    float lateralAccel = 0.0f;
+    float longitudinalAccel = 0.0f;
+    float rollAngle = 0.0f;
+    float pitchAngle = 0.0f;
+    float speed = 0.0f;
 };
-
-// ============================================================================
-// Chassis Simulator Class
-// ============================================================================
 
 class ChassisSimulator {
 public:
-    ChassisSimulator();
-    ~ChassisSimulator() = default;
+    void setConfig(const ChassisConfig& c) { m_cfg = c; }
+    const ChassisConfig& config() const { return m_cfg; }
+    const ChassisState& state() const { return m_state; }
 
-    // Configuration
-    void setChassisConfig(const ChassisConfig& config);
-    void setSuspensionConfig(const SuspensionConfig& config);
-    
-    // State access
-    ChassisState chassisState() const { return m_chassisState; }
-    WeightTransferResultChassis weightTransferResult() const { return m_weightTransfer; }
-    
-    // Update
-    void update(double dt, double throttle, double brake, double steering,
-               const std::array<double, 4>& tireForces);
-    
-    // Weight transfer
-    WeightTransferResultChassis calculateWeightTransfer(double lateralAccel, 
-                                                       double longitudinalAccel) const;
-    
-    // Query
-    double yawRate() const { return m_chassisState.yawRate; }
-    double lateralAccel() const { return m_chassisState.lateralAccel; }
-    double sideslipAngle() const { return m_chassisState.sideslipAngle; }
-    
-    // Stability derivatives
-    struct StabilityDerivatives {
-        double dFy_dAlpha = 0.0;        ///< Lateral force derivative w.r.t. sideslip
-        double dMz_dAlpha = 0.0;        ///< Yaw moment derivative w.r.t. sideslip
-        double dMz_dR = 0.0;            ///< Yaw moment derivative w.r.t. yaw rate
-        double understeerGradient = 0.0;
-        double yawVelocityGain = 0.0;
-    };
-    
-    StabilityDerivatives calculateStabilityDerivatives(
-        double frontCorneringStiffness, double rearCorneringStiffness) const;
+    void update(float dt, float speed, float steerRad, float forceX, float forceY) {
+        dt = std::clamp(dt, 1e-4f, 0.05f);
+        m_state.speed = speed;
+        m_state.longitudinalAccel = forceX / std::max(m_cfg.mass, 1.0f);
+        m_state.lateralAccel = forceY / std::max(m_cfg.mass, 1.0f);
+
+        const float v = std::max(speed, 0.5f);
+        const float a = m_cfg.frontAxleDist;
+        const float b = m_cfg.rearAxleDist;
+        const float yaw = m_state.yawRate;
+        const float beta = m_state.sideslip;
+
+        const float alphaF = steerRad - beta - (a * yaw) / v;
+        const float alphaR = -beta + (b * yaw) / v;
+
+        const float FyF = m_cfg.corneringStiffnessFront * alphaF;
+        const float FyR = m_cfg.corneringStiffnessRear * alphaR;
+
+        const float Fy = 0.5f * (FyF + FyR) + 0.5f * forceY;
+        m_state.lateralAccel = Fy / m_cfg.mass;
+
+        const float yawMoment = a * FyF - b * FyR;
+        const float yawAcc = yawMoment / std::max(m_cfg.yawInertia, 1.0f);
+        m_state.yawRate += yawAcc * dt;
+        m_state.yawRate *= (1.0f - 0.02f * dt);
+
+        m_state.sideslip += (m_state.lateralAccel / v - m_state.yawRate) * dt;
+        m_state.sideslip = std::clamp(m_state.sideslip, -0.5f, 0.5f);
+
+        m_state.rollAngle = std::clamp(m_state.lateralAccel * m_cfg.cgHeight / 50.0f, -0.15f, 0.15f);
+        m_state.pitchAngle = std::clamp(-m_state.longitudinalAccel * m_cfg.cgHeight / 60.0f, -0.1f, 0.1f);
+    }
+
+    void reset() { m_state = ChassisState{}; }
 
 private:
-    // Internal calculations
-    double calculateLateralAccel(double yawRate, double speed) const;
-    double calculateYawAccel(double frontLateralForce, double rearLateralForce,
-                            double frontLeverArm, double rearLeverArm) const;
-    double calculateSideslipAngle(double vx, double vy, double yawRate) const;
-    
-    // Configuration
-    ChassisConfig m_chassisConfig;
-    SuspensionConfig m_suspensionConfig;
-    
-    // State
-    ChassisState m_chassisState;
-    WeightTransferResultChassis m_weightTransfer;
-    
-    // Physics constants
-    static constexpr double GRAVITY = 9.81;
+    ChassisConfig m_cfg;
+    ChassisState m_state;
 };
 
 } // namespace physics
