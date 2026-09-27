@@ -10,6 +10,11 @@ namespace physics {
 VehicleSimulator::VehicleSimulator() {
     m_state.mass = static_cast<float>(m_mass);
     m_state.position = {0, 0.35f, 0};
+    AeroModel::AeroConfig ac;
+    ac.frontalArea = static_cast<float>(m_frontalArea);
+    ac.dragCoefficient = static_cast<float>(m_cd);
+    ac.liftCoefficient = -0.25f;
+    m_aero.setConfig(ac);
 }
 
 void VehicleSimulator::startSimulation() { m_running = true; }
@@ -22,6 +27,8 @@ void VehicleSimulator::reset() {
     m_throttle = m_brake = m_steering = 0;
     m_currentGear = 1;
     m_rpm = 1000;
+    m_yawRate = 0;
+    m_ffb = VehicleFFBSample{};
 }
 
 void VehicleSimulator::setThrottle(double v) { m_throttle = std::clamp(v, 0.0, 1.0); }
@@ -34,8 +41,18 @@ void VehicleSimulator::setMass(double kg) {
 }
 void VehicleSimulator::setEnginePower(double kw) { m_enginePowerKw = std::max(10.0, kw); }
 void VehicleSimulator::setMaxRpm(double rpm) { m_maxRpm = std::max(3000.0, rpm); }
-void VehicleSimulator::setDragCoeff(double cd) { m_cd = std::max(0.1, cd); }
-void VehicleSimulator::setFrontalArea(double m2) { m_frontalArea = std::max(0.5, m2); }
+void VehicleSimulator::setDragCoeff(double cd) {
+    m_cd = std::max(0.1, cd);
+    auto c = m_aero.getConfig();
+    c.dragCoefficient = static_cast<float>(m_cd);
+    m_aero.setConfig(c);
+}
+void VehicleSimulator::setFrontalArea(double m2) {
+    m_frontalArea = std::max(0.5, m2);
+    auto c = m_aero.getConfig();
+    c.frontalArea = static_cast<float>(m_frontalArea);
+    m_aero.setConfig(c);
+}
 void VehicleSimulator::setWheelBase(double m) { m_wheelBase = std::max(1.5, m); }
 void VehicleSimulator::setTrackWidth(double m) { m_trackWidth = std::max(1.0, m); }
 
@@ -96,14 +113,12 @@ void VehicleSimulator::loadEngineFromIni(const std::string& path) {
     float rpm = getf(m, "LIMITER", getf(m, "ENGINE/LIMITER", static_cast<float>(m_maxRpm)));
     if (power > 1.f) m_enginePowerKw = power;
     if (rpm > 1000.f) m_maxRpm = rpm;
-    std::fprintf(stderr, "VehicleSimulator: engine.ini power=%.0f kW limiter=%.0f\n", m_enginePowerKw, m_maxRpm);
 }
 
 void VehicleSimulator::loadTyresFromIni(const std::string& path) {
     auto m = parseIni(path);
     float r = getf(m, "RADIUS", getf(m, "FRONT/RADIUS", static_cast<float>(m_wheelRadius)));
     if (r > 0.1f) m_wheelRadius = r;
-    std::fprintf(stderr, "VehicleSimulator: tyres.ini radius=%.3f\n", m_wheelRadius);
 }
 
 void VehicleSimulator::loadDrivetrainFromIni(const std::string& path) {
@@ -117,16 +132,13 @@ void VehicleSimulator::loadDrivetrainFromIni(const std::string& path) {
         if (g > 0.1f) gears.push_back(g);
     }
     if (!gears.empty()) m_gearRatios = std::move(gears);
-    std::fprintf(stderr, "VehicleSimulator: drivetrain final=%.2f gears=%zu\n", m_finalDrive, m_gearRatios.size());
 }
 
 void VehicleSimulator::loadAeroFromIni(const std::string& path) {
-    auto m = parseIni(path);
-    float cd = getf(m, "CD", getf(m, "AERO/CD", static_cast<float>(m_cd)));
-    float area = getf(m, "FRONTAL_AREA", getf(m, "AERO/FRONTAL_AREA", static_cast<float>(m_frontalArea)));
-    if (cd > 0.05f) m_cd = cd;
-    if (area > 0.5f) m_frontalArea = area;
-    std::fprintf(stderr, "VehicleSimulator: aero Cd=%.3f area=%.2f\n", m_cd, m_frontalArea);
+    m_aero.loadFromIniFile(path);
+    auto c = m_aero.getConfig();
+    if (c.dragCoefficient > 0.05f) m_cd = c.dragCoefficient;
+    if (c.frontalArea > 0.5f) m_frontalArea = c.frontalArea;
 }
 
 void VehicleSimulator::loadSuspensionFromIni(const std::string& path) {
@@ -135,7 +147,6 @@ void VehicleSimulator::loadSuspensionFromIni(const std::string& path) {
     float tw = getf(m, "TRACK", getf(m, "BASIC/TRACK", static_cast<float>(m_trackWidth)));
     if (wb > 1.0f) m_wheelBase = wb;
     if (tw > 0.8f) m_trackWidth = tw;
-    std::fprintf(stderr, "VehicleSimulator: suspension wb=%.2f track=%.2f\n", m_wheelBase, m_trackWidth);
 }
 
 void VehicleSimulator::shiftGears() {
@@ -150,12 +161,36 @@ void VehicleSimulator::shiftGears() {
 void VehicleSimulator::integrate(double dt) {
     const float fdt = static_cast<float>(std::clamp(dt, 1e-4, 0.05));
     float speed = m_state.speed;
-    if (speed < 0.1f && m_throttle < 0.01 && m_brake < 0.01) {
-        m_state.velocity = {0, 0, 0};
-        m_state.speed = 0;
-        m_rpm = 1000;
-        return;
+    const float mass = static_cast<float>(m_mass);
+    const float wb = static_cast<float>(m_wheelBase);
+    const float halfTrack = static_cast<float>(m_trackWidth) * 0.5f;
+    const float steerRad = static_cast<float>(m_steering) * 0.45f;
+
+    AeroModel::AeroState as;
+    as.speed = speed;
+    as.yawAngle = m_state.heading;
+    auto af = m_aero.calculate(as);
+    float aeroDrag = af.drag;
+    float downforce = af.downforce;
+
+    float loadFront = mass * 9.81f * 0.45f + downforce * 0.4f;
+    float loadRear  = mass * 9.81f * 0.55f + downforce * 0.6f;
+    loadFront = std::max(500.f, loadFront);
+    loadRear  = std::max(500.f, loadRear);
+    float loadFL = loadFront * 0.5f, loadFR = loadFront * 0.5f;
+    float loadRL = loadRear * 0.5f,  loadRR = loadRear * 0.5f;
+
+    float beta = 0.f;
+    if (speed > 1.0f) {
+        float vx = m_state.velocity.x * std::sin(m_state.heading) + m_state.velocity.z * std::cos(m_state.heading);
+        float vy = m_state.velocity.x * std::cos(m_state.heading) - m_state.velocity.z * std::sin(m_state.heading);
+        beta = std::atan2(vy, std::max(0.5f, std::abs(vx)));
     }
+    float yaw = static_cast<float>(m_yawRate);
+    float saFL = beta + (yaw * wb * 0.45f) / std::max(speed, 1.0f) - steerRad;
+    float saFR = saFL;
+    float saRL = beta - (yaw * wb * 0.55f) / std::max(speed, 1.0f);
+    float saRR = saRL;
 
     float gearRatio = static_cast<float>(m_gearRatios[static_cast<size_t>(m_currentGear - 1)]);
     float wheelOmega = speed / static_cast<float>(m_wheelRadius);
@@ -164,45 +199,95 @@ void VehicleSimulator::integrate(double dt) {
     gearRatio = static_cast<float>(m_gearRatios[static_cast<size_t>(m_currentGear - 1)]);
 
     float peakTorque = static_cast<float>(m_enginePowerKw * 1000.0 / (m_maxRpm * 2.0 * 3.14159265 / 60.0));
-    float rpmN = static_cast<float>(m_rpm / m_maxRpm);
-    float torqueCurve = std::sin(std::min(rpmN, 1.0f) * 3.14159265f);
-    float engineTorque = peakTorque * torqueCurve * static_cast<float>(m_throttle);
-    float driveForce = (engineTorque * gearRatio * static_cast<float>(m_finalDrive))
-                       / static_cast<float>(m_wheelRadius);
+    float rpmN = static_cast<float>(std::min(m_rpm / m_maxRpm, 1.0));
+    float engineTorque = peakTorque * std::sin(rpmN * 3.14159265f) * static_cast<float>(m_throttle);
+    float driveForceTarget = (engineTorque * gearRatio * static_cast<float>(m_finalDrive))
+                             / static_cast<float>(m_wheelRadius);
+    float brakeForceTarget = static_cast<float>(m_brake) * mass * 12.0f;
 
-    float drag = 0.5f * 1.225f * static_cast<float>(m_cd) * static_cast<float>(m_frontalArea) * speed * speed;
-    float rolling = static_cast<float>(m_mass) * 9.81f * 0.015f;
-    float brakeForce = static_cast<float>(m_brake) * static_cast<float>(m_mass) * 12.0f;
+    auto slipRatioFor = [&](float driveShare, float brakeShare) -> float {
+        if (speed < 0.5f) return static_cast<float>(m_throttle) * 0.1f - static_cast<float>(m_brake) * 0.15f;
+        float ideal = (driveShare - brakeShare) / std::max(mass * 9.81f, 1.f);
+        return std::clamp(ideal * 0.15f, -0.3f, 0.3f);
+    };
 
-    float longForce = driveForce - drag - rolling - brakeForce;
-    float ax = longForce / static_cast<float>(m_mass);
+    auto tireAt = [&](float sa, float sr, float load) {
+        PacejkaTireModel::TireState ts;
+        ts.slipAngle = sa;
+        ts.slipRatio = sr;
+        ts.normalForce = load;
+        ts.camberAngle = -0.03f;
+        ts.tireTemp = 90.f;
+        ts.tirePressure = 26.f;
+        ts.frictionCoefficient = 1.0f;
+        return m_tires.calculateForces(ts);
+    };
 
-    float yawRate = static_cast<float>(m_steering) * speed * 0.15f;
-    m_state.heading += yawRate * fdt;
+    float srF = slipRatioFor(0.f, brakeForceTarget * 0.6f);
+    float srR = slipRatioFor(driveForceTarget, brakeForceTarget * 0.4f);
+
+    auto fFL = tireAt(saFL, srF, loadFL);
+    auto fFR = tireAt(saFR, srF, loadFR);
+    auto fRL = tireAt(saRL, srR, loadRL);
+    auto fRR = tireAt(saRR, srR, loadRR);
+
+    float Fx = fFL.longitudinalForce + fFR.longitudinalForce + fRL.longitudinalForce + fRR.longitudinalForce;
+    float Fy = fFL.lateralForce + fFR.lateralForce + fRL.lateralForce + fRR.lateralForce;
+
+    float longForce = Fx;
+    {
+        float cmd = driveForceTarget - brakeForceTarget - aeroDrag;
+        float gripLong = std::abs(fFL.longitudinalForce) + std::abs(fFR.longitudinalForce)
+                       + std::abs(fRL.longitudinalForce) + std::abs(fRR.longitudinalForce);
+        longForce = std::clamp(cmd, -gripLong - 1.f, gripLong + 1.f);
+        if (speed < 1.0f && m_throttle > 0.05)
+            longForce = std::max(longForce, driveForceTarget * 0.5f);
+    }
+
+    float ax = longForce / mass;
+    float ay = Fy / mass;
+
+    float mz = (fFL.lateralForce + fFR.lateralForce) * (wb * 0.45f)
+             - (fRL.lateralForce + fRR.lateralForce) * (wb * 0.55f)
+             + (fFL.longitudinalForce - fFR.longitudinalForce) * halfTrack * 0.1f;
+    float Iz = mass * (wb * wb + halfTrack * halfTrack * 4.f) * 0.15f;
+    m_yawRate += (mz / std::max(Iz, 1.f)) * fdt;
+    m_yawRate *= (1.0f - 2.0f * fdt);
+
+    m_state.heading += static_cast<float>(m_yawRate) * fdt + steerRad * 0.02f * fdt * std::max(speed, 0.f);
     m_state.rotation.y = m_state.heading;
 
     float c = std::cos(m_state.heading);
     float s = std::sin(m_state.heading);
+    float worldAx = ax * s - ay * c;
+    float worldAz = ax * c + ay * s;
 
-    m_state.velocity.x += (ax * s) * fdt;
-    m_state.velocity.z += (ax * c) * fdt;
-    m_state.velocity.x *= (1.0f - 0.5f * fdt);
+    m_state.velocity.x += worldAx * fdt;
+    m_state.velocity.z += worldAz * fdt;
     m_state.velocity.y = 0;
-
     m_state.position.x += m_state.velocity.x * fdt;
     m_state.position.z += m_state.velocity.z * fdt;
     m_state.position.y = 0.35f;
 
     m_state.speed = std::sqrt(m_state.velocity.x * m_state.velocity.x +
                               m_state.velocity.z * m_state.velocity.z);
-    m_state.acceleration.x = ax * s;
-    m_state.acceleration.z = ax * c;
+    m_state.acceleration = {worldAx, 0, worldAz};
+    m_state.angularVelocity.y = static_cast<float>(m_yawRate);
     m_state.throttle = static_cast<float>(m_throttle);
     m_state.brake = static_cast<float>(m_brake);
     m_state.steering = static_cast<float>(m_steering);
     m_state.gear = m_currentGear;
     m_state.rpm = static_cast<float>(m_rpm);
-    m_state.mass = static_cast<float>(m_mass);
+    m_state.mass = mass;
+
+    m_ffb.slipAngleFL = saFL;
+    m_ffb.slipAngleFR = saFR;
+    m_ffb.loadFL = loadFL;
+    m_ffb.loadFR = loadFR;
+    m_ffb.camberFL = m_ffb.camberFR = -0.03f;
+    m_ffb.speedMs = m_state.speed;
+    m_ffb.steerAngle = steerRad;
+    m_ffb.aligningMomentNm = fFL.aligningMoment + fFR.aligningMoment;
 }
 
 void VehicleSimulator::updatePhysics(double dt) {
