@@ -1,7 +1,13 @@
 #include "DeviceManager.h"
-#include <QDebug>
-#include <QStandardPaths>
-#include <QDir>
+
+#include "simracing/SimRacingDevices.h"
+#include "vr/XrManager.h"
+
+#include <cstdio>
+#include <filesystem>
+#include <fstream>
+
+namespace fs = std::filesystem;
 
 namespace ks::device {
 
@@ -12,94 +18,119 @@ DeviceManager* DeviceManager::instance()
     return s_instance;
 }
 
-DeviceManager::DeviceManager(QObject* parent)
-    : QObject(parent)
+DeviceManager* DeviceManager::createInstance()
 {
-    Q_ASSERT(!s_instance);
-    s_instance = this;
+    if (!s_instance)
+        s_instance = new DeviceManager();
+    return s_instance;
+}
 
-    m_tripleMonitor = std::make_unique<TripleMonitorManager>(this);
-    m_racingInput = std::make_unique<RacingInputManager>(this);
-    m_vr = std::make_unique<XrManager>(this);
+void DeviceManager::destroyInstance()
+{
+    delete s_instance;
+    s_instance = nullptr;
+}
 
-    connect(m_tripleMonitor.get(), &TripleMonitorManager::monitorsChanged,
-            this, &DeviceManager::onMonitorChanged);
+DeviceManager::DeviceManager()
+{
+    if (!s_instance)
+        s_instance = this;
 
-    connect(m_vr.get(), &XrManager::sessionRunningChanged,
-            this, &DeviceManager::onVRSessionChanged);
+    m_tripleMonitor = std::make_unique<TripleMonitorManager>();
+    m_racingInput = std::make_unique<RacingInputManager>();
+    m_vr = std::make_unique<XrManager>();
 
-    connect(m_racingInput.get(), &RacingInputManager::deviceSelected,
-            this, &DeviceManager::onInputDeviceChanged);
-
-    m_statusTimer.setInterval(2000);
-    connect(&m_statusTimer, &QTimer::timeout, this, [this]() {
-        emit deviceStatusChanged(status());
-    });
+    m_racingInput->onDeviceSelected = [this](int index) {
+        onInputDeviceChanged(index);
+    };
+    m_tripleMonitor->onMonitorsChanged = [this]() { onMonitorChanged(); };
+    m_tripleMonitor->onConfigChanged = [this]() { notifyStatus(); };
+    m_vr->onSessionRunningChanged = [this](bool running) { onVRSessionChanged(running); };
+    m_vr->onError = [this](const std::string& msg) { notifyError(msg); };
 }
 
 DeviceManager::~DeviceManager()
 {
     shutdown();
-    s_instance = nullptr;
+    if (s_instance == this)
+        s_instance = nullptr;
 }
 
 bool DeviceManager::initialize()
 {
-    if (m_initialized) return true;
+    if (m_initialized)
+        return true;
 
-    qInfo() << "DeviceManager: Initializing...";
+    std::fprintf(stderr, "DeviceManager: Initializing...\n");
 
     m_tripleMonitor->detectMonitors();
     m_racingInput->initialize();
 
-    m_statusTimer.start();
-
     m_initialized = true;
-    qInfo() << "DeviceManager: Initialized -"
-            << m_tripleMonitor->monitorCount() << "monitors,"
-            << m_racingInput->deviceCount() << "input devices";
 
+    std::fprintf(stderr, "DeviceManager: Initialized - %d monitors, %d input devices\n",
+                 m_tripleMonitor->monitorCount(),
+                 m_racingInput->deviceCount());
+
+    notifyStatus();
     return true;
 }
 
 void DeviceManager::shutdown()
 {
-    if (!m_initialized) return;
-
-    m_statusTimer.stop();
+    if (!m_initialized)
+        return;
 
     m_racingInput->shutdown();
 
-    if (m_vr->isInitialized()) {
+    if (m_vr->isInitialized())
         m_vr->shutdown();
-    }
 
     m_initialized = false;
-    qInfo() << "DeviceManager: Shutdown complete";
+    std::fprintf(stderr, "DeviceManager: Shutdown complete\n");
 }
 
 void DeviceManager::setRenderMode(RenderMode mode)
 {
-    if (m_renderMode == mode) return;
+    std::function<void(RenderMode)> cb;
+    {
+        std::lock_guard lock(m_mutex);
+        if (m_renderMode == mode)
+            return;
 
-    if (mode == RenderMode::VR && !m_vr->isInitialized()) {
-        qWarning() << "DeviceManager: VR not available, falling back to single monitor";
-        mode = RenderMode::SingleMonitor;
+        if (mode == RenderMode::VR && !m_vr->isInitialized()) {
+            std::fprintf(stderr, "DeviceManager: VR not available, falling back to single monitor\n");
+            mode = RenderMode::SingleMonitor;
+            if (m_renderMode == mode)
+                return;
+        }
+
+        m_renderMode = mode;
+        cb = m_onRenderModeChanged;
     }
 
-    m_renderMode = mode;
-    emit renderModeChanged(mode);
+    if (cb)
+        cb(mode);
 
-    qInfo() << "DeviceManager: Render mode changed to" << static_cast<int>(mode);
+    std::fprintf(stderr, "DeviceManager: Render mode changed to %d\n", static_cast<int>(mode));
+    notifyStatus();
+}
+
+DeviceManager::RenderMode DeviceManager::renderMode() const
+{
+    std::lock_guard lock(m_mutex);
+    return m_renderMode;
 }
 
 bool DeviceManager::isVRActive() const
 {
+    std::lock_guard lock(m_mutex);
     return m_renderMode == RenderMode::VR && m_vr->isSessionRunning();
 }
 
 bool DeviceManager::isTripleActive() const
 {
+    std::lock_guard lock(m_mutex);
     return m_renderMode == RenderMode::TripleMonitor &&
            m_tripleMonitor->monitorCount() >= 3;
 }
@@ -120,61 +151,110 @@ DeviceManager::DeviceStatus DeviceManager::status() const
     return s;
 }
 
-void DeviceManager::loadProfiles(const QString& basePath)
+void DeviceManager::pollStatus()
 {
-    QDir dir(basePath);
-    if (!dir.exists()) {
-        dir.mkpath(".");
+    notifyStatus();
+}
+
+void DeviceManager::loadProfiles(const std::string& basePath)
+{
+    std::error_code ec;
+    fs::create_directories(basePath, ec);
+
+    const fs::path dir(basePath);
+    const fs::path inputProfile = dir / "input.ini";
+    if (fs::exists(inputProfile)) {
+        m_racingInput->loadProfile(inputProfile.string());
+        std::fprintf(stderr, "DeviceManager: Loaded input profile from %s\n",
+                     inputProfile.string().c_str());
     }
 
-    QString inputProfile = dir.filePath("input.ini");
-    if (QFile::exists(inputProfile)) {
-        m_racingInput->loadProfile(inputProfile);
-        qInfo() << "DeviceManager: Loaded input profile from" << inputProfile;
-    }
-
-    QString monitorProfile = dir.filePath("monitors.ini");
-    if (QFile::exists(monitorProfile)) {
+    const fs::path monitorProfile = dir / "monitors.ini";
+    if (fs::exists(monitorProfile)) {
         TripleMonitorConfig config;
-        config.load(monitorProfile);
+        config.load(monitorProfile.string());
         m_tripleMonitor->setConfig(config);
-        qInfo() << "DeviceManager: Loaded monitor profile from" << monitorProfile;
+        std::fprintf(stderr, "DeviceManager: Loaded monitor profile from %s\n",
+                     monitorProfile.string().c_str());
     }
 }
 
-void DeviceManager::saveProfiles(const QString& basePath) const
+void DeviceManager::saveProfiles(const std::string& basePath) const
 {
-    QDir dir(basePath);
-    if (!dir.exists()) {
-        dir.mkpath(".");
-    }
+    std::error_code ec;
+    fs::create_directories(basePath, ec);
 
-    m_racingInput->saveProfile(dir.filePath("input.ini"));
-    m_tripleMonitor->config().save(dir.filePath("monitors.ini"));
+    const fs::path dir(basePath);
+    m_racingInput->saveProfile((dir / "input.ini").string());
+    m_tripleMonitor->config().save((dir / "monitors.ini").string());
 
-    qInfo() << "DeviceManager: Saved profiles to" << basePath;
+    std::fprintf(stderr, "DeviceManager: Saved profiles to %s\n", basePath.c_str());
+}
+
+void DeviceManager::setRenderModeCallback(std::function<void(RenderMode)> cb)
+{
+    std::lock_guard lock(m_mutex);
+    m_onRenderModeChanged = std::move(cb);
+}
+
+void DeviceManager::setDeviceStatusCallback(std::function<void(const DeviceStatus&)> cb)
+{
+    std::lock_guard lock(m_mutex);
+    m_onDeviceStatusChanged = std::move(cb);
+}
+
+void DeviceManager::setErrorCallback(std::function<void(const std::string&)> cb)
+{
+    std::lock_guard lock(m_mutex);
+    m_onError = std::move(cb);
 }
 
 void DeviceManager::onMonitorChanged()
 {
-    qInfo() << "DeviceManager: Monitor configuration changed -"
-            << m_tripleMonitor->monitorCount() << "monitors detected";
-    emit deviceStatusChanged(status());
+    std::fprintf(stderr, "DeviceManager: Monitor configuration changed - %d monitors\n",
+                 m_tripleMonitor->monitorCount());
+    notifyStatus();
 }
 
 void DeviceManager::onVRSessionChanged(bool running)
 {
-    qInfo() << "DeviceManager: VR session" << (running ? "started" : "stopped");
-    emit deviceStatusChanged(status());
+    std::fprintf(stderr, "DeviceManager: VR session %s\n", running ? "started" : "stopped");
+    notifyStatus();
 }
 
 void DeviceManager::onInputDeviceChanged(int index)
 {
     if (index >= 0 && index < m_racingInput->deviceCount()) {
-        qInfo() << "DeviceManager: Input device changed to"
-                << m_racingInput->device(index).name;
+        std::fprintf(stderr, "DeviceManager: Input device changed to %s\n",
+                     m_racingInput->device(index).name.c_str());
     }
-    emit deviceStatusChanged(status());
+    notifyStatus();
+}
+
+void DeviceManager::notifyStatus()
+{
+    std::function<void(const DeviceStatus&)> cb;
+    DeviceStatus s;
+    {
+        std::lock_guard lock(m_mutex);
+        cb = m_onDeviceStatusChanged;
+    }
+    s = status();
+    if (cb)
+        cb(s);
+}
+
+void DeviceManager::notifyError(const std::string& msg)
+{
+    std::function<void(const std::string&)> cb;
+    {
+        std::lock_guard lock(m_mutex);
+        cb = m_onError;
+    }
+    if (cb)
+        cb(msg);
+    else
+        std::fprintf(stderr, "DeviceManager error: %s\n", msg.c_str());
 }
 
 } // namespace ks::device
