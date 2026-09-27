@@ -4,12 +4,11 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <algorithm>
 #include "engine/FileFormat/AiSpline.h"
 
 namespace ks::sim {
 
-// Note: no Q_OBJECT - AIController is not a QObject. MOC should not process this header.
-#ifndef Q_MOC_RUN
 class AIController {
 public:
     AIController();
@@ -61,6 +60,5 @@ private:
     float m_aggression = 0.5f;
     float m_maxSteerRate = 2.0f;
 };
-#endif // Q_MOC_RUN
 
 } // namespace ks::sim

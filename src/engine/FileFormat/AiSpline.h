@@ -1,115 +1,120 @@
 #pragma once
 
-#include <QString>
-#include <QVector>
-#include <QMap>
-#include <QVariant>
-#include <QObject>
-#include <QFile>
-#include <QDataStream>
-
-#include "Math/MathCore.h"
+#include <string>
+#include <vector>
+#include <cstdio>
+#include <fstream>
+#include <cmath>
 
 namespace ks {
 namespace ai {
 
+struct AiVec3 {
+    float x = 0, y = 0, z = 0;
+};
+
 struct AiPoint {
-    Vector3 position;
+    AiVec3 position;
     float curvature = 0.0f;
     float speed = 0.0f;
     int lap = 0;
     float distance = 0.0f;
-    
-    QVariantMap toVariant() const;
-    static AiPoint fromVariant(const QVariantMap& map);
 };
 
 struct AiPointExtra {
-    Vector3 normal;
+    AiVec3 normal;
     float width = 8.0f;
     float comfort = 0.5f;
-    QString tag;
-    
-    QVariantMap toVariant() const;
-    static AiPointExtra fromVariant(const QVariantMap& map);
+    std::string tag;
 };
 
 struct AiSpline {
-    QString name;
-    QVector<AiPoint> points;
-    QVector<AiPointExtra> extras;
+    std::string name;
+    std::vector<AiPoint> points;
+    std::vector<AiPointExtra> extras;
     float totalDistance = 0.0f;
     int laps = 1;
-    
-    bool isValid() const { return !points.isEmpty(); }
-    int pointCount() const { return points.size(); }
-    
-    QVariantMap toVariant() const;
-    static AiSpline fromVariant(const QVariantMap& map);
+
+    bool isValid() const { return !points.empty(); }
+    int pointCount() const { return static_cast<int>(points.size()); }
 };
 
 struct AiSplineGrid {
-    QString trackName;
-    QVector<AiSpline> splines;
-    
-    bool isValid() const { return !splines.isEmpty(); }
-    int splineCount() const { return splines.size(); }
-    
-    QVariantMap toVariant() const;
-    static AiSplineGrid fromVariant(const QVariantMap& map);
+    std::string trackName;
+    std::vector<AiSpline> splines;
+
+    bool isValid() const { return !splines.empty(); }
+    int splineCount() const { return static_cast<int>(splines.size()); }
 };
 
 class AiFileReader {
 public:
-    static AiSpline readSpline(const QString& filename);
-    static AiSplineGrid readGrid(const QString& filename);
-    static bool read(const QString& filename, AiSplineGrid& outGrid);
+    static AiSpline readSpline(const std::string& filename) {
+        AiSpline s;
+        s.name = filename;
+        std::ifstream in(filename);
+        if (!in) return s;
+        std::string line;
+        while (std::getline(in, line)) {
+            if (line.empty() || line[0] == '#' || line[0] == ';') continue;
+            AiPoint p;
+            int lap = 0;
+            int n = std::sscanf(line.c_str(), "%f %f %f %f %f %d",
+                                &p.position.x, &p.position.y, &p.position.z,
+                                &p.speed, &p.curvature, &lap);
+            if (n >= 3) {
+                if (n >= 6) p.lap = lap;
+                if (n < 4) p.speed = 40.0f;
+                s.points.push_back(p);
+            }
+        }
+        float dist = 0;
+        for (size_t i = 0; i < s.points.size(); ++i) {
+            if (i > 0) {
+                float dx = s.points[i].position.x - s.points[i-1].position.x;
+                float dy = s.points[i].position.y - s.points[i-1].position.y;
+                float dz = s.points[i].position.z - s.points[i-1].position.z;
+                dist += std::sqrt(dx*dx+dy*dy+dz*dz);
+            }
+            s.points[i].distance = dist;
+        }
+        s.totalDistance = dist;
+        return s;
+    }
+
+    static AiSplineGrid readGrid(const std::string& filename) {
+        AiSplineGrid g;
+        g.trackName = filename;
+        auto s = readSpline(filename);
+        if (s.isValid()) g.splines.push_back(std::move(s));
+        return g;
+    }
+
+    static bool read(const std::string& filename, AiSplineGrid& outGrid) {
+        outGrid = readGrid(filename);
+        return outGrid.isValid();
+    }
 };
 
 class AiFileWriter {
 public:
-    static bool writeSpline(const QString& filename, const AiSpline& spline);
-    static bool writeGrid(const QString& filename, const AiSplineGrid& grid);
-    static bool write(const QString& filename, const AiSplineGrid& grid);
+    static bool writeSpline(const std::string& filename, const AiSpline& spline) {
+        std::ofstream out(filename);
+        if (!out) return false;
+        for (const auto& p : spline.points) {
+            out << p.position.x << ' ' << p.position.y << ' ' << p.position.z
+                << ' ' << p.speed << ' ' << p.curvature << ' ' << p.lap << '\n';
+        }
+        return true;
+    }
+    static bool writeGrid(const std::string& filename, const AiSplineGrid& grid) {
+        if (grid.splines.empty()) return false;
+        return writeSpline(filename, grid.splines.front());
+    }
+    static bool write(const std::string& filename, const AiSplineGrid& grid) {
+        return writeGrid(filename, grid);
+    }
 };
 
-class AiSplines : public QObject {
-    Q_OBJECT
-
-public:
-    explicit AiSplines(QObject* parent = nullptr);
-    ~AiSplines();
-
-    bool load(const QString& filename);
-    bool save(const QString& filename);
-    
-    void clear();
-    bool isLoaded() const { return m_loaded; }
-    QString filename() const { return m_filename; }
-    
-    const AiSplineGrid& grid() const { return m_grid; }
-    void setGrid(const AiSplineGrid& grid);
-    
-    float getTotalDistance(int splineIndex = 0) const;
-    int getPointCount(int splineIndex = 0) const;
-    
-    QVector<Vector3> getPath(int splineIndex = 0) const;
-    QVector<float> getCurvatures(int splineIndex = 0) const;
-    
-    AiSpline* getSpline(int index);
-    
-signals:
-    void loaded();
-    void modified();
-    void error(const QString& message);
-
-private:
-    void computeDistances();
-
-    QString m_filename;
-    bool m_loaded = false;
-    AiSplineGrid m_grid;
-};
-
-}
-}
+} // namespace ai
+} // namespace ks
