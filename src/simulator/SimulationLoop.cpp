@@ -1,6 +1,6 @@
 /**
- * SimulationLoop.cpp — std-only implementation
- * Core tick never needs Qt. HAS_VEHICLE_SIM uses VehicleSimulator (Qt-free).
+ * SimulationLoop.cpp — std-only
+ * HAS_VEHICLE_SIM=1 → VehicleSimulator; HAS_FFB=1 → FFBBridge + FFBSDKFactory
  */
 
 #include "SimulationLoop.h"
@@ -20,11 +20,15 @@
 #define HAS_KSNET 0
 #endif
 #ifndef HAS_FFB
-#define HAS_FFB 0
+#define HAS_FFB 1
 #endif
 
 #if HAS_VEHICLE_SIM
 #include "engine/physics/VehicleSimulator.h"
+#endif
+#if HAS_FFB
+#include "engine/devices/FFBBridge.h"
+#include "engine/devices/simracing/FFBSDKFactory.h"
 #endif
 
 namespace ks::sim {
@@ -61,6 +65,15 @@ SimulationLoop::~SimulationLoop()
 
 bool SimulationLoop::initialize()
 {
+#if HAS_FFB
+    if (m_ffbEnabled && !m_ffb) {
+        m_ffb = ks::device::FFBSDKFactory::createFFB();
+        if (m_ffb)
+            std::fprintf(stderr, "SimulationLoop: FFB device ready\n");
+        else
+            std::fprintf(stderr, "SimulationLoop: no FFB wheel (software torque only)\n");
+    }
+#endif
     return true;
 }
 
@@ -70,63 +83,43 @@ bool SimulationLoop::loadTrack(const std::string& kn5Path)
     m_trackData = SimTrackData{};
     m_trackData.kn5Path = kn5Path;
     m_trackData.name = std::filesystem::path(kn5Path).stem().string();
-
-    namespace fs = std::filesystem;
-    if (!fs::exists(kn5Path)) {
+    if (!std::filesystem::exists(kn5Path)) {
         std::fprintf(stderr, "SimulationLoop: track not found: %s\n", kn5Path.c_str());
         m_trackLoaded = false;
         return false;
     }
-
     m_trackData.valid = true;
     m_trackLoaded = true;
-    std::fprintf(stderr, "SimulationLoop: track path registered %s\n", kn5Path.c_str());
     return true;
 }
 
 bool SimulationLoop::loadTrackFolder(const std::string& trackDirectory)
 {
     namespace fs = std::filesystem;
-    if (!fs::is_directory(trackDirectory)) {
-        std::fprintf(stderr, "SimulationLoop: not a directory: %s\n", trackDirectory.c_str());
-        return false;
-    }
+    if (!fs::is_directory(trackDirectory)) return false;
     m_trackData.directory = trackDirectory;
     m_trackData.name = fs::path(trackDirectory).filename().string();
-
     std::string kn5;
     for (auto& e : fs::directory_iterator(trackDirectory)) {
-        if (e.path().extension() == ".kn5") {
-            kn5 = e.path().string();
-            break;
-        }
+        if (e.path().extension() == ".kn5") { kn5 = e.path().string(); break; }
     }
     if (kn5.empty()) {
-        for (auto& e : fs::recursive_directory_iterator(trackDirectory)) {
-            if (e.path().extension() == ".kn5") {
-                kn5 = e.path().string();
-                break;
+        try {
+            for (auto& e : fs::recursive_directory_iterator(trackDirectory)) {
+                if (e.path().extension() == ".kn5") { kn5 = e.path().string(); break; }
             }
-        }
+        } catch (...) {}
     }
-
-    if (!kn5.empty())
-        return loadTrack(kn5);
-
+    if (!kn5.empty()) return loadTrack(kn5);
     m_trackData.valid = true;
     m_trackLoaded = true;
-    std::fprintf(stderr, "SimulationLoop: track folder %s (no kn5)\n", trackDirectory.c_str());
     return true;
 }
 
 bool SimulationLoop::loadCar(const std::string& carDir)
 {
     namespace fs = std::filesystem;
-    if (!fs::is_directory(carDir)) {
-        std::fprintf(stderr, "SimulationLoop: car dir missing: %s\n", carDir.c_str());
-        return false;
-    }
-
+    if (!fs::is_directory(carDir)) return false;
 #if HAS_VEHICLE_SIM
     if (m_vehicle) {
         m_vehicle->setMass(1200);
@@ -136,7 +129,6 @@ bool SimulationLoop::loadCar(const std::string& carDir)
         m_vehicle->setFrontalArea(2.2);
         m_vehicle->setWheelBase(2.6);
         m_vehicle->setTrackWidth(1.6);
-
         auto tryLoad = [&](const std::string& name, auto loader) {
             fs::path p1 = fs::path(carDir) / "data" / name;
             fs::path p2 = fs::path(carDir) / name;
@@ -152,7 +144,6 @@ bool SimulationLoop::loadCar(const std::string& carDir)
 #else
     (void)carDir;
 #endif
-
     m_carLoaded = true;
     return true;
 }
@@ -220,22 +211,11 @@ void SimulationLoop::ensureScenePipeline()
 void SimulationLoop::render()
 {
     ensureScenePipeline();
-    if (!m_vulkanRenderer) return;
 }
 
 void SimulationLoop::broadcastLocalCarState() {}
-
-void SimulationLoop::handleRemoteCarState(uint32_t carId, const net::CarStateData& state)
-{
-    (void)carId;
-    (void)state;
-}
-
-void SimulationLoop::applyRemoteInput(int clientIndex, const net::InputData& input)
-{
-    (void)clientIndex;
-    (void)input;
-}
+void SimulationLoop::handleRemoteCarState(uint32_t, const net::CarStateData&) {}
+void SimulationLoop::applyRemoteInput(int, const net::InputData&) {}
 
 void SimulationLoop::tick()
 {
@@ -250,7 +230,6 @@ void SimulationLoop::tick()
     if (elapsed > 0.05) elapsed = 0.05;
 
     m_simAccumulator += elapsed;
-
     while (m_simAccumulator >= m_physicsDt) {
         applyInput();
 #if HAS_VEHICLE_SIM
@@ -260,9 +239,21 @@ void SimulationLoop::tick()
     }
 
 #if HAS_FFB
-    if (m_ffbEnabled && m_ffb && m_vehicle) {
-        float torqueNm = 0.0f;
-        m_ffb->updateFFB(torqueNm);
+    if (m_ffbEnabled && m_vehicle) {
+        const auto& samp = m_vehicle->ffbSample();
+        ks::device::FFBInputs in;
+        in.slipAngleFL = samp.slipAngleFL;
+        in.slipAngleFR = samp.slipAngleFR;
+        in.loadFL = samp.loadFL;
+        in.loadFR = samp.loadFR;
+        in.camberFL = samp.camberFL;
+        in.camberFR = samp.camberFR;
+        in.speedMs = samp.speedMs;
+        in.steerAngle = samp.steerAngle;
+        float torqueNm = ks::device::FFBBridge::computeSteeringTorque(
+            in, &m_vehicle->tires(), &m_vehicle->tires());
+        if (m_ffb)
+            m_ffb->updateFFB(torqueNm);
     }
 #endif
 
@@ -294,7 +285,6 @@ void SimulationLoop::tick()
             }
         }
         lastZ = z;
-
         Mat4f carBody = Mat4f::translation(st.position.x, st.position.y, st.position.z);
         for (auto& r : m_renderables) {
             if (r.meshName.find("car_") == 0)
