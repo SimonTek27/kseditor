@@ -1,9 +1,11 @@
 /**
  * SimulationLoop.cpp — std-only
- * HAS_VEHICLE_SIM=1 → VehicleSimulator; HAS_FFB=1 → FFBBridge + FFBSDKFactory
+ * HAS_VEHICLE_SIM=1 → VehicleSimulator; HAS_FFB=1 → FFBBridge
+ * InputManager → vehicle axes every physics step
  */
 
 #include "SimulationLoop.h"
+#include "InputManager.h"
 
 #include <cstdio>
 #include <cmath>
@@ -47,6 +49,7 @@ std::string SimulationLoop::readFileText(const std::string& path) {
 SimulationLoop::SimulationLoop()
     : m_vulkanMode(true)
 {
+    m_input = std::make_unique<InputManager>();
 #if HAS_VEHICLE_SIM
     m_vehicle = std::make_unique<ks::physics::VehicleSimulator>();
 #endif
@@ -65,6 +68,8 @@ SimulationLoop::~SimulationLoop()
 
 bool SimulationLoop::initialize()
 {
+    if (m_input)
+        m_input->initialize();
 #if HAS_FFB
     if (m_ffbEnabled && !m_ffb) {
         m_ffb = ks::device::FFBSDKFactory::createFFB();
@@ -185,6 +190,7 @@ void SimulationLoop::reset()
 #if HAS_VEHICLE_SIM
     if (m_vehicle) m_vehicle->reset();
 #endif
+    if (m_input) m_input->reset();
     m_simAccumulator = 0;
     m_currentLap = 0;
     m_sessionPhase = PHASE_COUNTDOWN;
@@ -193,7 +199,14 @@ void SimulationLoop::reset()
 
 void SimulationLoop::applyInput()
 {
-    if (!m_input || !m_vehicle) return;
+    if (!m_input) return;
+    m_input->update();
+#if HAS_VEHICLE_SIM
+    if (!m_vehicle) return;
+    m_vehicle->setThrottle(m_input->throttle());
+    m_vehicle->setBrake(m_input->brake());
+    m_vehicle->setSteering(m_input->steer());
+#endif
 }
 
 void SimulationLoop::updateWeather()
