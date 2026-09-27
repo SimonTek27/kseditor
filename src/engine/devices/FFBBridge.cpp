@@ -1,5 +1,5 @@
 #include "FFBBridge.h"
-#include "../Physics/PacejkaTireModel.h"
+#include "../physics/PacejkaTireModel.h"
 #include <cmath>
 #include <algorithm>
 
