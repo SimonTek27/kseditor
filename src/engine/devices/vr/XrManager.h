@@ -1,12 +1,12 @@
 #pragma once
 
-#include <QObject>
-#include <QString>
-#include <QVector>
-#include <QMatrix4x4>
-#include <QVector3D>
-#include <QQuaternion>
-#include <QMutex>
+#include <cstdint>
+#include <functional>
+#include <mutex>
+#include <string>
+#include <vector>
+#include <cmath>
+#include <cstring>
 
 #if __has_include(<vulkan/vulkan.h>)
 #include <vulkan/vulkan.h>
@@ -23,14 +23,74 @@
 namespace ks {
 namespace device {
 
+struct Vec2 {
+    float x = 0, y = 0;
+    Vec2() = default;
+    Vec2(float x_, float y_) : x(x_), y(y_) {}
+};
+
+struct XrMat4 {
+    float m[16] = {
+        1,0,0,0,
+        0,1,0,0,
+        0,0,1,0,
+        0,0,0,1
+    };
+
+    float& operator()(int row, int col) { return m[col * 4 + row]; }
+    float operator()(int row, int col) const { return m[col * 4 + row]; }
+
+    void setToIdentity() {
+        for (int i = 0; i < 16; ++i) m[i] = 0;
+        m[0] = m[5] = m[10] = m[15] = 1;
+    }
+
+    static XrMat4 identity() { return XrMat4{}; }
+
+    static XrMat4 perspective(float fovYDeg, float aspect, float zNear, float zFar) {
+        XrMat4 r{};
+        const float f = 1.0f / std::tan(fovYDeg * 0.5f * 0.017453292519943295f);
+        r.m[0]  = f / aspect;
+        r.m[5]  = f;
+        r.m[10] = (zFar + zNear) / (zNear - zFar);
+        r.m[11] = -1.0f;
+        r.m[14] = (2.0f * zFar * zNear) / (zNear - zFar);
+        r.m[15] = 0.0f;
+        return r;
+    }
+
+    void translate(float x, float y, float z) {
+        m[12] += m[0]*x + m[4]*y + m[8]*z;
+        m[13] += m[1]*x + m[5]*y + m[9]*z;
+        m[14] += m[2]*x + m[6]*y + m[10]*z;
+        m[15] += m[3]*x + m[7]*y + m[11]*z;
+    }
+
+    void rotate(const float qw, float qx, float qy, float qz) {
+        const float xx = qx*qx, yy = qy*qy, zz = qz*qz;
+        const float xy = qx*qy, xz = qx*qz, yz = qy*qz;
+        const float wx = qw*qx, wy = qw*qy, wz = qw*qz;
+        XrMat4 R{};
+        R.m[0] = 1 - 2*(yy+zz); R.m[4] = 2*(xy-wz);     R.m[8]  = 2*(xz+wy);
+        R.m[1] = 2*(xy+wz);     R.m[5] = 1 - 2*(xx+zz); R.m[9]  = 2*(yz-wx);
+        R.m[2] = 2*(xz-wy);     R.m[6] = 2*(yz+wx);     R.m[10] = 1 - 2*(xx+yy);
+        XrMat4 out{};
+        for (int c = 0; c < 4; ++c)
+            for (int r = 0; r < 4; ++r)
+                out.m[c*4+r] = R.m[0*4+r]*m[c*4+0] + R.m[1*4+r]*m[c*4+1] +
+                               R.m[2*4+r]*m[c*4+2] + R.m[3*4+r]*m[c*4+3];
+        *this = out;
+    }
+};
+
 struct XrEye {
-    XrView view;
+    XrView view{};
     XrSwapchain swapchain = XR_NULL_HANDLE;
     XrSwapchain depthSwapchain = XR_NULL_HANDLE;
     uint32_t swapchainImageWidth = 0;
     uint32_t swapchainImageHeight = 0;
-    QVector<VkImage> colorImages;
-    QVector<VkImage> depthImages;
+    std::vector<VkImage> colorImages;
+    std::vector<VkImage> depthImages;
     int32_t currentImageIndex = -1;
 };
 
@@ -51,23 +111,25 @@ struct XrControllerState {
     bool menuClicked = false;
     float triggerValue = 0.0f;
     float squeezeValueFloat = 0.0f;
-    QVector2D thumbstickValue;
-    QVector2D trackpadValue;
-    QMatrix4x4 aimPose;
-    QMatrix4x4 gripPose;
+    Vec2 thumbstickValue;
+    Vec2 trackpadValue;
+    XrMat4 aimPose;
+    XrMat4 gripPose;
     bool aimValid = false;
     bool gripValid = false;
 };
 
-class XrManager : public QObject {
-    Q_OBJECT
+class XrManager {
 public:
     static XrManager* instance();
 
-    explicit XrManager(QObject* parent = nullptr);
+    XrManager();
     ~XrManager();
 
-    bool initialize(const QString& applicationName = "ksEditor VR");
+    XrManager(const XrManager&) = delete;
+    XrManager& operator=(const XrManager&) = delete;
+
+    bool initialize(const std::string& applicationName = "ksEditor VR");
     void shutdown();
     bool isInitialized() const { return m_initialized; }
     bool isSessionRunning() const { return m_sessionRunning; }
@@ -85,8 +147,8 @@ public:
     XrSession xrSession() const { return m_session; }
     XrSystemId systemId() const { return m_systemId; }
 
-    QMatrix4x4 projectionMatrix(int eyeIndex, float nearZ = 0.1f, float farZ = 1000.0f) const;
-    QMatrix4x4 viewMatrix(int eyeIndex) const;
+    XrMat4 projectionMatrix(int eyeIndex, float nearZ = 0.1f, float farZ = 1000.0f) const;
+    XrMat4 viewMatrix(int eyeIndex) const;
 
     bool pollEvents();
     bool pollActions();
@@ -104,16 +166,15 @@ public:
     bool createSwapchains();
     void destroySwapchains();
 
-signals:
-    void initialized(bool success);
-    void sessionStateChanged(XrSessionState oldState, XrSessionState newState);
-    void sessionRunningChanged(bool running);
-    void sessionFocusChanged(bool focused);
-    void instanceLost();
-    void error(const QString& message);
+    std::function<void(bool success)> onInitialized;
+    std::function<void(XrSessionState oldState, XrSessionState newState)> onSessionStateChanged;
+    std::function<void(bool running)> onSessionRunningChanged;
+    std::function<void(bool focused)> onSessionFocusChanged;
+    std::function<void()> onInstanceLost;
+    std::function<void(const std::string& message)> onError;
 
 private:
-    bool createInstance(const QString& applicationName);
+    bool createInstance(const std::string& applicationName);
     bool getSystem();
     bool createSession();
     bool createReferenceSpaces();
@@ -123,10 +184,14 @@ private:
     void handleSessionStateChanged(const XrEventDataSessionStateChanged& event);
     void destroyActions();
 
+    void emitError(const std::string& message);
+    void emitInitialized(bool success);
+
     XrPath stringToPath(const char* str);
     XrAction createAction(XrActionSet actionSet, const char* name, const char* localizedName,
-                          XrActionType type, const QVector<XrPath>& subactionPaths = {});
-    void suggestInteractionProfileBindings(const char* profile, const QVector<XrActionSuggestedBinding>& bindings);
+                          XrActionType type, const std::vector<XrPath>& subactionPaths = {});
+    void suggestInteractionProfileBindings(const char* profile,
+                                           const std::vector<XrActionSuggestedBinding>& bindings);
 
     static XrManager* s_instance;
 
@@ -153,9 +218,8 @@ private:
 
     int64_t m_colorFormat = 0;
     int64_t m_depthFormat = 0;
-    QVector<int64_t> m_swapchainFormats;
+    std::vector<int64_t> m_swapchainFormats;
 
-    // Vulkan state (owned externally)
     VkDevice m_vkDevice = VK_NULL_HANDLE;
     VkPhysicalDevice m_vkPhysicalDevice = VK_NULL_HANDLE;
     VkInstance m_vkInstance = VK_NULL_HANDLE;
@@ -165,11 +229,10 @@ private:
     VkQueue m_graphicsQueue = VK_NULL_HANDLE;
     VkCommandBuffer m_commandBuffer = VK_NULL_HANDLE;
 
-    // Paths
     XrPath m_leftHandPath = XR_NULL_PATH;
     XrPath m_rightHandPath = XR_NULL_PATH;
 
-    QMutex m_mutex;
+    mutable std::mutex m_mutex;
 };
 
 } // namespace device
@@ -180,24 +243,49 @@ private:
 namespace ks {
 namespace device {
 
-// Stub types when OpenXR is not available
+struct Vec2 { float x = 0, y = 0; };
+struct XrMat4 {
+    float m[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
+};
 struct XrEye {};
-struct XrControllerState {};
-class XrManager : public QObject {
-    Q_OBJECT
+struct XrControllerState {
+    bool connected = false;
+    float triggerValue = 0;
+    float squeezeValueFloat = 0;
+    bool triggerClicked = false;
+    bool squeezeValue = false;
+    bool menuClicked = false;
+    bool aimValid = false;
+    bool gripValid = false;
+    Vec2 thumbstickValue;
+    Vec2 trackpadValue;
+    XrMat4 aimPose;
+    XrMat4 gripPose;
+};
+
+class XrManager {
 public:
-    static XrManager* instance() { return nullptr; }
-    explicit XrManager(QObject* parent = nullptr) : QObject(parent) {}
-    ~XrManager() override = default;
-    bool initialize(const QString& = QString()) { return false; }
+    static XrManager* instance() {
+        static XrManager s;
+        return &s;
+    }
+    XrManager() = default;
+    ~XrManager() = default;
+    bool initialize(const std::string& = {}) { return false; }
     void shutdown() {}
     bool isInitialized() const { return false; }
     bool isSessionRunning() const { return false; }
     bool isSessionFocused() const { return false; }
-signals:
-    void initialized(bool);
-    void error(const QString&);
+    bool pollEvents() { return false; }
+    XrControllerState& leftController() { return m_left; }
+    XrControllerState& rightController() { return m_right; }
+    std::function<void(bool)> onInitialized;
+    std::function<void(const std::string&)> onError;
+    std::function<void(bool)> onSessionRunningChanged;
+private:
+    XrControllerState m_left, m_right;
 };
+
 } // namespace device
 } // namespace ks
 
