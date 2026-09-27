@@ -1,153 +1,63 @@
 #include "PhysicsLogger.h"
-#include <iostream>
-#include <QDebug>
-#include <QDir>
+
+#include <ctime>
 
 namespace ks {
 namespace physics {
 
-// ============================================================================
-// PhysicsLogger Implementation
-// ============================================================================
-
 PhysicsLogger& PhysicsLogger::instance() {
-    static PhysicsLogger instance;
-    return instance;
+    static PhysicsLogger s;
+    return s;
 }
 
-PhysicsLogger::PhysicsLogger() 
-    : QObject(nullptr)
-{
-    // Set default log file
-    QString logPath = QDir::current().filePath("physics_log.txt");
-    setLogFile(logPath);
-    
-    qDebug() << "PhysicsLogger initialized, log file:" << logPath;
-}
-
-PhysicsLogger::~PhysicsLogger() {
-    flush();
-    if (m_fileOpen) {
-        m_logFile.close();
+const char* PhysicsLogger::levelName(Level l) {
+    switch (l) {
+    case Level::Trace: return "TRACE";
+    case Level::Debug: return "DEBUG";
+    case Level::Info: return "INFO";
+    case Level::Warning: return "WARN";
+    case Level::Error: return "ERROR";
+    case Level::Critical: return "CRIT";
     }
+    return "?";
 }
 
-void PhysicsLogger::setLogFile(const QString& path) {
-    QMutexLocker locker(&m_mutex);
-    
-    if (m_fileOpen) {
-        m_logFile.close();
-        m_fileOpen = false;
+void PhysicsLogger::setLogFile(const std::string& path) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_file.is_open()) m_file.close();
+    if (!path.empty()) m_file.open(path, std::ios::app);
+}
+
+void PhysicsLogger::log(Level level, const std::string& category, const std::string& message) {
+    if (static_cast<int>(level) < static_cast<int>(m_level)) return;
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    using clock = std::chrono::system_clock;
+    auto t = clock::to_time_t(clock::now());
+    char tbuf[32];
+    std::strftime(tbuf, sizeof(tbuf), "%H:%M:%S", std::localtime(&t));
+
+    char line[1024];
+    std::snprintf(line, sizeof(line), "[%s][%s][%s] %s\n",
+                  tbuf, levelName(level), category.c_str(), message.c_str());
+
+    if (m_console) {
+        std::fputs(line, level >= Level::Error ? stderr : stdout);
     }
-    
-    m_logFile.setFileName(path);
-    if (m_logFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
-        m_stream.setDevice(&m_logFile);
-        m_fileOpen = true;
-        log(Level::Info, "Logger", "Log file opened: %1", path);
-    } else {
-        qWarning() << "Failed to open log file:" << path;
+    if (m_file.is_open()) {
+        m_file << line;
+        m_file.flush();
     }
+    if (onLog) onLog(level, category, message);
 }
 
-void PhysicsLogger::setLevel(Level level) {
-    QMutexLocker locker(&m_mutex);
-    m_level = level;
-}
-
-void PhysicsLogger::log(Level level, const QString& message) {
-    log(level, "General", message);
-}
-
-void PhysicsLogger::log(Level level, const QString& category, const QString& message) {
-    if (!m_enabled || level < m_level) return;
-    
-    QMutexLocker locker(&m_mutex);
-    
-    QString timestamp = currentTimestamp();
-    QString levelStr = levelToString(level);
-    QString color = levelColor(level);
-    
-    // Format: [timestamp] [LEVEL] [category] message
-    QString formatted = QString("[%1] [%2] [%3] %4")
-                        .arg(timestamp)
-                        .arg(levelStr)
-                        .arg(category)
-                        .arg(message);
-    
-    // Output to console with color
-    QString colored = QString("%1%2%3")
-                      .arg(color)
-                      .arg(formatted)
-                      .arg("\033[0m");
-    
-    // Use qDebug for proper output
-    switch (level) {
-        case Level::Trace:
-        case Level::Debug:
-            qDebug().noquote() << colored;
-            break;
-        case Level::Info:
-            qInfo().noquote() << colored;
-            break;
-        case Level::Warning:
-            qWarning().noquote() << colored;
-            break;
-        case Level::Error:
-            qCritical().noquote() << colored;
-            break;
-        case Level::Critical:
-            qFatal("%s", qPrintable(formatted));
-            break;
-    }
-    
-    // Write to file
-    writeToFile(formatted);
-    
-    // Emit signal
-    emit logMessage(level, message, timestamp);
-}
-
-void PhysicsLogger::flush() {
-    QMutexLocker locker(&m_mutex);
-    if (m_fileOpen) {
-        m_stream.flush();
-    }
-}
-
-QString PhysicsLogger::levelToString(Level level) const {
-    switch (level) {
-        case Level::Trace:   return "TRACE";
-        case Level::Debug:   return "DEBUG";
-        case Level::Info:    return "INFO";
-        case Level::Warning: return "WARN";
-        case Level::Error:   return "ERROR";
-        case Level::Critical:return "CRITICAL";
-        default:             return "UNKNOWN";
-    }
-}
-
-QString PhysicsLogger::levelColor(Level level) const {
-    switch (level) {
-        case Level::Trace:
-        case Level::Debug:   return "\033[36m"; // Cyan
-        case Level::Info:    return "\033[32m"; // Green
-        case Level::Warning: return "\033[33m"; // Yellow
-        case Level::Error:   return "\033[31m"; // Red
-        case Level::Critical:return "\033[41m\033[37m"; // Red background, white text
-        default:             return "\033[0m";
-    }
-}
-
-QString PhysicsLogger::currentTimestamp() const {
-    return QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
-}
-
-void PhysicsLogger::writeToFile(const QString& formatted) {
-    if (m_fileOpen) {
-        m_stream << formatted << "\n";
-        m_stream.flush();
-    }
+void PhysicsLogger::logf(Level level, const char* category, const char* fmt, ...) {
+    char buf[1024];
+    va_list ap;
+    va_start(ap, fmt);
+    std::vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+    log(level, category ? category : LogCategory::GENERAL, buf);
 }
 
 } // namespace physics
