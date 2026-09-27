@@ -3,29 +3,49 @@
 #include "XrManager.h"
 #include "XrViewportRenderer.h"
 #include "XrInput.h"
-#include "XrConfig.h"
+
+#include <functional>
+#include <string>
+
+#if __has_include(<vulkan/vulkan.h>)
+#  include <vulkan/vulkan.h>
+#else
+using VkDevice = void*;
+using VkPhysicalDevice = void*;
+using VkInstance = void*;
+using VkCommandPool = void*;
+using VkQueue = void*;
+#  define VK_NULL_HANDLE nullptr
+#endif
 
 namespace ks {
 namespace device {
 
-class XrIntegration : public QObject {
-    Q_OBJECT
+struct XrSettings {
+    bool enabled = false;
+    float ipdMm = 63.0f;
+    float nearZ = 0.1f;
+    float farZ = 1000.0f;
+};
+
+/** High-level VR integration facade — Qt-free. */
+class XrIntegration {
 public:
     static XrIntegration* instance();
 
-    bool initialize(const QString& applicationName = "ksEditor VR");
+    bool initialize(const std::string& applicationName = "ksEditor VR");
     void shutdown();
     bool isInitialized() const { return m_initialized; }
-    bool isSessionActive() const { return m_viewportRenderer && m_viewportRenderer->isSessionActive(); }
+    bool isSessionActive() const {
+        return m_viewportRenderer && m_viewportRenderer->isSessionActive();
+    }
 
     XrManager* xrManager() { return m_manager; }
     XrViewportRenderer* viewportRenderer() { return m_viewportRenderer; }
     XrInput* xrInput() { return m_input; }
     XrSettings& settings() { return m_settings; }
 
-    bool hasVulkanDevice() const {
-        return m_vkDevice != VK_NULL_HANDLE;
-    }
+    bool hasVulkanDevice() const { return m_vkDevice != VK_NULL_HANDLE; }
 
     void setVulkanDevice(VkDevice device, VkPhysicalDevice physicalDevice,
                          VkInstance vkInstance, uint32_t queueFamilyIndex,
@@ -36,15 +56,15 @@ public:
     bool renderFrame();
     bool pollEvents();
 
-signals:
-    void initializedChanged(bool initialized);
-    void sessionActiveChanged(bool active);
-    void error(const QString& message);
+    std::function<void(bool initialized)> onInitializedChanged;
+    std::function<void(bool active)> onSessionActiveChanged;
+    std::function<void(const std::string& message)> onError;
 
 private:
-    XrIntegration(QObject* parent = nullptr);
+    XrIntegration();
     ~XrIntegration();
-    Q_DISABLE_COPY(XrIntegration)
+    XrIntegration(const XrIntegration&) = delete;
+    XrIntegration& operator=(const XrIntegration&) = delete;
 
     static XrIntegration* s_instance;
 

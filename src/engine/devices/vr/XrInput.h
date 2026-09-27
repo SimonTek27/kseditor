@@ -1,20 +1,17 @@
 #pragma once
 
-#include <QObject>
-#include <QVector2D>
-#include <QVector3D>
 #include <functional>
+#include <string>
 
 #include "XrManager.h"
 
 namespace ks {
 namespace device {
 
-class XrInput : public QObject {
-    Q_OBJECT
+class XrInput {
 public:
-    explicit XrInput(XrManager* xr, QObject* parent = nullptr);
-    ~XrInput() override;
+    explicit XrInput(XrManager* xr);
+    ~XrInput();
 
     enum Hand { Left = 0, Right = 1 };
     enum Button { Trigger = 0, Grip = 1, Menu = 2, System = 3,
@@ -24,20 +21,20 @@ public:
     bool isButtonPressed(Hand hand, Button button) const;
     float getTriggerValue(Hand hand) const;
     float getSqueezeValue(Hand hand) const;
-    QVector2D getThumbstickValue(Hand hand) const;
-    QVector2D getTrackpadValue(Hand hand) const;
-    QMatrix4x4 getAimPose(Hand hand) const;
-    QMatrix4x4 getGripPose(Hand hand) const;
+    Vec2 getThumbstickValue(Hand hand) const;
+    Vec2 getTrackpadValue(Hand hand) const;
+    XrMat4 getAimPose(Hand hand) const;
+    XrMat4 getGripPose(Hand hand) const;
     bool isPoseValid(Hand hand) const;
     bool isControllerConnected(Hand hand) const;
 
-    // Ray casting helper
-    void getAimRay(Hand hand, QVector3D& origin, QVector3D& direction) const;
+    void getAimRay(Hand hand, float origin[3], float direction[3]) const;
 
-signals:
-    void buttonPressed(int hand, int button, bool pressed);
-    void axisMoved(int hand, int axis, float x, float y);
-    void poseUpdated(int hand);
+    std::function<void(int hand, int button, bool pressed)> onButtonPressed;
+    std::function<void(int hand, int axis, float x, float y)> onAxisMoved;
+    std::function<void(int hand)> onPoseUpdated;
+
+    void update();
 
 private:
     void onControllerStateChanged();
