@@ -3,25 +3,21 @@
 **Updated:** 2026-09-27
 
 ## Policy
-Runtime (`ksengine` + `SimulatorApp`) must be 100% Qt-free before any real build is greenlit.  
-`KSENGINE_QT_FREE=1` is defined on the `ksengine` target.
+Runtime (`ksengine` + `SimulatorApp`) must be 100% Qt-free. `KSENGINE_QT_FREE=1`.
 
-## Runtime — DONE (Qt-free)
+## Runtime — DONE
+Engine, devices, XR, SimulatorApp, NativeRenderer, UI overlays, GpuProfiler.
 
-### Core / devices / app
-Engine.h, EngineModule.h, DeviceManager, SimRacingDevices, SimulatorApp, NativeRenderer, GameMenuOverlay, UiRenderer, GpuProfiler.
-
-### XR (`src/engine/devices/vr/`)
-XrDispatch.h, XrManager.h/.cpp, XrManager_session.cpp, XrInput, XrIntegration, XrViewportRenderer.
-
-### Physics
-PhysicsCoreTypes, PhysicsEngine, Aero*, Tires/Pacejka, EngineModel, Gearbox, Differential, **HybridSystem (header-only)**, Weather, TrackSurface, Suspension, BrakeThermal, Chassis, Damage, Logger, Profiler, phys_Simulator.
+### Physics (all Qt-free, included in ksengine)
+PhysicsEngine, Aero, Tires/Pacejka, EngineModel, Diff, Gearbox, HybridSystem,
+ChassisSimulator, Weather, TrackSurface, Suspension, BrakeThermal,
+**BrakeWearSystem**, **ACModelManager**, **CharacterPhysics**, Damage, Logger, Profiler.
 
 ### Tick order
-Weather → TrackSurface → Engine → Gear → Diff → Hybrid → Aero → Suspension → Brakes → Tires → step → Chassis → rubber/callbacks.
+Weather → TrackSurface → Engine → Gear → Diff → Hybrid → Aero → Suspension → Brakes/Wear → Tires → step → Chassis → callbacks.
 
 ## Still Qt (editor only)
 DeviceSettingsWidget, MultiplayerWidget, Graphics/QVulkanWindow, mesh editors, Scripting, Audio, VehiclePhysics monolith, TireCurveEditor.
 
 ## Gate
-No QObject/QString/QVector/Q_OBJECT in runtime modules. Build of SimulatorApp + ksengine allowed under Qt-free policy.
+No QObject/QString/QVector/Q_OBJECT in linked runtime modules.
