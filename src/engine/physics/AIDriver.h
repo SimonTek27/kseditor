@@ -1,121 +1,107 @@
 #pragma once
-#include <QVector3D>
-#include <QVector>
-#include <QtGlobal>
+
+#include <vector>
 #include <cmath>
 #include <algorithm>
 
-namespace ks::ai {
+namespace ks {
+namespace physics {
 
-struct AITarget { QVector3D pos; float speed = 20.0f; float curvature = 0.0f; };
-
-struct AIInputs {
-    QVector3D pos;
-    QVector3D vel;
-    float heading = 0;
-    float speedMs = 0;
-    float wetness = 0;
-    bool damaged = false;
+struct AIVec3 {
+    float x = 0, y = 0, z = 0;
+    AIVec3() = default;
+    AIVec3(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {}
+    AIVec3 operator-(AIVec3 o) const { return {x - o.x, y - o.y, z - o.z}; }
+    AIVec3 operator+(AIVec3 o) const { return {x + o.x, y + o.y, z + o.z}; }
+    AIVec3 operator*(float s) const { return {x * s, y * s, z * s}; }
+    float length() const { return std::sqrt(x * x + y * y + z * z); }
+    static float dot(AIVec3 a, AIVec3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 };
 
-struct AIOutputs {
-    float steer = 0, throttle = 0, brake = 0;
-    int gearShift = 0;
+struct AITarget {
+    AIVec3 pos;
+    float speed = 20.0f;
+    float curvature = 0.0f;
+};
+
+struct AIInput {
+    AIVec3 pos;
+    AIVec3 vel;
+    float heading = 0;
+    float speed = 0;
+};
+
+struct AIOutput {
+    float throttle = 0;
+    float brake = 0;
+    float steer = 0;
 };
 
 class AIDriver {
 public:
-    int aggression = 2;
-    float skill = 0.85f;
-    float lookaheadBase = 12.0f;
-    float lateralError = 0, prevLateralError = 0, integral = 0;
+    void setPath(const std::vector<AITarget>& path) {
+        m_path = path;
+        m_idx = 0;
+    }
 
-    void setPath(const QVector<AITarget>& path) { m_path = path; m_idx = 0; }
-    bool hasPath() const { return !m_path.isEmpty(); }
+    void setObstacles(const std::vector<AIVec3>& obs) { m_obstacles = obs; }
 
-    AIOutputs update(const AIInputs& in, float dt) {
-        AIOutputs out;
-        if (m_path.isEmpty()) { out.brake = 1.0f; return out; }
-        int n = m_path.size();
-        int nearest = nearestIdx(in.pos);
-        m_idx = nearest;
-        float lookahead = lookaheadBase + in.speedMs * 0.6f;
-        int look = lookaheadIdx(nearest, lookahead);
-        const auto& tp = m_path[look];
-        QVector3D toT = tp.pos - in.pos;
-        float targetHeading = std::atan2(toT.x(), toT.z());
-        float dh = wrap(targetHeading - in.heading);
-        float lateral = toT.x() * std::cos(in.heading) - toT.z() * std::sin(in.heading);
-        lateralError = lateral;
-        float dErr = dt > 0 ? (lateralError - prevLateralError) / dt : 0;
-        prevLateralError = lateralError;
-        integral = std::clamp(integral + lateralError * dt, -2.0f, 2.0f);
-        float kp = 0.12f + aggression * 0.02f;
-        float kd = 0.02f, ki = 0.01f;
-        float steer = dh * 1.8f + lateral * kp * 0.1f + dErr * kd * 0.05f + integral * ki;
-        float errScale = 1.0f - skill * 0.1f + aggression * 0.03f;
-        steer *= errScale;
-        out.steer = qBound(-1.0f, steer, 1.0f);
+    AIOutput update(const AIInput& in) {
+        AIOutput out;
+        if (m_path.empty()) return out;
 
-        float targetSpeed = tp.speed * skill;
-        targetSpeed *= (1.0f - in.wetness * 0.3f);
-        if (in.damaged) targetSpeed *= 0.9f;
-        targetSpeed *= (1.0f - std::abs(tp.curvature) * (0.5f - aggression * 0.05f));
-        float dv = targetSpeed - in.speedMs;
-        if (dv > 0.5f) { out.throttle = qBound(0.0f, dv * 0.2f, 1.0f); out.brake = 0; }
-        else if (dv < -1.0f) { out.brake = qBound(0.0f, -dv * 0.25f, 1.0f); out.throttle = 0; }
-        updateAvoidance(in, out, dt);
+        m_idx = nearestIdx(in.pos);
+        int look = std::min(m_idx + 2, static_cast<int>(m_path.size()) - 1);
+        const AITarget& tp = m_path[static_cast<size_t>(look)];
+
+        AIVec3 toT = tp.pos - in.pos;
+        float targetHeading = std::atan2(toT.x, toT.z);
+        float headingErr = targetHeading - in.heading;
+        while (headingErr > 3.14159f) headingErr -= 6.28318f;
+        while (headingErr < -3.14159f) headingErr += 6.28318f;
+        out.steer = std::clamp(headingErr * 1.5f, -1.0f, 1.0f);
+
+        float desired = tp.speed;
+        AIVec3 fwd(std::sin(in.heading), 0, std::cos(in.heading));
+        for (const auto& o : m_obstacles) {
+            AIVec3 d = o - in.pos;
+            float along = AIVec3::dot(d, fwd);
+            if (along > 0 && along < 15.0f) {
+                AIVec3 lat = d - fwd * along;
+                if (lat.length() < 3.0f)
+                    desired = std::min(desired, 8.0f);
+            }
+        }
+
+        float speedErr = desired - in.speed;
+        if (speedErr > 0.5f) {
+            out.throttle = std::clamp(speedErr * 0.15f, 0.0f, 1.0f);
+            out.brake = 0;
+        } else if (speedErr < -0.5f) {
+            out.brake = std::clamp(-speedErr * 0.2f, 0.0f, 1.0f);
+            out.throttle = 0;
+        }
         return out;
     }
 
-    void setObstacles(const QVector<QVector3D>& obs) { m_obstacles = obs; }
-
 private:
-    QVector<AITarget> m_path;
-    QVector<QVector3D> m_obstacles;
-    int m_idx = 0;
-
-    static float wrap(float a) {
-        while (a > 3.14159f) a -= 6.28318f;
-        while (a < -3.14159f) a += 6.28318f;
-        return a;
-    }
-    int nearestIdx(const QVector3D& p) const {
-        int best = 0; float bd = 1e30f;
-        for (int i = 0; i < m_path.size(); ++i) {
-            float d = (m_path[i].pos - p).lengthSquared();
-            if (d < bd) { bd = d; best = i; }
+    int nearestIdx(const AIVec3& p) const {
+        int best = 0;
+        float bestD = 1e9f;
+        for (size_t i = 0; i < m_path.size(); ++i) {
+            float d = (m_path[i].pos - p).length();
+            if (d < bestD) {
+                bestD = d;
+                best = static_cast<int>(i);
+            }
         }
         return best;
     }
-    int lookaheadIdx(int from, float dist) const {
-        if (m_path.isEmpty()) return 0;
-        float acc = 0; int idx = from;
-        for (int k = 0; k < m_path.size(); ++k) {
-            int nx = (idx + 1) % m_path.size();
-            acc += (m_path[nx].pos - m_path[idx].pos).length();
-            idx = nx;
-            if (acc >= dist) break;
-        }
-        return idx;
-    }
-    void updateAvoidance(const AIInputs& in, AIOutputs& out, float dt) {
-        Q_UNUSED(dt);
-        QVector3D fwd(std::sin(in.heading), 0, std::cos(in.heading));
-        for (const auto& o : m_obstacles) {
-            QVector3D d = o - in.pos;
-            float along = QVector3D::dotProduct(d, fwd);
-            if (along < 2 || along > 25) continue;
-            QVector3D lat = d - fwd * along;
-            if (lat.length() < 3.5f) {
-                out.brake = qMax(out.brake, 0.7f);
-                out.throttle = 0.0f;
-                float side = (fwd.x() * d.z() - fwd.z() * d.x()) > 0 ? -1.0f : 1.0f;
-                out.steer = qBound(-1.0f, out.steer + side * 0.4f, 1.0f);
-                break;
-            }
-        }
-    }
+
+    std::vector<AITarget> m_path;
+    std::vector<AIVec3> m_obstacles;
+    int m_idx = 0;
 };
 
-} // namespace ks::ai
+} // namespace physics
+} // namespace ks
