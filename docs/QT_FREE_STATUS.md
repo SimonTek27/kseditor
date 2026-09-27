@@ -2,19 +2,15 @@
 
 **Updated:** 2026-09-27
 
-## Runtime Qt-free (linked by ksengine)
-Engine, devices, XR, SimulatorApp, NativeRenderer, UI, GpuProfiler.
-Physics: PhysicsEngine, Aero, Tires/Pacejka, EngineModel, Diff, Hybrid, Chassis,
-Weather, TrackSurface, Suspension(+Kinematics), BrakeThermal, BrakeWear,
-TireWear, ACModelManager, CharacterPhysics, AIDriver, DriverSimulator, Damage, Logger.
+## Runtime std-only
+Engine, XR, SimulatorApp, NativeRenderer, SimulationLoop,
+FFBBridge, AiSpline, TrackLoader, AIController,
+physics core (Pacejka, Aero, Hybrid, Chassis, BrakeWear, TireWear, …).
 
-## CMake-excluded (still Qt on disk)
-VehiclePhysics(+Models), TireCurveEditor, TrackPhysics, PhysicsSimulations,
-PhysicsValidator, TelemetryPhysics, WeatherConfig, ReplaySystem, PhysicsMessage,
-StrategySimulator, phys_LapTimer, weather editors.
+## FFB vendors
+modelName() → std::string (headers). Rebuild CPP from artifacts (no QDebug/qBound).
 
-## Editor-only Qt
-DeviceSettingsWidget, MultiplayerWidget, Graphics, mesh editors, Scripting, Audio.
-
-## Gate
-No QObject/QString/QVector in **linked** runtime modules.
+## Still Qt (excluded / editor)
+VehiclePhysics*, TireCurveEditor, TrackPhysics, PhysicsSimulations,
+Telemetry, Validator, WeatherConfig, Replay, 3dprint/, scanners/,
+DeviceSettingsWidget, MultiplayerWidget, Graphics stack.
