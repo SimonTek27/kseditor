@@ -2,22 +2,19 @@
 
 **Updated:** 2026-09-27
 
-## Policy
-Runtime (`ksengine` + `SimulatorApp`) must be 100% Qt-free. `KSENGINE_QT_FREE=1`.
+## Runtime Qt-free (linked by ksengine)
+Engine, devices, XR, SimulatorApp, NativeRenderer, UI, GpuProfiler.
+Physics: PhysicsEngine, Aero, Tires/Pacejka, EngineModel, Diff, Hybrid, Chassis,
+Weather, TrackSurface, Suspension(+Kinematics), BrakeThermal, BrakeWear,
+TireWear, ACModelManager, CharacterPhysics, AIDriver, DriverSimulator, Damage, Logger.
 
-## Runtime — DONE
-Engine, devices, XR, SimulatorApp, NativeRenderer, UI overlays, GpuProfiler.
+## CMake-excluded (still Qt on disk)
+VehiclePhysics(+Models), TireCurveEditor, TrackPhysics, PhysicsSimulations,
+PhysicsValidator, TelemetryPhysics, WeatherConfig, ReplaySystem, PhysicsMessage,
+StrategySimulator, phys_LapTimer, weather editors.
 
-### Physics (all Qt-free, included in ksengine)
-PhysicsEngine, Aero, Tires/Pacejka, EngineModel, Diff, Gearbox, HybridSystem,
-ChassisSimulator, Weather, TrackSurface, Suspension, BrakeThermal,
-**BrakeWearSystem**, **ACModelManager**, **CharacterPhysics**, Damage, Logger, Profiler.
-
-### Tick order
-Weather → TrackSurface → Engine → Gear → Diff → Hybrid → Aero → Suspension → Brakes/Wear → Tires → step → Chassis → callbacks.
-
-## Still Qt (editor only)
-DeviceSettingsWidget, MultiplayerWidget, Graphics/QVulkanWindow, mesh editors, Scripting, Audio, VehiclePhysics monolith, TireCurveEditor.
+## Editor-only Qt
+DeviceSettingsWidget, MultiplayerWidget, Graphics, mesh editors, Scripting, Audio.
 
 ## Gate
-No QObject/QString/QVector/Q_OBJECT in linked runtime modules.
+No QObject/QString/QVector in **linked** runtime modules.
