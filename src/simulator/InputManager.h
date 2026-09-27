@@ -5,7 +5,10 @@
 #include <unordered_set>
 
 #ifdef _WIN32
-namespace ks { namespace device { class XInputDevice; } }
+namespace ks { namespace device {
+class XInputDevice;
+class DirectInputJoystick;
+} }
 #endif
 
 namespace ks {
@@ -90,6 +93,11 @@ public:
 
     bool hasXInput() const;
     bool isXInputConnected() const;
+    bool hasDirectInput() const;
+    bool isDirectInputConnected() const;
+
+    void setPreferDirectInput(bool v) { m_preferDi = v; }
+    bool preferDirectInput() const { return m_preferDi; }
 
     void setKeyDown(int key) { m_keys.insert(key); }
     void setKeyUp(int key) { m_keys.erase(key); }
@@ -131,6 +139,10 @@ private:
 
 #ifdef _WIN32
     std::unique_ptr<ks::device::XInputDevice> m_xinput;
+    std::unique_ptr<ks::device::DirectInputJoystick> m_dinput;
+    bool m_preferDi = true;
+#else
+    bool m_preferDi = false;
 #endif
 };
 
