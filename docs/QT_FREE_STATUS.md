@@ -4,11 +4,13 @@
 
 ## Runtime std-only
 Engine, XR, SimulatorApp, NativeRenderer, SimulationLoop,
-FFBBridge, AiSpline, TrackLoader, AIController,
-physics core (Pacejka, Aero, Hybrid, Chassis, BrakeWear, TireWear, …).
+FFB full stack, AiSpline, TrackLoader, AIController,
+**VehicleSimulator** (new Qt-free vehicle + INI loaders),
+physics core modules.
 
-## FFB vendors
-modelName() → std::string (headers). Rebuild CPP from artifacts (no QDebug/qBound).
+## Vehicle
+- `VehicleSimulator.h/.cpp` — std::string `load*FromIni`, no QObject
+- Legacy `VehiclePhysics.*` remains on disk, **CMake-excluded** (editor/monolith)
 
 ## Still Qt (excluded / editor)
 VehiclePhysics*, TireCurveEditor, TrackPhysics, PhysicsSimulations,
