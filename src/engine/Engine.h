@@ -174,13 +174,8 @@ public:
         return m_fixedDt;
     }
 
-    void advance() {
-        dispatchElapsed(true, 0.0);
-    }
-
-    void step(double elapsed) {
-        dispatchElapsed(false, elapsed);
-    }
+    void advance() { dispatchElapsed(true, 0.0); }
+    void step(double elapsed) { dispatchElapsed(false, elapsed); }
 
     void setStartedCallback(std::function<void()> cb) {
         std::lock_guard lock(m_mutex);
@@ -194,15 +189,10 @@ public:
 private:
     void dispatchElapsed(bool useClock, double injectedElapsed) {
         if (!m_running.load(std::memory_order_acquire)) return;
-
         bool expected = false;
-        if (!m_dispatching.compare_exchange_strong(
-                expected, true,
-                std::memory_order_acq_rel,
-                std::memory_order_acquire)) {
+        if (!m_dispatching.compare_exchange_strong(expected, true,
+                std::memory_order_acq_rel, std::memory_order_acquire))
             return;
-        }
-
         struct DispatchGuard {
             std::atomic<bool>& flag;
             ~DispatchGuard() { flag.store(false, std::memory_order_release); }
@@ -211,10 +201,8 @@ private:
         TickCallback tickCb;
         double fixedDt = 0.001;
         int tickCount = 0;
-
         {
             std::lock_guard lock(m_mutex);
-
             double elapsed = injectedElapsed;
             if (useClock) {
                 auto now = std::chrono::steady_clock::now();
@@ -223,25 +211,18 @@ private:
             }
             if (elapsed < 0.0) elapsed = 0.0;
             if (elapsed > 0.1) elapsed = 0.1;
-
             m_accum += elapsed;
             fixedDt = m_fixedDt;
             if (fixedDt <= 0.0) fixedDt = 0.001;
-
             while (m_accum >= fixedDt) {
                 m_accum -= fixedDt;
                 ++tickCount;
-                if (tickCount >= 64) {
-                    m_accum = 0;
-                    break;
-                }
+                if (tickCount >= 64) { m_accum = 0; break; }
             }
             tickCb = m_onTick;
         }
-
-        for (int i = 0; i < tickCount; ++i) {
+        for (int i = 0; i < tickCount; ++i)
             if (tickCb) tickCb(fixedDt);
-        }
     }
 
     mutable std::mutex m_mutex;
@@ -275,7 +256,6 @@ public:
             m_initialized = true;
             initCb = m_onInitialized;
         }
-
         for (auto *m : modules) {
             if (!m->initialize()) {
                 std::fprintf(stderr, "Engine: module failed: %s\n", m->moduleName().c_str());
@@ -287,7 +267,6 @@ public:
                 return false;
             }
         }
-
         if (initCb) initCb();
         return true;
     }
@@ -303,10 +282,8 @@ public:
             doneCb = m_onShutdownCompleted;
             m_loop.setTickCallback(nullptr);
         }
-
         m_loop.stop();
-        for (auto *m : modules)
-            m->shutdown();
+        for (auto *m : modules) m->shutdown();
         if (doneCb) doneCb();
     }
 
@@ -341,9 +318,7 @@ public:
 
     void unregisterModule(EngineModule* m) {
         std::unique_lock lock(m_mutex);
-        m_modules.erase(
-            std::remove(m_modules.begin(), m_modules.end(), m),
-            m_modules.end());
+        m_modules.erase(std::remove(m_modules.begin(), m_modules.end(), m), m_modules.end());
     }
 
     Registry& registry() { return m_registry; }
@@ -405,7 +380,6 @@ private:
 
     void onFixedTick(double dt) {
         m_tickCount.fetch_add(1, std::memory_order_acq_rel);
-
         std::vector<std::function<void(double)>> systems;
         std::function<void(double)> fixedCb;
         {
@@ -413,16 +387,13 @@ private:
             systems = m_systems;
             fixedCb = m_onFixedTick;
         }
-
         m_inTick.store(true, std::memory_order_release);
         struct TickGuard {
             std::atomic<bool>& flag;
             ~TickGuard() { flag.store(false, std::memory_order_release); }
         } tickGuard{m_inTick};
-
-        for (auto &fn : systems) {
+        for (auto &fn : systems)
             if (fn) fn(dt);
-        }
         if (fixedCb) fixedCb(dt);
     }
 
@@ -435,7 +406,6 @@ private:
     Registry m_registry;
     std::vector<EngineModule*> m_modules;
     std::vector<std::function<void(double)>> m_systems;
-
     std::function<void()> m_onInitialized;
     std::function<void()> m_onShutdownCompleted;
     std::function<void()> m_onStarted;
