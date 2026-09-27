@@ -1,20 +1,19 @@
 #pragma once
-#include <QObject>
-#include <QTimer>
-#include <QElapsedTimer>
-#include <QHash>
-#include <QVector>
-#include <QReadWriteLock>
-#include <QDebug>
-#include <QtGlobal>
+
 #include <functional>
 #include <unordered_map>
 #include <typeindex>
 #include <memory>
 #include <chrono>
 #include <algorithm>
+#include <vector>
+#include <string>
+#include <cstdint>
+#include <cstdio>
+#include <mutex>
+#include <shared_mutex>
+#include <atomic>
 #include "EngineModule.h"
-#include "sys/SystemDllInitializer.h"
 
 namespace ks::engine {
 
@@ -23,184 +22,425 @@ constexpr Entity INVALID_ENTITY = 0;
 
 class Registry {
 public:
-    Entity create() { return ++m_nextId; }
-    void destroy(Entity e) {
-        for (auto &kv : m_storages) kv.second->remove(e);
+    Entity create() {
+        std::unique_lock lock(m_mutex);
+        return ++m_nextId;
     }
+
+    void destroy(Entity e) {
+        std::unique_lock lock(m_mutex);
+        for (auto &kv : m_storages)
+            kv.second->remove(e);
+    }
+
     template<typename T, typename... Args>
     T& emplace(Entity e, Args&&... args) {
-        auto &s = storage<T>();
+        std::unique_lock lock(m_mutex);
+        auto &s = storageUnlocked<T>();
         return s.emplace(e, T(std::forward<Args>(args)...));
     }
+
     template<typename T>
     T* get(Entity e) {
-        auto &s = storage<T>();
-        return s.get(e);
+        std::shared_lock lock(m_mutex);
+        auto it = m_storages.find(std::type_index(typeid(T)));
+        if (it == m_storages.end()) return nullptr;
+        return static_cast<Storage<T>*>(it->second.get())->get(e);
     }
+
     template<typename T>
     bool has(Entity e) const {
+        std::shared_lock lock(m_mutex);
         auto it = m_storages.find(std::type_index(typeid(T)));
         if (it == m_storages.end()) return false;
         return static_cast<Storage<T>*>(it->second.get())->has(e);
     }
-    template<typename T>
-    void remove(Entity e) { storage<T>().remove(e); }
 
     template<typename T>
-    QVector<Entity> view() const {
+    void remove(Entity e) {
+        std::unique_lock lock(m_mutex);
+        auto it = m_storages.find(std::type_index(typeid(T)));
+        if (it != m_storages.end())
+            it->second->remove(e);
+    }
+
+    template<typename T>
+    std::vector<Entity> view() const {
+        std::shared_lock lock(m_mutex);
         auto it = m_storages.find(std::type_index(typeid(T)));
         if (it == m_storages.end()) return {};
         return static_cast<Storage<T>*>(it->second.get())->entities();
     }
 
+    template<typename T>
+    bool tryGet(Entity e, T& out) const {
+        std::shared_lock lock(m_mutex);
+        auto it = m_storages.find(std::type_index(typeid(T)));
+        if (it == m_storages.end()) return false;
+        T* p = static_cast<Storage<T>*>(it->second.get())->get(e);
+        if (!p) return false;
+        out = *p;
+        return true;
+    }
+
 private:
-    struct IStorage { virtual ~IStorage(){} virtual void remove(Entity)=0; };
+    struct IStorage {
+        virtual ~IStorage() {}
+        virtual void remove(Entity) = 0;
+    };
+
     template<typename T>
     struct Storage : IStorage {
-        QHash<Entity,T> data;
-        T& emplace(Entity e, T v){ data[e]=std::move(v); return data[e]; }
-        T* get(Entity e){ auto it=data.find(e); return it==data.end()?nullptr:&it.value(); }
-        bool has(Entity e) const { return data.contains(e); }
-        void remove(Entity e) override { data.remove(e); }
-        QVector<Entity> entities() const { return QVector<Entity>(data.keys().begin(), data.keys().end()); }
+        std::unordered_map<Entity, T> data;
+        T& emplace(Entity e, T v) {
+            data[e] = std::move(v);
+            return data[e];
+        }
+        T* get(Entity e) {
+            auto it = data.find(e);
+            return it == data.end() ? nullptr : &it->second;
+        }
+        bool has(Entity e) const { return data.find(e) != data.end(); }
+        void remove(Entity e) override { data.erase(e); }
+        std::vector<Entity> entities() const {
+            std::vector<Entity> out;
+            out.reserve(data.size());
+            for (const auto& kv : data) out.push_back(kv.first);
+            return out;
+        }
     };
+
     template<typename T>
-    Storage<T>& storage() {
+    Storage<T>& storageUnlocked() {
         auto idx = std::type_index(typeid(T));
         auto it = m_storages.find(idx);
-        if (it==m_storages.end()) {
+        if (it == m_storages.end()) {
             auto s = std::make_unique<Storage<T>>();
             auto *ptr = s.get();
-            m_storages[idx]=std::move(s);
+            m_storages[idx] = std::move(s);
             return *ptr;
         }
         return *static_cast<Storage<T>*>(it->second.get());
     }
+
+    mutable std::shared_mutex m_mutex;
     Entity m_nextId = 0;
     std::unordered_map<std::type_index, std::unique_ptr<IStorage>> m_storages;
 };
 
-class EngineLoop : public QObject {
-    Q_OBJECT
+class EngineLoop {
 public:
-    explicit EngineLoop(QObject* parent=nullptr) : QObject(parent) {
-        m_timer.setTimerType(Qt::PreciseTimer);
-        connect(&m_timer, &QTimer::timeout, this, &EngineLoop::onTick);
+    using TickCallback = std::function<void(double)>;
+
+    void setTickCallback(TickCallback cb) {
+        std::lock_guard lock(m_mutex);
+        m_onTick = std::move(cb);
     }
+
     void start(double fixedDt = 0.001) {
-        m_fixedDt = fixedDt;
-        m_accum = 0;
-        m_clock = std::chrono::steady_clock::now();
-        m_timer.start(qMax(1, int(fixedDt*1000.0)));
-        emit started();
+        std::function<void()> startedCb;
+        {
+            std::lock_guard lock(m_mutex);
+            m_fixedDt = fixedDt;
+            m_accum = 0;
+            m_clock = std::chrono::steady_clock::now();
+            m_running.store(true, std::memory_order_release);
+            startedCb = m_onStarted;
+        }
+        if (startedCb) startedCb();
     }
-    void stop(){ m_timer.stop(); emit stopped(); }
-    bool isRunning() const { return m_timer.isActive(); }
-    void setFixedDt(double dt){ m_fixedDt = dt; }
-    double fixedDt() const { return m_fixedDt; }
-signals:
-    void tick(double dt);
-    void started();
-    void stopped();
-private slots:
-    void onTick(){
-        auto now = std::chrono::steady_clock::now();
-        double elapsed = std::chrono::duration<double>(now - m_clock).count();
-        m_clock = now;
-        elapsed = qBound(0.0, elapsed, 0.1);
-        m_accum += elapsed;
-        while (m_accum >= m_fixedDt){
-            emit tick(m_fixedDt);
-            m_accum -= m_fixedDt;
+
+    void stop() {
+        std::function<void()> stoppedCb;
+        {
+            std::lock_guard lock(m_mutex);
+            m_running.store(false, std::memory_order_release);
+            stoppedCb = m_onStopped;
+        }
+        if (stoppedCb) stoppedCb();
+    }
+
+    bool isRunning() const {
+        return m_running.load(std::memory_order_acquire);
+    }
+
+    void setFixedDt(double dt) {
+        std::lock_guard lock(m_mutex);
+        m_fixedDt = dt;
+    }
+
+    double fixedDt() const {
+        std::lock_guard lock(m_mutex);
+        return m_fixedDt;
+    }
+
+    void advance() {
+        dispatchElapsed(true, 0.0);
+    }
+
+    void step(double elapsed) {
+        dispatchElapsed(false, elapsed);
+    }
+
+    void setStartedCallback(std::function<void()> cb) {
+        std::lock_guard lock(m_mutex);
+        m_onStarted = std::move(cb);
+    }
+    void setStoppedCallback(std::function<void()> cb) {
+        std::lock_guard lock(m_mutex);
+        m_onStopped = std::move(cb);
+    }
+
+private:
+    void dispatchElapsed(bool useClock, double injectedElapsed) {
+        if (!m_running.load(std::memory_order_acquire)) return;
+
+        bool expected = false;
+        if (!m_dispatching.compare_exchange_strong(
+                expected, true,
+                std::memory_order_acq_rel,
+                std::memory_order_acquire)) {
+            return;
+        }
+
+        struct DispatchGuard {
+            std::atomic<bool>& flag;
+            ~DispatchGuard() { flag.store(false, std::memory_order_release); }
+        } guard{m_dispatching};
+
+        TickCallback tickCb;
+        double fixedDt = 0.001;
+        int tickCount = 0;
+
+        {
+            std::lock_guard lock(m_mutex);
+
+            double elapsed = injectedElapsed;
+            if (useClock) {
+                auto now = std::chrono::steady_clock::now();
+                elapsed = std::chrono::duration<double>(now - m_clock).count();
+                m_clock = now;
+            }
+            if (elapsed < 0.0) elapsed = 0.0;
+            if (elapsed > 0.1) elapsed = 0.1;
+
+            m_accum += elapsed;
+            fixedDt = m_fixedDt;
+            if (fixedDt <= 0.0) fixedDt = 0.001;
+
+            while (m_accum >= fixedDt) {
+                m_accum -= fixedDt;
+                ++tickCount;
+                if (tickCount >= 64) {
+                    m_accum = 0;
+                    break;
+                }
+            }
+            tickCb = m_onTick;
+        }
+
+        for (int i = 0; i < tickCount; ++i) {
+            if (tickCb) tickCb(fixedDt);
         }
     }
-private:
-    QTimer m_timer;
+
+    mutable std::mutex m_mutex;
+    TickCallback m_onTick;
+    std::function<void()> m_onStarted;
+    std::function<void()> m_onStopped;
     std::chrono::steady_clock::time_point m_clock;
     double m_fixedDt = 0.001;
     double m_accum = 0;
+    std::atomic<bool> m_running{false};
+    std::atomic<bool> m_dispatching{false};
 };
 
-class Engine : public QObject {
-    Q_OBJECT
+class Engine {
 public:
-    static Engine& instance(){
+    static Engine& instance() {
         static Engine e;
         return e;
     }
-    bool initialize(){
-        if (m_initialized) return true;
 
-        // Initialize system DLLs before modules
-        auto* dllInit = sys::SystemDllInitializer::instance();
-        auto initResult = dllInit->initializeAll();
-        if (initResult.totalFailed > 0) {
-            qWarning() << "Engine: Some system DLLs failed to load:"
-                       << initResult.totalFailed << "failed";
-            for (const QString& error : initResult.errors) {
-                qWarning() << "  -" << error;
+    bool initialize() {
+        std::vector<EngineModule*> modules;
+        std::function<void()> initCb;
+        {
+            std::unique_lock lock(m_mutex);
+            if (m_initialized) return true;
+            std::sort(m_modules.begin(), m_modules.end(),
+                      [](auto *a, auto *b) { return a->priority() > b->priority(); });
+            modules = m_modules;
+            m_loop.setTickCallback([this](double dt) { onFixedTick(dt); });
+            m_initialized = true;
+            initCb = m_onInitialized;
+        }
+
+        for (auto *m : modules) {
+            if (!m->initialize()) {
+                std::fprintf(stderr, "Engine: module failed: %s\n", m->moduleName().c_str());
+                {
+                    std::unique_lock lock(m_mutex);
+                    m_initialized = false;
+                    m_loop.setTickCallback(nullptr);
+                }
+                return false;
             }
         }
 
-        std::sort(m_modules.begin(), m_modules.end(), [](auto *a, auto *b){ return a->priority() > b->priority(); });
-        for (auto *m : m_modules) if (!m->initialize()) { qWarning() << "Engine: module failed" << m->moduleName(); return false; }
-        connect(&m_loop, &EngineLoop::tick, this, &Engine::onFixedTick);
-        m_initialized = true;
-        emit initialized();
+        if (initCb) initCb();
         return true;
     }
-    void shutdown(){
-        if (!m_initialized) return;
+
+    void shutdown() {
+        std::vector<EngineModule*> modules;
+        std::function<void()> doneCb;
+        {
+            std::unique_lock lock(m_mutex);
+            if (!m_initialized) return;
+            m_initialized = false;
+            modules.assign(m_modules.rbegin(), m_modules.rend());
+            doneCb = m_onShutdownCompleted;
+            m_loop.setTickCallback(nullptr);
+        }
+
         m_loop.stop();
-        for (auto it = m_modules.rbegin(); it != m_modules.rend(); ++it) (*it)->shutdown();
-
-        // Shutdown system DLLs after modules
-        auto* dllInit = sys::SystemDllInitializer::instance();
-        dllInit->shutdownAll();
-
-        m_initialized = false;
-        emit shutdownCompleted();
+        for (auto *m : modules)
+            m->shutdown();
+        if (doneCb) doneCb();
     }
-    void start(){ m_loop.start(m_fixedDt); emit started(); }
-    void stop(){ m_loop.stop(); emit stopped(); }
+
+    void start() {
+        double dt;
+        std::function<void()> cb;
+        {
+            std::unique_lock lock(m_mutex);
+            dt = m_fixedDt;
+            cb = m_onStarted;
+        }
+        m_loop.start(dt);
+        if (cb) cb();
+    }
+
+    void stop() {
+        std::function<void()> cb;
+        {
+            std::unique_lock lock(m_mutex);
+            cb = m_onStopped;
+        }
+        m_loop.stop();
+        if (cb) cb();
+    }
+
     bool isRunning() const { return m_loop.isRunning(); }
 
-    void registerModule(EngineModule* m){ m_modules.append(m); }
-    void unregisterModule(EngineModule* m){ m_modules.removeAll(m); }
+    void registerModule(EngineModule* m) {
+        std::unique_lock lock(m_mutex);
+        m_modules.push_back(m);
+    }
 
-    Registry& registry(){ return m_registry; }
-    EngineLoop& loop(){ return m_loop; }
-    double fixedDt() const { return m_fixedDt; }
-    void setFixedDt(double dt){ m_fixedDt = dt; m_loop.setFixedDt(dt); }
-    uint64_t tickCount() const { return m_tickCount; }
-    double time() const { return m_tickCount * m_fixedDt; }
+    void unregisterModule(EngineModule* m) {
+        std::unique_lock lock(m_mutex);
+        m_modules.erase(
+            std::remove(m_modules.begin(), m_modules.end(), m),
+            m_modules.end());
+    }
 
-    template<typename T>
-    void addSystem(std::function<void(double)> fn){ m_systems.append(fn); }
+    Registry& registry() { return m_registry; }
+    EngineLoop& loop() { return m_loop; }
 
-signals:
-    void initialized();
-    void shutdownCompleted();
-    void started();
-    void stopped();
-    void fixedTick(double dt);
+    double fixedDt() const {
+        std::shared_lock lock(m_mutex);
+        return m_fixedDt;
+    }
 
-private slots:
-    void onFixedTick(double dt){
-        ++m_tickCount;
-        for (auto &fn : m_systems) fn(dt);
-        emit fixedTick(dt);
+    void setFixedDt(double dt) {
+        std::unique_lock lock(m_mutex);
+        m_fixedDt = dt;
+        m_loop.setFixedDt(dt);
+    }
+
+    uint64_t tickCount() const {
+        return m_tickCount.load(std::memory_order_acquire);
+    }
+
+    double time() const {
+        const uint64_t ticks = m_tickCount.load(std::memory_order_acquire);
+        std::shared_lock lock(m_mutex);
+        return static_cast<double>(ticks) * m_fixedDt;
+    }
+
+    void addSystem(std::function<void(double)> fn) {
+        std::unique_lock lock(m_mutex);
+        m_systems.push_back(std::move(fn));
+    }
+
+    void setInitializedCallback(std::function<void()> cb) {
+        std::unique_lock lock(m_mutex);
+        m_onInitialized = std::move(cb);
+    }
+    void setShutdownCompletedCallback(std::function<void()> cb) {
+        std::unique_lock lock(m_mutex);
+        m_onShutdownCompleted = std::move(cb);
+    }
+    void setStartedCallback(std::function<void()> cb) {
+        std::unique_lock lock(m_mutex);
+        m_onStarted = std::move(cb);
+    }
+    void setStoppedCallback(std::function<void()> cb) {
+        std::unique_lock lock(m_mutex);
+        m_onStopped = std::move(cb);
+    }
+    void setFixedTickCallback(std::function<void(double)> cb) {
+        std::unique_lock lock(m_mutex);
+        m_onFixedTick = std::move(cb);
+    }
+
+    bool isInTick() const {
+        return m_inTick.load(std::memory_order_acquire);
     }
 
 private:
     Engine() = default;
+
+    void onFixedTick(double dt) {
+        m_tickCount.fetch_add(1, std::memory_order_acq_rel);
+
+        std::vector<std::function<void(double)>> systems;
+        std::function<void(double)> fixedCb;
+        {
+            std::shared_lock lock(m_mutex);
+            systems = m_systems;
+            fixedCb = m_onFixedTick;
+        }
+
+        m_inTick.store(true, std::memory_order_release);
+        struct TickGuard {
+            std::atomic<bool>& flag;
+            ~TickGuard() { flag.store(false, std::memory_order_release); }
+        } tickGuard{m_inTick};
+
+        for (auto &fn : systems) {
+            if (fn) fn(dt);
+        }
+        if (fixedCb) fixedCb(dt);
+    }
+
+    mutable std::shared_mutex m_mutex;
     bool m_initialized = false;
     double m_fixedDt = 0.001;
-    uint64_t m_tickCount = 0;
+    std::atomic<uint64_t> m_tickCount{0};
+    std::atomic<bool> m_inTick{false};
     EngineLoop m_loop;
     Registry m_registry;
-    QVector<EngineModule*> m_modules;
-    QVector<std::function<void(double)>> m_systems;
+    std::vector<EngineModule*> m_modules;
+    std::vector<std::function<void(double)>> m_systems;
+
+    std::function<void()> m_onInitialized;
+    std::function<void()> m_onShutdownCompleted;
+    std::function<void()> m_onStarted;
+    std::function<void()> m_onStopped;
+    std::function<void(double)> m_onFixedTick;
 };
 
 } // namespace ks::engine
