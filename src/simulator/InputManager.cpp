@@ -17,12 +17,13 @@ bool InputManager::initialize()
 #ifdef _WIN32
     m_xinput = std::make_unique<ks::device::XInputDevice>();
     if (m_xinput->initialize()) {
-        printf("InputManager: Xbox controller ready\n");
+        std::fprintf(stderr, "InputManager: Xbox controller ready\n");
     } else {
-        printf("InputManager: No Xbox controller found, using keyboard only\n");
+        std::fprintf(stderr, "InputManager: No Xbox controller, keyboard only\n");
+        m_xinput.reset();
     }
 #endif
-    printf("InputManager: Initialized\n");
+    std::fprintf(stderr, "InputManager: Initialized\n");
     return true;
 }
 
@@ -79,6 +80,15 @@ void InputManager::processXInput()
 #endif
 }
 
+bool InputManager::hasXInput() const
+{
+#ifdef _WIN32
+    return m_xinput != nullptr;
+#else
+    return false;
+#endif
+}
+
 bool InputManager::isXInputConnected() const
 {
 #ifdef _WIN32
@@ -91,23 +101,23 @@ bool InputManager::isXInputConnected() const
 void InputManager::processKeyboard()
 {
     m_throttle = 0;
-    if (isKeyDown('W') || isKeyDown(VK_UP))
+    if (isKeyDown('W') || isKeyDown('w') || isKeyDown(KEY_UP))
         m_throttle = 1.0;
 
     m_brake = 0;
-    if (isKeyDown('S') || isKeyDown(VK_DOWN))
+    if (isKeyDown('S') || isKeyDown('s') || isKeyDown(KEY_DOWN))
         m_brake = 1.0;
 
     m_steer = 0;
-    if (isKeyDown('A') || isKeyDown(VK_LEFT))
+    if (isKeyDown('A') || isKeyDown('a') || isKeyDown(KEY_LEFT))
         m_steer -= 1.0;
-    if (isKeyDown('D') || isKeyDown(VK_RIGHT))
+    if (isKeyDown('D') || isKeyDown('d') || isKeyDown(KEY_RIGHT))
         m_steer += 1.0;
 
     if (m_invertSteer) m_steer = -m_steer;
 
-    bool curE = isKeyDown('E');
-    bool curQ = isKeyDown('Q');
+    bool curE = isKeyDown('E') || isKeyDown('e');
+    bool curQ = isKeyDown('Q') || isKeyDown('q');
     if (curE && !m_prevE) m_shiftUp = true;
     if (curQ && !m_prevQ) m_shiftDown = true;
     m_prevE = curE;

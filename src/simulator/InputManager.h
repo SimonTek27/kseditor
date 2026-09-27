@@ -9,8 +9,14 @@ namespace ks::device { class XInputDevice; }
 
 namespace ks::sim {
 
+/** Qt-free input: keyboard + optional XInput (Windows). */
 class InputManager {
 public:
+    static constexpr int KEY_UP    = 0x26;
+    static constexpr int KEY_DOWN  = 0x28;
+    static constexpr int KEY_LEFT  = 0x25;
+    static constexpr int KEY_RIGHT = 0x27;
+
     InputManager();
     ~InputManager();
 
@@ -29,11 +35,8 @@ public:
     bool shiftUp()   const { return m_shiftUp; }
     bool shiftDown() const { return m_shiftDown; }
 
-    bool hasXInput() const { return m_xinput != nullptr; }
+    bool hasXInput() const;
     bool isXInputConnected() const;
-#ifdef _WIN32
-    ks::device::XInputDevice* xinput() const { return m_xinput.get(); }
-#endif
 
     void setKeyDown(int key) { m_keys.insert(key); }
     void setKeyUp(int key) { m_keys.erase(key); }
