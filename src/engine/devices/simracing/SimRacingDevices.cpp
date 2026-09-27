@@ -1,517 +1,500 @@
 #include "SimRacingDevices.h"
-#include <QGuiApplication>
-#include <QScreen>
-#include <QWindow>
-#include <QSettings>
-#include <QDebug>
-#include <QtMath>
+
 #include <cmath>
+#include <cstdio>
+#include <fstream>
+#include <map>
+#include <sstream>
+#include <algorithm>
+#include <string>
+#include <vector>
+
+#ifdef _WIN32
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  include <windows.h>
+#endif
 
 namespace ks::device {
 
-// ============================================================================
-// TripleMonitorManager
-// ============================================================================
+namespace {
 
-TripleMonitorManager::TripleMonitorManager(QObject* parent)
-    : QObject(parent) {
-    detectMonitors();
+class SimpleIni {
+public:
+    bool load(const std::string& path) {
+        std::ifstream f(path);
+        if (!f.is_open()) return false;
+        m_values.clear();
+        std::string line, group;
+        while (std::getline(f, line)) {
+            while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) line.pop_back();
+            if (line.empty() || line[0] == ';' || line[0] == '#') continue;
+            if (line.front() == '[' && line.back() == ']') {
+                group = line.substr(1, line.size() - 2);
+                continue;
+            }
+            size_t eq = line.find('=');
+            if (eq == std::string::npos) continue;
+            std::string key = group.empty() ? line.substr(0, eq) : group + "/" + line.substr(0, eq);
+            m_values[key] = line.substr(eq + 1);
+        }
+        return true;
+    }
+
+    bool save(const std::string& path) const {
+        std::ofstream f(path, std::ios::trunc);
+        if (!f.is_open()) return false;
+        std::vector<std::pair<std::string, std::string>> items(m_values.begin(), m_values.end());
+        std::sort(items.begin(), items.end());
+        std::string currentGroup;
+        for (const auto& kv : items) {
+            size_t slash = kv.first.find('/');
+            std::string group = slash == std::string::npos ? "" : kv.first.substr(0, slash);
+            std::string name = slash == std::string::npos ? kv.first : kv.first.substr(slash + 1);
+            if (group != currentGroup) {
+                f << "[" << group << "]\n";
+                currentGroup = group;
+            }
+            f << name << "=" << kv.second << "\n";
+        }
+        return true;
+    }
+
+    void setValue(const std::string& group, const std::string& key, const std::string& v) {
+        m_values[group.empty() ? key : group + "/" + key] = v;
+    }
+    void setValue(const std::string& group, const std::string& key, float v) {
+        setValue(group, key, std::to_string(v));
+    }
+    void setValue(const std::string& group, const std::string& key, int v) {
+        setValue(group, key, std::to_string(v));
+    }
+    void setValue(const std::string& group, const std::string& key, bool v) {
+        setValue(group, key, v ? "true" : "false");
+    }
+
+    std::string value(const std::string& group, const std::string& key, const std::string& def = {}) const {
+        const std::string k = group.empty() ? key : group + "/" + key;
+        auto it = m_values.find(k);
+        return it == m_values.end() ? def : it->second;
+    }
+    int valueInt(const std::string& group, const std::string& key, int def) const {
+        auto s = value(group, key);
+        if (s.empty()) return def;
+        try { return std::stoi(s); } catch (...) { return def; }
+    }
+    float valueFloat(const std::string& group, const std::string& key, float def) const {
+        auto s = value(group, key);
+        if (s.empty()) return def;
+        try { return std::stof(s); } catch (...) { return def; }
+    }
+    bool valueBool(const std::string& group, const std::string& key, bool def) const {
+        auto s = value(group, key);
+        if (s.empty()) return def;
+        return s == "1" || s == "true" || s == "True" || s == "TRUE";
+    }
+
+private:
+    std::map<std::string, std::string> m_values;
+};
+
+#ifdef _WIN32
+struct EnumCtx {
+    std::vector<MonitorInfo>* out;
+    int index;
+};
+
+static BOOL CALLBACK MonitorEnumProc(HMONITOR hMon, HDC, LPRECT, LPARAM lParam) {
+    auto* ctx = reinterpret_cast<EnumCtx*>(lParam);
+    MONITORINFOEXW mi{};
+    mi.cbSize = sizeof(mi);
+    if (!GetMonitorInfoW(hMon, &mi)) return TRUE;
+
+    MonitorInfo info;
+    info.index = ctx->index++;
+    char nameA[64] = {};
+    WideCharToMultiByte(CP_UTF8, 0, mi.szDevice, -1, nameA, sizeof(nameA) - 1, nullptr, nullptr);
+    info.name = nameA;
+    info.geometry = IntRect::fromXYWH(
+        mi.rcMonitor.left, mi.rcMonitor.top,
+        mi.rcMonitor.right - mi.rcMonitor.left,
+        mi.rcMonitor.bottom - mi.rcMonitor.top);
+    info.availableGeometry = IntRect::fromXYWH(
+        mi.rcWork.left, mi.rcWork.top,
+        mi.rcWork.right - mi.rcWork.left,
+        mi.rcWork.bottom - mi.rcWork.top);
+    info.isPrimary = (mi.dwFlags & MONITORINFOF_PRIMARY) != 0;
+    info.dpi = 96.0f;
+    info.physicalWidthMm = (info.geometry.w / info.dpi) * 25.4f;
+    info.physicalHeightMm = (info.geometry.h / info.dpi) * 25.4f;
+    ctx->out->push_back(info);
+    return TRUE;
+}
+#endif
+
+} // anonymous
+
+void TripleMonitorConfig::load(const std::string& path) {
+    if (path.empty()) return;
+    SimpleIni ini;
+    if (!ini.load(path)) return;
+    enabled = ini.valueBool("TripleMonitor", "enabled", enabled);
+    centerMonitorIndex = ini.valueInt("TripleMonitor", "centerMonitorIndex", centerMonitorIndex);
+    bezelCompensationMm = ini.valueFloat("TripleMonitor", "bezelCompensationMm", bezelCompensationMm);
+    fovHorizontal = ini.valueFloat("TripleMonitor", "fovHorizontal", fovHorizontal);
+    eyeDistance = ini.valueFloat("TripleMonitor", "eyeDistance", eyeDistance);
+    verticalSync = ini.valueBool("TripleMonitor", "verticalSync", verticalSync);
+    targetFps = ini.valueInt("TripleMonitor", "targetFps", targetFps);
+    arrangement = static_cast<Arrangement>(ini.valueInt("TripleMonitor", "arrangement", 0));
 }
 
+void TripleMonitorConfig::save(const std::string& path) const {
+    if (path.empty()) return;
+    SimpleIni ini;
+    ini.load(path);
+    ini.setValue("TripleMonitor", "enabled", enabled);
+    ini.setValue("TripleMonitor", "centerMonitorIndex", centerMonitorIndex);
+    ini.setValue("TripleMonitor", "bezelCompensationMm", bezelCompensationMm);
+    ini.setValue("TripleMonitor", "fovHorizontal", fovHorizontal);
+    ini.setValue("TripleMonitor", "eyeDistance", eyeDistance);
+    ini.setValue("TripleMonitor", "verticalSync", verticalSync);
+    ini.setValue("TripleMonitor", "targetFps", targetFps);
+    ini.setValue("TripleMonitor", "arrangement", static_cast<int>(arrangement));
+    ini.save(path);
+}
+
+TripleMonitorManager::TripleMonitorManager() { detectMonitors(); }
 TripleMonitorManager::~TripleMonitorManager() = default;
 
-void TripleMonitorManager::detectMonitors()
-{
+void TripleMonitorManager::detectMonitors() {
     m_monitors.clear();
-    const auto screens = QGuiApplication::screens();
-    for (int i = 0; i < screens.size(); ++i) {
-        MonitorInfo info;
-        info.index = i;
-        info.name = screens[i]->name();
-        info.geometry = screens[i]->geometry();
-        info.availableGeometry = screens[i]->availableGeometry();
-        info.dpi = screens[i]->logicalDotsPerInch();
-        info.isPrimary = (QGuiApplication::primaryScreen() == screens[i]);
-        info.physicalWidthMm = screens[i]->physicalSize().width();
-        info.physicalHeightMm = screens[i]->physicalSize().height();
-        m_monitors.append(info);
-        qInfo() << "Monitor" << i << ":" << info.name
-                << info.geometry.width() << "x" << info.geometry.height()
-                << (info.isPrimary ? "(primary)" : "");
-    }
-    emit monitorsChanged();
+#ifdef _WIN32
+    EnumCtx ctx{&m_monitors, 0};
+    EnumDisplayMonitors(nullptr, nullptr, MonitorEnumProc, reinterpret_cast<LPARAM>(&ctx));
+#else
+    MonitorInfo info;
+    info.index = 0;
+    info.name = "Virtual-0";
+    info.geometry = IntRect::fromXYWH(0, 0, 1920, 1080);
+    info.availableGeometry = info.geometry;
+    info.dpi = 96.0f;
+    info.isPrimary = true;
+    info.physicalWidthMm = 527.0f;
+    info.physicalHeightMm = 296.0f;
+    m_monitors.push_back(info);
+#endif
+    if (onMonitorsChanged) onMonitorsChanged();
 }
 
-void TripleMonitorManager::recalculate()
-{
+void TripleMonitorManager::recalculate() {
     if (m_monitors.size() < 3) {
-        qWarning() << "TripleMonitor: Less than 3 monitors detected";
         m_leftEye = m_centerEye = m_rightEye = {};
         return;
     }
-
     calculateEyeProjections();
-
     int center = m_config.centerMonitorIndex;
-    if (center < 0 || center >= m_monitors.size()) {
-        for (int i = 0; i < m_monitors.size(); ++i) {
-            if (m_monitors[i].isPrimary) { center = i; break; }
-        }
-        if (center < 0) center = 1;
+    const int n = static_cast<int>(m_monitors.size());
+    if (center < 0 || center >= n) {
+        center = -1;
+        for (int i = 0; i < n; ++i)
+            if (m_monitors[static_cast<size_t>(i)].isPrimary) { center = i; break; }
+        if (center < 0) center = (n >= 3) ? 1 : 0;
     }
-
-    QRect leftGeo, centerGeo, rightGeo;
-    switch (m_config.arrangement) {
-        case TripleMonitorConfig::Arrangement::Horizontal:
-            leftGeo = m_monitors[qMax(0, center - 1)].geometry;
-            centerGeo = m_monitors[center].geometry;
-            rightGeo = m_monitors[qMin(m_monitors.size() - 1, center + 1)].geometry;
-            break;
-        default:
-            leftGeo = m_monitors[qMax(0, center - 1)].geometry;
-            centerGeo = m_monitors[center].geometry;
-            rightGeo = m_monitors[qMin(m_monitors.size() - 1, center + 1)].geometry;
-            break;
-    }
-
-    m_combinedViewport = QRect(
-        qMin(leftGeo.x(), qMin(centerGeo.x(), rightGeo.x())),
-        qMin(leftGeo.y(), qMin(centerGeo.y(), rightGeo.y())),
-        leftGeo.width() + centerGeo.width() + rightGeo.width(),
-        qMax(leftGeo.height(), qMax(centerGeo.height(), rightGeo.height()))
-    );
-
-    m_leftEye.viewport = QRect(0, 0, leftGeo.width(), leftGeo.height());
-    m_centerEye.viewport = QRect(leftGeo.width(), 0, centerGeo.width(), centerGeo.height());
-    m_rightEye.viewport = QRect(leftGeo.width() + centerGeo.width(), 0,
-                                rightGeo.width(), rightGeo.height());
-
-    emit configChanged();
+    auto clampIdx = [n](int i) { return std::max(0, std::min(n - 1, i)); };
+    IntRect leftGeo = m_monitors[static_cast<size_t>(clampIdx(center - 1))].geometry;
+    IntRect centerGeo = m_monitors[static_cast<size_t>(center)].geometry;
+    IntRect rightGeo = m_monitors[static_cast<size_t>(clampIdx(center + 1))].geometry;
+    const int minX = std::min(leftGeo.x, std::min(centerGeo.x, rightGeo.x));
+    const int minY = std::min(leftGeo.y, std::min(centerGeo.y, rightGeo.y));
+    m_combinedViewport = IntRect::fromXYWH(minX, minY, leftGeo.w + centerGeo.w + rightGeo.w,
+        std::max(leftGeo.h, std::max(centerGeo.h, rightGeo.h)));
+    m_leftEye.viewport = IntRect::fromXYWH(0, 0, leftGeo.w, leftGeo.h);
+    m_centerEye.viewport = IntRect::fromXYWH(leftGeo.w, 0, centerGeo.w, centerGeo.h);
+    m_rightEye.viewport = IntRect::fromXYWH(leftGeo.w + centerGeo.w, 0, rightGeo.w, rightGeo.h);
+    if (onConfigChanged) onConfigChanged();
 }
 
-void TripleMonitorManager::updateView(const QMatrix4x4& baseView)
-{
+void TripleMonitorManager::updateView(const Mat4& baseView) {
     m_baseView = baseView;
     recalculate();
 }
 
-void TripleMonitorManager::calculateEyeProjections()
-{
-    float totalFov = m_config.fovHorizontal;
-    float perEyeFov = totalFov / 3.0f;
-    float aspectPerMonitor = 16.0f / 9.0f;
-
-    float bezelOffsetDeg = calculateBezelOffsetDeg(0);
-
+void TripleMonitorManager::calculateEyeProjections() {
+    const float perEyeFov = m_config.fovHorizontal / 3.0f;
+    const float aspect = 16.0f / 9.0f;
+    const float bezel = calculateBezelOffsetDeg(0);
     m_centerEye.fovOffsetDeg = 0.0f;
-    m_centerEye.projection.perspective(perEyeFov, aspectPerMonitor, 0.1f, 1000.0f);
+    m_centerEye.projection = Mat4::perspective(perEyeFov, aspect, 0.1f, 1000.0f);
     m_centerEye.view = m_baseView;
-
-    m_leftEye.fovOffsetDeg = -(perEyeFov + bezelOffsetDeg);
-    QMatrix4x4 leftRot;
-    leftRot.rotate(-(perEyeFov + bezelOffsetDeg), 0, 1, 0);
-    m_leftEye.projection.perspective(perEyeFov, aspectPerMonitor, 0.1f, 1000.0f);
+    m_leftEye.fovOffsetDeg = -(perEyeFov + bezel);
+    Mat4 leftRot = Mat4::identity();
+    leftRot.rotate(-(perEyeFov + bezel), 0, 1, 0);
+    m_leftEye.projection = Mat4::perspective(perEyeFov, aspect, 0.1f, 1000.0f);
     m_leftEye.view = leftRot * m_baseView;
-
-    m_rightEye.fovOffsetDeg = (perEyeFov + bezelOffsetDeg);
-    QMatrix4x4 rightRot;
-    rightRot.rotate((perEyeFov + bezelOffsetDeg), 0, 1, 0);
-    m_rightEye.projection.perspective(perEyeFov, aspectPerMonitor, 0.1f, 1000.0f);
+    m_rightEye.fovOffsetDeg = (perEyeFov + bezel);
+    Mat4 rightRot = Mat4::identity();
+    rightRot.rotate((perEyeFov + bezel), 0, 1, 0);
+    m_rightEye.projection = Mat4::perspective(perEyeFov, aspect, 0.1f, 1000.0f);
     m_rightEye.view = rightRot * m_baseView;
 }
 
-float TripleMonitorManager::calculatePhysicalFovDeg() const
-{
-    if (m_monitors.isEmpty()) return 60.0f;
-
+float TripleMonitorManager::calculatePhysicalFovDeg() const {
+    if (m_monitors.empty()) return 60.0f;
     int centerIdx = m_config.centerMonitorIndex;
-    if (centerIdx < 0 || centerIdx >= m_monitors.size()) centerIdx = 0;
-    const auto& center = m_monitors[centerIdx];
-
-    float widthMm = center.physicalWidthMm;
-    float eyeDistMm = m_config.eyeDistance * 1000.0f;
-    return 2.0f * qRadiansToDegrees(qAtan(widthMm / (2.0f * eyeDistMm)));
+    if (centerIdx < 0 || centerIdx >= static_cast<int>(m_monitors.size())) centerIdx = 0;
+    const auto& center = m_monitors[static_cast<size_t>(centerIdx)];
+    const float eyeDistMm = m_config.eyeDistance * 1000.0f;
+    if (eyeDistMm < 1e-3f) return 60.0f;
+    return 2.0f * (std::atan(center.physicalWidthMm / (2.0f * eyeDistMm)) * 57.29577951308232f);
 }
 
-float TripleMonitorManager::calculateBezelOffsetDeg(int monitorIndex) const
-{
-    float eyeDistMm = m_config.eyeDistance * 1000.0f;
-    float halfBezel = m_config.bezelCompensationMm / 2.0f;
-    return qRadiansToDegrees(qAtan(halfBezel / eyeDistMm));
+float TripleMonitorManager::calculateBezelOffsetDeg(int /*monitorIndex*/) const {
+    const float eyeDistMm = m_config.eyeDistance * 1000.0f;
+    if (eyeDistMm < 1e-3f) return 0.0f;
+    return std::atan((m_config.bezelCompensationMm / 2.0f) / eyeDistMm) * 57.29577951308232f;
 }
 
-// ============================================================================
-// RacingInputManager
-// ============================================================================
+RacingInputManager::~RacingInputManager() { shutdown(); }
 
-RacingInputManager::RacingInputManager(QObject* parent)
-    : QObject(parent) {}
-
-RacingInputManager::~RacingInputManager() {
-    shutdown();
-}
-
-bool RacingInputManager::initialize()
-{
+bool RacingInputManager::initialize() {
     if (m_initialized) return true;
-
     scanDevices();
     m_initialized = true;
-    qInfo() << "RacingInputManager: Initialized with" << m_devices.size() << "devices";
+    std::fprintf(stderr, "[RacingInputManager] Initialized with %d devices\n",
+                 static_cast<int>(m_devices.size()));
     return true;
 }
 
-void RacingInputManager::shutdown()
-{
+void RacingInputManager::shutdown() {
     m_devices.clear();
     m_deviceStates.clear();
     m_selectedDevice = -1;
     m_initialized = false;
 }
 
-void RacingInputManager::update(double dt)
-{
+void RacingInputManager::update(double dt) {
     if (!m_initialized) return;
-
     m_updateAccumulator += dt;
     double pollInterval = 1.0 / INPUT_POLL_RATE;
     if (m_updateAccumulator < pollInterval) return;
     m_updateAccumulator -= pollInterval;
-
-    for (int i = 0; i < m_devices.size(); ++i) {
+    for (int i = 0; i < static_cast<int>(m_devices.size()); ++i) {
         processAxes(i);
         processButtons(i);
     }
 }
 
-void RacingInputManager::scanDevices()
-{
+void RacingInputManager::scanDevices() {
     m_devices.clear();
     m_deviceStates.clear();
-
     InputDeviceProfile keyboard;
     keyboard.name = "Keyboard";
     keyboard.deviceName = "System Keyboard";
     keyboard.type = InputDeviceType::Keyboard;
-
-    InputAxis steerAxis;
-    steerAxis.type = AxisType::SteeringWheel;
-    steerAxis.deviceAxisIndex = 0;
-    steerAxis.minRange = -1.0f;
-    steerAxis.maxRange = 1.0f;
-    keyboard.axes.append(steerAxis);
-
-    InputAxis throttleAxis;
-    throttleAxis.type = AxisType::Throttle;
-    throttleAxis.deviceAxisIndex = 1;
-    throttleAxis.minRange = 0.0f;
-    throttleAxis.maxRange = 1.0f;
-    keyboard.axes.append(throttleAxis);
-
-    InputAxis brakeAxis;
-    brakeAxis.type = AxisType::Brake;
-    brakeAxis.deviceAxisIndex = 2;
-    brakeAxis.minRange = 0.0f;
-    brakeAxis.maxRange = 1.0f;
-    keyboard.axes.append(brakeAxis);
-
-    InputButton shiftUp;
-    shiftUp.deviceButtonIndex = 0;
-    shiftUp.function = InputButton::Function::ShiftUp;
-    keyboard.buttons.append(shiftUp);
-
-    InputButton shiftDown;
-    shiftDown.deviceButtonIndex = 1;
-    shiftDown.function = InputButton::Function::ShiftDown;
-    keyboard.buttons.append(shiftDown);
-
-    keyboard.isGameController = false;
-    m_devices.append(keyboard);
-
+    InputAxis steerAxis; steerAxis.type = AxisType::SteeringWheel; steerAxis.deviceAxisIndex = 0;
+    keyboard.axes.push_back(steerAxis);
+    InputAxis throttleAxis; throttleAxis.type = AxisType::Throttle; throttleAxis.deviceAxisIndex = 1;
+    throttleAxis.minRange = 0.0f; throttleAxis.maxRange = 1.0f;
+    keyboard.axes.push_back(throttleAxis);
+    InputAxis brakeAxis; brakeAxis.type = AxisType::Brake; brakeAxis.deviceAxisIndex = 2;
+    brakeAxis.minRange = 0.0f; brakeAxis.maxRange = 1.0f;
+    keyboard.axes.push_back(brakeAxis);
+    InputButton shiftUp; shiftUp.deviceButtonIndex = 0; shiftUp.function = InputButton::Function::ShiftUp;
+    keyboard.buttons.push_back(shiftUp);
+    InputButton shiftDown; shiftDown.deviceButtonIndex = 1; shiftDown.function = InputButton::Function::ShiftDown;
+    keyboard.buttons.push_back(shiftDown);
+    m_devices.push_back(keyboard);
     DeviceState ks;
     ks.axisValues.resize(3);
     ks.buttonStates.resize(2);
     ks.prevButtonStates.resize(2);
-    m_deviceStates.append(ks);
-
-    qInfo() << "RacingInputManager: Scanned" << m_devices.size() << "devices";
-    for (int i = 0; i < m_devices.size(); ++i) {
-        qInfo() << "  " << m_devices[i].name << "-" << m_devices[i].axes.size() << "axes,"
-                << m_devices[i].buttons.size() << "buttons";
-    }
+    m_deviceStates.push_back(ks);
 }
 
-void RacingInputManager::selectDevice(int index)
-{
-    if (index < 0 || index >= m_devices.size()) return;
+void RacingInputManager::selectDevice(int index) {
+    if (index < 0 || index >= static_cast<int>(m_devices.size())) return;
     m_selectedDevice = index;
-    emit deviceSelected(index);
-    qInfo() << "RacingInputManager: Selected device" << m_devices[index].name;
+    if (onDeviceSelected) onDeviceSelected(index);
 }
 
-void RacingInputManager::processAxes(int deviceIndex)
-{
-    if (deviceIndex < 0 || deviceIndex >= m_devices.size()) return;
+void RacingInputManager::processAxes(int deviceIndex) {
+    if (deviceIndex < 0 || deviceIndex >= static_cast<int>(m_devices.size())) return;
     auto& profile = m_devices[deviceIndex];
     auto& state = m_deviceStates[deviceIndex];
-
-    for (int i = 0; i < profile.axes.size(); ++i) {
+    for (size_t i = 0; i < profile.axes.size(); ++i) {
         auto& axis = profile.axes[i];
-        float raw = state.axisValues.value(i, 0.0f);
-        float mapped = mapAxisRange(raw, axis.minRange, axis.maxRange);
-        applyAxisFilters(axis);
+        float raw = i < state.axisValues.size() ? state.axisValues[i] : 0.0f;
         axis.rawValue = raw;
-        axis.value = mapped;
+        axis.value = mapAxisRange(raw, axis.minRange, axis.maxRange);
+        applyAxisFilters(axis);
     }
 }
 
-void RacingInputManager::processButtons(int deviceIndex)
-{
-    if (deviceIndex < 0 || deviceIndex >= m_devices.size()) return;
+void RacingInputManager::processButtons(int deviceIndex) {
+    if (deviceIndex < 0 || deviceIndex >= static_cast<int>(m_devices.size())) return;
     auto& profile = m_devices[deviceIndex];
     auto& state = m_deviceStates[deviceIndex];
-
-    for (int i = 0; i < profile.buttons.size(); ++i) {
-        auto& btn = profile.buttons[i];
+    for (auto& btn : profile.buttons) {
         int idx = btn.deviceButtonIndex;
-        if (idx < 0 || idx >= state.buttonStates.size()) continue;
-
+        if (idx < 0 || idx >= static_cast<int>(state.buttonStates.size())) continue;
         bool current = state.buttonStates[idx];
         bool previous = state.prevButtonStates[idx];
         btn.pressed = current;
         btn.justPressed = current && !previous;
         btn.justReleased = !current && previous;
-
-        if (btn.justPressed) {
-            emit buttonPressed(btn.function);
-        }
+        if (btn.justPressed && onButtonPressed) onButtonPressed(btn.function);
     }
-
     state.prevButtonStates = state.buttonStates;
 }
 
-void RacingInputManager::applyAxisFilters(InputAxis& axis)
-{
+void RacingInputManager::applyAxisFilters(InputAxis& axis) {
     axis.value = applyDeadZone(axis.value, axis.deadZone);
     if (axis.inverted) axis.value = -axis.value;
-    axis.value = qBound(-1.0f, axis.value, 1.0f);
+    axis.value = std::clamp(axis.value, -1.0f, 1.0f);
 }
 
-float RacingInputManager::applyDeadZone(float value, float deadZone) const
-{
+float RacingInputManager::applyDeadZone(float value, float deadZone) const {
     if (deadZone <= 0.0f) return value;
     if (std::abs(value) < deadZone) return 0.0f;
     float sign = (value > 0) ? 1.0f : -1.0f;
     return sign * (std::abs(value) - deadZone) / (1.0f - deadZone);
 }
 
-float RacingInputManager::applyGammaCurve(float value, float gamma) const
-{
+float RacingInputManager::applyGammaCurve(float value, float gamma) const {
     if (gamma <= 0.0f || gamma >= 2.0f) return value;
     float sign = (value > 0) ? 1.0f : -1.0f;
     return sign * std::pow(std::abs(value), gamma);
 }
 
-float RacingInputManager::mapAxisRange(float raw, float minRange, float maxRange) const
-{
+float RacingInputManager::mapAxisRange(float raw, float minRange, float maxRange) const {
     float range = maxRange - minRange;
     if (range <= 0.0f) return 0.0f;
     return (raw - minRange) / range * 2.0f - 1.0f;
 }
 
-float RacingInputManager::getAxis(AxisType type) const
-{
-    if (m_selectedDevice < 0 || m_selectedDevice >= m_devices.size()) return 0.0f;
-    const auto& axes = m_devices[m_selectedDevice].axes;
-    for (const auto& axis : axes) {
+float RacingInputManager::getAxis(AxisType type) const {
+    if (m_selectedDevice < 0 || m_selectedDevice >= static_cast<int>(m_devices.size())) return 0.0f;
+    for (const auto& axis : m_devices[m_selectedDevice].axes)
         if (axis.type == type) return axis.value;
-    }
     return 0.0f;
 }
 
-float RacingInputManager::getRawAxis(AxisType type) const
-{
-    if (m_selectedDevice < 0 || m_selectedDevice >= m_devices.size()) return 0.0f;
-    const auto& axes = m_devices[m_selectedDevice].axes;
-    for (const auto& axis : axes) {
+float RacingInputManager::getRawAxis(AxisType type) const {
+    if (m_selectedDevice < 0 || m_selectedDevice >= static_cast<int>(m_devices.size())) return 0.0f;
+    for (const auto& axis : m_devices[m_selectedDevice].axes)
         if (axis.type == type) return axis.rawValue;
-    }
     return 0.0f;
 }
 
-void RacingInputManager::setAxisDeadZone(AxisType type, float deadZone)
-{
-    if (m_selectedDevice < 0 || m_selectedDevice >= m_devices.size()) return;
-    auto& axes = m_devices[m_selectedDevice].axes;
-    for (auto& axis : axes) {
-        if (axis.type == type) {
-            axis.deadZone = qBound(0.0f, deadZone, 0.5f);
-            return;
-        }
-    }
+void RacingInputManager::setAxisDeadZone(AxisType type, float deadZone) {
+    if (m_selectedDevice < 0) return;
+    for (auto& axis : m_devices[m_selectedDevice].axes)
+        if (axis.type == type) { axis.deadZone = std::clamp(deadZone, 0.0f, 0.5f); return; }
 }
 
-void RacingInputManager::setAxisGamma(AxisType type, float gamma)
-{
-    if (m_selectedDevice < 0 || m_selectedDevice >= m_devices.size()) return;
-    auto& axes = m_devices[m_selectedDevice].axes;
-    for (auto& axis : axes) {
-        if (axis.type == type) {
-            axis.gamma = qBound(0.1f, gamma, 3.0f);
-            return;
-        }
-    }
+void RacingInputManager::setAxisGamma(AxisType type, float gamma) {
+    if (m_selectedDevice < 0) return;
+    for (auto& axis : m_devices[m_selectedDevice].axes)
+        if (axis.type == type) { axis.gamma = std::clamp(gamma, 0.1f, 3.0f); return; }
 }
 
-void RacingInputManager::setAxisInverted(AxisType type, bool inverted)
-{
-    if (m_selectedDevice < 0 || m_selectedDevice >= m_devices.size()) return;
-    auto& axes = m_devices[m_selectedDevice].axes;
-    for (auto& axis : axes) {
-        if (axis.type == type) {
-            axis.inverted = inverted;
-            return;
-        }
-    }
+void RacingInputManager::setAxisInverted(AxisType type, bool inverted) {
+    if (m_selectedDevice < 0) return;
+    for (auto& axis : m_devices[m_selectedDevice].axes)
+        if (axis.type == type) { axis.inverted = inverted; return; }
 }
 
-bool RacingInputManager::isButtonPressed(InputButton::Function function) const
-{
-    if (m_selectedDevice < 0 || m_selectedDevice >= m_devices.size()) return false;
-    for (const auto& btn : m_devices[m_selectedDevice].buttons) {
+bool RacingInputManager::isButtonPressed(InputButton::Function function) const {
+    if (m_selectedDevice < 0) return false;
+    for (const auto& btn : m_devices[m_selectedDevice].buttons)
         if (btn.function == function) return btn.pressed;
-    }
     return false;
 }
 
-bool RacingInputManager::isButtonJustPressed(InputButton::Function function) const
-{
-    if (m_selectedDevice < 0 || m_selectedDevice >= m_devices.size()) return false;
-    for (const auto& btn : m_devices[m_selectedDevice].buttons) {
+bool RacingInputManager::isButtonJustPressed(InputButton::Function function) const {
+    if (m_selectedDevice < 0) return false;
+    for (const auto& btn : m_devices[m_selectedDevice].buttons)
         if (btn.function == function) return btn.justPressed;
-    }
     return false;
 }
 
-bool RacingInputManager::isButtonJustReleased(InputButton::Function function) const
-{
-    if (m_selectedDevice < 0 || m_selectedDevice >= m_devices.size()) return false;
-    for (const auto& btn : m_devices[m_selectedDevice].buttons) {
+bool RacingInputManager::isButtonJustReleased(InputButton::Function function) const {
+    if (m_selectedDevice < 0) return false;
+    for (const auto& btn : m_devices[m_selectedDevice].buttons)
         if (btn.function == function) return btn.justReleased;
-    }
     return false;
 }
 
-float RacingInputManager::steeringAngle() const
-{
-    float normalized = getAxis(AxisType::SteeringWheel);
-    return normalized * (m_steeringRange / 2.0f);
+float RacingInputManager::steeringAngle() const {
+    return getAxis(AxisType::SteeringWheel) * (m_steeringRange / 2.0f);
 }
 
-void RacingInputManager::beginCalibration()
-{
-    m_calibrating = true;
-    qInfo() << "RacingInputManager: Calibration started";
-}
-
-void RacingInputManager::endCalibration()
-{
+void RacingInputManager::beginCalibration() { m_calibrating = true; }
+void RacingInputManager::endCalibration() {
     m_calibrating = false;
-    emit calibrationComplete();
-    qInfo() << "RacingInputManager: Calibration completed";
+    if (onCalibrationComplete) onCalibrationComplete();
 }
 
-void RacingInputManager::playFFBEffect(const ForceFeedbackEffect& effect)
-{
+void RacingInputManager::playFFBEffect(const ForceFeedbackEffect& effect) {
     if (!m_ffbEnabled || !m_ffbSupported) return;
-    emit ffBUpdate(effect.magnitude * m_ffbStrength);
+    if (onFFBUpdate) onFFBUpdate(effect.magnitude * m_ffbStrength);
 }
-
-void RacingInputManager::stopAllFFB()
-{
-    emit ffBUpdate(0.0f);
+void RacingInputManager::stopAllFFB() { if (onFFBUpdate) onFFBUpdate(0.0f); }
+void RacingInputManager::setConstantForce(float force) {
+    if (m_ffbEnabled && onFFBUpdate) onFFBUpdate(force * m_ffbStrength);
 }
-
-void RacingInputManager::setConstantForce(float force)
-{
-    if (!m_ffbEnabled) return;
-    emit ffBUpdate(force * m_ffbStrength);
-}
-
-void RacingInputManager::setSpringForce(float center, float stiffness, float damping)
-{
+void RacingInputManager::setSpringForce(float center, float stiffness, float damping) {
     if (!m_ffbEnabled) return;
     float angle = steeringAngle();
     float springTorque = -(angle - center) * stiffness * 0.01f - damping * 0.001f * angle;
-    emit ffBUpdate(qBound(-1.0f, springTorque * m_ffbStrength, 1.0f));
+    if (onFFBUpdate) onFFBUpdate(std::clamp(springTorque * m_ffbStrength, -1.0f, 1.0f));
 }
-
-void RacingInputManager::setDamperForce(float velocity, float coefficient)
-{
+void RacingInputManager::setDamperForce(float velocity, float coefficient) {
+    if (m_ffbEnabled && onFFBUpdate)
+        onFFBUpdate(std::clamp(-velocity * coefficient * 0.01f * m_ffbStrength, -1.0f, 1.0f));
+}
+void RacingInputManager::updateFFBFromPhysics(float aligningTorqueNm) {
     if (!m_ffbEnabled) return;
-    emit ffBUpdate(qBound(-1.0f, -velocity * coefficient * 0.01f * m_ffbStrength, 1.0f));
+    float norm = std::clamp(aligningTorqueNm / 12.0f, -1.0f, 1.0f);
+    if (onFFBUpdate) onFFBUpdate(norm * m_ffbStrength);
 }
 
-void RacingInputManager::updateFFBFromPhysics(float aligningTorqueNm)
-{
-    if (!m_ffbEnabled) return;
-    float norm = qBound(-1.0f, aligningTorqueNm / 12.0f, 1.0f);
-    emit ffBUpdate(norm * m_ffbStrength);
-}
-
-void RacingInputManager::saveProfile(const QString& path) const
-{
-    if (path.isEmpty() || m_selectedDevice < 0) return;
-    QSettings ini(path, QSettings::IniFormat);
-    ini.beginGroup("RacingInput");
-    ini.setValue("selectedDevice", m_selectedDevice);
-    ini.setValue("steeringRange", m_steeringRange);
-    ini.setValue("ffbEnabled", m_ffbEnabled);
-    ini.setValue("ffbStrength", m_ffbStrength);
-
+void RacingInputManager::saveProfile(const std::string& path) const {
+    if (path.empty() || m_selectedDevice < 0) return;
+    SimpleIni ini;
+    ini.setValue("RacingInput", "selectedDevice", m_selectedDevice);
+    ini.setValue("RacingInput", "steeringRange", m_steeringRange);
+    ini.setValue("RacingInput", "ffbEnabled", m_ffbEnabled);
+    ini.setValue("RacingInput", "ffbStrength", m_ffbStrength);
     const auto& device = m_devices[m_selectedDevice];
-    ini.beginGroup("Device");
-    ini.setValue("name", device.name);
-    ini.setValue("type", static_cast<int>(device.type));
-    ini.endGroup();
-
-    ini.beginGroup("Axes");
+    ini.setValue("RacingInput/Device", "name", device.name);
     for (const auto& axis : device.axes) {
-        QString key = QString("axis_%1").arg(static_cast<int>(axis.type));
-        ini.setValue(key + "_deadZone", axis.deadZone);
-        ini.setValue(key + "_gamma", axis.gamma);
-        ini.setValue(key + "_inverted", axis.inverted);
+        std::string key = "axis_" + std::to_string(static_cast<int>(axis.type));
+        ini.setValue("RacingInput/Axes", key + "_deadZone", axis.deadZone);
+        ini.setValue("RacingInput/Axes", key + "_gamma", axis.gamma);
+        ini.setValue("RacingInput/Axes", key + "_inverted", axis.inverted);
     }
-    ini.endGroup();
-    ini.endGroup();
+    ini.save(path);
 }
 
-void RacingInputManager::loadProfile(const QString& path)
-{
-    if (path.isEmpty()) return;
-    QSettings ini(path, QSettings::IniFormat);
-    ini.beginGroup("RacingInput");
-    m_steeringRange = ini.value("steeringRange", 900.0f).toFloat();
-    m_ffbEnabled = ini.value("ffbEnabled", false).toBool();
-    m_ffbStrength = ini.value("ffbStrength", 0.75f).toFloat();
-
-    int devIdx = ini.value("selectedDevice", 0).toInt();
-    if (devIdx >= 0 && devIdx < m_devices.size()) {
-        selectDevice(devIdx);
-    }
-
-    ini.beginGroup("Axes");
-    if (m_selectedDevice >= 0 && m_selectedDevice < m_devices.size()) {
-        auto& axes = m_devices[m_selectedDevice].axes;
-        for (auto& axis : axes) {
-            QString key = QString("axis_%1").arg(static_cast<int>(axis.type));
-            axis.deadZone = ini.value(key + "_deadZone", axis.deadZone).toFloat();
-            axis.gamma = ini.value(key + "_gamma", axis.gamma).toFloat();
-            axis.inverted = ini.value(key + "_inverted", axis.inverted).toBool();
+void RacingInputManager::loadProfile(const std::string& path) {
+    if (path.empty()) return;
+    SimpleIni ini;
+    if (!ini.load(path)) return;
+    m_steeringRange = ini.valueFloat("RacingInput", "steeringRange", 900.0f);
+    m_ffbEnabled = ini.valueBool("RacingInput", "ffbEnabled", false);
+    m_ffbStrength = ini.valueFloat("RacingInput", "ffbStrength", 0.75f);
+    int devIdx = ini.valueInt("RacingInput", "selectedDevice", 0);
+    if (devIdx >= 0 && devIdx < static_cast<int>(m_devices.size())) selectDevice(devIdx);
+    if (m_selectedDevice >= 0) {
+        for (auto& axis : m_devices[m_selectedDevice].axes) {
+            std::string key = "axis_" + std::to_string(static_cast<int>(axis.type));
+            axis.deadZone = ini.valueFloat("RacingInput/Axes", key + "_deadZone", axis.deadZone);
+            axis.gamma = ini.valueFloat("RacingInput/Axes", key + "_gamma", axis.gamma);
+            axis.inverted = ini.valueBool("RacingInput/Axes", key + "_inverted", axis.inverted);
         }
     }
-    ini.endGroup();
-    ini.endGroup();
 }
 
 } // namespace ks::device
