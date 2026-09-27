@@ -9,17 +9,23 @@
 
 #include <string>
 #include <vector>
-#include <memory>
 #include <cmath>
 #include <algorithm>
 #include <fstream>
-#include <sstream>
 #include <map>
 
 namespace ks {
 namespace physics {
 
-/** Qt-free vehicle runtime for SimulationLoop / ksengine. */
+struct VehicleFFBSample {
+    float slipAngleFL = 0, slipAngleFR = 0;
+    float loadFL = 3500, loadFR = 3500;
+    float camberFL = -0.03f, camberFR = -0.03f;
+    float speedMs = 0;
+    float steerAngle = 0;
+    float aligningMomentNm = 0;
+};
+
 class VehicleSimulator {
 public:
     VehicleSimulator();
@@ -38,6 +44,7 @@ public:
 
     SimulationState getState() const { return m_state; }
     SimulationState& state() { return m_state; }
+    const VehicleFFBSample& ffbSample() const { return m_ffb; }
 
     void setMass(double kg);
     void setEnginePower(double kw);
@@ -57,6 +64,9 @@ public:
     int currentGear() const { return m_currentGear; }
     double rpm() const { return m_rpm; }
 
+    PacejkaTireModel& tires() { return m_tires; }
+    AeroModel& aero() { return m_aero; }
+
 private:
     static std::map<std::string, std::string> parseIni(const std::string& path);
     static float getf(const std::map<std::string, std::string>& m, const std::string& k, float def);
@@ -64,7 +74,9 @@ private:
     void shiftGears();
 
     SimulationState m_state;
+    VehicleFFBSample m_ffb;
     bool m_running = false;
+
     double m_throttle = 0, m_brake = 0, m_steering = 0;
     double m_mass = 1200, m_enginePowerKw = 260, m_maxRpm = 8500;
     double m_cd = 0.35, m_frontalArea = 2.2, m_wheelBase = 2.6, m_trackWidth = 1.6;
@@ -72,6 +84,7 @@ private:
     std::vector<double> m_gearRatios = {3.5, 2.5, 1.8, 1.4, 1.1, 0.9};
     int m_currentGear = 1;
     double m_rpm = 1000;
+    double m_yawRate = 0;
 
     EngineModel m_engine;
     PacejkaTireModel m_tires;
