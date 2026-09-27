@@ -1,56 +1,76 @@
 #pragma once
 
-#include "PhysicsEngine.h"
-#include <QObject>
-#include <QVector3D>
-#include <QVector>
+#include <cmath>
+#include <algorithm>
+#include <functional>
 
-namespace ks::physics {
+namespace ks {
+namespace physics {
 
-struct CharacterState {
-    QVector3D position, velocity, acceleration;
-    QVector3D angularVelocity;
-    QVector3D rotation;
-    QVector3D previousVelocity;
-    float speed = 0, mass = 75.0f;
-    bool grounded = true, canJump = true;
-    float fallVelocity = 0.0f;
-    float jumpHeight = 1.5f, stepHeight = 0.3f;
-    float moveSpeed = 5.0f, runSpeed = 10.0f, turnSpeed = 720.0f;
+struct CharVec3 {
+    float x = 0, y = 0, z = 0;
+    CharVec3() = default;
+    CharVec3(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {}
+    CharVec3 operator+(CharVec3 o) const { return {x+o.x, y+o.y, z+o.z}; }
+    CharVec3 operator*(float s) const { return {x*s, y*s, z*s}; }
+    CharVec3& operator+=(CharVec3 o) { x+=o.x; y+=o.y; z+=o.z; return *this; }
+    float length() const { return std::sqrt(x*x+y*y+z*z); }
+    CharVec3 normalized() const {
+        float l = length();
+        if (l < 1e-6f) return {0,0,0};
+        return {x/l, y/l, z/l};
+    }
 };
 
-struct CharacterCollisionInfo { bool hit = false; QVector3D normal, contactPoint; float distance = 0; };
+struct CharacterState {
+    CharVec3 position{0, 2, 0};
+    CharVec3 velocity;
+    CharVec3 acceleration;
+    CharVec3 angularVelocity;
+    CharVec3 previousVelocity;
+    float rotation = 0;
+    float speed = 0;
+    float mass = 75.0f;
+    float moveSpeed = 3.0f;
+    float runSpeed = 6.0f;
+    float jumpHeight = 0.5f;
+    bool grounded = true;
+    bool canJump = true;
+};
 
-class CharacterSimulator : public ISimulator {
-    Q_OBJECT
+class CharacterSimulator {
 public:
-    explicit CharacterSimulator(QObject* parent = nullptr);
-    ~CharacterSimulator() override;
-    void startSimulation() override;
-    void stopSimulation() override;
-    void reset() override;
-    SimulationState getState() const override;
-    bool isRunning() const override;
-    void updatePhysics(double dt);
-    void setMoveDirection(const QVector3D& dir);
-    void setJump(bool jump);
-    void setMovementDirection(float forward, float right) { m_moveForward = forward; m_moveRight = right; }
-    void jump();
-    CharacterState getCharacterState() const;
-    void setMass(double kg);
-    double mass() const;
-    CharacterCollisionInfo checkGroundCollision(const QVector3D& displacement);
+    CharacterSimulator() = default;
+    ~CharacterSimulator() = default;
 
-signals:
-    void stateUpdated(const SimulationState& state);
+    void startSimulation();
+    void stopSimulation();
+    void reset();
+    bool isRunning() const { return m_running; }
+
+    void setMoveDirection(float x, float y, float z);
+    void setJump(bool jump);
+    void setThrottle(bool t) { m_throttle = t; }
+    void setBrake(bool b) { m_brake = b; }
+    void setMass(float kg);
+    float mass() const { return m_state.mass; }
+
+    void updatePhysics(double dt);
+
+    const CharacterState& state() const { return m_state; }
+    CharacterState& state() { return m_state; }
+
+    std::function<void()> onSimulationStarted;
+    std::function<void()> onSimulationStopped;
 
 private:
     CharacterState m_state;
     bool m_running = false;
-    QVector3D m_moveDirection;
-    bool m_throttle = false, m_brake = false, m_jump = false;
-    float m_moveForward = 0, m_moveRight = 0;
-    static CharacterSimulator* s_instance;
+    bool m_throttle = false;
+    bool m_brake = false;
+    bool m_jump = false;
+    CharVec3 m_moveDirection{1, 0, 0};
 };
 
-} // namespace ks::physics
+} // namespace physics
+} // namespace ks
