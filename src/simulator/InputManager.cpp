@@ -6,6 +6,7 @@
 
 #ifdef _WIN32
 #include "devices/xinput/XInputDevice.h"
+#include "devices/DirectInputJoystick.h"
 #endif
 
 namespace ks {
@@ -16,11 +17,21 @@ InputManager::~InputManager() = default;
 
 bool InputManager::initialize() {
 #ifdef _WIN32
+    m_dinput = std::make_unique<ks::device::DirectInputJoystick>();
+    if (m_dinput->initialize()) {
+        std::fprintf(stderr, "InputManager: DirectInput device ready\n");
+        setMapping(JoystickMapping::wheelDefault());
+    } else {
+        std::fprintf(stderr, "InputManager: no DirectInput game controller\n");
+        m_dinput.reset();
+    }
+
     m_xinput = std::make_unique<ks::device::XInputDevice>();
     if (m_xinput->initialize()) {
-        std::fprintf(stderr, "InputManager: XInput joystick ready (gamepad mapping)\n");
+        std::fprintf(stderr, "InputManager: XInput pad ready\n");
+        if (!m_dinput)
+            setMapping(JoystickMapping::gamepadDefault());
     } else {
-        std::fprintf(stderr, "InputManager: no XInput device, keyboard / inject only\n");
         m_xinput.reset();
     }
 #endif
@@ -128,12 +139,42 @@ void InputManager::update() {
     }
 
 #ifdef _WIN32
+    if (m_preferDi && m_dinput && m_dinput->isConnected()) {
+        m_dinput->update();
+        injectAxes(m_dinput->axes(), m_dinput->buttons());
+        processInjected();
+        m_hasInjected = false;
+        return;
+    }
     if (m_xinput && m_xinput->isConnected()) {
         processXInput();
         return;
     }
+    if (m_dinput && m_dinput->isConnected()) {
+        m_dinput->update();
+        injectAxes(m_dinput->axes(), m_dinput->buttons());
+        processInjected();
+        m_hasInjected = false;
+        return;
+    }
 #endif
     processKeyboard();
+}
+
+bool InputManager::hasDirectInput() const {
+#ifdef _WIN32
+    return m_dinput != nullptr;
+#else
+    return false;
+#endif
+}
+
+bool InputManager::isDirectInputConnected() const {
+#ifdef _WIN32
+    return m_dinput && m_dinput->isConnected();
+#else
+    return false;
+#endif
 }
 
 void InputManager::processXInput() {
