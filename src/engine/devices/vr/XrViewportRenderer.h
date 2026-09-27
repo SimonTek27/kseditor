@@ -1,56 +1,69 @@
 #pragma once
 
-#include <QObject>
-#include <QMatrix4x4>
-#include <QVector3D>
-#include <QVector>
-#include <vulkan/vulkan.h>
+#include <functional>
+#include <string>
+#include <cstdint>
 
 #include "XrManager.h"
+
+#if __has_include(<vulkan/vulkan.h>)
+#include <vulkan/vulkan.h>
+#else
+using VkDevice = void*;
+using VkPhysicalDevice = void*;
+using VkInstance = void*;
+using VkCommandPool = void*;
+using VkQueue = void*;
+using VkCommandBuffer = void*;
+using VkFramebuffer = void*;
+using VkImageView = void*;
+using VkRenderPass = void*;
+using VkImage = void*;
+using VkFormat = int;
+using VkImageAspectFlags = unsigned;
+#  define VK_NULL_HANDLE nullptr
+#endif
 
 namespace ks {
 namespace device {
 
-class XrViewportRenderer : public QObject {
-    Q_OBJECT
+class XrViewportRenderer {
 public:
-    explicit XrViewportRenderer(QObject* parent = nullptr);
+    XrViewportRenderer();
     ~XrViewportRenderer();
 
-    bool initialize(VkDevice device, VkPhysicalDevice physicalDevice, VkInstance vkInstance,
-                    uint32_t queueFamilyIndex, uint32_t queueIndex,
-                    VkCommandPool commandPool, VkQueue graphicsQueue);
+    bool initialize(VkDevice device, VkPhysicalDevice physicalDevice,
+                    VkInstance vkInstance, uint32_t queueFamilyIndex,
+                    uint32_t queueIndex, VkCommandPool commandPool, VkQueue graphicsQueue);
     void shutdown();
-
     bool isInitialized() const { return m_initialized; }
-
-    bool renderFrame();
     bool isSessionActive() const;
 
-    void setClearColor(float r, float g, float b, float a);
+    void setClearColor(float r, float g, float b, float a = 1.0f);
 
-    void setDrawCallback(std::function<void(VkCommandBuffer cmd, int eyeIndex,
-                                            const QMatrix4x4& view, const QMatrix4x4& proj)> callback) {
-        m_drawCallback = callback;
+    bool renderFrame();
+
+    void setDrawCallback(
+        std::function<void(VkCommandBuffer, int, const XrMat4&, const XrMat4&)> callback) {
+        m_drawCallback = std::move(callback);
     }
 
+    bool beginFrame();
+    bool renderEye(int eyeIndex);
+    bool endFrame();
+
+    std::function<void(const std::string& message)> onError;
+
+private:
     struct EyeFramebuffer {
         VkFramebuffer framebuffer = VK_NULL_HANDLE;
         VkImageView colorView = VK_NULL_HANDLE;
         VkImageView depthView = VK_NULL_HANDLE;
         VkRenderPass renderPass = VK_NULL_HANDLE;
-        VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-        VkSemaphore semaphore = VK_NULL_HANDLE;
-        VkFence fence = VK_NULL_HANDLE;
+        uint32_t width = 0;
+        uint32_t height = 0;
     };
 
-    EyeFramebuffer& eyeFramebuffer(int index) { return m_eyeFBs[index]; }
-
-signals:
-    void frameRendered();
-    void error(const QString& message);
-
-private:
     bool createEyeFramebuffers();
     void destroyEyeFramebuffers();
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspect);
@@ -66,7 +79,7 @@ private:
 
     float m_clearColor[4] = {0.1f, 0.1f, 0.1f, 1.0f};
 
-    std::function<void(VkCommandBuffer, int, const QMatrix4x4&, const QMatrix4x4&)> m_drawCallback;
+    std::function<void(VkCommandBuffer, int, const XrMat4&, const XrMat4&)> m_drawCallback;
 
     XrManager* m_xr = nullptr;
 };

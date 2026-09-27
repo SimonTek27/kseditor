@@ -1,4 +1,6 @@
 #include "XrIntegration.h"
+#include <string>
+#include <cstdio>
 #if defined(XR_VERSION_1_0) || defined(XR_NULL_HANDLE)
 
 namespace ks {
@@ -12,13 +14,12 @@ XrIntegration* XrIntegration::instance()
     return s_instance;
 }
 
-XrIntegration::XrIntegration(QObject* parent)
-    : QObject(parent)
+XrIntegration::XrIntegration()
 {
     s_instance = this;
     m_manager = XrManager::instance();
-    m_viewportRenderer = new XrViewportRenderer(this);
-    m_input = new XrInput(m_manager, this);
+    m_viewportRenderer = new XrViewportRenderer();
+    m_input = new XrInput(m_manager);
 }
 
 XrIntegration::~XrIntegration()
@@ -41,19 +42,19 @@ void XrIntegration::setVulkanDevice(VkDevice device, VkPhysicalDevice physicalDe
     m_graphicsQueue = graphicsQueue;
 }
 
-bool XrIntegration::initialize(const QString& applicationName)
+bool XrIntegration::initialize(const std::string& applicationName)
 {
     if (m_initialized) return true;
 
     if (!m_viewportRenderer->initialize(m_vkDevice, m_vkPhysicalDevice, m_vkInstance,
                                          m_queueFamilyIndex, m_queueIndex,
                                          m_commandPool, m_graphicsQueue)) {
-        emit error("Failed to initialize VR viewport renderer");
+        if (onError) onError("Failed to initialize VR viewport renderer");
         return false;
     }
 
     m_initialized = true;
-    emit initializedChanged(true);
+    if (onInitializedChanged) onInitializedChanged(true);
     return true;
 }
 
@@ -64,7 +65,7 @@ void XrIntegration::shutdown()
     stopVR();
     m_viewportRenderer->shutdown();
     m_initialized = false;
-    emit initializedChanged(false);
+    if (onInitializedChanged) onInitializedChanged(false);
 }
 
 bool XrIntegration::startVR()
@@ -72,11 +73,11 @@ bool XrIntegration::startVR()
     if (!m_initialized) return false;
 
     if (!m_manager->isSessionRunning()) {
-        emit error("VR session not ready yet. Ensure XrManager is initialized.");
+        if (onError) onError("VR session not ready yet. Ensure XrManager is initialized.");
         return false;
     }
 
-    emit sessionActiveChanged(true);
+    if (onSessionActiveChanged) onSessionActiveChanged(true);
     return true;
 }
 
@@ -88,8 +89,8 @@ void XrIntegration::stopVR()
 
     m_viewportRenderer->shutdown();
     m_initialized = false;
-    emit sessionActiveChanged(false);
-    emit initializedChanged(false);
+    if (onSessionActiveChanged) onSessionActiveChanged(false);
+    if (onInitializedChanged) onInitializedChanged(false);
 }
 
 bool XrIntegration::renderFrame()
@@ -107,4 +108,4 @@ bool XrIntegration::pollEvents()
 } // namespace device
 } // namespace ks
 
-#endif // defined(XR_VERSION_1_0) || defined(XR_NULL_HANDLE)
+#endif

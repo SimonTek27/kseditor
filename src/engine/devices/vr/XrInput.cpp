@@ -1,13 +1,12 @@
 #include "XrInput.h"
+#include <cmath>
 #if defined(XR_VERSION_1_0) || defined(XR_NULL_HANDLE)
-#include <QDebug>
 
 namespace ks {
 namespace device {
 
-XrInput::XrInput(XrManager* xr, QObject* parent)
-    : QObject(parent)
-    , m_xr(xr)
+XrInput::XrInput(XrManager* xr)
+    : m_xr(xr)
 {
 }
 
@@ -32,25 +31,25 @@ float XrInput::getSqueezeValue(Hand hand) const
                         : m_xr->rightController().squeezeValueFloat;
 }
 
-QVector2D XrInput::getThumbstickValue(Hand hand) const
+Vec2 XrInput::getThumbstickValue(Hand hand) const
 {
     return hand == Left ? m_xr->leftController().thumbstickValue
                         : m_xr->rightController().thumbstickValue;
 }
 
-QVector2D XrInput::getTrackpadValue(Hand hand) const
+Vec2 XrInput::getTrackpadValue(Hand hand) const
 {
     return hand == Left ? m_xr->leftController().trackpadValue
                         : m_xr->rightController().trackpadValue;
 }
 
-QMatrix4x4 XrInput::getAimPose(Hand hand) const
+XrMat4 XrInput::getAimPose(Hand hand) const
 {
     return hand == Left ? m_xr->leftController().aimPose
                         : m_xr->rightController().aimPose;
 }
 
-QMatrix4x4 XrInput::getGripPose(Hand hand) const
+XrMat4 XrInput::getGripPose(Hand hand) const
 {
     return hand == Left ? m_xr->leftController().gripPose
                         : m_xr->rightController().gripPose;
@@ -68,17 +67,32 @@ bool XrInput::isControllerConnected(Hand hand) const
                         : m_xr->rightController().connected;
 }
 
-void XrInput::getAimRay(Hand hand, QVector3D& origin, QVector3D& direction) const
+void XrInput::getAimRay(Hand hand, float origin[3], float direction[3]) const
 {
-    origin = QVector3D(0, 0, 0);
-    direction = QVector3D(0, 0, -1);
+    origin[0] = origin[1] = origin[2] = 0.0f;
+    direction[0] = 0.0f;
+    direction[1] = 0.0f;
+    direction[2] = -1.0f;
 
+    if (!m_xr) return;
     auto* ctrl = hand == Left ? &m_xr->leftController() : &m_xr->rightController();
     if (!ctrl->aimValid) return;
 
-    origin = ctrl->aimPose * QVector3D(0, 0, 0);
-    direction = (ctrl->aimPose * QVector3D(0, 0, -1)) - origin;
-    direction.normalize();
+    const auto& mat = ctrl->aimPose;
+    origin[0] = mat.m[12];
+    origin[1] = mat.m[13];
+    origin[2] = mat.m[14];
+
+    float dx = -mat.m[8];
+    float dy = -mat.m[9];
+    float dz = -mat.m[10];
+    float len = std::sqrt(dx*dx + dy*dy + dz*dz);
+    if (len > 1e-6f) {
+        dx /= len; dy /= len; dz /= len;
+    }
+    direction[0] = dx;
+    direction[1] = dy;
+    direction[2] = dz;
 }
 
 void XrInput::updateButtonState(ButtonState& state, bool newValue)
@@ -93,7 +107,7 @@ void XrInput::onControllerStateChanged()
         checkButtonEdge(hand, Trigger, ctrl.triggerClicked);
         checkButtonEdge(hand, Grip, ctrl.squeezeValue);
         checkButtonEdge(hand, Menu, ctrl.menuClicked);
-        if (ctrl.aimValid) emit poseUpdated((int)hand);
+        if (ctrl.aimValid) if (onPoseUpdated) onPoseUpdated((int)hand);
     };
     updateFromCtrl(Left, m_xr->leftController());
     updateFromCtrl(Right, m_xr->rightController());
@@ -105,13 +119,19 @@ void XrInput::checkButtonEdge(Hand hand, Button button, bool newValue)
     updateButtonState(state, newValue);
 
     if (state.justPressed()) {
-        emit buttonPressed((int)hand, (int)button, true);
+        if (onButtonPressed) onButtonPressed((int)hand, (int)button, true);
     } else if (state.justReleased()) {
-        emit buttonPressed((int)hand, (int)button, false);
+        if (onButtonPressed) onButtonPressed((int)hand, (int)button, false);
     }
+}
+
+void XrInput::update()
+{
+    if (!m_xr) return;
+    onControllerStateChanged();
 }
 
 } // namespace device
 } // namespace ks
 
-#endif // defined(XR_VERSION_1_0) || defined(XR_NULL_HANDLE)
+#endif
