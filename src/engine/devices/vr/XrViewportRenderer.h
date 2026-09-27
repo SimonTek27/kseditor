@@ -21,6 +21,8 @@ using VkRenderPass = void*;
 using VkImage = void*;
 using VkFormat = int;
 using VkImageAspectFlags = unsigned;
+using VkSemaphore = void*;
+using VkFence = void*;
 #  define VK_NULL_HANDLE nullptr
 #endif
 
@@ -60,6 +62,9 @@ private:
         VkImageView colorView = VK_NULL_HANDLE;
         VkImageView depthView = VK_NULL_HANDLE;
         VkRenderPass renderPass = VK_NULL_HANDLE;
+        VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+        VkSemaphore semaphore = VK_NULL_HANDLE;
+        VkFence fence = VK_NULL_HANDLE;
         uint32_t width = 0;
         uint32_t height = 0;
     };
