@@ -3,59 +3,27 @@
 **Updated:** 2026-09-27
 
 ## Policy
-No full build of SimulatorApp/ksengine until every **linked** translation unit is Qt-free.
+Runtime (`ksengine` + `SimulatorApp`) must be 100% Qt-free before any real build is greenlit.  
 `KSENGINE_QT_FREE=1` is defined on the `ksengine` target.
 
-## Runtime stack — DONE (Qt-free)
+## Runtime stack — DONE (Qt-free) and on GitHub (SimonTek27/kseditor)
 
-### Engine / devices / XR
+### Engine / devices / XR / app
 | Area | Files |
 |------|--------|
-| Core loop | Engine.h, EngineModule.h |
-| Devices | DeviceManager, SimRacingDevices (TripleMonitor) |
-| XR | XrManager, XrIntegration, XrInput, XrViewportRenderer |
-| App | SimulatorApp.cpp, NativeRenderer.h (Vulkan, no Qt) |
-| UI | UiRenderer, GameMenuOverlay (batched, dirty-flag) |
-| GPU | GpuProfiler (Vulkan timestamps) |
+| Core loop | Engine.h (shared_mutex ECS, EngineLoop, callbacks) |
+| Devices | DeviceManager.h/.cpp, SimRacingDevices.h/.cpp (TripleMonitor, FFB) |
+| XR | XrManager.h, XrInput.h/.cpp, XrIntegration.h/.cpp, XrViewportRenderer.h |
+| App | SimulatorApp.cpp, NativeRenderer.h, GameMenuOverlay, UiRenderer, GpuProfiler |
 
-### Physics (integrated in `phys_Simulator`)
-| Module | Role |
-|--------|------|
-| PhysicsCoreTypes / PhysicsTypes | PhysVec3, SimulationState, enums |
-| PhysicsEngine | rigid bodies / world |
-| AeroModel + AeroSimulator + AeroDraft | wings, DF, draft |
-| PacejkaTireModel + TireSimulator + TireFlatSpot | tire forces |
-| EngineModel + GearboxModel + DifferentialModel | powertrain |
-| HybridSystem | ERS |
-| WeatherPhysics | rain / density / wind |
-| TrackSurface | spatial grip / rubber |
-| SuspensionModel | loads + ride height |
-| BrakeThermalModel | disc fade |
-| ChassisSimulator | yaw / sideslip |
-| DamageSystem | collision multipliers |
-| PhysicsLogger / PhysicsProfiler | stdio + frame timing |
-| **phys_Simulator** | facade + full tick |
+### Physics (integrated in phys_Simulator)
+PhysicsCoreTypes, PhysicsEngine, Aero, Pacejka/Tires, Engine/Gear/Diff, Hybrid, Weather, TrackSurface, Suspension, BrakeThermal, Chassis, Damage, Logger/Profiler, **phys_Simulator**.
 
 ### Tick order
-1. Weather → TrackSurface.sync
-2. Engine → auto gearbox
-3. Diff + Hybrid
-4. Aero (draft/DRS/damage)
-5. Suspension → normal loads
-6. Brake thermal
-7. Tires (Pacejka × track grip)
-8. Longitudinal step
-9. Chassis yaw
-10. Rubber deposit / callbacks / profile
+Weather → TrackSurface → Engine → Gear → Diff → Hybrid → Aero → Suspension → Brakes → Tires → step → Chassis → rubber/callbacks.
 
-## CMake
-- Roots: Math, physics, devices, FileFormat, archive, Config, network, material, terrain, hwril
-- **Excluded:** VehiclePhysics, TireCurveEditor, TrackPhysics, ChassisSimulator (old), HybridSystem (old Qt), `physics/weather/*` editors, `phys_*` legacy snapshots
-- Allowlist helper: `CMakeLists_physics_QtFree.cmake`
-
-## Still Qt (editor / excluded from ksengine)
-Audio, Graphics (QVulkanWindow path), mesh editors, Scripting, animation, sys (LogManager Qt), VehiclePhysics monolith, TireCurveEditor UI, MultiplayerWidget, DeviceSettingsWidget
+## Still Qt (editor only — excluded from ksengine)
+DeviceSettingsWidget, MultiplayerWidget, Graphics/QVulkanWindow path, mesh editors, Scripting, Audio.
 
 ## Gate
-Runtime scan of linked modules: no QObject/QString/QVector/Q_OBJECT in code.
-When the local tree matches these ports and CMake filters apply, a real compile of SimulatorApp + ksengine is allowed under the Qt-free policy.
+Runtime scan: **no QObject/QString/QVector/Q_OBJECT** in Engine, devices, physics, SimulatorApp, NativeRenderer, XR headers.
