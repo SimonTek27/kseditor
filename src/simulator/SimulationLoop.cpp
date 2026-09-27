@@ -1,6 +1,6 @@
 /**
  * SimulationLoop.cpp — std-only implementation
- * Core tick never needs Qt. Optional HAS_VEHICLE_SIM / HAS_KSNET / HAS_FFB.
+ * Core tick never needs Qt. HAS_VEHICLE_SIM uses VehicleSimulator (Qt-free).
  */
 
 #include "SimulationLoop.h"
@@ -14,7 +14,7 @@
 #include <string>
 
 #ifndef HAS_VEHICLE_SIM
-#define HAS_VEHICLE_SIM 0
+#define HAS_VEHICLE_SIM 1
 #endif
 #ifndef HAS_KSNET
 #define HAS_KSNET 0
@@ -24,7 +24,7 @@
 #endif
 
 #if HAS_VEHICLE_SIM
-#include "engine/physics/VehiclePhysics.h"
+#include "engine/physics/VehicleSimulator.h"
 #endif
 
 namespace ks::sim {
@@ -214,40 +214,6 @@ void SimulationLoop::updateWeather()
 void SimulationLoop::ensureScenePipeline()
 {
     if (m_pipelineInitialized || !m_vulkanRenderer) return;
-    const char* candidates[] = {
-        "shaders/passthrough.vert",
-        "src/engine/Graphics/shaders/passthrough.vert",
-        "../src/engine/Graphics/shaders/passthrough.vert",
-    };
-    std::string vertSrc, fragSrc;
-    for (const char* v : candidates) {
-        vertSrc = readFileText(v);
-        if (!vertSrc.empty()) {
-            std::string fragPath = v;
-            auto pos = fragPath.rfind(".vert");
-            if (pos != std::string::npos)
-                fragPath.replace(pos, 5, ".frag");
-            fragSrc = readFileText(fragPath);
-            if (!fragSrc.empty()) break;
-        }
-    }
-    if (vertSrc.empty() || fragSrc.empty()) {
-        vertSrc =
-            "#version 450\n"
-            "layout(location=0) in vec3 inPos;\n"
-            "layout(location=1) in vec3 inNormal;\n"
-            "layout(location=2) in vec2 inUv;\n"
-            "layout(location=0) out vec2 vUv;\n"
-            "layout(push_constant) uniform PC { mat4 mvp; } pc;\n"
-            "void main(){ vUv=inUv; gl_Position = pc.mvp * vec4(inPos,1.0); }\n";
-        fragSrc =
-            "#version 450\n"
-            "layout(location=0) in vec2 vUv;\n"
-            "layout(location=0) out vec4 outColor;\n"
-            "void main(){ outColor = vec4(0.2,0.25,0.3,1.0); }\n";
-    }
-    (void)vertSrc;
-    (void)fragSrc;
     m_pipelineInitialized = true;
 }
 
@@ -255,9 +221,6 @@ void SimulationLoop::render()
 {
     ensureScenePipeline();
     if (!m_vulkanRenderer) return;
-    for (const auto& r : m_renderables) {
-        (void)r;
-    }
 }
 
 void SimulationLoop::broadcastLocalCarState() {}
@@ -320,9 +283,9 @@ void SimulationLoop::tick()
 
 #if HAS_VEHICLE_SIM
     if (m_vehicle && m_sessionPhase == PHASE_GREEN_FLAG) {
+        auto st = m_vehicle->getState();
         static double lastZ = 0.0;
-        double z = 0.0;
-        (void)m_vehicle->getState();
+        double z = st.position.z;
         if ((lastZ <= 0.0 && z > 0.0) || (lastZ > 0.0 && z <= 0.0)) {
             if (m_currentLap < m_totalLaps) {
                 m_currentLap++;
@@ -332,7 +295,7 @@ void SimulationLoop::tick()
         }
         lastZ = z;
 
-        Mat4f carBody = Mat4f::translation(0.f, 0.f, 0.f);
+        Mat4f carBody = Mat4f::translation(st.position.x, st.position.y, st.position.z);
         for (auto& r : m_renderables) {
             if (r.meshName.find("car_") == 0)
                 r.transform = carBody;
