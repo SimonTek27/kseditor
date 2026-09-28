@@ -1,107 +1,43 @@
 #pragma once
-
-#include <QObject>
-#include <QString>
-#include <QVector>
-#include <QMap>
-#include <QJsonObject>
-#include <QUuid>
-#include <QMutex>
-#include <QStack>
+#include <string>
+#include <functional>
+#include <vector>
 
 namespace ks {
+namespace engine {
+namespace sys {
 
-class TransactionManager : public QObject
-{
-    Q_OBJECT
-
+class TransactionManager {
 public:
-    static TransactionManager* instance();
+    static TransactionManager& instance() { static TransactionManager s; return s; }
 
-    explicit TransactionManager(QObject* parent = nullptr);
-    ~TransactionManager();
-
-    // Transaction lifecycle
-    QString beginTransaction(const QString& description = QString());
-    void commitTransaction(const QString& transactionId);
-    void rollbackTransaction(const QString& transactionId);
-    
-    // Check if there's an active transaction
-    bool hasActiveTransaction() const { return !m_transactionStack.isEmpty(); }
-    QString currentTransaction() const { return m_transactionStack.isEmpty() ? QString() : m_transactionStack.top(); }
-
-    // Cross-module operations
-    void registerModule(const QString& moduleId, QObject* module);
-    void unregisterModule(const QString& moduleId);
-    
-    // Get all changes for a transaction
-    struct Change {
-        QString transactionId;
-        QString moduleId;
-        QString property;
-        QJsonValue oldValue;
-        QJsonValue newValue;
-        QString description;
-        QDateTime timestamp;
-    };
-    
-    // Record a change that can be rolled back
-    template<typename T>
-    void recordChange(const QString& moduleId, const QString& property, 
-                      const T& oldValue, const T& newValue,
-                      const QString& description = QString()) {
-        if (!hasActiveTransaction()) return;
-        
-        Change change;
-        change.transactionId = currentTransaction();
-        change.moduleId = moduleId;
-        change.property = property;
-        change.oldValue = QJsonValue::fromVariant(oldValue);
-        change.newValue = QJsonValue::fromVariant(newValue);
-        change.description = description;
-        change.timestamp = QDateTime::currentDateTime();
-        
-        m_changes[change.transactionId].append(change);
-        m_transactions[change.transactionId].changes.append(change);
+    void begin(const std::string& name = {}) {
+        m_active = true;
+        m_name = name;
     }
+    void commit() {
+        m_active = false;
+        for (auto& fn : m_onCommit) if (fn) fn();
+        m_onCommit.clear();
+    }
+    void rollback() {
+        m_active = false;
+        for (auto& fn : m_onRollback) if (fn) fn();
+        m_onRollback.clear();
+        m_onCommit.clear();
+    }
+    bool isActive() const { return m_active; }
 
-    QVector<Change> getChanges(const QString& transactionId) const;
-    QVector<Change> getAllChanges() const;
-
-    // Serialization for crash recovery
-    QJsonObject serializeTransaction(const QString& transactionId) const;
-    void deserializeTransaction(const QJsonObject& data);
-
-    // Callbacks for module state changes
-    using ModuleSnapshotCallback = std::function<QJsonObject(const QString&)>;
-    using ModuleRestoreCallback = std::function<void(const QString&, const QJsonObject&)>;
-
-    void setSnapshotCallback(const QString& moduleId, ModuleSnapshotCallback cb);
-    void setRestoreCallback(const QString& moduleId, ModuleRestoreCallback cb);
-
-signals:
-    void transactionStarted(const QString& transactionId, const QString& description);
-    void transactionCommitted(const QString& transactionId);
-    void transactionRolledBack(const QString& transactionId, const QString& reason);
-    void changeRecorded(const Change& change);
+    void onCommit(std::function<void()> fn) { m_onCommit.push_back(std::move(fn)); }
+    void onRollback(std::function<void()> fn) { m_onRollback.push_back(std::move(fn)); }
 
 private:
-    void applyRollback(const QString& transactionId);
-    
-    struct Transaction {
-        QString id;
-        QString description;
-        QDateTime startTime;
-        QVector<Change> changes;
-    };
-
-    QMap<QString, Transaction> m_transactions;
-    QMap<QString, QVector<Change>> m_changes;
-    QStack<QString> m_transactionStack;
-    QMap<QString, ModuleSnapshotCallback> m_snapshotCallbacks;
-    QMap<QString, ModuleRestoreCallback> m_restoreCallbacks;
-    QMap<QString, QObject*> m_modules;
-    mutable QMutex m_mutex;
+    bool m_active = false;
+    std::string m_name;
+    std::vector<std::function<void()>> m_onCommit;
+    std::vector<std::function<void()>> m_onRollback;
 };
 
+} // namespace sys
+} // namespace engine
 } // namespace ks
