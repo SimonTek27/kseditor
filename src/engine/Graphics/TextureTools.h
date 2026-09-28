@@ -1,8 +1,7 @@
 #pragma once
 /**
- * Qt-free texture tools facade.
- * AC-specific livery/DDS tooling belongs in adapters or editor tools;
- * core only keeps format enums + hooks without QImage/QString.
+ * Texture tools facade (std only).
+ * Commercial-title livery/DDS tooling belongs in adapters or editor tools.
  */
 #include <string>
 #include <vector>

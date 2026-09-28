@@ -1,11 +1,8 @@
-#ifndef KSENGINE_QT_FREE
 #pragma once
-#include <QWidget>
+/** Editor-only tire curve UI — not part of runtime. */
 namespace ks { namespace physics {
-class TireCurveEditor : public QWidget {
-  Q_OBJECT
+class TireCurveEditor {
 public:
-  explicit TireCurveEditor(QWidget* parent = nullptr);
+    void reset() {}
 };
 }} // namespace
-#endif // !KSENGINE_QT_FREE

@@ -1,11 +1,7 @@
-#ifndef KSENGINE_QT_FREE
 #pragma once
-#include <QWidget>
 namespace ks { namespace physics {
-class WeatherEditor : public QWidget {
-  Q_OBJECT
+class WeatherEditor {
 public:
-  explicit WeatherEditor(QWidget* parent = nullptr);
+    void reset() {}
 };
 }} // namespace
-#endif // !KSENGINE_QT_FREE
