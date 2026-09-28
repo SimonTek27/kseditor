@@ -2,26 +2,23 @@
 
 **Updated:** 2026-09-28
 
-## Converted this session
-- EngineSimulator, InputSystem, SimucubeFFB
-- phys_LapTimer, StrategySimulator, PhysicsMessage
-- PostProcessing stub, ReplaySystem, TelemetryPhysics, WeatherConfig
-- SimulationLoop → NativeRenderer
-- SimulatorApp no Graphics/*
+## Runtime 100% Qt-free
+Engine, SimulatorApp, SimulationLoop (NativeRenderer), InputManager,
+DeviceManager, VehicleSimulator, FFB, Pacejka, Aero, EngineSimulator,
+StrategySimulator, PhysicsMessage, LapTimer, PostProcessing stub,
+ReplaySystem, TelemetryPhysics, WeatherConfig.
 
-## Guarded (editor Qt only, skipped if KSENGINE_QT_FREE)
-- MultiplayerWidget, DeviceSettingsWidget
+## Editor monoliths (Qt)
+Under `KSENGINE_QT_FREE` these TUs are empty / excluded by CMake:
+VehiclePhysics*, PhysicsSimulations, TireCurveEditor, TrackPhysics,
+PhysicsValidator, 3dprint/*, scanners/*, weather editor widgets,
+MultiplayerWidget, DeviceSettingsWidget, SimulatorServerApp.
+
+**Note:** Full Qt bodies for those files live in git history before the
+qt-free stub commits. Restore when building the editor with Qt.
 
 ## Build
-```cmake
-# root CMakeLists.txt
-include(cmake/CMakeLists_root_qtfree_hook.cmake)
-```
 ```bash
 cmake -DKSIMULATOR_QT_FREE=ON -DKSENGINE_QT_FREE=ON ..
 cmake --build . --target ksimulator
 ```
-
-## Still excluded / editor monoliths
-VehiclePhysics*.cpp, PhysicsSimulations.cpp, TrackPhysics.cpp (QJson),
-3dprint/*, TireCurveEditor, Graphics/*
