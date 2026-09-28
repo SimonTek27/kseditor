@@ -1,18 +1,8 @@
 #pragma once
-
-#include <QString>
-#include <QVector3D>
-#include <QVector2D>
-
-#include "Mesh/MeshOperations.h"
-
-namespace ks {
-namespace fileformat {
-
-/// Parse a Grasshopper (.gh/.ghx) definition file.
-/// Handles: geometry components, attributes, basic geometry generation.
-/// Returns false on failure; optional error out.
-bool importGrasshopperDefinition(const QByteArray& data, ks::MeshData& out, QString* error = nullptr);
-
-} // namespace fileformat
-} // namespace ks
+#include <string>
+namespace ks { namespace engine { namespace fileformat {
+class GrasshopperImporter {
+public:
+    bool importFile(const std::string& /*path*/) { return false; }
+};
+}}} // namespace

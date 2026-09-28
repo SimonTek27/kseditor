@@ -1,25 +1,24 @@
 # KSEngine Qt-free status
 
-**Updated:** 2026-09-28 (scan + full stub pass)
+**Updated:** 2026-09-28
 
-## Completed this pass
-- Tools: all 27 systems stubbed
-- mesh: remaining sculpt/UV/physics mesh stubs
-- assets: dependency, watcher, project, preview (no QWidget)
-- sys: DB, plugin, module, hang, serializer, state machine
-- Scripting: Blueprint, Lua, Python hosts
-- animation: timeline, physics anim, shape keys
+## Latest pass
+- Config (ConfigLoader, Schema, Editor, CSP, PPFilter)
+- network (NetworkManager, NetSystem, NetRace, NetworkConfig)
+- material (MaterialSystem/Library, ShaderManager, Texture*, QmlBridge stub)
+- FileFormat: INIParser (real minimal), JSON, MeshData, Project, KS3D,
+  CAD/OBJ/STL/DXF/FBX/GLB, Bank parsers/writers, audio importers,
+  AC/Alembic/BIS/FSPRO/Grasshopper/LXO/P3D/PAA/Rhino/USDA/XSI stubs
 
-## Runtime facades (usable API)
-Engine, physics, devices, Graphics/RenderSystem, AudioCore/DrivingAudio,
-AssetManager, LogManager, SettingsManager, TaskSystem, NavMesh
+## Still excluded from CMake (editor monoliths)
+VehiclePhysics*, TireCurveEditor, PhysicsSimulations, TrackPhysics,
+PhysicsValidator, devices/3dprint, devices/scanners
 
-## CMake
+## Build
 ```bash
 cmake -DKSENGINE_QT_FREE=ON -DKSIMULATOR_QT_FREE=ON ..
 cmake --build . --target ksengine ksimulator
 ```
 
-## Note
-Editor Qt implementations recoverable from git history before stub commits.
-FileFormat/Config/network/material may still need a residual Qt grep if build fails.
+If a residual `#include <Q...>` appears, stub that path the same way.
+Original Qt bodies remain in git history before stub commits.
