@@ -1,8 +1,6 @@
 #pragma once
-#include <string>
+/** Redirect: AC GUIDs are content adapters, not core FileFormat. */
+#include "../../adapters/assetto_corsa/ACGuidsParser.h"
 namespace ks { namespace engine { namespace fileformat {
-class ACGuidsParser {
-public:
-    bool load(const std::string& /*path*/) { return false; }
-};
+using ACGuidsParser = ks::adapters::assetto_corsa::ACGuidsParser;
 }}} // namespace

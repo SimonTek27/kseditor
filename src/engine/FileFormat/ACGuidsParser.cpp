@@ -1,1 +1,1 @@
-#include "ACGuidsParser.h"
+// See src/adapters/assetto_corsa/ACGuidsParser.cpp

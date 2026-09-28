@@ -1,1 +1,1 @@
-#include "FSPROImporter.h"
+// See adapters/assetto_corsa

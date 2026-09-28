@@ -1,4 +1,4 @@
-# KSEngine Qt-free core — full module tree via facades + stubs
+# KSEngine — generic open-source sim core (Qt-free)
 cmake_minimum_required(VERSION 3.16)
 project(ksengine VERSION 2.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(KSENGINE_QT_FREE "Build without Qt" ON)
 
+# Core modules only. Assetto Corsa / CSP live under src/adapters/ (optional).
 set(KSENGINE_QT_FREE_DIRS
   Math physics devices FileFormat archive Config network material sim Graphics
   Audio assets sys AI animation hwril mesh Tools Scripting Video
@@ -35,6 +36,12 @@ foreach(_pat
     "README.md"
     "StreamlineFunctions"
     "ksAssettocorsasndeventdefs"
+    "CspConfigParser"
+    "ACGuidsParser"
+    "FSPROImporter"
+    "FSPROExporter"
+    "P3DModelLoader"
+    "PAATextureConverter"
 )
   list(FILTER KSENGINE_SOURCES EXCLUDE REGEX "${_pat}")
 endforeach()
@@ -56,4 +63,4 @@ target_include_directories(ksengine PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/mesh
   ${CMAKE_CURRENT_SOURCE_DIR}/Tools)
 target_compile_definitions(ksengine PUBLIC KSENGINE_QT_FREE=1)
-message(STATUS "ksengine Qt-free modules: ${KSENGINE_QT_FREE_DIRS}")
+message(STATUS "ksengine: generic sim core (no AC/CSP in link set)")

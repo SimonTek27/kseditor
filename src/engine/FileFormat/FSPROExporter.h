@@ -1,8 +1,5 @@
 #pragma once
-#include <string>
+#include "../../adapters/assetto_corsa/FSPROExporter.h"
 namespace ks { namespace engine { namespace fileformat {
-class FSPROExporter {
-public:
-    bool exportFile(const std::string& /*path*/) { return false; }
-};
+using FSPROExporter = ks::adapters::assetto_corsa::FSPROExporter;
 }}} // namespace
