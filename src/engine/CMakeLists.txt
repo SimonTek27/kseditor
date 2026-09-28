@@ -1,4 +1,4 @@
-# KSEngine Qt-free core
+# KSEngine Qt-free core — full engine tree without Qt
 cmake_minimum_required(VERSION 3.16)
 project(ksengine VERSION 2.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
@@ -6,8 +6,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(KSENGINE_QT_FREE "Build without Qt" ON)
 
-# sim/ = NativeRenderer + GpuProfiler + UiRenderer only
-set(KSENGINE_QT_FREE_DIRS Math physics devices FileFormat archive Config network material sim)
+set(KSENGINE_QT_FREE_DIRS
+  Math physics devices FileFormat archive Config network material sim
+  Graphics AI Audio mesh sys assets animation hwril
+)
 set(KSENGINE_SOURCES "")
 foreach(_dir ${KSENGINE_QT_FREE_DIRS})
   if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${_dir}")
@@ -18,6 +20,7 @@ foreach(_dir ${KSENGINE_QT_FREE_DIRS})
   endif()
 endforeach()
 
+# Exclude remaining known Qt-heavy / editor-only paths until ported
 foreach(_pat
     "physics/weather/"
     "VehiclePhysics"
@@ -30,7 +33,9 @@ foreach(_pat
     "devices/scanners/"
     "SimulatorApp"
     "GameMenuOverlay"
-    "simulator/"
+    "Tools/"
+    "Scripting/"
+    "Video/"
     "README.md"
 )
   list(FILTER KSENGINE_SOURCES EXCLUDE REGEX "${_pat}")
@@ -45,6 +50,7 @@ target_include_directories(ksengine PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/physics
   ${CMAKE_CURRENT_SOURCE_DIR}/devices
-  ${CMAKE_CURRENT_SOURCE_DIR}/sim)
+  ${CMAKE_CURRENT_SOURCE_DIR}/sim
+  ${CMAKE_CURRENT_SOURCE_DIR}/Graphics)
 target_compile_definitions(ksengine PUBLIC KSENGINE_QT_FREE=1)
-message(STATUS "ksengine Qt-free (sim/ = native render only)")
+message(STATUS "ksengine Qt-free (Graphics facade included)")

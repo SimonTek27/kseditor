@@ -1,33 +1,19 @@
-# Layout + Qt-free status
+# KSEngine Qt-free status
 
 **Updated:** 2026-09-28
 
-## Directory layout (unified)
+## Graphics
+- `RenderSystem` — std facade (no QObject)
+- `GfxTypes` — Vec3/Mat4 without Qt
+- System stubs: Terrain, Particles, Water, Post, CSM, Vegetation, Decal, SSR, Streamline, VulkanRenderer, OpenGLRenderer
+- Real drawing: `engine/sim` NativeRenderer (when present)
 
-```
-src/
-  engine/
-    physics/ devices/ Math/ ...
-    sim/                 # NativeRenderer, GpuProfiler, UiRenderer ONLY
-    Engine.h
-  simulator/             # UNIQUE app layer
-    SimulatorApp.cpp
-    SimulationLoop.*
-    InputManager.*
-    GameMenuOverlay.*
-    MultiCarManager.*
-    ...
-```
+## CMake allowlist
+Math, physics, devices, FileFormat, archive, Config, network, material, sim,
+Graphics, AI, Audio, mesh, sys, assets, animation, hwril
 
-Removed duplicates:
-- `src/engine/simulator/` (deleted)
-- `src/engine/sim/SimulatorApp.cpp`
-- `src/engine/sim/GameMenuOverlay.*`
+Still excluded: Tools/, Scripting/, Video/, 3dprint, scanners, VehiclePhysics monoliths
 
-Shim: `src/simulator/NativeRenderer.h` → `#include "engine/sim/NativeRenderer.h"`
-
-## Build
-```bash
-cmake -DKSIMULATOR_QT_FREE=ON -DKSENGINE_QT_FREE=ON ..
-cmake --build . --target ksimulator
-```
+## Note
+Many Audio/mesh/Tools files may still contain Qt in source; they need the same
+stub/port treatment. Graphics entry points used by the sim path are Qt-free.
