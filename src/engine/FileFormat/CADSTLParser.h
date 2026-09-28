@@ -1,47 +1,12 @@
 #pragma once
-
+#include <string>
 #include "CADTypes.h"
-
-namespace ks {
-namespace fileformat {
-
-/**
- * @brief STL (Stereolithography) format parser
- * 
- * Supports both ASCII and binary STL format parsing.
- */
-class STLParser {
+namespace ks { namespace engine { namespace fileformat {
+class CADSTLParser {
 public:
-    /**
-     * Parse STL file (auto-detects ASCII or binary)
-     * @param filePath Path to STL file
-     * @param outFile Output CAD file model
-     * @return True if successful
-     */
-    static bool parse(const QString& filePath, File& outFile);
-    
-    /**
-     * Parse binary STL format
-     * @param filePath Path to STL file
-     * @param outFile Output CAD file model
-     * @return True if successful
-     */
-    static bool parseBinary(const QString& filePath, File& outFile);
-    
-    /**
-     * Parse ASCII STL format
-     * @param filePath Path to STL file
-     * @param outFile Output CAD file model
-     * @return True if successful
-     */
-    static bool parseASCII(const QString& filePath, File& outFile);
-    
-    /// Get last error message
-    static QString getLastError();
-
+    bool load(const std::string& /*path*/) { return false; }
+    const CADMesh& mesh() const { return m_mesh; }
 private:
-    static QString m_lastError;
+    CADMesh m_mesh;
 };
-
-} // namespace fileformat
-} // namespace ks
+}}} // namespace
