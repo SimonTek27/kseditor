@@ -1,29 +1,46 @@
 #pragma once
+/** Telemetry sampling — Qt-free. */
+#include <vector>
+#include <string>
+#include <cstdio>
+#include <cstdint>
 
-#include <QVector>
-#include <QString>
+namespace ks {
+namespace physics {
 
-namespace ks::physics {
-
-struct TelemetryPoint { float timestamp = 0, speed = 0, rpm = 0; int gear = 1; float throttle = 0, brake = 0, steering = 0, lateralG = 0, longitudinalG = 0; float tyreTemp[4] = {30}, tyrePressure[4] = {2.2f}; float fuel = 100, lapDistance = 0; };
-
-struct TelemetryAnalysis { float maxSpeed = 0, avgSpeed = 0, minCornerSpeed = 0, maxLateralG = 0, maxLongitudinalG = 0, maxBrakingG = 0; float avgThrottle = 0, avgBrake = 0, coastTime = 0, throttleTime = 0, brakeTime = 0; int gearChanges = 0; float fuelConsumption = 0, topSpeedDistance = 0; QString fastestSector, slowestSector; };
-
-struct LapComparison { float timeDifference = 0, speedDifference = 0, throttleDifference = 0, brakeDifference = 0, lateralGDifference = 0; QString fasterLap, slowerLap; QVector<float> timeDelta; };
-
-struct DriverPerformance { float consistency = 0, aggression = 0, smoothness = 0, brakingPerformance = 0, corneringPerformance = 0, throttleControl = 0, rating = 0; };
-
-class TelemetryAnalysisModel {
-public:
-    TelemetryAnalysis analyzeLap(const QVector<TelemetryPoint>& data) const;
-    LapComparison compareLaps(const QVector<TelemetryPoint>& lap1, const QVector<TelemetryPoint>& lap2) const;
-    DriverPerformance evaluateDriver(const QVector<QVector<TelemetryPoint>>& laps) const;
-    float calculateConsistency(const QVector<float>& lapTimes) const;
-    float calculateSmoothness(const QVector<TelemetryPoint>& data) const;
-    float calculateAggression(const QVector<TelemetryPoint>& data) const;
-    QVector<float> calculateSpeedTrace(const QVector<TelemetryPoint>& data) const;
-    QVector<float> calculateThrottleTrace(const QVector<TelemetryPoint>& data) const;
-    QVector<float> calculateBrakeTrace(const QVector<TelemetryPoint>& data) const;
+struct TelemetrySample {
+    double time = 0;
+    float speedKmh = 0;
+    float rpm = 0;
+    float throttle = 0;
+    float brake = 0;
+    float steer = 0;
+    int gear = 0;
+    float tireTemp[4] = {};
+    float tireWear[4] = {};
 };
 
-} // namespace ks::physics
+class TelemetryPhysics {
+public:
+    void clear() { m_samples.clear(); }
+    void push(const TelemetrySample& s) { m_samples.push_back(s); }
+    const std::vector<TelemetrySample>& samples() const { return m_samples; }
+
+    bool exportCsv(const std::string& path) const {
+        FILE* f = std::fopen(path.c_str(), "w");
+        if (!f) return false;
+        std::fprintf(f, "time,speed,rpm,throttle,brake,steer,gear\n");
+        for (const auto& s : m_samples) {
+            std::fprintf(f, "%.4f,%.2f,%.0f,%.3f,%.3f,%.3f,%d\n",
+                         s.time, s.speedKmh, s.rpm, s.throttle, s.brake, s.steer, s.gear);
+        }
+        std::fclose(f);
+        return true;
+    }
+
+private:
+    std::vector<TelemetrySample> m_samples;
+};
+
+} // namespace physics
+} // namespace ks

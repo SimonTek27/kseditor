@@ -2,21 +2,26 @@
 
 **Updated:** 2026-09-28
 
-## Runtime
-| Component | Status |
-|-----------|--------|
-| Engine | ✅ |
-| SimulatorApp | ✅ NativeRenderer |
-| SimulationLoop | ✅ `NativeRenderer*` (no Graphics VulkanRenderer) |
-| InputManager DI/XInput | ✅ |
-| Vehicle + FFB | ✅ |
+## Converted this session
+- EngineSimulator, InputSystem, SimucubeFFB
+- phys_LapTimer, StrategySimulator, PhysicsMessage
+- PostProcessing stub, ReplaySystem, TelemetryPhysics, WeatherConfig
+- SimulationLoop → NativeRenderer
+- SimulatorApp no Graphics/*
 
-## Build ksimulator (no Qt)
+## Guarded (editor Qt only, skipped if KSENGINE_QT_FREE)
+- MultiplayerWidget, DeviceSettingsWidget
+
+## Build
+```cmake
+# root CMakeLists.txt
+include(cmake/CMakeLists_root_qtfree_hook.cmake)
+```
 ```bash
 cmake -DKSIMULATOR_QT_FREE=ON -DKSENGINE_QT_FREE=ON ..
-# include(cmake/CMakeLists_ksimulator_QtFree.cmake) from root CMakeLists
 cmake --build . --target ksimulator
 ```
 
-## Still Qt (editor)
-Graphics/*, DeviceSettingsWidget, MultiplayerWidget, SimulatorServerApp, PostProcessing
+## Still excluded / editor monoliths
+VehiclePhysics*.cpp, PhysicsSimulations.cpp, TrackPhysics.cpp (QJson),
+3dprint/*, TireCurveEditor, Graphics/*
