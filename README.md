@@ -1,4 +1,4 @@
-# ksengine — SimulatorApp
+# ksengine
 
 **ksengine** is the Qt-free core engine framework of this project: a static C++17
 library (`src/engine/`) with math, physics, devices/force-feedback, file formats,
@@ -6,12 +6,10 @@ config, networking, materials and terrain. It builds without Qt (progress tracke
 by `tools/check_no_qt.ps1`) and optionally links Vulkan, Bullet, Eigen, Lua and
 mikktspace.
 
+# SimulatorApp
+
 **SimulatorApp** is the standalone runtime executable (`src/simulator/`) that links
-*only* ksengine — no Qt, no kslib. It is a native Win32 window with a raw Vulkan
-renderer (`NativeRenderer`, precompiled `.spv` shaders), driving `SimulationLoop`:
-KN5 track/car loading, vehicle physics, FFB and sim-racing device input, audio,
-dashboard/telemetry overlays, setup garage and multiplayer networking.
-`examples/MinimalSimulator` shows the minimal way to run it.
+*only* ksengine It is a native Win32 window with a raw Vulkan renderer (`NativeRenderer`, precompiled `.spv` shaders), driving `SimulationLoop`: KN5 track/car loading, vehicle physics, FFB and sim-racing device input, audio, dashboard/telemetry overlays, setup garage and multiplayer networking. `examples/MinimalSimulator` shows the minimal way to run it.
 
 ---
 
