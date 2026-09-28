@@ -1,21 +1,20 @@
 # KSEngine Qt-free
 
-**Updated:** 2026-09-28
+**Updated:** 2026-09-29
 
-## Link-set scan
-After stubbing excluded monoliths: **0 real Qt hits** under `src/engine` for files that would compile into `ksengine`.
+## Status
+`src/engine` link-set scan: **no real Qt includes** (only historical false-positive comments cleaned).
 
-## Converted to std stubs (safe if include slips)
-- physics: VehiclePhysics*, PhysicsSimulations, TrackPhysics, PhysicsValidator, TireCurveEditor, weather/*
-- devices: 3dprint/* headers, scanners/* headers
-- Audio: ksAssettocorsasndeventdefs redirect
-- TextureTools / QualitySystem false positives cleaned
+## Hardening
+- `KsQtFreeGuard.h` — `#error` if `QT_VERSION` appears under `KSENGINE_QT_FREE`
+- `Engine.h` includes the guard
+- CMake: `AUTOMOC/AUTOUIC/AUTORCC OFF`, no Qt link, excludes `.ui`/`.qrc`/editor monoliths
 
-## Real runtime
-Engine, VehicleSimulator, DeviceManager, MathCore, NativeRenderer, ConfigLoader,
-SimucubeFFB, FFB bridges, Vulkan facades, INIParser
-
+## Build
 ```bash
-cmake -DKSENGINE_QT_FREE=ON -DKSIMULATOR_QT_FREE=ON ..
+cmake -DKSENGINE_QT_FREE=ON ..
 cmake --build . --target ksengine
 ```
+
+## Not in ksengine (by design)
+Editor (`MainWindow`, `src/sdk`), 3dprint/scanners, Blueprint UI, AC adapters.

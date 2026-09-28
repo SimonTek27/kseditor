@@ -1,11 +1,19 @@
 #pragma once
-/** Qt-free stub (was QWidget). */
+/** Asset preview is editor-only; runtime uses NativeRenderer. */
 #include <string>
-namespace ks { namespace engine { namespace assets {
-class AssetPreviewWidget {
+
+namespace ks {
+namespace engine {
+namespace assets {
+
+class AssetPreview {
 public:
-    static AssetPreviewWidget& instance() { static AssetPreviewWidget s; return s; }
-    bool initialize() { return true; }
-    void shutdown() {}
+    void setPath(const std::string& p) { m_path = p; }
+    const std::string& path() const { return m_path; }
+private:
+    std::string m_path;
 };
-}}} // namespace
+
+} // namespace assets
+} // namespace engine
+} // namespace ks

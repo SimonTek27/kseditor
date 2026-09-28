@@ -6,6 +6,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(KSENGINE_QT_FREE "Build without Qt" ON)
 
+# Explicitly refuse Qt for this target when Qt-free mode is on.
+if(KSENGINE_QT_FREE)
+  if(TARGET Qt6::Core OR TARGET Qt5::Core)
+    message(WARNING "ksengine: Qt targets exist in the project but ksengine will not link them")
+  endif()
+endif()
+
 set(KSENGINE_QT_FREE_DIRS
   Math physics devices FileFormat archive Config network material sim Graphics
   Audio assets sys AI animation hwril mesh Tools Scripting Video
@@ -46,13 +53,17 @@ foreach(_pat
     "Blueprint/"
     "ScriptDebugger"
     "ShapeKeyModifier"
+    "AssetPreviewWidget"
+    "\\.ui$"
+    "\\.qrc$"
 )
   list(FILTER KSENGINE_SOURCES EXCLUDE REGEX "${_pat}")
 endforeach()
 
 list(APPEND KSENGINE_SOURCES
   "${CMAKE_CURRENT_SOURCE_DIR}/EngineModule.h"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Engine.h")
+  "${CMAKE_CURRENT_SOURCE_DIR}/Engine.h"
+  "${CMAKE_CURRENT_SOURCE_DIR}/KsQtFreeGuard.h")
 
 add_library(ksengine STATIC ${KSENGINE_SOURCES})
 target_include_directories(ksengine PUBLIC
@@ -67,8 +78,17 @@ target_include_directories(ksengine PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/mesh
   ${CMAKE_CURRENT_SOURCE_DIR}/Tools
   ${CMAKE_CURRENT_SOURCE_DIR}/Math)
-target_compile_definitions(ksengine PUBLIC KSENGINE_QT_FREE=1)
+
+if(KSENGINE_QT_FREE)
+  target_compile_definitions(ksengine PUBLIC KSENGINE_QT_FREE=1)
+  # Do not link Qt under any name.
+  set_property(TARGET ksengine PROPERTY AUTOMOC OFF)
+  set_property(TARGET ksengine PROPERTY AUTOUIC OFF)
+  set_property(TARGET ksengine PROPERTY AUTORCC OFF)
+endif()
+
 if(UNIX AND NOT APPLE)
   target_link_libraries(ksengine PUBLIC ${CMAKE_DL_LIBS})
 endif()
-message(STATUS "ksengine: generic sim core (Qt-free)")
+
+message(STATUS "ksengine: generic sim core (KSENGINE_QT_FREE=${KSENGINE_QT_FREE})")

@@ -1,2 +1,2 @@
 #include "QualitySystem.h"
-// QualitySystem implementation (Qt-free).
+// Runtime quality presets (std only).

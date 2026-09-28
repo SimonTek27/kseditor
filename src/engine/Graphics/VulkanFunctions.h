@@ -1,5 +1,5 @@
 #pragma once
-/** Qt-free Vulkan function loader (QLibrary → platform dynload). */
+/** Vulkan function loader via platform dynload (no Qt). */
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -56,18 +56,18 @@ struct VulkanFunctionTable {
 #endif
         if (!getInstanceProcAddr) return false;
 
-        auto load = [&](const char* name) -> PFN_vkVoidFunction {
+        auto loadFn = [&](const char* name) -> PFN_vkVoidFunction {
             return getInstanceProcAddr(VK_NULL_HANDLE, name);
         };
-        createInstance = reinterpret_cast<PFN_vkCreateInstance>(load("vkCreateInstance"));
-        destroyInstance = reinterpret_cast<PFN_vkDestroyInstance>(load("vkDestroyInstance"));
-        enumeratePhysicalDevices = reinterpret_cast<PFN_vkEnumeratePhysicalDevices>(load("vkEnumeratePhysicalDevices"));
-        getPhysicalDeviceProperties = reinterpret_cast<PFN_vkGetPhysicalDeviceProperties>(load("vkGetPhysicalDeviceProperties"));
-        getPhysicalDeviceMemoryProperties = reinterpret_cast<PFN_vkGetPhysicalDeviceMemoryProperties>(load("vkGetPhysicalDeviceMemoryProperties"));
-        getPhysicalDeviceQueueFamilyProperties = reinterpret_cast<PFN_vkGetPhysicalDeviceQueueFamilyProperties>(load("vkGetPhysicalDeviceQueueFamilyProperties"));
-        createDevice = reinterpret_cast<PFN_vkCreateDevice>(load("vkCreateDevice"));
-        destroyDevice = reinterpret_cast<PFN_vkDestroyDevice>(load("vkDestroyDevice"));
-        getDeviceQueue = reinterpret_cast<PFN_vkGetDeviceQueue>(load("vkGetDeviceQueue"));
+        createInstance = reinterpret_cast<PFN_vkCreateInstance>(loadFn("vkCreateInstance"));
+        destroyInstance = reinterpret_cast<PFN_vkDestroyInstance>(loadFn("vkDestroyInstance"));
+        enumeratePhysicalDevices = reinterpret_cast<PFN_vkEnumeratePhysicalDevices>(loadFn("vkEnumeratePhysicalDevices"));
+        getPhysicalDeviceProperties = reinterpret_cast<PFN_vkGetPhysicalDeviceProperties>(loadFn("vkGetPhysicalDeviceProperties"));
+        getPhysicalDeviceMemoryProperties = reinterpret_cast<PFN_vkGetPhysicalDeviceMemoryProperties>(loadFn("vkGetPhysicalDeviceMemoryProperties"));
+        getPhysicalDeviceQueueFamilyProperties = reinterpret_cast<PFN_vkGetPhysicalDeviceQueueFamilyProperties>(loadFn("vkGetPhysicalDeviceQueueFamilyProperties"));
+        createDevice = reinterpret_cast<PFN_vkCreateDevice>(loadFn("vkCreateDevice"));
+        destroyDevice = reinterpret_cast<PFN_vkDestroyDevice>(loadFn("vkDestroyDevice"));
+        getDeviceQueue = reinterpret_cast<PFN_vkGetDeviceQueue>(loadFn("vkGetDeviceQueue"));
         return createInstance != nullptr;
     }
 };
