@@ -1,3 +1,10 @@
 #pragma once
-// Forwarding header - ModuleManager has been moved to sys/
-#include "../sys/ModuleManager.h"
+#include <string>
+namespace ks { namespace engine { namespace sys {
+class ModuleManager {
+public:
+    static ModuleManager& instance() { static ModuleManager s; return s; }
+    bool initialize() { return true; }
+    void shutdown() {}
+};
+}}} // namespace
