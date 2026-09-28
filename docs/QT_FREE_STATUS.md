@@ -1,25 +1,25 @@
-# KSEngine Qt-free — full module pass
+# KSEngine Qt-free status
 
-**Updated:** 2026-09-28
+**Updated:** 2026-09-28 (scan + full stub pass)
 
-## Strategy
-- Runtime facades: Engine, physics, devices, Graphics/RenderSystem, AudioCore, DrivingAudio, AssetManager, LogManager
-- Remaining modules: **compile-safe stubs** (API placeholders). Full Qt bodies remain in git history before stub commits.
+## Completed this pass
+- Tools: all 27 systems stubbed
+- mesh: remaining sculpt/UV/physics mesh stubs
+- assets: dependency, watcher, project, preview (no QWidget)
+- sys: DB, plugin, module, hang, serializer, state machine
+- Scripting: Blueprint, Lua, Python hosts
+- animation: timeline, physics anim, shape keys
 
-## CMake allowlist (`KSENGINE_QT_FREE=1`)
-Math, physics, devices, FileFormat, archive, Config, network, material, sim,
-Graphics, Audio, assets, sys, AI, animation, hwril, mesh, Tools, Scripting, Video
+## Runtime facades (usable API)
+Engine, physics, devices, Graphics/RenderSystem, AudioCore/DrivingAudio,
+AssetManager, LogManager, SettingsManager, TaskSystem, NavMesh
 
-## Still excluded
-VehiclePhysics*, TireCurveEditor, PhysicsSimulations, TrackPhysics, 3dprint, scanners, AssetPreviewWidget
-
-## Build
+## CMake
 ```bash
 cmake -DKSENGINE_QT_FREE=ON -DKSIMULATOR_QT_FREE=ON ..
-cmake --build . --target ksengine
-cmake --build . --target ksimulator
+cmake --build . --target ksengine ksimulator
 ```
 
 ## Note
-Stubs are intentional for editor-only code so the tree is Qt-free under the free targets.
-Restore from git history when re-enabling the Qt editor for a given module.
+Editor Qt implementations recoverable from git history before stub commits.
+FileFormat/Config/network/material may still need a residual Qt grep if build fails.
