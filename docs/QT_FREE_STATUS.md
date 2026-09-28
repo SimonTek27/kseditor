@@ -1,19 +1,25 @@
-# KSEngine Qt-free status
+# KSEngine Qt-free — full module pass
 
 **Updated:** 2026-09-28
 
-## Graphics
-- `RenderSystem` — std facade (no QObject)
-- `GfxTypes` — Vec3/Mat4 without Qt
-- System stubs: Terrain, Particles, Water, Post, CSM, Vegetation, Decal, SSR, Streamline, VulkanRenderer, OpenGLRenderer
-- Real drawing: `engine/sim` NativeRenderer (when present)
+## Strategy
+- Runtime facades: Engine, physics, devices, Graphics/RenderSystem, AudioCore, DrivingAudio, AssetManager, LogManager
+- Remaining modules: **compile-safe stubs** (API placeholders). Full Qt bodies remain in git history before stub commits.
 
-## CMake allowlist
+## CMake allowlist (`KSENGINE_QT_FREE=1`)
 Math, physics, devices, FileFormat, archive, Config, network, material, sim,
-Graphics, AI, Audio, mesh, sys, assets, animation, hwril
+Graphics, Audio, assets, sys, AI, animation, hwril, mesh, Tools, Scripting, Video
 
-Still excluded: Tools/, Scripting/, Video/, 3dprint, scanners, VehiclePhysics monoliths
+## Still excluded
+VehiclePhysics*, TireCurveEditor, PhysicsSimulations, TrackPhysics, 3dprint, scanners, AssetPreviewWidget
+
+## Build
+```bash
+cmake -DKSENGINE_QT_FREE=ON -DKSIMULATOR_QT_FREE=ON ..
+cmake --build . --target ksengine
+cmake --build . --target ksimulator
+```
 
 ## Note
-Many Audio/mesh/Tools files may still contain Qt in source; they need the same
-stub/port treatment. Graphics entry points used by the sim path are Qt-free.
+Stubs are intentional for editor-only code so the tree is Qt-free under the free targets.
+Restore from git history when re-enabling the Qt editor for a given module.
