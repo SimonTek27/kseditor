@@ -1,29 +1,24 @@
 #pragma once
-
-#include <QObject>
-#include <QImage>
-#include <QVector3D>
-#include <QVector2D>
+#include "GfxTypes.h"
+#include <cmath>
 
 namespace ks {
+namespace engine {
+namespace graphics {
 
-class PBRUtils : public QObject {
-    Q_OBJECT
-public:
-    static QImage generateBRDFLUT(int size = 512);
-    static QImage generateIrradianceMap(const QImage& environmentMap, int size = 256);
-    static QImage generatePrefilterMap(const QImage& environmentMap, int size = 256, int mipLevels = 5);
-    static QVector<QVector3D> hammersleySequence(int n, int N);
-    static QVector3D importanceSampleGGX(const QVector2D& xi, float roughness, const QVector3D& N);
-    static QVector3D sampleEnvironment(const QImage& envMap, const QVector3D& dir);
-    static float GGX_D(float NdotH, float roughness);
-    static float GGX_V(float NdotV, float roughness);
-    static QVector3D F_Schlick(float VdotH, const QVector3D& F0);
-    
-    static void saveLUTAsKtx(const QImage& image, const QString& path);
-    
-private:
-    static float radicalInverse_VdC(uint32_t bits);
+struct PBRUtils {
+    static float distributionGGX(float NdotH, float roughness) {
+        float a = roughness * roughness;
+        float a2 = a * a;
+        float d = (NdotH * NdotH) * (a2 - 1.f) + 1.f;
+        return a2 / (3.14159265f * d * d + 1e-7f);
+    }
+    static Vec3 fresnelSchlick(float cosTheta, const Vec3& F0) {
+        float f = std::pow(1.f - cosTheta, 5.f);
+        return Vec3{F0.x + (1.f - F0.x) * f, F0.y + (1.f - F0.y) * f, F0.z + (1.f - F0.z) * f};
+    }
 };
 
+} // namespace graphics
+} // namespace engine
 } // namespace ks
