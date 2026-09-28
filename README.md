@@ -1,9 +1,3 @@
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)]()
-[![License](https://img.shields.io/badge/license-GPL3-blue.svg)](LICENSE.txt)
-[![Version](https://img.shields.io/badge/version-1.16.4-orange)]()
-[![C++](https://img.shields.io/badge/C++-17-blue)]()
-[![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)]()
-
 # ksengine
 
 **ksengine** is the Qt-free core engine framework of this project: a static C++17
@@ -12,10 +6,18 @@ config, networking, materials and terrain. It builds without Qt (progress tracke
 by `tools/check_no_qt.ps1`) and optionally links Vulkan, Bullet, Eigen, Lua and
 mikktspace.
 
+---
+
 # SimulatorApp
 
 **SimulatorApp** is the standalone runtime executable (`src/simulator/`) that links
 *only* ksengine It is a native Win32 window with a raw Vulkan renderer (`NativeRenderer`, precompiled `.spv` shaders), driving `SimulationLoop`: KN5 track/car loading, vehicle physics, FFB and sim-racing device input, audio, dashboard/telemetry overlays, setup garage and multiplayer networking. `examples/MinimalSimulator` shows the minimal way to run it.
+
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)]()
+[![License](https://img.shields.io/badge/license-GPL3-blue.svg)](LICENSE.txt)
+[![Version](https://img.shields.io/badge/version-1.16.4-orange)]()
+[![C++](https://img.shields.io/badge/C++-17-blue)]()
+[![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)]()
 
 ---
 
