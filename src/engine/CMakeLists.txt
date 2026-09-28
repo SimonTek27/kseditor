@@ -1,4 +1,4 @@
-# KSEngine Qt-free core
+# KSEngine Qt-free core — expanding module coverage via stubs/facades
 cmake_minimum_required(VERSION 3.16)
 project(ksengine VERSION 2.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
@@ -6,9 +6,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(KSENGINE_QT_FREE "Build without Qt" ON)
 
-# Only modules verified Qt-free (or stubbed). Do NOT add Audio/Tools/Scripting until ported.
 set(KSENGINE_QT_FREE_DIRS
   Math physics devices FileFormat archive Config network material sim Graphics
+  Audio assets sys AI animation hwril mesh Tools Scripting Video
 )
 set(KSENGINE_SOURCES "")
 foreach(_dir ${KSENGINE_QT_FREE_DIRS})
@@ -32,8 +32,10 @@ foreach(_pat
     "devices/scanners/"
     "SimulatorApp"
     "GameMenuOverlay"
+    "AssetPreviewWidget"
     "README.md"
     "StreamlineFunctions"
+    "ksAssettocorsasndeventdefs"
 )
   list(FILTER KSENGINE_SOURCES EXCLUDE REGEX "${_pat}")
 endforeach()
@@ -48,6 +50,9 @@ target_include_directories(ksengine PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/physics
   ${CMAKE_CURRENT_SOURCE_DIR}/devices
   ${CMAKE_CURRENT_SOURCE_DIR}/sim
-  ${CMAKE_CURRENT_SOURCE_DIR}/Graphics)
+  ${CMAKE_CURRENT_SOURCE_DIR}/Graphics
+  ${CMAKE_CURRENT_SOURCE_DIR}/Audio
+  ${CMAKE_CURRENT_SOURCE_DIR}/assets
+  ${CMAKE_CURRENT_SOURCE_DIR}/sys)
 target_compile_definitions(ksengine PUBLIC KSENGINE_QT_FREE=1)
-message(STATUS "ksengine Qt-free modules: ${KSENGINE_QT_FREE_DIRS}")
+message(STATUS "ksengine Qt-free: ${KSENGINE_QT_FREE_DIRS}")
