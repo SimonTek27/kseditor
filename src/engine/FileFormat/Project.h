@@ -1,66 +1,13 @@
 #pragma once
-
-#include <QString>
-#include <QJsonObject>
-#include <QVector>
-#include <QMap>
-
-namespace ks {
-
-struct ProjectMetadata {
-    QString name;
-    QString version;
-    QString author;
-    QString createdDate;
-    QString modifiedDate;
-    QString projectType;
-    QString assetSource;
-};
-
-struct ProjectAsset {
-    QString id;
-    QString type;
-    QString name;
-    QString filePath;
-    QJsonObject metadata;
-};
-
-struct ProjectSettings {
-    QString units;
-    bool autoSave;
-    int autoSaveInterval;
-    QString colorProfile;
-    int gridSize;
-    int snapToGrid;
-};
-
-class ProjectFile {
+#include <string>
+namespace ks { namespace engine { namespace fileformat {
+class Project {
 public:
-    static bool createProject(const QString& path, const QString& name, const QString& type);
-    static bool openProject(const QString& path);
-    static bool saveProject(const QString& path);
-    static bool exportProject(const QString& path, const QString& format);
-
-    static ProjectMetadata getMetadata();
-    static void setMetadata(const ProjectMetadata& metadata);
-
-    static QVector<ProjectAsset> getAssets();
-    static void addAsset(const ProjectAsset& asset);
-    static void removeAsset(const QString& id);
-
-    static ProjectSettings getSettings();
-    static void setSettings(const ProjectSettings& settings);
-
-    static QString getProjectPath();
-    static QString getProjectName();
-
-    static bool isProjectModified();
-    static void markAsModified();
-
+    static Project& instance() { static Project s; return s; }
+    bool open(const std::string& path) { m_path = path; return true; }
+    void close() { m_path.clear(); }
+    const std::string& path() const { return m_path; }
 private:
-    static QString s_projectPath;
-    static QString s_projectName;
-    static bool s_modified;
+    std::string m_path;
 };
-
-} // namespace ks
+}}} // namespace
