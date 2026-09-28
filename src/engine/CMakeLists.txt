@@ -1,4 +1,4 @@
-# KSEngine Qt-free core — expanding module coverage via stubs/facades
+# KSEngine Qt-free core — full module tree via facades + stubs
 cmake_minimum_required(VERSION 3.16)
 project(ksengine VERSION 2.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
@@ -32,7 +32,6 @@ foreach(_pat
     "devices/scanners/"
     "SimulatorApp"
     "GameMenuOverlay"
-    "AssetPreviewWidget"
     "README.md"
     "StreamlineFunctions"
     "ksAssettocorsasndeventdefs"
@@ -53,6 +52,8 @@ target_include_directories(ksengine PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/Graphics
   ${CMAKE_CURRENT_SOURCE_DIR}/Audio
   ${CMAKE_CURRENT_SOURCE_DIR}/assets
-  ${CMAKE_CURRENT_SOURCE_DIR}/sys)
+  ${CMAKE_CURRENT_SOURCE_DIR}/sys
+  ${CMAKE_CURRENT_SOURCE_DIR}/mesh
+  ${CMAKE_CURRENT_SOURCE_DIR}/Tools)
 target_compile_definitions(ksengine PUBLIC KSENGINE_QT_FREE=1)
-message(STATUS "ksengine Qt-free: ${KSENGINE_QT_FREE_DIRS}")
+message(STATUS "ksengine Qt-free modules: ${KSENGINE_QT_FREE_DIRS}")
