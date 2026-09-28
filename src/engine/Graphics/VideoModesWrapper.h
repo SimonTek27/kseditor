@@ -1,43 +1,38 @@
 #pragma once
+/** Qt-free video mode query facade (no QObject). */
+#include <string>
+#include <vector>
+#include <cstdint>
 
-#include <QObject>
-#include <QString>
-#include <QVector>
-#include "VideoModesFunctions.h"
+namespace ks {
+namespace engine {
+namespace graphics {
 
-namespace ks::engine::graphics {
+struct VideoMode {
+    int width = 0;
+    int height = 0;
+    int refreshRate = 0;
+};
 
-// ============================================================================
-// VideoModesWrapper - High-level wrapper for ksengineVideoModes.dll
-// Functions are linked statically via ksengineVideoModes.lib
-// ============================================================================
-
-class VideoModesWrapper : public QObject {
-    Q_OBJECT
-
+class VideoModesWrapper {
 public:
-    static VideoModesWrapper* instance();
+    static VideoModesWrapper& instance() {
+        static VideoModesWrapper s;
+        return s;
+    }
 
-    explicit VideoModesWrapper(QObject* parent = nullptr);
-    ~VideoModesWrapper();
-
-    // --- Initialization ---
-    bool initialize();
-    void shutdown();
+    bool initialize() { m_initialized = true; return true; }
+    void shutdown() { m_initialized = false; m_modes.clear(); }
     bool isInitialized() const { return m_initialized; }
 
-    // --- Video mode query ---
-    bool getMode(int modeIndex, VideoModeInfo& info) const;
-
-    // --- Raw access ---
-    bool isAvailable() const { return m_initialized; }
-
-signals:
-    void initialized();
-    void error(const QString& message);
+    const std::vector<VideoMode>& modes() const { return m_modes; }
+    void setModes(std::vector<VideoMode> modes) { m_modes = std::move(modes); }
 
 private:
     bool m_initialized = false;
+    std::vector<VideoMode> m_modes;
 };
 
-} // namespace ks::engine::graphics
+} // namespace graphics
+} // namespace engine
+} // namespace ks
