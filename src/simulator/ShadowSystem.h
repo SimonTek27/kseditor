@@ -1,7 +1,8 @@
 #pragma once
-/** Qt-free cascaded shadow map placeholder for SimulatorApp. */
+/** Qt-free cascaded shadow map stub for SimulatorApp. */
 
 #include <cstdint>
+#include <vulkan/vulkan.h>
 
 namespace ks {
 namespace sim {
@@ -9,6 +10,11 @@ namespace sim {
 class CascadedShadowMap {
 public:
     bool initialize() { return true; }
+
+    bool initialize(VkPhysicalDevice, VkDevice, VkCommandPool, VkQueue, const char*) {
+        return true;
+    }
+
     void shutdown() {}
     void resize(uint32_t, uint32_t) {}
     void setCascadeCount(int) {}
