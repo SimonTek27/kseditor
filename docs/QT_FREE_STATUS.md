@@ -1,20 +1,20 @@
-# KSEngine Qt-free + architecture
+# KSEngine Qt-free status
 
 **Updated:** 2026-09-28
 
-## Engine scope
-**ksengine** = generic open-source **simulator engine** (physics, devices, render,
-loop). **Not** Assetto Corsa-specific.
+## Engine = generic open-source sim core
+AC/CSP → `src/adapters/assetto_corsa/` only.
 
-**CSP** and other AC formats live in `src/adapters/assetto_corsa/` and link only
-via optional target `ks_adapter_ac`.
+## Latest Qt-free pass
+- Graphics: SceneMesh, SceneObject, ShaderMaterial, ShaderParamRegistry, ComputePipeline, PBRUtils
+- sys: UserProfile, TransactionManager, SystemDllManager, SystemDllInitializer
+- assets: CloudSync, FormatConverter, Packaging, ProjectBuilder/Templates, RaceFlag, SimInstallDetector, AssetSearchEngine
 
-See `docs/ENGINE_ARCHITECTURE.md`.
+## DeviceManager
+Already Qt-free (comment-only QObject mention).
 
-## Qt-free targets
+## Build
 ```bash
 cmake -DKSENGINE_QT_FREE=ON -DKSIMULATOR_QT_FREE=ON ..
 cmake --build . --target ksengine ksimulator
-# optional AC content:
-# include(cmake/CMakeLists_assetto_adapter.cmake) && link ks_adapter_ac
 ```
