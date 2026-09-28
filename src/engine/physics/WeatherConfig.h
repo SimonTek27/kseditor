@@ -1,85 +1,32 @@
 #pragma once
-
-/**
- * @file WeatherConfig.h
- * @brief Weather configuration model for MVC architecture
- * @copyright KS Physics Engine
- */
-
+/** Weather configuration — Qt-free. */
 #include "PhysicsCoreTypes.h"
-#include <QObject>
-#include <QJsonObject>
-#include <QJsonArray>
-#include <QVector>
-#include <QString>
+#include <string>
 
 namespace ks {
 namespace physics {
-namespace config {
 
-struct WeatherKeyframe {
-    float time = 0.0f;
-    WeatherState state;
-    QString interpolation = "linear";
+struct WeatherConfig {
+    float ambientTempC = 25.0f;
+    float trackTempC = 30.0f;
+    float humidity = 0.5f;
+    float windSpeedMs = 0.0f;
+    float windDirDeg = 0.0f;
+    float rainIntensity = 0.0f;
+    float fogDensity = 0.0f;
+    std::string presetName = "clear";
 };
 
-struct WeatherSequence {
-    QString name;
-    float duration = 300.0f;
-    bool loop = false;
-    QVector<WeatherKeyframe> keyframes;
-};
+inline WeatherState weatherStateFromConfig(const WeatherConfig& c) {
+    WeatherState s;
+    s.ambientTempC = c.ambientTempC;
+    s.trackTempC = c.trackTempC;
+    s.humidity = c.humidity;
+    s.windSpeedMs = c.windSpeedMs;
+    s.windDirDeg = c.windDirDeg;
+    s.rainIntensity = c.rainIntensity;
+    return s;
+}
 
-class WeatherConfig : public QObject {
-    Q_OBJECT
-    
-public:
-    explicit WeatherConfig(QObject* parent = nullptr);
-    ~WeatherConfig() override = default;
-    
-    void addSequence(const WeatherSequence& sequence);
-    void removeSequence(int index);
-    void updateSequence(int index, const WeatherSequence& sequence);
-    QVector<WeatherSequence> sequences() const { return m_sequences; }
-    
-    void addKeyframe(int sequenceIndex, const WeatherKeyframe& keyframe);
-    void removeKeyframe(int sequenceIndex, int keyframeIndex);
-    void updateKeyframe(int sequenceIndex, int keyframeIndex, const WeatherKeyframe& keyframe);
-    
-    int sequenceCount() const { return m_sequences.size(); }
-    int keyframeCount(int sequenceIndex) const;
-    WeatherState interpolateWeather(int sequenceIndex, float time) const;
-    
-    bool validate() const;
-    QString validationError() const;
-    
-    QJsonObject toJson() const;
-    void fromJson(const QJsonObject& json);
-    
-    bool loadFromFile(const QString& filePath);
-    bool saveToFile(const QString& filePath) const;
-    
-    void reset();
-    void loadDefaults();
-    
-signals:
-    void sequenceAdded(int index);
-    void sequenceRemoved(int index);
-    void sequenceUpdated(int index);
-    void keyframeAdded(int sequenceIndex, int keyframeIndex);
-    void keyframeRemoved(int sequenceIndex, int keyframeIndex);
-    void keyframeUpdated(int sequenceIndex, int keyframeIndex);
-    void configChanged();
-    
-private:
-    WeatherState interpolateLinear(const WeatherState& a, const WeatherState& b, float t) const;
-    WeatherState interpolateSmooth(const WeatherState& a, const WeatherState& b, float t) const;
-    float clamp(float value, float min, float max) const;
-    
-    QVector<WeatherSequence> m_sequences;
-    mutable QString m_validationError;
-};
-
-} // namespace config
 } // namespace physics
 } // namespace ks
