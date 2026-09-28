@@ -6,7 +6,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(KSENGINE_QT_FREE "Build without Qt" ON)
 
-# Core modules only. Assetto Corsa / CSP live under src/adapters/ (optional).
 set(KSENGINE_QT_FREE_DIRS
   Math physics devices FileFormat archive Config network material sim Graphics
   Audio assets sys AI animation hwril mesh Tools Scripting Video
@@ -42,6 +41,8 @@ foreach(_pat
     "FSPROExporter"
     "P3DModelLoader"
     "PAATextureConverter"
+    "SevenZip"
+    "VideoModesFunctions"
 )
   list(FILTER KSENGINE_SOURCES EXCLUDE REGEX "${_pat}")
 endforeach()
@@ -61,6 +62,12 @@ target_include_directories(ksengine PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/assets
   ${CMAKE_CURRENT_SOURCE_DIR}/sys
   ${CMAKE_CURRENT_SOURCE_DIR}/mesh
-  ${CMAKE_CURRENT_SOURCE_DIR}/Tools)
+  ${CMAKE_CURRENT_SOURCE_DIR}/Tools
+  ${CMAKE_CURRENT_SOURCE_DIR}/Math)
 target_compile_definitions(ksengine PUBLIC KSENGINE_QT_FREE=1)
-message(STATUS "ksengine: generic sim core (no AC/CSP in link set)")
+if(WIN32)
+  target_link_libraries(ksengine PUBLIC)
+else()
+  target_link_libraries(ksengine PUBLIC ${CMAKE_DL_LIBS})
+endif()
+message(STATUS "ksengine: generic sim core (Qt-free)")
