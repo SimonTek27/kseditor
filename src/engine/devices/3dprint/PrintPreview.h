@@ -1,11 +1,7 @@
-#ifndef KSENGINE_QT_FREE
 #pragma once
-#include <QWidget>
-namespace ks { namespace print3d {
-class PrintPreview : public QWidget {
-  Q_OBJECT
+namespace ks { namespace device { namespace print3d {
+class PrintPreview {
 public:
-  explicit PrintPreview(QWidget* parent = nullptr);
+    void clear() {}
 };
-}} // namespace
-#endif // !KSENGINE_QT_FREE
+}}} // namespace
