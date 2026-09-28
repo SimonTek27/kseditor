@@ -17,9 +17,11 @@ foreach(_dir ${KSENGINE_QT_FREE_DIRS})
   endif()
 endforeach()
 
+# Exclude ALL known Qt-heavy / editor-only paths
 foreach(_pat
     "physics/weather/"
     "VehiclePhysics"
+    "VehiclePhysicsModels"
     "TireCurveEditor"
     "PhysicsSimulations"
     "TrackPhysics"
@@ -36,6 +38,15 @@ foreach(_pat
     "MultiplayerWidget"
     "SimulatorServerApp"
     "PostProcessing"
+    "ThreeDPrint"
+    "GCodeGenerator"
+    "PrintPreview"
+    "SlicerEngine"
+    "PrinterProfile"
+    "TurntableScanner"
+    "StructuredLight"
+    "StereoVision"
+    "Photogrammetry"
 )
   list(FILTER KSENGINE_SOURCES EXCLUDE REGEX "${_pat}")
 endforeach()
@@ -43,10 +54,6 @@ endforeach()
 list(APPEND KSENGINE_SOURCES
   "${CMAKE_CURRENT_SOURCE_DIR}/EngineModule.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/Engine.h")
-
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/sim/SimulatorApp.cpp")
-  list(APPEND KSENGINE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/sim/SimulatorApp.cpp")
-endif()
 
 add_library(ksengine STATIC ${KSENGINE_SOURCES})
 target_include_directories(ksengine PUBLIC
