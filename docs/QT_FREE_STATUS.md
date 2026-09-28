@@ -2,26 +2,18 @@
 
 **Updated:** 2026-09-28
 
-## Done this session
-- `Math/MathCore.h` — no QVector/QMatrix
-- `Graphics/VulkanFunctions.h` — LoadLibrary/dlopen
-- `Graphics/VulkanShaderLoader` — SPIR-V via ifstream
-- `Graphics/VulkanIntegration` — no QObject
-- `Graphics/VulkanComputePipeline` — std facade
-- `Graphics/VideoModesWrapper` — no QObject
-- `Graphics/TextureTools` — no QImage (AC tools → adapters later)
+## Latest
+- FileFormat: USDParser, FormatValidator, BankParser/WriterRegistry, BankVersion, CADAdvancedParsers
+- devices/vr/XrConfig — no QSettings
+- Scripting: HotReload, Coroutine, ScriptDebuggerFrontend
+- mesh: MeshData.cpp, SculptLayersManager
+- archive: SevenZipLibrary stub
 
-## CMake excludes
-physics monoliths, 3dprint, scanners, Streamline, SevenZip, AC adapters, VideoModesFunctions
+## Core already free
+MathCore, Engine, physics runtime, devices input/FFB, Graphics facades (Vulkan*, TextureTools, RenderSystem)
 
-## Next residual candidates
-- `archive/SevenZipLibrary.*` (excluded)
-- FileFormat: USDParser, FormatValidator, Bank*Registry cpp
-- Scripting: HotReload, Coroutine cpp
-- mesh: MeshData.cpp, SculptLayersManager.cpp
-- devices/vr/XrConfig.h
-
+## Build
 ```bash
-cmake -DKSENGINE_QT_FREE=ON ..
-cmake --build . --target ksengine
+cmake -DKSENGINE_QT_FREE=ON -DKSIMULATOR_QT_FREE=ON ..
+cmake --build . --target ksengine ksimulator
 ```
