@@ -1,3 +1,26 @@
+# ksengine — SimulatorApp
+
+**ksengine** is the Qt-free core engine framework of this project: a static C++17
+library (`src/engine/`) with math, physics, devices/force-feedback, file formats,
+config, networking, materials and terrain. It builds without Qt (progress tracked
+by `tools/check_no_qt.ps1`) and optionally links Vulkan, Bullet, Eigen, Lua and
+mikktspace.
+
+**ksEditor uses ksengine to run.** The editor (`kseditor.exe`) links `kslib`,
+which PUBLIC-links `ksengine`; `ksengine.lib` is copied next to the executable at
+build time. Physics, file-format parsing, FFB/device handling and the rest of the
+engine logic used by the editor's modules all come from ksengine — the Qt layer
+only provides the UI.
+
+**SimulatorApp** is the standalone runtime executable (`src/simulator/`) that links
+*only* ksengine — no Qt, no kslib. It is a native Win32 window with a raw Vulkan
+renderer (`NativeRenderer`, precompiled `.spv` shaders), driving `SimulationLoop`:
+KN5 track/car loading, vehicle physics, FFB and sim-racing device input, audio,
+dashboard/telemetry overlays, setup garage and multiplayer networking.
+`examples/MinimalSimulator` shows the minimal way to run it.
+
+---
+
 # ksEditor
 
 A comprehensive, professional-grade modding toolkit for **Assetto Corsa** and other Kunos/Steam racing games. ksEditor provides a unified environment for editing game audio, 3D models, physics, telemetry, liveries, events, server configs, and more.
