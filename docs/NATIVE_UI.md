@@ -1,34 +1,28 @@
 # Native UI overlays (Qt-free)
 
-## Layout
-```
-src/simulator/ui/
-  NativeUiTypes.h      DrawList / Color / Rect / UiVertex
-  UiRenderer.h         dirty-flag batch → vertices/indices
-  DeviceSettingsOverlay.h
-  MultiplayerOverlay.h
-  NativeUiHub.h        composes menu + dash + telem + panels
+## Font atlas
+`ui/FontAtlas.h` bakes an **8×8 monospace** set for ASCII 32–126 into a **128×48 R8** texture.
+
+```cpp
+UiRenderer ui;
+// GPU once:
+uploadR8(ui.atlasPixels().data(), ui.atlasWidth(), ui.atlasHeight());
+// each frame: ui.endFrame() → vertices with correct glyph UVs
 ```
 
-## Frame loop
-```cpp
-ks::sim::ui::NativeUiHub hub;
-hub.resize(width, height);
-// each frame:
-hub.telemetry().update(speed, rpm, throttle, brake, steer, latG, lonG);
-hub.renderFrame(width, height);
-const auto& verts = hub.renderer().vertices();
-const auto& idx   = hub.renderer().indices();
-// upload to GPU / NativeRenderer
+- Solid rects/lines sample the **white texel** in the atlas.
+- Text samples per-glyph UV; `fontScale` scales quads.
+- `FontAtlas::loadR8(...)` can replace the built-in bake with an external sheet (same layout).
+
+## Layout
+```
+ui/NativeUiTypes.h   DrawList
+ui/FontAtlas.h       glyphs + R8 pixels
+ui/UiRenderer.h      batch + UV
+ui/DeviceSettingsOverlay.h
+ui/MultiplayerOverlay.h
+ui/NativeUiHub.h
 ```
 
 ## Hotkeys
-| Key | Action |
-|-----|--------|
-| Esc | Open/close game menu |
-| F1  | Device settings overlay |
-| F2  | Multiplayer overlay |
-| Arrows / Enter | Navigate panels |
-
-## Widgets
-`DeviceSettingsWidget` / `MultiplayerWidget` map to overlays when `KSENGINE_QT_FREE=1`.
+Esc menu · F1 devices · F2 multiplayer · arrows/enter navigate
