@@ -43,6 +43,9 @@ foreach(_pat
     "PAATextureConverter"
     "SevenZip"
     "VideoModesFunctions"
+    "Blueprint/"
+    "ScriptDebugger"
+    "ShapeKeyModifier"
 )
   list(FILTER KSENGINE_SOURCES EXCLUDE REGEX "${_pat}")
 endforeach()
@@ -65,9 +68,7 @@ target_include_directories(ksengine PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/Tools
   ${CMAKE_CURRENT_SOURCE_DIR}/Math)
 target_compile_definitions(ksengine PUBLIC KSENGINE_QT_FREE=1)
-if(WIN32)
-  target_link_libraries(ksengine PUBLIC)
-else()
+if(UNIX AND NOT APPLE)
   target_link_libraries(ksengine PUBLIC ${CMAKE_DL_LIBS})
 endif()
 message(STATUS "ksengine: generic sim core (Qt-free)")

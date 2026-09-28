@@ -1,27 +1,19 @@
-# KSEngine status — stubs vs real
+# KSEngine Qt residual status
 
 **Updated:** 2026-09-28
 
-## Real (not stubs)
-| Module | Notes |
-|--------|--------|
-| `Engine.h` | fixed timestep, modules, registry |
-| `physics/VehicleSimulator` | Pacejka + aero + gears + INI load |
-| `devices/DeviceManager` | monitors, racing input, VR hooks |
-| `Math/MathCore` | Vec/Mat/Quat std |
-| `FileFormat/INIParser` | real parse |
-| `Config/ConfigLoader` | **real INI load/save** (resolved) |
-| `sim/NativeRenderer` | **mesh upload + frame API** (resolved) |
-| `Audio/AudioCore` | **rpm/throttle level model** (resolved) |
-| `network/NetworkManager` | **session state + callbacks** (resolved) |
-| `Graphics/VulkanRenderer` | **handle holder** (resolved) |
+## Fixed in this pass (in link set)
+- `devices/simracing/SimucubeFFB.cpp` — no QString/qDebug/qBound
+- `mesh/ShapeKeyModifier.cpp` — std::string
+- `Scripting/Blueprint/BlueprintTypes.cpp` — empty TU (editor only)
+- `Graphics/StreamlineFunctions.h` — no qDebug
 
-## Still thin facades (editor/optional)
-Tools, Scripting Blueprint, mesh sculpt, FileFormat CAD/Bank writers, SevenZip,
-SSGI, TextureTools (no QImage path yet)
+## Still on disk but **CMake-excluded** from ksengine
+- physics: VehiclePhysics*, PhysicsSimulations, TrackPhysics, weather, TireCurveEditor
+- devices: 3dprint/*, scanners/*
+- Audio: ksAssettocorsasndeventdefs
+- Blueprint/, ShapeKeyModifier (exclude)
 
-## Build
-```bash
-cmake -DKSENGINE_QT_FREE=ON -DKSIMULATOR_QT_FREE=ON ..
-cmake --build . --target ksengine ksimulator
-```
+## Runtime path (clean)
+Engine, VehicleSimulator, DeviceManager, MathCore, NativeRenderer,
+ConfigLoader, FFB (incl. Simucube), Vulkan facades
