@@ -3,6 +3,7 @@
 /**
  * SimulationLoop — fixed-timestep sim + session + optional Vulkan mesh list.
  * Std-only: std::string / std::vector / Mat4f / Vec3f (no Qt types).
+ * Renderer: ks::sim::NativeRenderer (Qt-free), not Graphics/VulkanRenderer.
  */
 
 #include "engine/physics/PhysicsCoreTypes.h"
@@ -24,11 +25,6 @@ class DashboardOverlay;
 class SetupGarage;
 class TelemetryOverlay;
 
-namespace ks {
-class VulkanRenderer;
-class VulkanRenderPass;
-}
-
 namespace ks::physics {
 class VehicleSimulator;
 }
@@ -39,6 +35,7 @@ class FFBBase;
 
 namespace ks::sim {
 
+class NativeRenderer;
 class MultiCarManager;
 class NetworkManager;
 
@@ -125,9 +122,11 @@ public:
     NetworkManager* networkManager() { return m_network.get(); }
 
     bool isVulkanMode() const { return m_vulkanMode; }
-    void setVulkanRenderer(ks::VulkanRenderer* r) { m_vulkanRenderer = r; }
-    ks::VulkanRenderer* vulkanRenderer() { return m_vulkanRenderer; }
-    ks::VulkanRenderer* renderer() { return m_vulkanRenderer; }
+    void setVulkanRenderer(NativeRenderer* r) { m_vulkanRenderer = r; }
+    void setNativeRenderer(NativeRenderer* r) { m_vulkanRenderer = r; }
+    void setRenderer(NativeRenderer* r) { m_vulkanRenderer = r; }
+    NativeRenderer* vulkanRenderer() { return m_vulkanRenderer; }
+    NativeRenderer* renderer() { return m_vulkanRenderer; }
 
     void setTimeOfDay(float hours) { m_timeOfDay = hours; }
     float timeOfDay() const { return m_timeOfDay; }
@@ -154,7 +153,7 @@ private:
     static std::string readFileText(const std::string& path);
 
     bool m_vulkanMode = true;
-    ks::VulkanRenderer* m_vulkanRenderer = nullptr;
+    NativeRenderer* m_vulkanRenderer = nullptr;
     std::unique_ptr<InputManager> m_input;
     std::unique_ptr<CameraController> m_camera;
     std::unique_ptr<ks::physics::VehicleSimulator> m_vehicle;
@@ -186,7 +185,6 @@ private:
     double m_timeRemaining = 0.0;
 
     std::vector<RenderableMesh> m_renderables;
-    std::unique_ptr<ks::VulkanRenderPass> m_scenePass;
     bool m_pipelineInitialized = false;
     uint32_t m_streamlineFrameIndex = 0;
 };
