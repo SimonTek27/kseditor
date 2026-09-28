@@ -6,12 +6,6 @@ config, networking, materials and terrain. It builds without Qt (progress tracke
 by `tools/check_no_qt.ps1`) and optionally links Vulkan, Bullet, Eigen, Lua and
 mikktspace.
 
-**ksEditor uses ksengine to run.** The editor (`kseditor.exe`) links `kslib`,
-which PUBLIC-links `ksengine`; `ksengine.lib` is copied next to the executable at
-build time. Physics, file-format parsing, FFB/device handling and the rest of the
-engine logic used by the editor's modules all come from ksengine — the Qt layer
-only provides the UI.
-
 **SimulatorApp** is the standalone runtime executable (`src/simulator/`) that links
 *only* ksengine — no Qt, no kslib. It is a native Win32 window with a raw Vulkan
 renderer (`NativeRenderer`, precompiled `.spv` shaders), driving `SimulationLoop`:
@@ -36,7 +30,8 @@ A comprehensive, professional-grade modding toolkit for **Assetto Corsa** and ot
 
 ## Overview
 
-ksEditor is a **Qt6-based desktop application** designed to provide modders with professional editing tools for racing game content. It combines multiple specialized editors into a single, cohesive environment with native performance and a modern UI.
+ksEditor is a **Qt6-based desktop application** designed to provide modders with professional editing tools for racing game content. It combines multiple specialized editors into a single, cohesive environment with native performance and a modern UI, uses ksengine to run.** The editor (`kseditor.exe`) links `kslib`,
+which PUBLIC-links `ksengine`; `ksengine.lib` is copied next to the executable at build time. Physics, file-format parsing, FFB/device handling and the rest of the engine logic used by the editor's modules all come from ksengine — the Qt layer only provides the UI.
 
 The editor supports the **full Assetto Corsa modding pipeline**, from audio synthesis to 3D modeling, physics simulation, livery painting, event creation, and server configuration. It is compatible with **FMOD Studio 1.08.12** project formats used by the game and includes its own internal audio workstation (**ksAudioStudio**).
 
