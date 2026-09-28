@@ -1,18 +1,24 @@
-# KSEngine Qt-free status
+# KSEngine / SimulatorApp Qt-free
 
-**Updated:** 2026-09-27
+**Updated:** 2026-09-28
 
-## Runtime std-only
-Engine, XR, SimulatorApp, NativeRenderer, SimulationLoop,
-FFB full stack, AiSpline, TrackLoader, AIController,
-**VehicleSimulator** (new Qt-free vehicle + INI loaders),
-physics core modules.
+## Clean (runtime)
+| Module | Status |
+|--------|--------|
+| Engine.h / Engine.cpp | ✅ |
+| DeviceManager | ✅ |
+| InputManager + DI/XInput | ✅ |
+| SimulationLoop + VehicleSimulator | ✅ |
+| FFB stack | ✅ |
+| SimulatorApp (Win32+Vulkan) | ✅ NativeRenderer, no Graphics/Qt |
+| GameMenuOverlay / UiRenderer / GpuProfiler | ✅ |
 
-## Vehicle
-- `VehicleSimulator.h/.cpp` — std::string `load*FromIni`, no QObject
-- Legacy `VehiclePhysics.*` remains on disk, **CMake-excluded** (editor/monolith)
+## Excluded (editor / Qt UI)
+DeviceSettingsWidget, MultiplayerWidget, SimulatorServerApp,
+PostProcessing (QOpenGL*), Graphics/* (QObject/QWindow),
+VehiclePhysics monolith, 3dprint/, scanners/
 
-## Still Qt (excluded / editor)
-VehiclePhysics*, TireCurveEditor, TrackPhysics, PhysicsSimulations,
-Telemetry, Validator, WeatherConfig, Replay, 3dprint/, scanners/,
-DeviceSettingsWidget, MultiplayerWidget, Graphics stack.
+## SimulatorApp
+- `src/simulator/SimulatorApp.cpp` and `src/engine/sim/SimulatorApp.cpp`
+- No `Graphics/RenderSystem` / `PostProcessingPipeline`
+- Uses `NativeRenderer` + `ShadowSystem` stub
