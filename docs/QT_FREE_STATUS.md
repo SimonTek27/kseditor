@@ -2,23 +2,21 @@
 
 **Updated:** 2026-09-28
 
-## Clean (runtime)
-| Module | Status |
-|--------|--------|
-| Engine.h / Engine.cpp | ✅ |
-| DeviceManager | ✅ |
-| InputManager + DI/XInput | ✅ |
-| SimulationLoop + VehicleSimulator | ✅ |
-| FFB stack | ✅ |
-| SimulatorApp (Win32+Vulkan) | ✅ NativeRenderer, no Graphics/Qt |
-| GameMenuOverlay / UiRenderer / GpuProfiler | ✅ |
+## Runtime
+| Component | Status |
+|-----------|--------|
+| Engine | ✅ |
+| SimulatorApp | ✅ NativeRenderer |
+| SimulationLoop | ✅ `NativeRenderer*` (no Graphics VulkanRenderer) |
+| InputManager DI/XInput | ✅ |
+| Vehicle + FFB | ✅ |
 
-## Excluded (editor / Qt UI)
-DeviceSettingsWidget, MultiplayerWidget, SimulatorServerApp,
-PostProcessing (QOpenGL*), Graphics/* (QObject/QWindow),
-VehiclePhysics monolith, 3dprint/, scanners/
+## Build ksimulator (no Qt)
+```bash
+cmake -DKSIMULATOR_QT_FREE=ON -DKSENGINE_QT_FREE=ON ..
+# include(cmake/CMakeLists_ksimulator_QtFree.cmake) from root CMakeLists
+cmake --build . --target ksimulator
+```
 
-## SimulatorApp
-- `src/simulator/SimulatorApp.cpp` and `src/engine/sim/SimulatorApp.cpp`
-- No `Graphics/RenderSystem` / `PostProcessingPipeline`
-- Uses `NativeRenderer` + `ShadowSystem` stub
+## Still Qt (editor)
+Graphics/*, DeviceSettingsWidget, MultiplayerWidget, SimulatorServerApp, PostProcessing
