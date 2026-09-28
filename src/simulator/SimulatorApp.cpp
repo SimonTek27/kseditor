@@ -8,29 +8,21 @@
 #include "simulator/DashboardOverlay.h"
 #include "simulator/GameMenuOverlay.h"
 #include "simulator/NetworkManager.h"
+#include "simulator/ShadowSystem.h"
+#include "simulator/NativeRenderer.h"
 #include "devices/DeviceManager.h"
-#include "Graphics/RenderSystem.h"
-#include "Graphics/VulkanRenderer.h"
-#include "Graphics/TerrainSystem.h"
-#include "Graphics/GPUParticleSystem.h"
-#include "Graphics/WaterSystem.h"
-#include "Graphics/PostProcessingPipeline.h"
-#include "Graphics/CascadedShadowMaps.h"
-#include "Graphics/VegetationSystem.h"
-#include "Graphics/DecalSystem.h"
-#include "Graphics/SSRSystem.h"
-#include "Graphics/StreamlineIntegration.h"
 #include <cstdio>
 #include <memory>
 
-// ============================================================================
-// Win32 Window + Raw Vulkan + Manual Game Loop
-// ============================================================================
+static const char* AC_PATH = "F:/SteamLibrary/steamapps/common/assettocorsa";
+static const char* SHADER_DIR = "shaders";
+
 static HINSTANCE g_hInstance = nullptr;
 static HWND g_hWnd = nullptr;
 static VkInstance g_vkInstance = VK_NULL_HANDLE;
 static VkSurfaceKHR g_surface = VK_NULL_HANDLE;
-static ks::VulkanRenderer* g_vkRenderer = nullptr;
+static ks::sim::NativeRenderer* g_nativeRenderer = nullptr;
+static ks::sim::CascadedShadowMap g_shadowMap;
 static std::unique_ptr<ks::sim::SimulationLoop> g_simulation;
 static std::unique_ptr<ks::sim::GameMenuOverlay> g_menu;
 
@@ -84,6 +76,7 @@ static bool createWin32Surface() {
 static void pollInput() {
     if (!g_simulation || !g_simulation->isRunning()) return;
     auto* v = g_simulation->vehicle();
+    if (!v) return;
     v->setThrottle(g_throttle ? 1.0 : 0.0);
     v->setBrake(g_brake ? 1.0 : 0.0);
     double steer = 0;
@@ -98,20 +91,33 @@ static void handleKeyDown(int vk) {
         g_menu->handleKeyPress(vk);
         return;
     }
-    if (g_simulation->setupGarage()->isVisible()) {
-        if (g_simulation->setupGarage()->handleKeyPress(vk)) return;
+    if (auto* sg = g_simulation->setupGarage(); sg && sg->isVisible()) {
+        if (sg->handleKeyPress(vk)) return;
     }
 
     bool shift = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
 
     switch (vk) {
-    case VK_ESCAPE: g_menu->toggleVisible(); break;
-    case 'W': case VK_UP:    g_throttle = true; break;
-    case 'S': case VK_DOWN:  g_brake = true; break;
-    case 'A': case VK_LEFT:  g_steerLeft = true; break;
-    case 'D': case VK_RIGHT: g_steerRight = true; break;
-    case VK_SPACE:           g_handbrake = true; break;
+    case VK_ESCAPE: if (g_menu) g_menu->toggleVisible(); break;
+    case 'W': case VK_UP:
+        g_throttle = true;
+        if (g_simulation->inputManager()) g_simulation->inputManager()->setKeyDown('W');
+        break;
+    case 'S': case VK_DOWN:
+        g_brake = true;
+        if (g_simulation->inputManager()) g_simulation->inputManager()->setKeyDown('S');
+        break;
+    case 'A': case VK_LEFT:
+        g_steerLeft = true;
+        if (g_simulation->inputManager()) g_simulation->inputManager()->setKeyDown('A');
+        break;
+    case 'D': case VK_RIGHT:
+        g_steerRight = true;
+        if (g_simulation->inputManager()) g_simulation->inputManager()->setKeyDown('D');
+        break;
+    case VK_SPACE: g_handbrake = true; break;
     case 'C': {
+        if (!g_simulation->camera()) break;
         auto mode = g_simulation->camera()->mode();
         if (mode == ks::sim::CameraController::Mode::Cockpit)
             g_simulation->setCameraMode(ks::sim::CameraController::Mode::Chase);
@@ -120,16 +126,21 @@ static void handleKeyDown(int vk) {
         break;
     }
     case 'R': g_simulation->reset(); break;
-    case 'H': g_simulation->dashboard()->setVisible(!g_simulation->dashboard()->isVisible()); break;
-    case 'G': {
-        auto* sg = g_simulation->setupGarage();
-        sg->toggleVisible();
-        if (sg->isVisible()) g_simulation->dashboard()->setVisible(false);
+    case 'H':
+        if (auto* d = g_simulation->dashboard()) d->setVisible(!d->isVisible());
         break;
-    }
-    case 'T': g_simulation->telemetry()->toggleVisible(); break;
-    case 'E': g_simulation->inputManager()->setKeyDown('E'); break;
-    case 'Q': g_simulation->inputManager()->setKeyDown('Q'); break;
+    case 'G':
+        if (auto* sg = g_simulation->setupGarage()) {
+            sg->toggleVisible();
+            if (sg->isVisible() && g_simulation->dashboard())
+                g_simulation->dashboard()->setVisible(false);
+        }
+        break;
+    case 'T':
+        if (g_simulation->telemetry()) g_simulation->telemetry()->toggleVisible();
+        break;
+    case 'E': if (g_simulation->inputManager()) g_simulation->inputManager()->setKeyDown('E'); break;
+    case 'Q': if (g_simulation->inputManager()) g_simulation->inputManager()->setKeyDown('Q'); break;
     case VK_F5:
         if (shift) { g_simulation->stop(); printf("Stopped.\n"); }
         else       { g_simulation->start(); printf("Driving started!\n"); }
@@ -158,11 +169,23 @@ static void handleKeyDown(int vk) {
 static void handleKeyUp(int vk) {
     if (g_menu && g_menu->isVisible()) return;
     switch (vk) {
-    case 'W': case VK_UP:    g_throttle = false; break;
-    case 'S': case VK_DOWN:  g_brake = false; break;
-    case 'A': case VK_LEFT:  g_steerLeft = false; break;
-    case 'D': case VK_RIGHT: g_steerRight = false; break;
-    case VK_SPACE:           g_handbrake = false; break;
+    case 'W': case VK_UP:
+        g_throttle = false;
+        if (g_simulation && g_simulation->inputManager()) g_simulation->inputManager()->setKeyUp('W');
+        break;
+    case 'S': case VK_DOWN:
+        g_brake = false;
+        if (g_simulation && g_simulation->inputManager()) g_simulation->inputManager()->setKeyUp('S');
+        break;
+    case 'A': case VK_LEFT:
+        g_steerLeft = false;
+        if (g_simulation && g_simulation->inputManager()) g_simulation->inputManager()->setKeyUp('A');
+        break;
+    case 'D': case VK_RIGHT:
+        g_steerRight = false;
+        if (g_simulation && g_simulation->inputManager()) g_simulation->inputManager()->setKeyUp('D');
+        break;
+    case VK_SPACE: g_handbrake = false; break;
     default: break;
     }
 }
@@ -176,12 +199,11 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
         handleKeyUp((int)wParam);
         return 0;
     case WM_SIZE: {
-        if (g_vkRenderer && g_vkRenderer->isInitialized()) {
+        if (g_nativeRenderer && g_nativeRenderer->isInitialized() && g_surface) {
             int w = LOWORD(lParam), h = HIWORD(lParam);
-            g_vkRenderer->recreateSwapChain(w, h);
-            if (g_simulation && g_simulation->camera() && h > 0) {
+            if (w > 0 && h > 0) g_nativeRenderer->createSwapChain(g_surface, w, h);
+            if (g_simulation && g_simulation->camera() && h > 0)
                 g_simulation->camera()->setAspectRatio(float(w) / float(h));
-            }
         }
         return 0;
     }
@@ -217,71 +239,42 @@ static void initVulkanAndSimulation() {
     printf("[INIT] Creating Win32 surface...\n");
     if (!createWin32Surface()) { printf("[INIT] FAILED: Win32 surface\n"); return; }
 
-    printf("[INIT] Creating VulkanRenderer...\n");
-    g_vkRenderer = new ::ks::VulkanRenderer();
+    printf("[INIT] Creating NativeRenderer...\n");
+    g_nativeRenderer = new ks::sim::NativeRenderer();
     printf("[INIT] Creating Vulkan device...\n");
-    if (g_vkRenderer->createDevice(g_vkInstance, g_surface)) {
+    if (g_nativeRenderer->createDevice(g_vkInstance, g_surface)) {
         RECT rc;
         GetClientRect(g_hWnd, &rc);
         printf("[INIT] Creating swap chain %dx%d...\n", rc.right - rc.left, rc.bottom - rc.top);
-        g_vkRenderer->createSwapChain(g_surface, rc.right - rc.left, rc.bottom - rc.top);
+        g_nativeRenderer->createSwapChain(g_surface, rc.right - rc.left, rc.bottom - rc.top);
         printf("[INIT] Vulkan device + swap chain OK\n");
+
+        if (!g_nativeRenderer->loadPipelines(SHADER_DIR))
+            printf("[INIT] Pipeline load FAILED (missing %s shaders?)\n", SHADER_DIR);
+
+        int loadedMeshes = g_nativeRenderer->loadMeshesFromManifest("content/baked");
+        printf("[INIT] Loaded %d baked mesh(es)\n", loadedMeshes);
+
+        if (g_shadowMap.initialize(g_nativeRenderer->physicalDevice(), g_nativeRenderer->device(),
+                                   g_nativeRenderer->commandPool(), g_nativeRenderer->graphicsQueue(),
+                                   SHADER_DIR)) {
+            g_nativeRenderer->attachShadowMap(&g_shadowMap);
+            printf("[INIT] Shadow map OK\n");
+        } else {
+            printf("[INIT] Shadow map init FAILED - continuing unshadowed\n");
+        }
     } else {
-        printf("[INIT] Vulkan device creation failed, software mode\n");
-        g_vkRenderer->initialize();
+        printf("[INIT] Vulkan device creation FAILED\n");
+        delete g_nativeRenderer;
+        g_nativeRenderer = nullptr;
+        return;
     }
 
-    printf("[INIT] Initializing RenderSystem...\n");
-    auto& rs = ::ks::engine::graphics::RenderSystem::instance();
-    rs.initialize();
-
-    printf("[INIT] Initializing TerrainSystem...\n");
-    ::ks::engine::graphics::TerrainSystem::instance().initialize();
-
-    printf("[INIT] Initializing GPUParticleSystem...\n");
-    ::ks::engine::graphics::GPUParticleSystem::instance().initialize();
-
-    printf("[INIT] Initializing WaterSystem...\n");
-    ::ks::engine::graphics::WaterSystem::instance().initialize();
-
-    printf("[INIT] Initializing PostProcessingPipeline...\n");
-    ::ks::engine::graphics::PostProcessingPipeline::instance().initialize();
-
-    printf("[INIT] Initializing CascadedShadowMaps...\n");
-    ::ks::engine::graphics::CascadedShadowMaps::instance().initialize();
-
-    printf("[INIT] Initializing VegetationSystem...\n");
-    ::ks::engine::graphics::VegetationSystem::instance().initialize();
-
-    printf("[INIT] Initializing DecalSystem...\n");
-    ::ks::engine::graphics::DecalSystem::instance().initialize();
-
-    printf("[INIT] Initializing SSRSystem...\n");
-    ::ks::engine::graphics::SSRSystem::instance().initialize();
-
-    printf("[INIT] Initializing Streamline (DLSS/Reflex/NIS)...\n");
-::ks::engine::graphics::StreamlineIntegration::instance().initialize();
-
-// Load Streamline config if available (without Qt)
-{
-    const char* configPath = "streamline.json";
-    std::ifstream configFile(configPath);
-    if (configFile.is_open()) {
-        std::string content((std::istreambuf_iterator<char>(configFile)),
-                            std::istreambuf_iterator<char>());
-        // Simple JSON parsing would go here - for now just check if file exists
-        printf("[INIT] Streamline config found at %s\n", configPath);
-    }
-}
-
-    printf("[INIT] Creating SimulationLoop...\n");
     g_simulation = std::make_unique<ks::sim::SimulationLoop>();
-    g_simulation->setVulkanRenderer(g_vkRenderer);
-    printf("[INIT] Initializing SimulationLoop...\n");
+    g_simulation->setVulkanRenderer(g_nativeRenderer);
     g_simulation->initialize();
 
     g_menu = std::make_unique<ks::sim::GameMenuOverlay>();
-
     g_menu->onExitRequested = []() {
         g_running = false;
         PostMessageW(g_hWnd, WM_CLOSE, 0, 0);
@@ -301,52 +294,36 @@ static void initVulkanAndSimulation() {
     };
     g_menu->onOpenSetupGarageRequested = []() {
         g_menu->setVisible(false);
-        g_simulation->setupGarage()->setVisible(true);
+        if (auto* sg = g_simulation->setupGarage()) sg->setVisible(true);
     };
     g_menu->onTextInputRequested = [](const std::string& field, const std::string&) {
-        printf("Text input requested for %s - no in-game text entry UI yet.\n", field.c_str());
+        printf("Text input requested for %s\n", field.c_str());
     };
     g_menu->onNationalityInputRequested = []() {
-        printf("Nationality picker requested - no in-game list UI yet.\n");
+        printf("Nationality picker requested\n");
     };
     g_menu->onLoadReplayRequested = []() {
-        printf("Load replay: no in-game content browser yet.\n");
+        printf("Load replay: not implemented yet.\n");
     };
     g_menu->onOpenContentBrowserRequested = [](const std::string& type) {
-        printf("Content browser requested for %s - not implemented yet.\n", type.c_str());
+        printf("Content browser: %s\n", type.c_str());
     };
     g_menu->onOpenSettingsPanelRequested = [](const std::string& panel) {
-        printf("Settings panel requested: %s - no in-game settings UI yet.\n", panel.c_str());
+        printf("Settings panel: %s\n", panel.c_str());
     };
     g_menu->onDevModeRequested = []() {
-        printf("Dev mode: kseditor.exe launch not implemented yet.\n");
+        printf("Dev mode request\n");
     };
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
     g_hInstance = hInstance;
-    printf("[MAIN] Starting ksEditor Simulator...\n");
+    printf("[MAIN] Starting ksEditor Simulator (Qt-free)...\n");
 
     initWindow();
     initVulkanAndSimulation();
 
-    printf("=========================================\n");
-    printf("ksEditor Simulator started (Win32 + Vulkan)\n");
-    printf("Controls:\n");
-    printf("  W/Up    = Throttle\n");
-    printf("  S/Down  = Brake\n");
-    printf("  A/Left  = Steer Left\n");
-    printf("  D/Right = Steer Right\n");
-    printf("  E       = Shift Up\n");
-    printf("  Q       = Shift Down\n");
-    printf("  C       = Toggle Camera\n");
-    printf("  R       = Reset\n");
-    printf("  G       = Setup Garage\n");
-    printf("  H       = Toggle HUD\n");
-    printf("  T       = Telemetry Overlay\n");
-    printf("  F5      = Start   Shift+F5 = Stop\n");
-    printf("  F11     = Fullscreen\n");
-    printf("=========================================\n");
+    printf("ksEditor Simulator started (Win32 + Vulkan, no Qt)\n");
 
     LARGE_INTEGER freq, lastTime;
     QueryPerformanceFrequency(&freq);
@@ -365,22 +342,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
         QueryPerformanceCounter(&currentTime);
         double elapsed = (double)(currentTime.QuadPart - lastTime.QuadPart) / (double)freq.QuadPart;
         lastTime = currentTime;
-
         if (elapsed < 0.001) elapsed = 0.001;
         if (elapsed > 0.1) elapsed = 0.1;
 
         pollInput();
 
-        if (g_simulation && g_simulation->isRunning() && !g_menu->isVisible()) {
+        if (g_simulation && g_simulation->isRunning() && g_menu && !g_menu->isVisible())
             g_simulation->tick();
-        }
 
         Sleep(1);
     }
 
-    delete g_vkRenderer;
-    g_vkRenderer = nullptr;
-    ::ks::engine::graphics::StreamlineIntegration::instance().shutdown();
+    g_shadowMap.shutdown();
+    delete g_nativeRenderer;
+    g_nativeRenderer = nullptr;
     if (g_surface) vkDestroySurfaceKHR(g_vkInstance, g_surface, nullptr);
     if (g_vkInstance) vkDestroyInstance(g_vkInstance, nullptr);
 
