@@ -1,7 +1,4 @@
-# Qt-free simulator executable
-# Include from root: include(cmake/CMakeLists_ksimulator_QtFree.cmake)
-# Or: cmake -DKSIMULATOR_QT_FREE=ON ..
-
+# Qt-free simulator executable — sources under src/simulator + engine native render
 if(NOT KSIMULATOR_QT_FREE AND NOT KSENGINE_QT_FREE)
   return()
 endif()
@@ -18,6 +15,7 @@ set(KSIM_SOURCES
   ${CMAKE_SOURCE_DIR}/src/simulator/NetworkManager.cpp
   ${CMAKE_SOURCE_DIR}/src/simulator/SetupGarage.cpp
   ${CMAKE_SOURCE_DIR}/src/simulator/TelemetryOverlay.cpp
+  ${CMAKE_SOURCE_DIR}/src/simulator/MultiCarManager.cpp
   ${CMAKE_SOURCE_DIR}/src/engine/sim/UiRenderer.cpp
   ${CMAKE_SOURCE_DIR}/src/engine/sim/GpuProfiler.cpp
   ${CMAKE_SOURCE_DIR}/src/engine/devices/DeviceManager.cpp
@@ -61,4 +59,4 @@ target_link_libraries(ksimulator PRIVATE ${Vulkan_LIBRARIES})
 if(WIN32)
   target_link_libraries(ksimulator PRIVATE dinput8 dxguid xinput ole32 user32 gdi32)
 endif()
-message(STATUS "ksimulator Qt-free target configured (${_ksim_existing})")
+message(STATUS "ksimulator: app=src/simulator, render=src/engine/sim")

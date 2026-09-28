@@ -1,21 +1,30 @@
-# KSEngine / SimulatorApp Qt-free
+# Layout + Qt-free status
 
 **Updated:** 2026-09-28
 
-## Runtime 100% Qt-free
-Engine, SimulatorApp, SimulationLoop (NativeRenderer), InputManager,
-DeviceManager, VehicleSimulator, FFB, Pacejka, Aero, EngineSimulator,
-StrategySimulator, PhysicsMessage, LapTimer, PostProcessing stub,
-ReplaySystem, TelemetryPhysics, WeatherConfig.
+## Directory layout (unified)
 
-## Editor monoliths (Qt)
-Under `KSENGINE_QT_FREE` these TUs are empty / excluded by CMake:
-VehiclePhysics*, PhysicsSimulations, TireCurveEditor, TrackPhysics,
-PhysicsValidator, 3dprint/*, scanners/*, weather editor widgets,
-MultiplayerWidget, DeviceSettingsWidget, SimulatorServerApp.
+```
+src/
+  engine/
+    physics/ devices/ Math/ ...
+    sim/                 # NativeRenderer, GpuProfiler, UiRenderer ONLY
+    Engine.h
+  simulator/             # UNIQUE app layer
+    SimulatorApp.cpp
+    SimulationLoop.*
+    InputManager.*
+    GameMenuOverlay.*
+    MultiCarManager.*
+    ...
+```
 
-**Note:** Full Qt bodies for those files live in git history before the
-qt-free stub commits. Restore when building the editor with Qt.
+Removed duplicates:
+- `src/engine/simulator/` (deleted)
+- `src/engine/sim/SimulatorApp.cpp`
+- `src/engine/sim/GameMenuOverlay.*`
+
+Shim: `src/simulator/NativeRenderer.h` → `#include "engine/sim/NativeRenderer.h"`
 
 ## Build
 ```bash
