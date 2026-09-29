@@ -12,6 +12,7 @@
 #include "../TelemetryOverlay.h"
 #include <memory>
 #include <string>
+#include <cstdio>
 
 namespace ks {
 namespace sim {
@@ -19,16 +20,14 @@ namespace ui {
 
 class NativeUiHub {
 public:
-    NativeUiHub() {
+    NativeUiHub()
+        : m_text(std::make_shared<FontAtlas>())
+    {
         m_menu = std::make_unique<GameMenuOverlay>();
         m_dash = std::make_unique<DashboardOverlay>();
         m_telem = std::make_unique<TelemetryOverlay>();
         m_devices = std::make_unique<DeviceSettingsOverlay>();
         m_mp = std::make_unique<MultiplayerOverlay>();
-        // Share font atlas between renderer and text API
-        m_text = TextRenderer(m_renderer.atlasPtr ? nullptr : nullptr);
-        // Keep renderer font; TextRenderer uses its own default atlas — rebind:
-        m_text = TextRenderer(std::make_shared<FontAtlas>());
         m_renderer.setFont(m_text.atlasPtr());
     }
 
@@ -138,25 +137,18 @@ private:
         dl.addRectFilled({x, y, panelW, panelH}, Color::rgba(0.06f, 0.07f, 0.1f, 0.96f));
         dl.addRect({x, y, panelW, panelH}, Color::rgb(90, 140, 255), 2.f);
 
-        TextStyle title = TextRenderer::menuTitle();
-        title.align = TextAlign::Left;
-        m_text.draw(dl, x + 24, y + 24, "KS Simulator", title);
-
+        m_text.draw(dl, x + 24, y + 24, "KS Simulator", TextRenderer::menuTitle());
         m_text.draw(dl, x + 24, y + 70, "Esc close   Enter select",
                     TextRenderer::menuItem());
 
-        // Simple static items (state machine still in GameMenuOverlay)
         const char* items[] = {
-            "Start Driving",
-            "Load Track",
-            "Garage",
-            "Multiplayer",
-            "Settings",
-            "Quit"
+            "Start Driving", "Load Track", "Garage",
+            "Multiplayer", "Settings", "Quit"
         };
         float iy = y + 120.f;
         for (const char* it : items) {
-            dl.addRectFilled({x + 20, iy - 4, panelW - 40, 28}, Color::rgba(0.12f, 0.14f, 0.18f, 1.f));
+            dl.addRectFilled({x + 20, iy - 4, panelW - 40, 28},
+                             Color::rgba(0.12f, 0.14f, 0.18f, 1.f));
             m_text.draw(dl, x + 32, iy + 4, it, TextRenderer::menuItem());
             iy += 36.f;
         }
