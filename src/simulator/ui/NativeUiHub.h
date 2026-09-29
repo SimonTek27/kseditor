@@ -1,15 +1,17 @@
 #pragma once
 /**
  * Composes menu / dashboard / telemetry / device / multiplayer overlays
- * into one UiRenderer batch per frame.
+ * into one UiRenderer batch per frame. Text via TextRenderer + FontAtlas.
  */
 #include "UiRenderer.h"
+#include "TextRenderer.h"
 #include "DeviceSettingsOverlay.h"
 #include "MultiplayerOverlay.h"
 #include "../GameMenuOverlay.h"
 #include "../DashboardOverlay.h"
 #include "../TelemetryOverlay.h"
 #include <memory>
+#include <string>
 
 namespace ks {
 namespace sim {
@@ -23,6 +25,11 @@ public:
         m_telem = std::make_unique<TelemetryOverlay>();
         m_devices = std::make_unique<DeviceSettingsOverlay>();
         m_mp = std::make_unique<MultiplayerOverlay>();
+        // Share font atlas between renderer and text API
+        m_text = TextRenderer(m_renderer.atlasPtr ? nullptr : nullptr);
+        // Keep renderer font; TextRenderer uses its own default atlas — rebind:
+        m_text = TextRenderer(std::make_shared<FontAtlas>());
+        m_renderer.setFont(m_text.atlasPtr());
     }
 
     GameMenuOverlay& menu() { return *m_menu; }
@@ -31,24 +38,21 @@ public:
     DeviceSettingsOverlay& devices() { return *m_devices; }
     MultiplayerOverlay& multiplayer() { return *m_mp; }
     UiRenderer& renderer() { return m_renderer; }
+    TextRenderer& text() { return m_text; }
 
     void resize(int w, int h) { m_renderer.setViewport(w, h); }
 
-    /** Build draw list for this frame. Call after physics/input update. */
     void renderFrame(int width, int height) {
         m_renderer.setViewport(width, height);
         m_renderer.beginFrame();
         auto& dl = m_renderer.list();
 
-        // In-game HUD first (behind menus)
-        if (m_dash->isVisible())
-            m_dash->render(width, height); // legacy stub may no-op; also emit to dl below
-        buildDashboard(dl, width, height);
-
+        if (m_dash->isVisible()) {
+            m_dash->render(width, height);
+            buildDashboard(dl, width, height);
+        }
         if (m_telem->isVisible())
             buildTelemetry(dl, width, height);
-
-        // Modal overlays
         if (m_menu->isVisible())
             buildMenu(dl, width, height);
 
@@ -62,9 +66,8 @@ public:
         if (m_devices->isVisible() && m_devices->handleKey(key)) return true;
         if (m_mp->isVisible() && m_mp->handleKey(key)) return true;
         if (m_menu->isVisible() && m_menu->handleKeyPress(key)) return true;
-        // F1 devices, F2 multiplayer, Esc menu
-        if (key == 112) { m_devices->toggle(); return true; } // F1
-        if (key == 113) { m_mp->toggle(); return true; }      // F2
+        if (key == 112) { m_devices->toggle(); return true; }
+        if (key == 113) { m_mp->toggle(); return true; }
         if (key == 27 && !m_menu->isVisible()) {
             m_menu->setVisible(true);
             return true;
@@ -77,59 +80,92 @@ public:
     }
 
 private:
-    void buildDashboard(DrawList& dl, int w, int h) {
-        if (!m_dash->isVisible()) return;
-        // Pull public-ish values via update pattern — use last telemetry mirror
-        const float barW = 220.f;
+    void buildDashboard(DrawList& dl, int /*w*/, int h) {
+        const float barW = 240.f;
         const float x = 24.f;
-        const float y = static_cast<float>(h) - 120.f;
-        dl.addRectFilled({x, y, barW, 88}, Color::rgba(0, 0, 0, 0.55f));
-        dl.addText(x + 10, y + 8, "DASH", Color::rgb(200, 210, 220), 1.0f);
-        // Throttle / brake bars filled from telemetry overlay state
-        dl.addProgressBar({x + 10, y + 36, barW - 20, 12}, m_telem->m_throttle,
-                          Color::rgb(80, 200, 100), Color::rgba(0.2f, 0.2f, 0.2f, 1.f));
-        dl.addProgressBar({x + 10, y + 54, barW - 20, 12}, m_telem->m_brake,
-                          Color::rgb(220, 80, 80), Color::rgba(0.2f, 0.2f, 0.2f, 1.f));
-        dl.addText(x + 10, y + 72,
-                   "SPD " + std::to_string(static_cast<int>(m_telem->m_speed * 3.6f)) +
-                   "  RPM " + std::to_string(static_cast<int>(m_telem->m_rpm)),
-                   Color::rgb(230, 230, 230), 1.0f);
-        (void)w;
+        const float y = static_cast<float>(h) - 130.f;
+
+        dl.addRectFilled({x, y, barW, 100}, Color::rgba(0, 0, 0, 0.6f));
+        dl.addRect({x, y, barW, 100}, Color::rgb(60, 100, 160), 1.f);
+
+        m_text.draw(dl, x + 12, y + 8, "DASH", TextRenderer::hudLabel());
+
+        dl.addProgressBar({x + 12, y + 36, barW - 24, 14}, m_telem->m_throttle,
+                          Color::rgb(80, 210, 100), Color::rgba(0.15f, 0.15f, 0.15f, 1.f));
+        dl.addProgressBar({x + 12, y + 54, barW - 24, 14}, m_telem->m_brake,
+                          Color::rgb(230, 70, 70), Color::rgba(0.15f, 0.15f, 0.15f, 1.f));
+
+        const int spd = static_cast<int>(m_telem->m_speed * 3.6f);
+        const int rpm = static_cast<int>(m_telem->m_rpm);
+        char line[64];
+        std::snprintf(line, sizeof(line), "SPD %d  RPM %d", spd, rpm);
+        m_text.draw(dl, x + 12, y + 74, line, TextRenderer::hudValue());
     }
 
-    void buildTelemetry(DrawList& dl, int w, int h) {
-        const float panelW = 280.f;
+    void buildTelemetry(DrawList& dl, int w, int /*h*/) {
+        const float panelW = 300.f;
         const float x = static_cast<float>(w) - panelW - 16.f;
         const float y = 16.f;
-        dl.addRectFilled({x, y, panelW, 160.f}, Color::rgba(0, 0, 0, 0.5f));
-        dl.addText(x + 10, y + 8, "TELEMETRY", Color::rgb(180, 200, 255), 1.1f);
-        dl.addText(x + 10, y + 32,
-                   "LatG " + std::to_string(m_telem->m_lateralG).substr(0, 5),
-                   Color::rgb(220, 220, 220), 1.0f);
-        dl.addText(x + 10, y + 52,
-                   "LonG " + std::to_string(m_telem->m_longitudinalG).substr(0, 5),
-                   Color::rgb(220, 220, 220), 1.0f);
-        dl.addProgressBar({x + 10, y + 80, panelW - 20, 10}, (m_telem->m_steering + 1.f) * 0.5f,
-                          Color::rgb(100, 160, 255), Color::rgba(0.15f, 0.15f, 0.15f, 1.f));
-        dl.addText(x + 10, y + 100, "Steer", Color::rgb(160, 170, 180), 0.9f);
-        (void)h;
+
+        dl.addRectFilled({x, y, panelW, 170.f}, Color::rgba(0, 0, 0, 0.55f));
+        dl.addRect({x, y, panelW, 170.f}, Color::rgb(80, 120, 200), 1.f);
+
+        m_text.draw(dl, x + 12, y + 10, "TELEMETRY", TextRenderer::hudLabel());
+
+        char buf[64];
+        std::snprintf(buf, sizeof(buf), "Lat G  %.2f", m_telem->m_lateralG);
+        m_text.draw(dl, x + 12, y + 36, buf, TextRenderer::hudValue());
+        std::snprintf(buf, sizeof(buf), "Lon G  %.2f", m_telem->m_longitudinalG);
+        m_text.draw(dl, x + 12, y + 56, buf, TextRenderer::hudValue());
+
+        dl.addProgressBar({x + 12, y + 88, panelW - 24, 12},
+                          (m_telem->m_steering + 1.f) * 0.5f,
+                          Color::rgb(100, 170, 255), Color::rgba(0.12f, 0.12f, 0.12f, 1.f));
+        m_text.draw(dl, x + 12, y + 110, "STEER", TextRenderer::hudLabel());
+
+        std::snprintf(buf, sizeof(buf), "THR %.0f%%  BRK %.0f%%",
+                      m_telem->m_throttle * 100.f, m_telem->m_brake * 100.f);
+        m_text.draw(dl, x + 12, y + 140, buf, TextRenderer::hudLabel());
     }
 
     void buildMenu(DrawList& dl, int w, int h) {
-        // Lightweight panel; detailed items still driven by GameMenuOverlay state machine
-        const float panelW = 360.f;
-        const float panelH = 400.f;
+        const float panelW = 380.f;
+        const float panelH = 420.f;
         const float x = (w - panelW) * 0.5f;
         const float y = (h - panelH) * 0.5f;
+
         dl.addRectFilled({0, 0, (float)w, (float)h}, Color::rgba(0, 0, 0, 0.55f));
         dl.addRectFilled({x, y, panelW, panelH}, Color::rgba(0.06f, 0.07f, 0.1f, 0.96f));
         dl.addRect({x, y, panelW, panelH}, Color::rgb(90, 140, 255), 2.f);
-        dl.addText(x + 20, y + 20, "KS Simulator", Color::rgb(220, 230, 255), 1.6f);
-        dl.addText(x + 20, y + 55, "Esc close  Enter select", Color::rgb(140, 150, 170), 0.95f);
-        m_menu->render(w, h); // keeps existing menu logic hooks
+
+        TextStyle title = TextRenderer::menuTitle();
+        title.align = TextAlign::Left;
+        m_text.draw(dl, x + 24, y + 24, "KS Simulator", title);
+
+        m_text.draw(dl, x + 24, y + 70, "Esc close   Enter select",
+                    TextRenderer::menuItem());
+
+        // Simple static items (state machine still in GameMenuOverlay)
+        const char* items[] = {
+            "Start Driving",
+            "Load Track",
+            "Garage",
+            "Multiplayer",
+            "Settings",
+            "Quit"
+        };
+        float iy = y + 120.f;
+        for (const char* it : items) {
+            dl.addRectFilled({x + 20, iy - 4, panelW - 40, 28}, Color::rgba(0.12f, 0.14f, 0.18f, 1.f));
+            m_text.draw(dl, x + 32, iy + 4, it, TextRenderer::menuItem());
+            iy += 36.f;
+        }
+
+        m_menu->render(w, h);
     }
 
     UiRenderer m_renderer;
+    TextRenderer m_text;
     std::unique_ptr<GameMenuOverlay> m_menu;
     std::unique_ptr<DashboardOverlay> m_dash;
     std::unique_ptr<TelemetryOverlay> m_telem;

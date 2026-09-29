@@ -1,39 +1,31 @@
-# Bitmap text rendering
+# Text rendering (bitmap)
 
 ## Stack
 ```
-FontAtlas (8×8 R8, ASCII 32–126)
-    → BitmapText (layout)
-        → DrawList / UiRenderer verts
-            → VulkanUiPipeline (R8 alpha)
+FontAtlas (8×8 R8 ASCII 32–126)
+  → BitmapText (layout, wrap, align, shadow, outline)
+    → TextRenderer (facade + HUD presets)
+      → UiRenderer / DrawList verts
+        → VulkanUiPipeline (alpha = atlas.r)
 ```
 
-## TextStyle
+## TextRenderer
 ```cpp
-TextStyle st;
-st.color = Color::rgb(255, 255, 255);
-st.scale = 2.f;
-st.align = TextAlign::Center;
-st.shadow = true;
-st.outline = true;
-st.maxWidth = 320.f; // word wrap
+TextRenderer text;
+text.draw(ui, 20, 20, "Hello");
+text.drawCentered(ui, 640, 100, "Title", TextRenderer::menuTitle());
+text.drawf(ui, 20, 40, TextRenderer::hudValue(), "SPD %d", 247);
 
-ui.addTextStyled(640, 100, "KS Simulator", st);
-// or:
-BitmapText bt(font);
-bt.emit(text, x, y, st, verts, indices);
+auto m = text.measure("Multi\nline");
 ```
 
-## Features
-| Feature | Notes |
-|---------|--------|
-| Multiline | `\n` |
-| Tab | expands to 4 spaces |
-| Align | Left / Center / Right per line |
-| Wrap | `maxWidth` breaks at spaces |
-| Shadow | offset + color |
-| Outline | 8-direction 1px (scaled) |
-| Measure | `measure()` → width/height/lines |
+## Presets
+| Style | Use |
+|-------|-----|
+| `hudLabel()` | labels, muted |
+| `hudValue()` | speed/rpm, outline+shadow |
+| `menuTitle()` | large title |
+| `menuItem()` | menu rows |
 
-## GPU
-Fragment: `outColor.a *= texture(atlas, uv).r` (nearest filter).
+## NativeUiHub
+Dashboard / telemetry / menu use `TextRenderer` with shared atlas.
