@@ -1,36 +1,27 @@
-# SimulatorApp ↔ Assetto Corsa + CSP parity
+# SimulatorApp ↔ AC + CSP parity
 
-**SimulatorApp** = open-source product aiming at the AC+CSP *experience*.
-**ksengine** = generic engine underneath (no AC lock-in).
+```
+SimulatorApp  ≈  AC + CSP (open source)
+       │
+       ├── ksengine
+       ├── adapters/ac
+       └── network
+```
 
-## Layer map
-| AC / CSP | Our stack |
-|----------|-----------|
-| Game binary | SimulatorApp |
-| Physics core | ksengine `physics/` |
-| CSP | `adapters/assetto_corsa` (CspConfigParser + render hooks in app) |
-| Shared memory | `AcSharedMemoryPublisher` |
-| surfaces.ini | `AcSurfacesLoader` → TrackSurface |
-| Overlays / apps | Same SM names as AC |
-| Content | AC folder layout under configurable root |
+| AC / CSP | Branch |
+|----------|--------|
+| Physics feel | ksengine |
+| Content / SM / CSP files | adapters/ac |
+| Multiplayer / UDP apps | network |
+| Sessions / HUD / garage | SimulatorApp |
 
 ## Done
-- Qt-free runtime
-- Pacejka / aero / suspension / FFB
-- TrackSurface, LapSectorTimer
-- Shared memory pages (physics / graphics / static)
-- surfaces.ini loader
-- UDP telemetry listener (AC-oriented)
-- Native UI (menu, dash, devices, MP)
+- Qt-free engine + sim
+- Shared memory publisher, surfaces.ini, lap/sector
+- NetworkManager / UDP telemetry present under simulator
 
-## Next (SimulatorApp-owned)
-1. Wire SM + lap timer + surfaces into `SimulationLoop` every tick
-2. Default content root = AC install; browser for car/track
-3. KN5 → scene meshes
-4. CSP config apply (lighting/post flags) without polluting engine
-5. Session modes matching AC (practice / quali / race / hotlap)
-6. Pit / flags / penalties in graphics page
-
-## Forbidden
-- CSP code inside `src/engine` core headers
-- Qt on ksimulator hot path
+## Next
+1. Wire SM + surfaces + laps in SimulationLoop
+2. AC content root + browser
+3. Network: stable car-state protocol + lobby
+4. KN5 scene; CSP flags in app render path

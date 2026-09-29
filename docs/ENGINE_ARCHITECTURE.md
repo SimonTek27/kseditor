@@ -1,43 +1,61 @@
 # Architecture: ksengine vs SimulatorApp
 
-## Product split
+## Product tree
 
-| Target | Role |
+```
+SimulatorApp  ≈  AC + CSP (open source)
+       │
+       ├── ksengine          (motore generico)
+       ├── adapters/ac       (contenuti / SM / CSP)
+       └── network           (multiplayer / telemetry transport)
+```
+
+| Branch | Role |
 |--------|------|
-| **ksengine** | Generic **open-source simulation engine** (physics, devices, render, tick). No AC/CSP required. |
-| **SimulatorApp** (`ksimulator`) | **Open-source clone of the Assetto Corsa + CSP experience** — sessions, AC content, shared memory, CSP-oriented graphics hooks, garage, multiplayer. |
-| **kseditor** | Qt tool for authoring (separate from runtime). |
+| **SimulatorApp** | Product: open-source AC + CSP experience |
+| **ksengine** | Generic sim runtime (physics, FFB, Vulkan, tick, NativeUi core) |
+| **adapters/ac** | AC/CSP formats only (`src/adapters/assetto_corsa`) |
+| **network** | Multiplayer, UDP/TCP, session sync (`src/simulator` net + engine net services) |
+| **kseditor** | Qt authoring tool (separate target) |
 
 ```
-┌─────────────────────────────────────────────┐
-│  SimulatorApp  ≈  AC + CSP (open source)    │
-│  sessions · AC assets · CSP configs · HUD   │
-└───────────────────┬─────────────────────────┘
-                    │ uses
-┌───────────────────▼─────────────────────────┐
-│  ksengine  (generic runtime)                │
-│  physics · FFB · Vulkan · NativeUi · net    │
-└───────────────────┬─────────────────────────┘
-                    │ optional / app-linked
-┌───────────────────▼─────────────────────────┐
-│  adapters/assetto_corsa                     │
-│  shared mem · surfaces.ini · CSP · banks    │
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│           SimulatorApp (product)             │
+│     sessions · HUD · garage · content UX     │
+└───────┬──────────────┬──────────────┬────────┘
+        │              │              │
+        ▼              ▼              ▼
+   ksengine      adapters/ac      network
+   physics         SM / CSP        MP / UDP
+   FFB / Vulkan    surfaces.ini    session sync
+   NativeUi core   banks / GUID    car state
 ```
 
-## ksengine (`src/engine/`)
-Generic layers only. **Rule:** must not `#include` `adapters/*`.
+## Dependency rules
+```
+SimulatorApp  →  ksengine
+SimulatorApp  →  adapters/assetto_corsa
+SimulatorApp  →  network (simulator + optional engine/network helpers)
+ksengine      ↛  adapters/*
+ksengine      ↛  SimulatorApp-only UI
+adapters/ac   ↛  network protocol ownership (app wires them)
+```
 
-## SimulatorApp (`src/simulator/`)
-Product aiming at **AC + CSP parity** (open source):
-- AC content tree, shared memory, CSP via adapters
-- Sessions, garage, multiplayer, Native UI, Vulkan
+### ksengine (`src/engine/`)
+Generic only. Must not `#include` `adapters/*`.
+
+### adapters/ac (`src/adapters/assetto_corsa/`)
+Shared memory, surfaces.ini, CSP configs, AC banks/GUIDs. Linked by SimulatorApp.
+
+### network
+| Location | Use |
+|----------|-----|
+| `src/simulator/NetworkManager*` | App multiplayer orchestration |
+| `src/simulator/NetworkLowLevel*` | Sockets / packets |
+| `src/simulator/UdpTelemetryListener*` | AC-style telemetry ingest |
+| `src/engine/network/*` (if present) | Reusable transport primitives |
+
+Network is a **first-class peer** of the product stack: not buried only inside physics, and not an AC adapter concern.
 
 ## Qt-free
-`ksengine` + `ksimulator`: `KSENGINE_QT_FREE=1`. Editor may use Qt.
-
-```
-SimulatorApp  →  engine
-SimulatorApp  →  adapters/assetto_corsa
-engine        ↛  adapters/*
-```
+`ksengine` + `ksimulator` (SimulatorApp): `KSENGINE_QT_FREE=1`.
