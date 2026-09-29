@@ -1,10 +1,11 @@
 #pragma once
 /**
- * Batches DrawList into a dynamic vertex buffer (dirty-flag rebuild).
- * Text uses FontAtlas glyph UVs; solid quads use the atlas white texel.
+ * Batches DrawList into a dynamic vertex buffer.
+ * Text uses BitmapText + FontAtlas glyph UVs; solids use white texel.
  */
 #include "NativeUiTypes.h"
 #include "FontAtlas.h"
+#include "BitmapText.h"
 #include <vector>
 #include <cstdint>
 #include <memory>
@@ -42,6 +43,13 @@ public:
     DrawList& list() { return m_list; }
     const DrawList& list() const { return m_list; }
 
+    /** High-level styled text (shadow/outline/align/wrap). */
+    void addTextStyled(float x, float y, const std::string& text, const TextStyle& style) {
+        BitmapText bt(*m_font);
+        bt.addStyledToDrawList(m_list, x, y, text, style);
+        m_dirty = true;
+    }
+
     void endFrame() {
         if (m_dirty)
             rebuildVertices();
@@ -53,10 +61,13 @@ public:
     int viewportWidth() const { return m_w; }
     int viewportHeight() const { return m_h; }
 
-    /** Upload this R8 atlas to GPU once (width/height/pixels). */
     const std::vector<uint8_t>& atlasPixels() const { return m_font->pixelsR8(); }
     int atlasWidth() const { return m_font->width(); }
     int atlasHeight() const { return m_font->height(); }
+
+    TextMetrics measure(const std::string& text, const TextStyle& style) const {
+        return BitmapText(*m_font).measure(text, style);
+    }
 
 private:
     void pushQuadUV(float x0, float y0, float x1, float y1,
@@ -83,6 +94,8 @@ private:
     void rebuildVertices() {
         m_vertices.clear();
         m_indices.clear();
+        BitmapText bt(*m_font);
+
         for (const auto& cmd : m_list.commands()) {
             switch (cmd.type) {
             case DrawCmdType::RectFilled:
@@ -120,24 +133,10 @@ private:
                 break;
             }
             case DrawCmdType::Text: {
-                float cx = cmd.x0;
-                float cy = cmd.y0;
-                const float scale = cmd.fontScale;
-                for (unsigned char ch : cmd.text) {
-                    if (ch == '\n') {
-                        cx = cmd.x0;
-                        cy += m_font->lineHeight(scale);
-                        continue;
-                    }
-                    const GlyphInfo g = m_font->glyph(ch);
-                    const float x0 = cx + g.xoff * scale;
-                    const float y0 = cy + g.yoff * scale;
-                    const float x1 = x0 + g.width * scale;
-                    const float y1 = y0 + g.height * scale;
-                    if (ch != ' ')
-                        pushQuadUV(x0, y0, x1, y1, g.u0, g.v0, g.u1, g.v1, cmd.color);
-                    cx += g.advance * scale;
-                }
+                TextStyle st;
+                st.color = cmd.color;
+                st.scale = cmd.fontScale;
+                bt.emit(cmd.text, cmd.x0, cmd.y0, st, m_vertices, m_indices);
                 break;
             }
             }
