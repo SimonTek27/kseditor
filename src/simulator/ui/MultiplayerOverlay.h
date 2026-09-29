@@ -1,6 +1,7 @@
 #pragma once
-/** Native replacement for MultiplayerWidget (no QWidget). */
+/** Native multiplayer panel (no QWidget). */
 #include "NativeUiTypes.h"
+#include "UiInput.h"
 #include <string>
 #include <vector>
 #include <functional>
@@ -9,11 +10,12 @@ namespace ks {
 namespace sim {
 namespace ui {
 
-struct LobbyRow {
+struct MpServerRow {
     std::string name;
+    std::string address;
     int players = 0;
-    int maxPlayers = 16;
-    std::string track;
+    int maxPlayers = 0;
+    int pingMs = 0;
 };
 
 class MultiplayerOverlay {
@@ -22,96 +24,83 @@ public:
     bool isVisible() const { return m_visible; }
     void toggle() { m_visible = !m_visible; }
 
-    void setHost(const std::string& host) { m_host = host; }
-    void setPort(int port) { m_port = port; }
-    void setLobbies(std::vector<LobbyRow> rows) { m_lobbies = std::move(rows); }
+    void setServers(std::vector<MpServerRow> rows) { m_servers = std::move(rows); }
+    void setSelected(int i) {
+        if (i >= 0 && i < static_cast<int>(m_servers.size())) m_selected = i;
+    }
 
-    void build(DrawList& dl, int screenW, int screenH) {
+    void build(DrawList& dl, int screenW, int screenH, UiInput* input = nullptr) {
         if (!m_visible) return;
-        const float panelW = 520.f;
-        const float panelH = 420.f;
+        const float panelW = 480.f;
+        const float panelH = 400.f;
         const float x = (screenW - panelW) * 0.5f;
         const float y = (screenH - panelH) * 0.5f;
 
-        dl.addRectFilled({0, 0, (float)screenW, (float)screenH}, Color::rgba(0, 0, 0, 0.5f));
+        dl.addRectFilled({0, 0, (float)screenW, (float)screenH}, Color::rgba(0, 0, 0, 0.45f));
         dl.addRectFilled({x, y, panelW, panelH}, Color::rgba(0.07f, 0.08f, 0.11f, 0.96f));
-        dl.addRect({x, y, panelW, panelH}, Color::rgb(60, 200, 120), 2.f);
-        dl.addText(x + 16, y + 16, "Multiplayer", Color::rgb(200, 255, 220), 1.5f);
+        dl.addRect({x, y, panelW, panelH}, Color::rgb(100, 200, 140), 2.f);
+        dl.addText(x + 16, y + 16, "Multiplayer", Color::rgb(200, 255, 220), 1.4f);
 
-        dl.addText(x + 16, y + 52,
-                   "Host: " + m_host + "  Port: " + std::to_string(m_port),
-                   Color::rgb(180, 190, 200), 1.0f);
-
-        // Buttons
-        m_hostBtn = {x + 16, y + 80, 140, 36};
-        m_joinBtn = {x + 170, y + 80, 140, 36};
-        m_refreshBtn = {x + 324, y + 80, 140, 36};
-        drawButton(dl, m_hostBtn, "Host", m_focus == 0);
-        drawButton(dl, m_joinBtn, "Join", m_focus == 1);
-        drawButton(dl, m_refreshBtn, "Refresh", m_focus == 2);
-
-        float rowY = y + 140;
-        dl.addText(x + 16, rowY - 20, "Lobbies", Color::rgb(160, 170, 180), 1.0f);
-        for (int i = 0; i < static_cast<int>(m_lobbies.size()); ++i) {
-            const auto& L = m_lobbies[static_cast<size_t>(i)];
-            Rect rr{x + 12, rowY, panelW - 24, 36};
-            Color bg = (i == m_lobbySel)
-                ? Color::rgba(0.12f, 0.28f, 0.2f, 1.f)
-                : Color::rgba(0.11f, 0.12f, 0.15f, 1.f);
+        float rowY = y + 56;
+        for (int i = 0; i < static_cast<int>(m_servers.size()); ++i) {
+            const auto& s = m_servers[static_cast<size_t>(i)];
+            Rect rr{x + 12, rowY, panelW - 24, 44};
+            bool hover = input && input->isHovering(rr);
+            if (input && input->state().leftReleased() && rr.contains(input->state().x, input->state().y)) {
+                m_selected = i;
+                if (onJoin)
+                    onJoin(s.address);
+            }
+            Color bg = (i == m_selected)
+                ? Color::rgba(0.12f, 0.28f, 0.18f, 1.f)
+                : (hover ? Color::rgba(0.12f, 0.18f, 0.14f, 1.f)
+                         : Color::rgba(0.1f, 0.12f, 0.14f, 1.f));
             dl.addRectFilled(rr, bg);
-            std::string line = L.name + "  " + std::to_string(L.players) + "/" +
-                               std::to_string(L.maxPlayers) + "  " + L.track;
-            dl.addText(rr.x + 10, rr.y + 10, line, Color::rgb(230, 235, 240), 1.0f);
-            rowY += 42;
+            dl.addText(rr.x + 10, rr.y + 6, s.name, Color::rgb(230, 240, 230), 1.1f);
+            std::string sub = s.address + "  " + std::to_string(s.players) + "/" +
+                              std::to_string(s.maxPlayers) + "  " + std::to_string(s.pingMs) + "ms";
+            dl.addText(rr.x + 10, rr.y + 24, sub, Color::rgb(150, 170, 160), 0.9f);
+            rowY += 50;
         }
 
-        dl.addText(x + 16, y + panelH - 28, "Tab focus  Enter action  Esc close",
+        Rect closeBtn{x + panelW - 100, y + panelH - 40, 80, 28};
+        bool ch = input && input->isHovering(closeBtn);
+        dl.addRectFilled(closeBtn, ch ? Color::rgba(0.3f, 0.15f, 0.15f, 1.f)
+                                      : Color::rgba(0.2f, 0.12f, 0.12f, 1.f));
+        dl.addText(closeBtn.x + 18, closeBtn.y + 6, "Close", Color::rgb(230, 200, 200), 1.f);
+        if (input && input->state().leftReleased() && closeBtn.contains(input->state().x, input->state().y))
+            m_visible = false;
+
+        dl.addText(x + 16, y + panelH - 28, "Click to join  Esc close",
                    Color::rgb(140, 150, 160), 0.9f);
     }
 
     bool handleKey(int key) {
         if (!m_visible) return false;
         if (key == 27) { m_visible = false; return true; }
-        if (key == 9) { // tab
-            m_focus = (m_focus + 1) % 3;
-            return true;
+        if (key == 38 && m_selected > 0) { --m_selected; return true; }
+        if (key == 40 && m_selected + 1 < static_cast<int>(m_servers.size())) {
+            ++m_selected; return true;
         }
-        if (key == 38 && m_lobbySel > 0) { --m_lobbySel; return true; }
-        if (key == 40 && m_lobbySel + 1 < static_cast<int>(m_lobbies.size())) {
-            ++m_lobbySel; return true;
-        }
-        if (key == 13) {
-            if (m_focus == 0 && onHost) onHost(m_port);
-            else if (m_focus == 1 && onJoin) {
-                std::string lobby = m_lobbySel >= 0 && m_lobbySel < static_cast<int>(m_lobbies.size())
-                    ? m_lobbies[static_cast<size_t>(m_lobbySel)].name : m_host;
-                onJoin(lobby, m_port);
-            } else if (m_focus == 2 && onRefresh) onRefresh();
+        if (key == 13 && m_selected >= 0 && m_selected < static_cast<int>(m_servers.size())) {
+            if (onJoin) onJoin(m_servers[static_cast<size_t>(m_selected)].address);
             return true;
         }
         return false;
     }
 
-    std::function<void(int port)> onHost;
-    std::function<void(const std::string& host, int port)> onJoin;
-    std::function<void()> onRefresh;
-
-private:
-    void drawButton(DrawList& dl, const Rect& r, const char* label, bool focused) {
-        Color bg = focused ? Color::rgba(0.2f, 0.45f, 0.3f, 1.f)
-                           : Color::rgba(0.14f, 0.16f, 0.18f, 1.f);
-        dl.addRectFilled(r, bg);
-        dl.addRect(r, focused ? Color::rgb(80, 220, 140) : Color::rgb(70, 80, 90), 1.5f);
-        dl.addText(r.x + 36, r.y + 10, label, Color::rgb(240, 245, 250), 1.1f);
+    bool handleMouse(const MouseEvent& e) {
+        if (!m_visible) return false;
+        (void)e;
+        return true;
     }
 
+    std::function<void(const std::string& address)> onJoin;
+
+private:
     bool m_visible = false;
-    std::string m_host = "127.0.0.1";
-    int m_port = 7777;
-    int m_focus = 0;
-    int m_lobbySel = 0;
-    std::vector<LobbyRow> m_lobbies;
-    Rect m_hostBtn, m_joinBtn, m_refreshBtn;
+    int m_selected = 0;
+    std::vector<MpServerRow> m_servers;
 };
 
 } // namespace ui

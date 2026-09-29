@@ -1,10 +1,10 @@
 #pragma once
 /**
- * Composes menu / dashboard / telemetry / device / multiplayer overlays
- * into one UiRenderer batch per frame. Text via TextRenderer + FontAtlas.
+ * Composes overlays into one UiRenderer batch; routes keyboard + mouse.
  */
 #include "UiRenderer.h"
 #include "TextRenderer.h"
+#include "UiInput.h"
 #include "DeviceSettingsOverlay.h"
 #include "MultiplayerOverlay.h"
 #include "../GameMenuOverlay.h"
@@ -38,11 +38,20 @@ public:
     MultiplayerOverlay& multiplayer() { return *m_mp; }
     UiRenderer& renderer() { return m_renderer; }
     TextRenderer& text() { return m_text; }
+    UiInput& input() { return m_input; }
 
-    void resize(int w, int h) { m_renderer.setViewport(w, h); }
+    void resize(int w, int h) {
+        m_viewW = w;
+        m_viewH = h;
+        m_renderer.setViewport(w, h);
+    }
 
     void renderFrame(int width, int height) {
+        m_viewW = width;
+        m_viewH = height;
         m_renderer.setViewport(width, height);
+
+        m_input.beginFrame();
         m_renderer.beginFrame();
         auto& dl = m_renderer.list();
 
@@ -55,10 +64,11 @@ public:
         if (m_menu->isVisible())
             buildMenu(dl, width, height);
 
-        m_devices->build(dl, width, height);
-        m_mp->build(dl, width, height);
+        m_devices->build(dl, width, height, &m_input);
+        m_mp->build(dl, width, height, &m_input);
 
         m_renderer.endFrame();
+        m_input.endFrame();
     }
 
     bool handleKey(int key) {
@@ -74,6 +84,41 @@ public:
         return false;
     }
 
+    /** Platform: forward mouse. Returns true if UI consumed it. */
+    bool handleMouse(const MouseEvent& e) {
+        m_input.inject(e);
+        if (e.type == MouseEventType::Down && e.button == MouseButton::Left)
+            m_input.notePressPosition();
+
+        if (m_devices->isVisible() && m_devices->handleMouse(e)) return true;
+        if (m_mp->isVisible() && m_mp->handleMouse(e)) return true;
+        if (m_menu->isVisible()) return true; // modal menu swallows
+        return false;
+    }
+
+    bool handleMouseMove(float x, float y) {
+        MouseEvent e;
+        e.type = MouseEventType::Move;
+        e.x = x; e.y = y;
+        return handleMouse(e);
+    }
+
+    bool handleMouseButton(MouseButton b, bool down, float x, float y) {
+        MouseEvent e;
+        e.type = down ? MouseEventType::Down : MouseEventType::Up;
+        e.button = b;
+        e.x = x; e.y = y;
+        return handleMouse(e);
+    }
+
+    bool handleMouseWheel(float delta, float x, float y) {
+        MouseEvent e;
+        e.type = MouseEventType::Wheel;
+        e.wheelDelta = delta;
+        e.x = x; e.y = y;
+        return handleMouse(e);
+    }
+
     bool blocksDrivingInput() const {
         return m_menu->isInputBlocked() || m_devices->isVisible() || m_mp->isVisible();
     }
@@ -86,7 +131,6 @@ private:
 
         dl.addRectFilled({x, y, barW, 100}, Color::rgba(0, 0, 0, 0.6f));
         dl.addRect({x, y, barW, 100}, Color::rgb(60, 100, 160), 1.f);
-
         m_text.draw(dl, x + 12, y + 8, "DASH", TextRenderer::hudLabel());
 
         dl.addProgressBar({x + 12, y + 36, barW - 24, 14}, m_telem->m_throttle,
@@ -94,10 +138,10 @@ private:
         dl.addProgressBar({x + 12, y + 54, barW - 24, 14}, m_telem->m_brake,
                           Color::rgb(230, 70, 70), Color::rgba(0.15f, 0.15f, 0.15f, 1.f));
 
-        const int spd = static_cast<int>(m_telem->m_speed * 3.6f);
-        const int rpm = static_cast<int>(m_telem->m_rpm);
         char line[64];
-        std::snprintf(line, sizeof(line), "SPD %d  RPM %d", spd, rpm);
+        std::snprintf(line, sizeof(line), "SPD %d  RPM %d",
+                      static_cast<int>(m_telem->m_speed * 3.6f),
+                      static_cast<int>(m_telem->m_rpm));
         m_text.draw(dl, x + 12, y + 74, line, TextRenderer::hudValue());
     }
 
@@ -108,7 +152,6 @@ private:
 
         dl.addRectFilled({x, y, panelW, 170.f}, Color::rgba(0, 0, 0, 0.55f));
         dl.addRect({x, y, panelW, 170.f}, Color::rgb(80, 120, 200), 1.f);
-
         m_text.draw(dl, x + 12, y + 10, "TELEMETRY", TextRenderer::hudLabel());
 
         char buf[64];
@@ -121,7 +164,6 @@ private:
                           (m_telem->m_steering + 1.f) * 0.5f,
                           Color::rgb(100, 170, 255), Color::rgba(0.12f, 0.12f, 0.12f, 1.f));
         m_text.draw(dl, x + 12, y + 110, "STEER", TextRenderer::hudLabel());
-
         std::snprintf(buf, sizeof(buf), "THR %.0f%%  BRK %.0f%%",
                       m_telem->m_throttle * 100.f, m_telem->m_brake * 100.f);
         m_text.draw(dl, x + 12, y + 140, buf, TextRenderer::hudLabel());
@@ -138,7 +180,7 @@ private:
         dl.addRect({x, y, panelW, panelH}, Color::rgb(90, 140, 255), 2.f);
 
         m_text.draw(dl, x + 24, y + 24, "KS Simulator", TextRenderer::menuTitle());
-        m_text.draw(dl, x + 24, y + 70, "Esc close   Enter select",
+        m_text.draw(dl, x + 24, y + 70, "Click item or keyboard",
                     TextRenderer::menuItem());
 
         const char* items[] = {
@@ -146,10 +188,25 @@ private:
             "Multiplayer", "Settings", "Quit"
         };
         float iy = y + 120.f;
-        for (const char* it : items) {
-            dl.addRectFilled({x + 20, iy - 4, panelW - 40, 28},
-                             Color::rgba(0.12f, 0.14f, 0.18f, 1.f));
-            m_text.draw(dl, x + 32, iy + 4, it, TextRenderer::menuItem());
+        for (int i = 0; i < 6; ++i) {
+            Rect rr{x + 20, iy - 4, panelW - 40, 28};
+            bool hover = m_input.isHovering(rr);
+            if (m_input.state().leftReleased() && rr.contains(m_input.state().x, m_input.state().y)) {
+                m_menuIndex = i;
+                // Map simple actions
+                if (i == 0) m_menu->setVisible(false);
+                else if (i == 3) { m_menu->setVisible(false); m_mp->setVisible(true); }
+                else if (i == 4) { m_menu->setVisible(false); m_devices->setVisible(true); }
+                else if (i == 5) { /* quit callback left to app */ }
+            }
+            Color bg = (i == m_menuIndex)
+                ? Color::rgba(0.15f, 0.22f, 0.35f, 1.f)
+                : (hover ? Color::rgba(0.12f, 0.16f, 0.22f, 1.f)
+                         : Color::rgba(0.12f, 0.14f, 0.18f, 1.f));
+            dl.addRectFilled(rr, bg);
+            if (hover)
+                dl.addRect(rr, Color::rgb(120, 170, 255), 1.f);
+            m_text.draw(dl, x + 32, iy + 4, items[i], TextRenderer::menuItem());
             iy += 36.f;
         }
 
@@ -158,6 +215,10 @@ private:
 
     UiRenderer m_renderer;
     TextRenderer m_text;
+    UiInput m_input;
+    int m_viewW = 1280, m_viewH = 720;
+    int m_menuIndex = 0;
+
     std::unique_ptr<GameMenuOverlay> m_menu;
     std::unique_ptr<DashboardOverlay> m_dash;
     std::unique_ptr<TelemetryOverlay> m_telem;
