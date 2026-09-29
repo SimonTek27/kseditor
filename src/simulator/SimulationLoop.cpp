@@ -1,11 +1,12 @@
 /**
  * SimulationLoop.cpp — std-only / Qt-free
  * HAS_VEHICLE_SIM=1 → VehicleSimulator; HAS_FFB=1 → FFBBridge
- * NativeUiHub builds overlay draw list each frame
+ * NativeUiHub + NativeRenderer::drawUi GPU path
  */
 
 #include "SimulationLoop.h"
 #include "InputManager.h"
+#include "ui/UiGpuPass.h"
 
 #include <cstdio>
 #include <cmath>
@@ -82,6 +83,14 @@ bool SimulationLoop::initialize()
             std::fprintf(stderr, "SimulationLoop: no FFB wheel (software torque only)\n");
     }
 #endif
+    // Pre-create UI GPU pass with font atlas
+    {
+        auto pass = std::make_shared<ui::UiGpuPass>();
+        pass->initialize(m_ui.renderer().font());
+        m_uiGpu = pass;
+        if (m_vulkanRenderer)
+            m_vulkanRenderer->setUiGpuPass(pass);
+    }
     return true;
 }
 
@@ -212,13 +221,11 @@ bool SimulationLoop::handleUiKey(int virtualKey)
 void SimulationLoop::applyInput()
 {
     if (!m_input) return;
-    // Block driving axes while modal UI is open
     if (m_ui.blocksDrivingInput()) {
 #if HAS_VEHICLE_SIM
         if (m_vehicle) {
             m_vehicle->setThrottle(0);
             m_vehicle->setBrake(0);
-            // keep last steer or zero — zero is safer in menu
             m_vehicle->setSteering(0);
         }
 #endif
@@ -242,6 +249,8 @@ void SimulationLoop::updateWeather()
 void SimulationLoop::ensureScenePipeline()
 {
     if (m_pipelineInitialized || !m_vulkanRenderer) return;
+    if (m_uiGpu)
+        m_vulkanRenderer->setUiGpuPass(m_uiGpu);
     m_pipelineInitialized = true;
 }
 
@@ -251,27 +260,10 @@ void SimulationLoop::syncUiFromVehicle()
     if (!m_vehicle) return;
     const auto st = m_vehicle->getState();
     m_ui.telemetry().update(
-        st.speed,
-        st.rpm,
-        st.throttle,
-        st.brake,
-        st.steering,
-        0.f, // lat G filled when chassis exposes it
-        0.f);
+        st.speed, st.rpm, st.throttle, st.brake, st.steering, 0.f, 0.f);
     m_ui.dashboard().update(
-        st.speed,
-        st.rpm,
-        st.gear,
-        st.throttle,
-        st.brake,
-        m_currentLap,
-        0.f,
-        0.f,
-        0.f,
-        1,
-        1);
-#else
-    (void)0;
+        st.speed, st.rpm, st.gear, st.throttle, st.brake,
+        m_currentLap, 0.f, 0.f, 0.f, 1, 1);
 #endif
 }
 
@@ -280,7 +272,19 @@ void SimulationLoop::render()
     ensureScenePipeline();
     syncUiFromVehicle();
     m_ui.renderFrame(m_viewW, m_viewH);
-    // Platform uploads m_ui.renderer().vertices()/indices() + font atlas
+
+    if (m_vulkanRenderer) {
+        m_vulkanRenderer->beginFrame();
+        for (const auto& r : m_renderables) {
+            // Scene meshes registered earlier via uploadMesh
+            (void)r;
+        }
+        m_vulkanRenderer->drawUi(m_ui.renderer());
+        m_vulkanRenderer->endFrame();
+    } else if (m_uiGpu) {
+        m_uiGpu->uploadFrame(m_ui.renderer());
+        m_uiGpu->draw();
+    }
 }
 
 void SimulationLoop::broadcastLocalCarState() {}

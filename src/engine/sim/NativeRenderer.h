@@ -1,13 +1,21 @@
 #pragma once
 /**
  * NativeRenderer — Qt-free Vulkan render surface for the simulator.
- * Holds swapchain-sized frame state; full Vk object creation is platform-side.
+ * Scene meshes + UI overlay GPU pass (font atlas + dynamic VB/IB).
  */
 #include <cstdint>
 #include <string>
 #include <vector>
 #include <functional>
 #include <cmath>
+#include <memory>
+
+// Forward — full type in simulator/ui when linked
+namespace ks { namespace sim { namespace ui {
+class UiRenderer;
+class UiGpuPass;
+class FontAtlas;
+}}}
 
 namespace ks {
 namespace sim {
@@ -41,6 +49,7 @@ public:
 
     void shutdown() {
         m_meshes.clear();
+        m_uiPass.reset();
         m_ok = false;
     }
 
@@ -64,19 +73,18 @@ public:
         h.indexCount = indexCount;
         MeshGPU m;
         m.handle = h;
-        if (positions && vertexCount) {
+        if (positions && vertexCount)
             m.positions.assign(positions, positions + vertexCount * 3);
-        }
-        if (indices && indexCount) {
+        if (indices && indexCount)
             m.indices.assign(indices, indices + indexCount);
-        }
         m_meshes.push_back(std::move(m));
         return h;
     }
 
     void clearMeshes() { m_meshes.clear(); }
 
-    void beginFrame() { m_drawCalls = 0; }
+    void beginFrame() { m_drawCalls = 0; m_uiDraws = 0; }
+
     void drawMesh(NativeMeshHandle h, const float /*model*/[16] = nullptr) {
         for (const auto& m : m_meshes) {
             if (m.handle.id == h.id) {
@@ -85,14 +93,30 @@ public:
             }
         }
     }
+
+    /**
+     * Attach UI GPU pass (owns atlas + dynamic buffers).
+     * Call once after UiRenderer has a FontAtlas.
+     */
+    void setUiGpuPass(std::shared_ptr<ui::UiGpuPass> pass) {
+        m_uiPass = std::move(pass);
+    }
+    ui::UiGpuPass* uiGpuPass() { return m_uiPass.get(); }
+
+    /**
+     * Upload + draw UI overlay from a finished UiRenderer frame.
+     * Call after 3D draws, before endFrame().
+     */
+    void drawUi(const ui::UiRenderer& ui);
+
     void endFrame() {
-        if (onFramePresented) onFramePresented(m_drawCalls);
+        if (onFramePresented) onFramePresented(m_drawCalls + m_uiDraws);
     }
 
     uint32_t lastDrawCalls() const { return m_drawCalls; }
+    uint32_t lastUiDraws() const { return m_uiDraws; }
     size_t meshCount() const { return m_meshes.size(); }
 
-    /** Optional: raw Vk device pointers set by platform bootstrap. */
     void setVulkanHandles(void* instance, void* device, void* queue) {
         m_vkInstance = instance;
         m_vkDevice = device;
@@ -117,7 +141,9 @@ private:
     NativeCamera m_camera;
     uint32_t m_nextMeshId = 0;
     uint32_t m_drawCalls = 0;
+    uint32_t m_uiDraws = 0;
     std::vector<MeshGPU> m_meshes;
+    std::shared_ptr<ui::UiGpuPass> m_uiPass;
     void* m_vkInstance = nullptr;
     void* m_vkDevice = nullptr;
     void* m_vkQueue = nullptr;

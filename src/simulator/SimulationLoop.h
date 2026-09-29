@@ -1,9 +1,7 @@
 #pragma once
 
 /**
- * SimulationLoop — fixed-timestep sim + session + optional Vulkan mesh list.
- * Std-only: no Qt types. Renderer: ks::sim::NativeRenderer.
- * UI: NativeUiHub (menu / dash / devices / multiplayer overlays).
+ * SimulationLoop — fixed-timestep sim + NativeUiHub + GPU UI pass.
  */
 
 #include "engine/physics/PhysicsCoreTypes.h"
@@ -37,6 +35,10 @@ namespace ks::sim {
 class NativeRenderer;
 class MultiCarManager;
 class NetworkManager;
+
+namespace ui {
+class UiGpuPass;
+}
 
 namespace net {
 struct InputData;
@@ -109,7 +111,6 @@ public:
     bool isRunning() const { return m_running; }
     void tick();
 
-    /** Forward OS key to native UI (returns true if UI consumed it). */
     bool handleUiKey(int virtualKey);
 
     InputManager* inputManager() { return m_input.get(); }
@@ -117,15 +118,19 @@ public:
     SimulatorAudio* audio() { return m_audio.get(); }
     SetupGarage* setupGarage() { return m_setupGarage.get(); }
     ui::NativeUiHub& ui() { return m_ui; }
+    ui::UiGpuPass* uiGpu() { return m_uiGpu.get(); }
     const SimTrackData& trackData() const { return m_trackData; }
     ks::physics::VehicleSimulator* vehicle() { return m_vehicle.get(); }
     MultiCarManager* multiCarManager() { return m_multiCar.get(); }
     NetworkManager* networkManager() { return m_network.get(); }
 
     bool isVulkanMode() const { return m_vulkanMode; }
-    void setVulkanRenderer(NativeRenderer* r) { m_vulkanRenderer = r; }
-    void setNativeRenderer(NativeRenderer* r) { m_vulkanRenderer = r; }
-    void setRenderer(NativeRenderer* r) { m_vulkanRenderer = r; }
+    void setVulkanRenderer(NativeRenderer* r) {
+        m_vulkanRenderer = r;
+        if (r && m_uiGpu) r->setUiGpuPass(m_uiGpu);
+    }
+    void setNativeRenderer(NativeRenderer* r) { setVulkanRenderer(r); }
+    void setRenderer(NativeRenderer* r) { setVulkanRenderer(r); }
     NativeRenderer* vulkanRenderer() { return m_vulkanRenderer; }
     NativeRenderer* renderer() { return m_vulkanRenderer; }
 
@@ -133,6 +138,7 @@ public:
         m_viewW = w > 0 ? w : m_viewW;
         m_viewH = h > 0 ? h : m_viewH;
         m_ui.resize(m_viewW, m_viewH);
+        if (m_vulkanRenderer) m_vulkanRenderer->resize(m_viewW, m_viewH);
     }
 
     void setTimeOfDay(float hours) { m_timeOfDay = hours; }
@@ -171,6 +177,7 @@ private:
     std::unique_ptr<SetupGarage> m_setupGarage;
 
     ui::NativeUiHub m_ui;
+    std::shared_ptr<ui::UiGpuPass> m_uiGpu;
     int m_viewW = 1280;
     int m_viewH = 720;
 
