@@ -1,7 +1,7 @@
 /**
- * SimulationLoop.cpp — std-only
+ * SimulationLoop.cpp — std-only / Qt-free
  * HAS_VEHICLE_SIM=1 → VehicleSimulator; HAS_FFB=1 → FFBBridge
- * InputManager → vehicle axes every physics step
+ * NativeUiHub builds overlay draw list each frame
  */
 
 #include "SimulationLoop.h"
@@ -53,6 +53,9 @@ SimulationLoop::SimulationLoop()
 #if HAS_VEHICLE_SIM
     m_vehicle = std::make_unique<ks::physics::VehicleSimulator>();
 #endif
+    m_ui.resize(m_viewW, m_viewH);
+    m_ui.dashboard().setVisible(true);
+    m_ui.menu().setVisible(false);
 }
 
 SimulationLoop::~SimulationLoop()
@@ -95,6 +98,7 @@ bool SimulationLoop::loadTrack(const std::string& kn5Path)
     }
     m_trackData.valid = true;
     m_trackLoaded = true;
+    m_ui.menu().setTrackName(m_trackData.name);
     return true;
 }
 
@@ -118,6 +122,7 @@ bool SimulationLoop::loadTrackFolder(const std::string& trackDirectory)
     if (!kn5.empty()) return loadTrack(kn5);
     m_trackData.valid = true;
     m_trackLoaded = true;
+    m_ui.menu().setTrackName(m_trackData.name);
     return true;
 }
 
@@ -150,6 +155,7 @@ bool SimulationLoop::loadCar(const std::string& carDir)
     (void)carDir;
 #endif
     m_carLoaded = true;
+    m_ui.menu().setCarName(fs::path(carDir).filename().string());
     return true;
 }
 
@@ -172,6 +178,7 @@ void SimulationLoop::start()
     m_timeRemaining = 5.0;
     m_currentLap = 0;
     m_totalLaps = 5;
+    m_ui.menu().setVisible(false);
     if (onSimulationStarted) onSimulationStarted();
 }
 
@@ -197,9 +204,26 @@ void SimulationLoop::reset()
     m_timeRemaining = 5.0;
 }
 
+bool SimulationLoop::handleUiKey(int virtualKey)
+{
+    return m_ui.handleKey(virtualKey);
+}
+
 void SimulationLoop::applyInput()
 {
     if (!m_input) return;
+    // Block driving axes while modal UI is open
+    if (m_ui.blocksDrivingInput()) {
+#if HAS_VEHICLE_SIM
+        if (m_vehicle) {
+            m_vehicle->setThrottle(0);
+            m_vehicle->setBrake(0);
+            // keep last steer or zero — zero is safer in menu
+            m_vehicle->setSteering(0);
+        }
+#endif
+        return;
+    }
     m_input->update();
 #if HAS_VEHICLE_SIM
     if (!m_vehicle) return;
@@ -221,9 +245,42 @@ void SimulationLoop::ensureScenePipeline()
     m_pipelineInitialized = true;
 }
 
+void SimulationLoop::syncUiFromVehicle()
+{
+#if HAS_VEHICLE_SIM
+    if (!m_vehicle) return;
+    const auto st = m_vehicle->getState();
+    m_ui.telemetry().update(
+        st.speed,
+        st.rpm,
+        st.throttle,
+        st.brake,
+        st.steering,
+        0.f, // lat G filled when chassis exposes it
+        0.f);
+    m_ui.dashboard().update(
+        st.speed,
+        st.rpm,
+        st.gear,
+        st.throttle,
+        st.brake,
+        m_currentLap,
+        0.f,
+        0.f,
+        0.f,
+        1,
+        1);
+#else
+    (void)0;
+#endif
+}
+
 void SimulationLoop::render()
 {
     ensureScenePipeline();
+    syncUiFromVehicle();
+    m_ui.renderFrame(m_viewW, m_viewH);
+    // Platform uploads m_ui.renderer().vertices()/indices() + font atlas
 }
 
 void SimulationLoop::broadcastLocalCarState() {}
@@ -252,7 +309,7 @@ void SimulationLoop::tick()
     }
 
 #if HAS_FFB
-    if (m_ffbEnabled && m_vehicle) {
+    if (m_ffbEnabled && m_vehicle && !m_ui.blocksDrivingInput()) {
         const auto& samp = m_vehicle->ffbSample();
         ks::device::FFBInputs in;
         in.slipAngleFL = samp.slipAngleFL;

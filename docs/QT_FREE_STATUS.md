@@ -1,20 +1,20 @@
-# KSEngine Qt-free
+# KSEngine / ksimulator Qt-free
 
 **Updated:** 2026-09-29
 
-## Status
-`src/engine` link-set scan: **no real Qt includes** (only historical false-positive comments cleaned).
+## Engine
+- `Engine.h` + `EngineModule.h` — fixed tick, `update(dt)`, no Qt
+- `KsQtFreeGuard.h` — hard fail if Qt headers leak in
+- CMake AUTOMOC/UIC/RCC off, no Qt link
 
-## Hardening
-- `KsQtFreeGuard.h` — `#error` if `QT_VERSION` appears under `KSENGINE_QT_FREE`
-- `Engine.h` includes the guard
-- CMake: `AUTOMOC/AUTOUIC/AUTORCC OFF`, no Qt link, excludes `.ui`/`.qrc`/editor monoliths
+## Simulator
+- `SimulationLoop` wires **NativeUiHub** each frame
+- HUD from vehicle state; modal UI blocks driving input + FFB
+- `handleUiKey(vk)` → menu / F1 devices / F2 multiplayer
+- Font atlas + UiRenderer batch ready for GPU upload
 
 ## Build
 ```bash
-cmake -DKSENGINE_QT_FREE=ON ..
-cmake --build . --target ksengine
+cmake -DKSENGINE_QT_FREE=ON -DKSIMULATOR_QT_FREE=ON ..
+cmake --build . --target ksengine ksimulator
 ```
-
-## Not in ksengine (by design)
-Editor (`MainWindow`, `src/sdk`), 3dprint/scanners, Blueprint UI, AC adapters.

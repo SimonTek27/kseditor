@@ -2,12 +2,13 @@
 
 /**
  * SimulationLoop — fixed-timestep sim + session + optional Vulkan mesh list.
- * Std-only: std::string / std::vector / Mat4f / Vec3f (no Qt types).
- * Renderer: ks::sim::NativeRenderer (Qt-free), not Graphics/VulkanRenderer.
+ * Std-only: no Qt types. Renderer: ks::sim::NativeRenderer.
+ * UI: NativeUiHub (menu / dash / devices / multiplayer overlays).
  */
 
 #include "engine/physics/PhysicsCoreTypes.h"
 #include "engine/physics/TrackSurface.h"
+#include "ui/NativeUiHub.h"
 
 #include <memory>
 #include <chrono>
@@ -21,9 +22,7 @@
 class InputManager;
 class CameraController;
 class SimulatorAudio;
-class DashboardOverlay;
 class SetupGarage;
-class TelemetryOverlay;
 
 namespace ks::physics {
 class VehicleSimulator;
@@ -110,12 +109,14 @@ public:
     bool isRunning() const { return m_running; }
     void tick();
 
+    /** Forward OS key to native UI (returns true if UI consumed it). */
+    bool handleUiKey(int virtualKey);
+
     InputManager* inputManager() { return m_input.get(); }
     CameraController* camera() { return m_camera.get(); }
     SimulatorAudio* audio() { return m_audio.get(); }
-    DashboardOverlay* dashboard() { return m_dashboard.get(); }
     SetupGarage* setupGarage() { return m_setupGarage.get(); }
-    TelemetryOverlay* telemetry() { return m_telemetry.get(); }
+    ui::NativeUiHub& ui() { return m_ui; }
     const SimTrackData& trackData() const { return m_trackData; }
     ks::physics::VehicleSimulator* vehicle() { return m_vehicle.get(); }
     MultiCarManager* multiCarManager() { return m_multiCar.get(); }
@@ -127,6 +128,12 @@ public:
     void setRenderer(NativeRenderer* r) { m_vulkanRenderer = r; }
     NativeRenderer* vulkanRenderer() { return m_vulkanRenderer; }
     NativeRenderer* renderer() { return m_vulkanRenderer; }
+
+    void setViewportSize(int w, int h) {
+        m_viewW = w > 0 ? w : m_viewW;
+        m_viewH = h > 0 ? h : m_viewH;
+        m_ui.resize(m_viewW, m_viewH);
+    }
 
     void setTimeOfDay(float hours) { m_timeOfDay = hours; }
     float timeOfDay() const { return m_timeOfDay; }
@@ -150,6 +157,7 @@ private:
     void broadcastLocalCarState();
     void handleRemoteCarState(uint32_t carId, const net::CarStateData& state);
     void ensureScenePipeline();
+    void syncUiFromVehicle();
     static std::string readFileText(const std::string& path);
 
     bool m_vulkanMode = true;
@@ -160,9 +168,11 @@ private:
     std::unique_ptr<MultiCarManager> m_multiCar;
     std::unique_ptr<NetworkManager> m_network;
     std::unique_ptr<SimulatorAudio> m_audio;
-    std::unique_ptr<DashboardOverlay> m_dashboard;
     std::unique_ptr<SetupGarage> m_setupGarage;
-    std::unique_ptr<TelemetryOverlay> m_telemetry;
+
+    ui::NativeUiHub m_ui;
+    int m_viewW = 1280;
+    int m_viewH = 720;
 
     SimTrackData m_trackData;
     std::chrono::steady_clock::time_point m_lastTime{};
