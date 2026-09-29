@@ -1,57 +1,116 @@
 #pragma once
-
+/**
+ * Garage / car setup screen — cinematic racing layout for ksim.
+ * Qt-free; draws via ui::DrawList from NativeUiHub.
+ */
 #include <string>
+#include <vector>
+#include <functional>
+#include <algorithm>
+#include <cmath>
 
-namespace ks::sim {
+namespace ks {
+namespace sim {
+
+namespace ui {
+class DrawList;
+class TextRenderer;
+class UiInput;
+}
+
+enum class GarageTab : int {
+    Overview = 0,
+    Tyres,
+    Suspension,
+    Aero,
+    Brakes,
+    Gears,
+    Count
+};
+
+struct SetupData {
+    float tirePressureFL = 2.20f;
+    float tirePressureFR = 2.20f;
+    float tirePressureRL = 2.00f;
+    float tirePressureRR = 2.00f;
+    float brakeBias = 0.56f;       // 0..1 front fraction
+    float rideHeightFront = 30.f;  // mm
+    float rideHeightRear = 35.f;
+    float springRateFront = 150.f; // N/mm proxy
+    float springRateRear = 180.f;
+    float frontWingAngle = 10.f;   // deg
+    float rearWingAngle = 12.f;
+    float diffPreload = 30.f;      // Nm proxy
+    float fuel = 50.f;             // L
+    float ballast = 0.f;           // kg
+    int tcLevel = 0;
+    int absLevel = 0;
+};
+
+struct GarageRow {
+    std::string label;
+    std::string unit;
+    std::string hint;
+    float* value = nullptr;
+    float minV = 0.f;
+    float maxV = 1.f;
+    float step = 0.05f;
+    bool isInt = false;
+    int* intValue = nullptr;
+    int intMin = 0;
+    int intMax = 10;
+};
 
 class SetupGarage {
 public:
     SetupGarage();
-    ~SetupGarage();
+    ~SetupGarage() = default;
 
     void update(float dt);
-    // Stubbed - no QPainter in pure Win32/Vulkan path
-    void render(int width, int height);
+    void render(int width, int height); // timers only; draw via build()
+
+    /** Emit cinematic garage into DrawList. */
+    void build(ui::DrawList& dl, ui::TextRenderer& text, int width, int height,
+               ui::UiInput* input = nullptr);
 
     bool handleKeyPress(int key);
     bool handleKeyRelease(int key);
 
-    void setVisible(bool v) { m_visible = v; }
+    void setVisible(bool v);
     bool isVisible() const { return m_visible; }
-    void toggleVisible() { m_visible = !m_visible; }
-    void setOpacity(float o) { m_opacity = o; }
+    void toggleVisible() { setVisible(!m_visible); }
+    float fadeAlpha() const { return m_fadeIn; }
 
-    struct SetupData {
-        float tirePressureFL = 2.2f;
-        float tirePressureFR = 2.2f;
-        float tirePressureRL = 2.0f;
-        float tirePressureRR = 2.0f;
-        float brakeBias = 0.56f;
-        float rideHeightFront = 30.0f;
-        float rideHeightRear = 35.0f;
-        float springRateFront = 150.0f;
-        float springRateRear = 180.0f;
-        float frontWingAngle = 10.0f;
-        float rearWingAngle = 12.0f;
-        float diffPreload = 30.0f;
-    };
+    void setCarName(const std::string& n) { m_carName = n; }
+    void setTrackName(const std::string& n) { m_trackName = n; }
 
     const SetupData& currentSetup() const { return m_setup; }
-    void setSetup(const SetupData& s) { m_setup = s; }
+    SetupData& setup() { return m_setup; }
+    void setSetup(const SetupData& s) { m_setup = s; rebuildRows(); }
+
+    GarageTab tab() const { return m_tab; }
+    int selectedRow() const { return m_selectedRow; }
+
+    std::function<void()> onClosed;
+    std::function<void(const SetupData&)> onSetupChanged;
 
 private:
+    void rebuildRows();
+    void adjustSelected(float dir);
+    void nextTab(int delta);
+    static const char* tabName(GarageTab t);
+
     bool m_visible = false;
-    float m_opacity = 0.85f;
+    float m_fadeIn = 0.f;
+    float m_slide = 0.f;
 
+    GarageTab m_tab = GarageTab::Overview;
     int m_selectedRow = 0;
-    int m_rowCount = 10;
-
-    float m_fadeIn = 0.0f;
-    float m_slideOffset = 0.0f;
-
     SetupData m_setup;
+    std::vector<GarageRow> m_rows;
 
-    bool m_shiftHeld = false;
+    std::string m_carName;
+    std::string m_trackName;
 };
 
 } // namespace ks::sim
