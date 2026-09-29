@@ -39,6 +39,7 @@ struct PhysVec3 {
     PhysVec3 operator*(float s) const { return {x * s, y * s, z * s}; }
     PhysVec3& operator+=(const PhysVec3& o) { x += o.x; y += o.y; z += o.z; return *this; }
     PhysVec3& operator-=(const PhysVec3& o) { x -= o.x; y -= o.y; z -= o.z; return *this; }
+    PhysVec3& operator*=(float s) { x *= s; y *= s; z *= s; return *this; }
 };
 
 inline PhysVec3 operator*(float s, const PhysVec3& v) { return v * s; }
@@ -119,6 +120,7 @@ struct SimulationState {
     PhysVec3 acceleration;
     PhysVec3 angularVelocity;
     PhysVec3 rotation;
+    float mass = 1200.0f;
     float heading = 0.0f;
     float speed = 0.0f;
     float rpm = 0.0f;

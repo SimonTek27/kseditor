@@ -5,6 +5,8 @@
 
 namespace ks::device {
 
+using PacejkaTireModel = physics::PacejkaTireModel;
+
 float FFBBridge::computeSteeringTorque(const FFBInputs& in,
     const PacejkaTireModel* tireFL, const PacejkaTireModel* tireFR) {
     auto mzFor = [](const PacejkaTireModel* tire, float slip, float load, float camber) -> float {

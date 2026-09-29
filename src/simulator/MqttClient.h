@@ -5,6 +5,8 @@
 #include <functional>
 #include <mutex>
 
+#include "UdpTelemetryListener.h"
+
 namespace ks::sim {
 
 // ============================================================================

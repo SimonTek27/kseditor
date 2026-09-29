@@ -46,10 +46,10 @@ void TelemetryOverlay::update(float speed, float rpm, float throttle, float brak
     if ((int)m_longitudinalGHistory.size() > HISTORY_SIZE) m_longitudinalGHistory.erase(m_longitudinalGHistory.begin());
 
     float loadFactor = std::abs(lateralG) * 0.5f + throttle * 0.3f;
-    m_tireTempFL = std::clamp(80.0f + loadFactor * 30.0f, 40.0f, 120.0f);
-    m_tireTempFR = std::clamp(82.0f + loadFactor * 30.0f, 40.0f, 120.0f);
-    m_tireTempRL = std::clamp(75.0f + loadFactor * 20.0f, 40.0f, 120.0f);
-    m_tireTempRR = std::clamp(77.0f + loadFactor * 20.0f, 40.0f, 120.0f);
+    m_tyreTemperatureFL = std::clamp(80.0f + loadFactor * 30.0f, 40.0f, 120.0f);
+    m_tyreTemperatureFR = std::clamp(82.0f + loadFactor * 30.0f, 40.0f, 120.0f);
+    m_tyreTemperatureRL = std::clamp(75.0f + loadFactor * 20.0f, 40.0f, 120.0f);
+    m_tyreTemperatureRR = std::clamp(77.0f + loadFactor * 20.0f, 40.0f, 120.0f);
 }
 
 void TelemetryOverlay::updateFromAcTelemetry(const AcTelemetryData& acData)

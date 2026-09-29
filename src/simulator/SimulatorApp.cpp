@@ -6,10 +6,14 @@
 #include "simulator/SimulationLoop.h"
 #include "simulator/CameraController.h"
 #include "simulator/DashboardOverlay.h"
+#include "simulator/TelemetryOverlay.h"
 #include "simulator/GameMenuOverlay.h"
+#include "simulator/InputManager.h"
+#include "simulator/SetupGarage.h"
 #include "simulator/NetworkManager.h"
 #include "simulator/ShadowSystem.h"
 #include "simulator/NativeRenderer.h"
+#include "engine/physics/VehicleSimulator.h"
 #include "devices/DeviceManager.h"
 #include <cstdio>
 #include <memory>
@@ -221,7 +225,7 @@ static void initWindow() {
     wc.style = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc = WndProc;
     wc.hInstance = g_hInstance;
-    wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.lpszClassName = WINDOW_CLASS;
     RegisterClassExW(&wc);
 
@@ -252,9 +256,6 @@ static void initVulkanAndSimulation() {
         if (!g_nativeRenderer->loadPipelines(SHADER_DIR))
             printf("[INIT] Pipeline load FAILED (missing %s shaders?)\n", SHADER_DIR);
 
-        int loadedMeshes = g_nativeRenderer->loadMeshesFromManifest("content/baked");
-        printf("[INIT] Loaded %d baked mesh(es)\n", loadedMeshes);
-
         if (g_shadowMap.initialize(g_nativeRenderer->physicalDevice(), g_nativeRenderer->device(),
                                    g_nativeRenderer->commandPool(), g_nativeRenderer->graphicsQueue(),
                                    SHADER_DIR)) {
@@ -273,6 +274,10 @@ static void initVulkanAndSimulation() {
     g_simulation = std::make_unique<ks::sim::SimulationLoop>();
     g_simulation->setVulkanRenderer(g_nativeRenderer);
     g_simulation->initialize();
+
+    const int bakedMeshes = g_simulation->loadBakedScene("content/baked");
+    printf("[INIT] Loaded %d baked mesh(es) into %zu scene entit%s\n", bakedMeshes,
+           g_simulation->scene().alive(), g_simulation->scene().alive() == 1 ? "y" : "ies");
 
     g_menu = std::make_unique<ks::sim::GameMenuOverlay>();
     g_menu->onExitRequested = []() {

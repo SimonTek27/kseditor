@@ -1,6 +1,10 @@
 #pragma once
 #include "KsQtFreeGuard.h"
 #include "EngineModule.h"
+#include "scene/Registry.h"
+#include "scene/Components.h"
+#include "scene/SceneModule.h"
+#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -24,21 +28,9 @@ public:
         return s;
     }
 
-    bool initialize() {
-        std::unique_lock lock(m_mutex);
-        if (m_initialized) return true;
-        m_initialized = true;
-        m_running = false;
-        m_accum = 0.0;
-        return true;
-    }
+    bool initialize();
 
-    void shutdown() {
-        std::unique_lock lock(m_mutex);
-        m_running = false;
-        m_modules.clear();
-        m_initialized = false;
-    }
+    void shutdown();
 
     bool isInitialized() const { return m_initialized; }
     bool isRunning() const { return m_running; }
@@ -74,11 +66,18 @@ public:
                 std::shared_lock lock(m_mutex);
                 snapshot.reserve(m_modules.size());
                 for (auto& kv : m_modules)
-                    snapshot.push_back(kv.second);
+                    if (kv.second) snapshot.push_back(kv.second);
             }
-            for (auto& m : snapshot) {
-                if (m) m->update(m_fixedDt);
-            }
+            // m_modules is a hash map, so iteration order is not a contract.
+            // Sort by priority so module ordering is well defined; stable, so
+            // modules sharing a priority keep their registration order.
+            std::stable_sort(snapshot.begin(), snapshot.end(),
+                             [](const std::shared_ptr<EngineModule>& a,
+                                const std::shared_ptr<EngineModule>& b) {
+                                 return a->priority() < b->priority();
+                             });
+            for (auto& m : snapshot)
+                m->update(m_fixedDt);
             m_accum -= m_fixedDt;
             ++m_tickCount;
             if (onStepCompleted) onStepCompleted(m_fixedDt);
@@ -88,6 +87,13 @@ public:
     }
 
     uint64_t tickCount() const { return m_tickCount; }
+
+    ecs::Registry& registry() { return m_registry; }
+    const ecs::Registry& registry() const { return m_registry; }
+
+    ecs::Entity createEntity(const std::string& name = std::string());
+
+    void destroyEntity(ecs::Entity e);
 
     std::function<void(double dt)> onStepCompleted;
 
@@ -102,6 +108,7 @@ private:
     double m_fixedDt = 1.0 / 120.0;
     double m_accum = 0.0;
     uint64_t m_tickCount = 0;
+    ecs::Registry m_registry;
 };
 
 } // namespace ks

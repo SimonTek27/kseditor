@@ -5,6 +5,8 @@
 #include <mutex>
 #include <atomic>
 #include <cstdint>
+#include <functional>
+#include <thread>
 
 namespace ks::sim {
 
@@ -36,6 +38,8 @@ struct AcTelemetryData {
     float localSpeedX = 0.f;
     float localSpeedY = 0.f;
     float localSpeedZ = 0.f;
+    float lateralG = 0.f;
+    float longitudinalG = 0.f;
     float angularVelocityX = 0.f;
     float angularVelocityY = 0.f;
     float angularVelocityZ = 0.f;

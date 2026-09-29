@@ -6,6 +6,10 @@
 
 namespace ks::sim {
 
+namespace {
+constexpr float kPi = 3.14159265358979323846f;
+}
+
 struct WavFile {
     std::vector<float> samples;
     int sampleRate = 0;
@@ -905,7 +909,7 @@ void SimulatorAudio::renderSpatialization(float* output, int frames, int channel
         float pan = direction * 0.5f; // -0.5 to 0.5 pan
 
         // Equal-power panning
-        float angle = (pan + 1.0f) * M_PI * 0.25f;
+        float angle = (pan + 1.0f) * kPi * 0.25f;
         float gainL = std::cos(angle);
         float gainR = std::sin(angle);
 

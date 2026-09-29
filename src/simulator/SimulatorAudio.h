@@ -48,7 +48,7 @@ public:
         Count
     };
 
-    enum class CameraMode { Cockpit, Chase, Free, TV };
+    enum class CameraMode { Cockpit, Chase, Free, TV, Replay };
 
     enum class SurfaceType { Asphalt, Grass, Gravel, Kerb, Wet, Ice, Count };
 

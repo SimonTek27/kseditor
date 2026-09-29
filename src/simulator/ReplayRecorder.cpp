@@ -47,8 +47,8 @@ void ReplayRecorder::recordFrame(const ks::physics::SimulationState& state,
     ReplayFrame frame;
     auto now = std::chrono::steady_clock::now();
     frame.time = std::chrono::duration<float>(now - m_recordStart).count();
-    frame.position = vec3(state.position.x(), state.position.y(), state.position.z());
-    frame.rotation = vec3(state.rotation.x(), state.rotation.y(), state.rotation.z());
+    frame.position = vec3(state.position.x, state.position.y, state.position.z);
+    frame.rotation = vec3(state.rotation.x, state.rotation.y, state.rotation.z);
     frame.speed = state.speed;
     frame.rpm = state.rpm;
     frame.gear = state.gear;

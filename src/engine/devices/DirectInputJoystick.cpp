@@ -1,6 +1,7 @@
 #include "DirectInputJoystick.h"
 #include <cstdio>
 #include <cstring>
+#include <cstddef>
 #include <algorithm>
 #include <cmath>
 
@@ -118,9 +119,12 @@ bool DirectInputJoystick::createDevice() {
     range.diph.dwHow = DIPH_BYOFFSET;
     range.lMin = -1000;
     range.lMax = 1000;
-    for (DWORD off : {DIJOFS_X, DIJOFS_Y, DIJOFS_Z, DIJOFS_RX, DIJOFS_RY, DIJOFS_RZ,
-                      DIJOFS_SLIDER(0), DIJOFS_SLIDER(1)}) {
-        range.diph.dwObj = off;
+    const size_t kRangeOffsets[] = {
+        DIJOFS_X, DIJOFS_Y, DIJOFS_Z, DIJOFS_RX, DIJOFS_RY, DIJOFS_RZ,
+        DIJOFS_SLIDER(0), DIJOFS_SLIDER(1)
+    };
+    for (size_t off : kRangeOffsets) {
+        range.diph.dwObj = static_cast<ULONG>(off);
         dev->SetProperty(DIPROP_RANGE, &range.diph);
     }
 

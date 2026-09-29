@@ -5,7 +5,7 @@
 #include <vector>
 #include <functional>
 #include <algorithm>
-#include "engine/FileFormat/AiSpline.h"
+#include "engine/AI/AiFileReader.h"
 
 namespace ks::sim {
 

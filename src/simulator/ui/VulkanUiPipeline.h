@@ -206,13 +206,13 @@ public:
         ii.sampler = m_sampler;
         ii.imageView = m_atlasView;
         ii.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        VkWriteDescriptorSet w{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-        w.dstSet = m_descSet;
-        w.dstBinding = 0;
-        w.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        w.descriptorCount = 1;
-        w.pImageInfo = &ii;
-        vkUpdateDescriptorSets(m_dev, 1, &w, 0, nullptr);
+        VkWriteDescriptorSet wd{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+        wd.dstSet = m_descSet;
+        wd.dstBinding = 0;
+        wd.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        wd.descriptorCount = 1;
+        wd.pImageInfo = &ii;
+        vkUpdateDescriptorSets(m_dev, 1, &wd, 0, nullptr);
         return true;
     }
 

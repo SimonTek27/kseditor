@@ -67,7 +67,7 @@ void MultiCarManager::update(float dt)
 
         if (!car->isPlayer && car->ai && car->ai->isReady()) {
             auto state = car->vehicle->getState();
-            car->ai->update(vec3(state.position.x(), state.position.y(), state.position.z()), 0, state.speed, state.gear, dt);
+            car->ai->update(vec3(state.position.x, state.position.y, state.position.z), 0, state.speed, state.gear, dt);
             car->vehicle->setThrottle(car->ai->throttle());
             car->vehicle->setBrake(car->ai->brake());
             car->vehicle->setSteering(car->ai->steering());
@@ -79,9 +79,9 @@ void MultiCarManager::update(float dt)
         // Build transform matrix from simulation state
         car->transform = mat4();
         // Translate
-        car->transform(0,3) = state.position.x();
-        car->transform(1,3) = state.position.y();
-        car->transform(2,3) = state.position.z();
+        car->transform(0,3) = state.position.x;
+        car->transform(1,3) = state.position.y;
+        car->transform(2,3) = state.position.z;
     }
 
     if (m_collisionEnabled) {
@@ -137,9 +137,9 @@ void MultiCarManager::checkCollisions()
             auto stateA = m_cars[i]->vehicle->getState();
             auto stateB = m_cars[j]->vehicle->getState();
 
-            float dx = stateA.position.x() - stateB.position.x();
-            float dy = stateA.position.y() - stateB.position.y();
-            float dz = stateA.position.z() - stateB.position.z();
+            float dx = stateA.position.x - stateB.position.x;
+            float dy = stateA.position.y - stateB.position.y;
+            float dz = stateA.position.z - stateB.position.z;
             float dist = std::sqrt(dx * dx + dy * dy + dz * dz);
 
             if (dist < 2.0f && dist > 0.01f) {

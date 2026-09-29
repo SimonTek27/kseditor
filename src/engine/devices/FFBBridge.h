@@ -1,6 +1,10 @@
 #pragma once
 
+namespace ks {
+namespace physics {
 class PacejkaTireModel;
+} // namespace physics
+} // namespace ks
 
 namespace ks::device {
 
@@ -15,7 +19,8 @@ struct FFBInputs {
 class FFBBridge {
 public:
     static float computeSteeringTorque(const FFBInputs& in,
-        const PacejkaTireModel* tireFL, const PacejkaTireModel* tireFR);
+        const physics::PacejkaTireModel* tireFL,
+        const physics::PacejkaTireModel* tireFR);
     static float normalize(float torqueNm);
 };
 

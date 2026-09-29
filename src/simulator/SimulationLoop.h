@@ -6,7 +6,10 @@
 
 #include "engine/physics/PhysicsCoreTypes.h"
 #include "engine/physics/TrackSurface.h"
+#include "engine/scene/Registry.h"
 #include "ui/NativeUiHub.h"
+#include "CameraController.h"
+#include "NativeRenderer.h"
 
 #include <memory>
 #include <chrono>
@@ -16,11 +19,6 @@
 #include <vector>
 #include <array>
 #include <cmath>
-
-class InputManager;
-class CameraController;
-class SimulatorAudio;
-class SetupGarage;
 
 namespace ks::physics {
 class VehicleSimulator;
@@ -32,6 +30,10 @@ class FFBBase;
 
 namespace ks::sim {
 
+class InputManager;
+class CameraController;
+class SimulatorAudio;
+class SetupGarage;
 class NativeRenderer;
 class MultiCarManager;
 class NetworkManager;
@@ -80,13 +82,6 @@ struct Mat4f {
     void translate(float tx, float ty, float tz) { *this = *this * translation(tx, ty, tz); }
 };
 
-struct RenderableMesh {
-    std::string meshName;
-    Mat4f transform = Mat4f::identity();
-    int indexCount = 0;
-    int firstIndex = 0;
-};
-
 struct SimTrackData {
     std::string name;
     std::string kn5Path;
@@ -104,6 +99,8 @@ public:
     bool loadTrackFolder(const std::string& trackDirectory);
     bool loadCar(const std::string& carDir);
     bool loadCarAudio(const std::string& carDirectory);
+    int loadBakedScene(const std::string& manifestDir);
+    ks::ecs::Registry& scene();
 
     void start();
     void stop();
@@ -123,6 +120,11 @@ public:
     ks::physics::VehicleSimulator* vehicle() { return m_vehicle.get(); }
     MultiCarManager* multiCarManager() { return m_multiCar.get(); }
     NetworkManager* networkManager() { return m_network.get(); }
+    DashboardOverlay* dashboard() { return &m_ui.dashboard(); }
+    TelemetryOverlay* telemetry() { return &m_ui.telemetry(); }
+    void setCameraMode(CameraController::Mode m) {
+        if (m_camera) m_camera->setMode(m);
+    }
 
     bool isVulkanMode() const { return m_vulkanMode; }
     void setVulkanRenderer(NativeRenderer* r) {
@@ -148,7 +150,6 @@ public:
 
     void setFfbEnabled(bool e) { m_ffbEnabled = e; }
     bool ffbEnabled() const { return m_ffbEnabled; }
-    const std::vector<RenderableMesh>& renderables() const { return m_renderables; }
 
     void applyRemoteInput(int clientIndex, const net::InputData& input);
 
@@ -160,6 +161,7 @@ private:
     void applyInput();
     void render();
     void updateWeather();
+    void syncCarTransforms();
     void broadcastLocalCarState();
     void handleRemoteCarState(uint32_t carId, const net::CarStateData& state);
     void ensureScenePipeline();
@@ -201,7 +203,7 @@ private:
     int m_totalLaps = 0;
     double m_timeRemaining = 0.0;
 
-    std::vector<RenderableMesh> m_renderables;
+    std::string m_spawnedSceneDir;
     bool m_pipelineInitialized = false;
     uint32_t m_streamlineFrameIndex = 0;
 };

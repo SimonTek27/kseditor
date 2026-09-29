@@ -95,6 +95,19 @@ struct mat4 {
         return r;
     }
 
+    static mat4 ortho(float left, float right, float bottom, float top,
+                      float zNear, float zFar) {
+        mat4 r;
+        r(0,0) = 2.0f / (right - left);
+        r(1,1) = 2.0f / (top - bottom);
+        r(2,2) = -2.0f / (zFar - zNear);
+        r(0,3) = -(right + left) / (right - left);
+        r(1,3) = -(top + bottom) / (top - bottom);
+        r(2,3) = -(zFar + zNear) / (zFar - zNear);
+        r(3,3) = 1.0f;
+        return r;
+    }
+
     mat4 operator*(const mat4& o) const {
         mat4 r;
         memset(r.m, 0, sizeof(r.m));
@@ -123,6 +136,47 @@ struct mat4 {
     }
 
     const float* data() const { return m; }
+
+    /** General 4x4 inverse via cofactor expansion (adjugate / determinant). */
+    mat4 inverse() const {
+        float src[4][4];
+        for (int r = 0; r < 4; ++r)
+            for (int c = 0; c < 4; ++c)
+                src[r][c] = (*this)(r, c);
+
+        auto det3 = [](const float* m) {
+            return m[0] * (m[4] * m[8] - m[5] * m[7])
+                 - m[1] * (m[3] * m[8] - m[5] * m[6])
+                 + m[2] * (m[3] * m[7] - m[4] * m[6]);
+        };
+
+        float cof[4][4];
+        for (int r = 0; r < 4; ++r) {
+            for (int c = 0; c < 4; ++c) {
+                float m3[9];
+                int n = 0;
+                for (int i = 0; i < 4; ++i) {
+                    if (i == r) continue;
+                    for (int j = 0; j < 4; ++j) {
+                        if (j == c) continue;
+                        m3[n++] = src[i][j];
+                    }
+                }
+                cof[r][c] = ((r + c) % 2) ? -det3(m3) : det3(m3);
+            }
+        }
+
+        float det = 0.0f;
+        for (int c = 0; c < 4; ++c) det += src[0][c] * cof[0][c];
+        if (det == 0.0f) return mat4();
+
+        const float invDet = 1.0f / det;
+        mat4 out;
+        for (int r = 0; r < 4; ++r)
+            for (int c = 0; c < 4; ++c)
+                out(r, c) = cof[c][r] * invDet;   // adjugate = cofactor transpose
+        return out;
+    }
 };
 
 } // namespace ks::sim

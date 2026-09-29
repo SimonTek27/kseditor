@@ -10,6 +10,7 @@
 #include <cstring>
 #include <algorithm>
 #include <cstdio>
+#include <functional>
 
 namespace ks {
 namespace sim {

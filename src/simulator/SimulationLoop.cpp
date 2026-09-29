@@ -6,7 +6,18 @@
 
 #include "SimulationLoop.h"
 #include "InputManager.h"
+#include "MultiCarManager.h"
+#include "NetworkManager.h"
+#include "SetupGarage.h"
+#include "SimulatorAudio.h"
 #include "ui/UiGpuPass.h"
+
+#include "engine/Engine.h"
+#include "engine/scene/Components.h"
+#include "engine/scene/SceneModule.h"
+#include "engine/Graphics/RenderSystem.h"
+#include "engine/devices/InputSystem.h"
+#include "engine/Scripting/ScriptModule.h"
 
 #include <cstdio>
 #include <cmath>
@@ -41,6 +52,21 @@ static constexpr uint8_t PHASE_COUNTDOWN = 1;
 static constexpr uint8_t PHASE_GREEN_FLAG = 2;
 static constexpr uint8_t PHASE_CHECKERED_FLAG = 4;
 
+namespace {
+
+std::shared_ptr<ks::EngineModule> borrowModule(ks::EngineModule& m) {
+    return std::shared_ptr<ks::EngineModule>(&m, [](ks::EngineModule*) {});
+}
+
+ks::sim::mat4 toNativeMat4(const ks::math::mat4& m) {
+    static_assert(sizeof(m.m) == sizeof(float) * 16, "ks::math::mat4 layout");
+    ks::sim::mat4 r;
+    std::memcpy(r.m, m.m, sizeof(m.m));
+    return r;
+}
+
+} // namespace
+
 std::string SimulationLoop::readFileText(const std::string& path) {
     std::ifstream in(path, std::ios::binary);
     if (!in) return {};
@@ -62,6 +88,12 @@ SimulationLoop::SimulationLoop()
 SimulationLoop::~SimulationLoop()
 {
     stop();
+    ks::ecs::SceneModule::instance().clearSystems();
+    ks::ecs::SceneModule::instance().attach(nullptr);
+    ks::scripting::ScriptModule::instance().shutdown();
+    ks::engine::devices::InputSystem::instance().shutdown();
+    ks::engine::graphics::RenderSystem::instance().shutdown();
+    Engine::instance().shutdown();
 #if HAS_FFB
     if (m_ffb) {
         m_ffb->shutdown();
@@ -72,6 +104,26 @@ SimulationLoop::~SimulationLoop()
 
 bool SimulationLoop::initialize()
 {
+    auto& engine = Engine::instance();
+    engine.initialize();
+    engine.setFixedDt(1.0 / 120.0);
+    engine.registerModule("ks.input",
+                          borrowModule(ks::engine::devices::InputSystem::instance()));
+    engine.registerModule("ks.render",
+                          borrowModule(ks::engine::graphics::RenderSystem::instance()));
+    auto& scene = ks::ecs::SceneModule::instance();
+    scene.attach(&engine.registry());
+    scene.addSystem("syncCarTransforms",
+                    [this](ks::ecs::Registry&, double) { syncCarTransforms(); });
+    engine.registerModule("ks.scene", borrowModule(scene));
+    ks::engine::devices::InputSystem::instance().initialize();
+    ks::engine::graphics::RenderSystem::instance().initialize();
+    auto& script = ks::scripting::ScriptModule::instance();
+    engine.registerModule("ks.script", borrowModule(script));
+    if (!script.initialize())
+        std::fprintf(stderr, "SimulationLoop: scripting unavailable: %s\n",
+                     ks::scripting::ScriptHost::instance().lastError().c_str());
+
     if (m_input)
         m_input->initialize();
 #if HAS_FFB
@@ -96,7 +148,6 @@ bool SimulationLoop::initialize()
 
 bool SimulationLoop::loadTrack(const std::string& kn5Path)
 {
-    m_renderables.clear();
     m_trackData = SimTrackData{};
     m_trackData.kn5Path = kn5Path;
     m_trackData.name = std::filesystem::path(kn5Path).stem().string();
@@ -178,6 +229,7 @@ void SimulationLoop::start()
 {
     if (m_running) return;
     m_running = true;
+    Engine::instance().start();
 #if HAS_VEHICLE_SIM
     if (m_vehicle) m_vehicle->startSimulation();
 #endif
@@ -193,6 +245,7 @@ void SimulationLoop::start()
 
 void SimulationLoop::stop()
 {
+    Engine::instance().stop();
     if (!m_running) return;
     m_running = false;
 #if HAS_VEHICLE_SIM
@@ -221,7 +274,17 @@ bool SimulationLoop::handleUiKey(int virtualKey)
 void SimulationLoop::applyInput()
 {
     if (!m_input) return;
-    if (m_ui.blocksDrivingInput()) {
+    const bool blocked = m_ui.blocksDrivingInput();
+    if (!blocked)
+        m_input->update();
+
+    ks::engine::devices::InputState input;
+    input.throttle = m_input->throttle();
+    input.brake = m_input->brake();
+    input.steering = m_input->steer();
+    ks::engine::devices::InputSystem::instance().setState(input);
+
+    if (blocked) {
 #if HAS_VEHICLE_SIM
         if (m_vehicle) {
             m_vehicle->setThrottle(0);
@@ -231,7 +294,6 @@ void SimulationLoop::applyInput()
 #endif
         return;
     }
-    m_input->update();
 #if HAS_VEHICLE_SIM
     if (!m_vehicle) return;
     m_vehicle->setThrottle(m_input->throttle());
@@ -242,8 +304,23 @@ void SimulationLoop::applyInput()
 
 void SimulationLoop::updateWeather()
 {
-    (void)m_weather;
-    (void)m_timeOfDay;
+    auto& rs = ks::engine::graphics::RenderSystem::instance();
+
+    const float phase = (m_timeOfDay - 12.0f) / 12.0f * 3.14159265f;
+    const float c = std::cos(phase);
+    const float s = std::sin(phase);
+    const ks::engine::graphics::Vec3 sunDir{0.3f * c - 0.2f * s, -0.8f,
+                                            0.2f * c + 0.3f * s};
+    rs.setSun(sunDir, {1.0f, 0.95f, 0.9f});
+    rs.setFog(m_weather.cloudCover > 0.35f, {0.6f, 0.7f, 0.85f},
+              0.0001f + m_weather.cloudCover * 0.002f);
+    rs.setRain(m_weather.rainIntensity, m_weather.trackWetness);
+
+    if (m_vulkanRenderer) {
+        DirectionalLight light;
+        light.direction = {sunDir.x, sunDir.y, sunDir.z};
+        m_vulkanRenderer->setSun(light);
+    }
 }
 
 void SimulationLoop::ensureScenePipeline()
@@ -271,20 +348,68 @@ void SimulationLoop::render()
 {
     ensureScenePipeline();
     syncUiFromVehicle();
+
+    auto& renderSys = ks::engine::graphics::RenderSystem::instance();
+    renderSys.beginFrame();
+    renderSys.runPass(ks::engine::graphics::RenderPass::Shadow);
+    renderSys.runPass(ks::engine::graphics::RenderPass::Geometry);
+    renderSys.runPass(ks::engine::graphics::RenderPass::Post);
+    renderSys.endFrame();
+
     m_ui.renderFrame(m_viewW, m_viewH);
 
     if (m_vulkanRenderer) {
         m_vulkanRenderer->beginFrame();
-        for (const auto& r : m_renderables) {
-            // Scene meshes registered earlier via uploadMesh
-            (void)r;
-        }
+        scene().each<ks::ecs::Transform, ks::ecs::MeshInstance>(
+            [this](ks::ecs::Entity, ks::ecs::Transform& t, ks::ecs::MeshInstance& mesh) {
+                m_vulkanRenderer->drawMesh(mesh.meshName, toNativeMat4(ks::ecs::worldMatrix(t)));
+            });
         m_vulkanRenderer->drawUi(m_ui.renderer());
         m_vulkanRenderer->endFrame();
     } else if (m_uiGpu) {
         m_uiGpu->uploadFrame(m_ui.renderer());
         m_uiGpu->draw();
     }
+}
+
+void SimulationLoop::syncCarTransforms()
+{
+#if HAS_VEHICLE_SIM
+    if (!m_vehicle) return;
+    const auto st = m_vehicle->getState();
+    const ks::math::vec3 pos{st.position.x, st.position.y, st.position.z};
+    scene().each<ks::ecs::Transform, ks::ecs::MeshInstance>(
+        [&](ks::ecs::Entity, ks::ecs::Transform& t, ks::ecs::MeshInstance& mesh) {
+            if (mesh.meshName.find("car_") != 0) return;
+            t.position = pos;
+        });
+#endif
+}
+
+ks::ecs::Registry& SimulationLoop::scene()
+{
+    return Engine::instance().registry();
+}
+
+int SimulationLoop::loadBakedScene(const std::string& manifestDir)
+{
+    if (!m_vulkanRenderer || manifestDir.empty() || manifestDir == m_spawnedSceneDir)
+        return 0;
+    if (m_vulkanRenderer->loadMeshesFromManifest(manifestDir) <= 0) return 0;
+
+    std::ifstream manifest(manifestDir + "/manifest.txt");
+    if (!manifest.is_open()) return 0;
+    std::string name;
+    while (std::getline(manifest, name)) {
+        if (name.empty()) continue;
+        const ks::ecs::Entity e = scene().create();
+        if (e == ks::ecs::kNullEntity) break;
+        scene().emplace<ks::ecs::Name>(e, ks::ecs::Name{name});
+        scene().emplace<ks::ecs::Transform>(e);
+        scene().emplace<ks::ecs::MeshInstance>(e, ks::ecs::MeshInstance{name});
+    }
+    m_spawnedSceneDir = manifestDir;
+    return static_cast<int>(scene().alive());
 }
 
 void SimulationLoop::broadcastLocalCarState() {}
@@ -311,6 +436,8 @@ void SimulationLoop::tick()
 #endif
         m_simAccumulator -= m_physicsDt;
     }
+
+    Engine::instance().tick(elapsed);
 
 #if HAS_FFB
     if (m_ffbEnabled && m_vehicle && !m_ui.blocksDrivingInput()) {
@@ -359,11 +486,6 @@ void SimulationLoop::tick()
             }
         }
         lastZ = z;
-        Mat4f carBody = Mat4f::translation(st.position.x, st.position.y, st.position.z);
-        for (auto& r : m_renderables) {
-            if (r.meshName.find("car_") == 0)
-                r.transform = carBody;
-        }
     }
 #endif
 

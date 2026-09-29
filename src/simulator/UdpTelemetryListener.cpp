@@ -90,7 +90,7 @@ bool UdpTelemetryListener::start(uint16_t port) {
     fcntl(m_socketfd, F_SETFL, flags | O_NONBLOCK);
 #else
     u_long mode = 1; // Non-blocking mode
-    ioctlsocket(m_socketfd, FIONBBLK, &mode);
+    ioctlsocket(m_socketfd, FIONBIO, &mode);
 #endif
 
     m_receiveThread = std::thread(&UdpTelemetryListener::receiveThread, this);

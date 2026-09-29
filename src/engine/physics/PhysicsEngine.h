@@ -278,7 +278,7 @@ class PhysicsWorld {
 public:
     enum class BroadphaseType { Simple, SAP, DBVT };
     PhysicsWorld() = default;
-    ~PhysicsWorld() = default;
+    ~PhysicsWorld();
     PhysicsWorld(const PhysicsWorld&) = delete;
     PhysicsWorld& operator=(const PhysicsWorld&) = delete;
 

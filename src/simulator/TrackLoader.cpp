@@ -1,5 +1,5 @@
 #include "TrackLoader.h"
-#include "engine/FileFormat/AiSpline.h"
+#include "engine/AI/AiFileReader.h"
 #include <filesystem>
 #include <fstream>
 #include <cstdio>
@@ -74,8 +74,9 @@ std::string TrackLoader::trackNameFromDirectory(const std::string& trackDirector
 
 bool TrackLoader::loadAiSpline(TrackData& track, const std::string& splinePath)
 {
-    track.aiSpline = ks::ai::AiFileReader::readSpline(splinePath);
-    if (!track.aiSpline.isValid()) {
+    track.aiSpline = std::make_shared<ks::ai::AiSpline>(
+        ks::ai::AiFileReader::readSpline(splinePath));
+    if (!track.aiSpline || !track.aiSpline->isValid()) {
         m_lastError = "Failed to parse AI spline: " + splinePath;
         std::fprintf(stderr, "TrackLoader: %s\n", m_lastError.c_str());
         return false;

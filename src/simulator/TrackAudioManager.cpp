@@ -1,5 +1,7 @@
 #include "TrackAudioManager.h"
 #include "Audio/AudioTypes.h"
+#include <cctype>
+#include <cstdio>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
