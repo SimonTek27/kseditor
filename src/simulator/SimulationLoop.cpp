@@ -1,7 +1,6 @@
 /**
  * SimulationLoop.cpp — std-only / Qt-free
- * HAS_VEHICLE_SIM=1 → VehicleSimulator; HAS_FFB=1 → FFBBridge
- * NativeUiHub + NativeRenderer::drawUi GPU path
+ * Fixed 1 kHz physics + LapSectorTimer + shared-memory publish + TrackSurface
  */
 
 #include "SimulationLoop.h"
@@ -18,6 +17,9 @@
 #include "engine/Graphics/RenderSystem.h"
 #include "engine/devices/InputSystem.h"
 #include "engine/Scripting/ScriptModule.h"
+
+#include "adapters/assetto_corsa/AcSharedMemoryPublisher.h"
+#include "adapters/assetto_corsa/AcSurfacesLoader.h"
 
 #include <cstdio>
 #include <cmath>
@@ -80,6 +82,7 @@ SimulationLoop::SimulationLoop()
 #if HAS_VEHICLE_SIM
     m_vehicle = std::make_unique<ks::physics::VehicleSimulator>();
 #endif
+    m_lapTimer.configure(3);
     m_ui.resize(m_viewW, m_viewH);
     m_ui.dashboard().setVisible(true);
     m_ui.menu().setVisible(false);
@@ -88,6 +91,7 @@ SimulationLoop::SimulationLoop()
 SimulationLoop::~SimulationLoop()
 {
     stop();
+    if (m_shm) m_shm->close();
     ks::ecs::SceneModule::instance().clearSystems();
     ks::ecs::SceneModule::instance().attach(nullptr);
     ks::scripting::ScriptModule::instance().shutdown();
@@ -135,13 +139,20 @@ bool SimulationLoop::initialize()
             std::fprintf(stderr, "SimulationLoop: no FFB wheel (software torque only)\n");
     }
 #endif
-    // Pre-create UI GPU pass with font atlas
     {
         auto pass = std::make_shared<ui::UiGpuPass>();
         pass->initialize(m_ui.renderer().font());
         m_uiGpu = pass;
         if (m_vulkanRenderer)
             m_vulkanRenderer->setUiGpuPass(pass);
+    }
+
+    if (m_shmEnabled) {
+        m_shm = std::make_unique<ks::ac::AcSharedMemoryPublisher>();
+        if (m_shm->open())
+            std::fprintf(stderr, "SimulationLoop: shared-memory publisher open\n");
+        else
+            std::fprintf(stderr, "SimulationLoop: shared-memory open failed (soft mode ok)\n");
     }
     return true;
 }
@@ -159,6 +170,7 @@ bool SimulationLoop::loadTrack(const std::string& kn5Path)
     m_trackData.valid = true;
     m_trackLoaded = true;
     m_ui.menu().setTrackName(m_trackData.name);
+    m_lapTimer.configure(3);
     return true;
 }
 
@@ -168,6 +180,21 @@ bool SimulationLoop::loadTrackFolder(const std::string& trackDirectory)
     if (!fs::is_directory(trackDirectory)) return false;
     m_trackData.directory = trackDirectory;
     m_trackData.name = fs::path(trackDirectory).filename().string();
+
+    // surfaces.ini → TrackSurface grip
+    {
+        fs::path surf = fs::path(trackDirectory) / "data" / "surfaces.ini";
+        if (!fs::exists(surf))
+            surf = fs::path(trackDirectory) / "surfaces.ini";
+        if (fs::exists(surf)) {
+            ks::ac::AcSurfacesLoader loader;
+            if (loader.load(surf.string()))
+                std::fprintf(stderr, "SimulationLoop: surfaces loaded from %s\n", surf.string().c_str());
+        }
+        ks::physics::TrackSurface::instance().syncFromWeather(
+            m_weather.trackWetness, m_weather.trackTemp);
+    }
+
     std::string kn5;
     for (auto& e : fs::directory_iterator(trackDirectory)) {
         if (e.path().extension() == ".kn5") { kn5 = e.path().string(); break; }
@@ -183,6 +210,7 @@ bool SimulationLoop::loadTrackFolder(const std::string& trackDirectory)
     m_trackData.valid = true;
     m_trackLoaded = true;
     m_ui.menu().setTrackName(m_trackData.name);
+    m_lapTimer.configure(3);
     return true;
 }
 
@@ -190,6 +218,7 @@ bool SimulationLoop::loadCar(const std::string& carDir)
 {
     namespace fs = std::filesystem;
     if (!fs::is_directory(carDir)) return false;
+    m_carName = fs::path(carDir).filename().string();
 #if HAS_VEHICLE_SIM
     if (m_vehicle) {
         m_vehicle->setMass(1200);
@@ -215,7 +244,8 @@ bool SimulationLoop::loadCar(const std::string& carDir)
     (void)carDir;
 #endif
     m_carLoaded = true;
-    m_ui.menu().setCarName(fs::path(carDir).filename().string());
+    m_ui.menu().setCarName(m_carName);
+    if (m_shm) m_shm->invalidateStatic();
     return true;
 }
 
@@ -239,6 +269,10 @@ void SimulationLoop::start()
     m_timeRemaining = 5.0;
     m_currentLap = 0;
     m_totalLaps = 5;
+    m_lapDistance = 0.f;
+    m_normalizedSpline = 0.f;
+    m_lapTimer.reset();
+    m_lapTimer.start();
     m_ui.menu().setVisible(false);
     if (onSimulationStarted) onSimulationStarted();
 }
@@ -248,6 +282,7 @@ void SimulationLoop::stop()
     Engine::instance().stop();
     if (!m_running) return;
     m_running = false;
+    m_lapTimer.stop();
 #if HAS_VEHICLE_SIM
     if (m_vehicle) m_vehicle->stopSimulation();
 #endif
@@ -264,6 +299,10 @@ void SimulationLoop::reset()
     m_currentLap = 0;
     m_sessionPhase = PHASE_COUNTDOWN;
     m_timeRemaining = 5.0;
+    m_lapDistance = 0.f;
+    m_normalizedSpline = 0.f;
+    m_lapTimer.reset();
+    if (m_running) m_lapTimer.start();
 }
 
 bool SimulationLoop::handleUiKey(int virtualKey)
@@ -302,6 +341,97 @@ void SimulationLoop::applyInput()
 #endif
 }
 
+void SimulationLoop::updateLapAndSurface(double dt)
+{
+#if HAS_VEHICLE_SIM
+    if (!m_vehicle) return;
+    const auto st = m_vehicle->getState();
+    const float speed = std::max(0.f, static_cast<float>(st.speed));
+    m_lapDistance += speed * static_cast<float>(dt);
+    const float len = std::max(100.f, m_trackData.splineLength);
+    m_normalizedSpline = std::fmod(m_lapDistance, len) / len;
+    if (m_normalizedSpline < 0.f) m_normalizedSpline += 1.f;
+
+    const int lapsBefore = m_lapTimer.completedLaps();
+    m_lapTimer.update(dt, m_normalizedSpline);
+    if (m_lapTimer.completedLaps() > lapsBefore) {
+        m_currentLap = m_lapTimer.completedLaps();
+        if (onSessionStateChanged)
+            onSessionStateChanged(m_sessionType, m_sessionPhase, m_currentLap, m_totalLaps, m_timeRemaining);
+    }
+
+    // Surface sample at car (rubber deposit when sliding)
+    ks::physics::PhysVec3 p{st.position.x, st.position.y, st.position.z};
+    auto surf = ks::physics::TrackSurface::instance().sample(p);
+    (void)surf;
+    if (speed > 5.f && st.throttle > 0.8f)
+        ks::physics::TrackSurface::instance().depositRubber(p, 0.0002f * static_cast<float>(dt), 1.5f);
+#endif
+}
+
+void SimulationLoop::publishSharedMemory()
+{
+    if (!m_shm || !m_shmEnabled) return;
+#if HAS_VEHICLE_SIM
+    if (!m_vehicle) return;
+    const auto st = m_vehicle->getState();
+    const auto& ffb = m_vehicle->ffbSample();
+
+    ks::ac::AcLiveInput live;
+    live.throttle = static_cast<float>(st.throttle);
+    live.brake = static_cast<float>(st.brake);
+    live.steer = static_cast<float>(st.steering);
+    live.speedMs = static_cast<float>(st.speed);
+    live.rpm = static_cast<float>(m_vehicle->rpm());
+    live.gear = m_vehicle->currentGear();
+    live.fuel = static_cast<float>(st.fuel);
+    live.velocity[0] = st.velocity.x;
+    live.velocity[1] = st.velocity.y;
+    live.velocity[2] = st.velocity.z;
+    live.accG[0] = st.acceleration.x / 9.81f;
+    live.accG[1] = st.acceleration.y / 9.81f;
+    live.accG[2] = st.acceleration.z / 9.81f;
+    live.localAngularVel[0] = st.angularVelocity.x;
+    live.localAngularVel[1] = st.angularVelocity.y;
+    live.localAngularVel[2] = st.angularVelocity.z;
+    live.heading = st.heading;
+    live.wheelSlip[0] = ffb.slipAngleFL;
+    live.wheelSlip[1] = ffb.slipAngleFR;
+    live.wheelLoad[0] = ffb.loadFL;
+    live.wheelLoad[1] = ffb.loadFR;
+    live.finalFF = ffb.aligningMomentNm;
+    for (int i = 0; i < 4; ++i) {
+        live.tyreTemp[i] = static_cast<float>(st.tyreTemp[i]);
+        live.tyreWear[i] = static_cast<float>(st.tyreWear[i]);
+    }
+    live.carX = st.position.x;
+    live.carY = st.position.y;
+    live.carZ = st.position.z;
+    live.normalizedSpline = m_normalizedSpline;
+    live.surfaceGrip = ks::physics::TrackSurface::instance().getGrip(
+        {st.position.x, st.position.y, st.position.z});
+    live.airTemp = m_weather.ambientTemp;
+    live.roadTemp = m_weather.trackTemp;
+    live.completedLaps = m_lapTimer.completedLaps();
+    live.position = 1;
+    live.currentSector = m_lapTimer.sectorIndex();
+    live.iCurrentTimeMs = m_lapTimer.currentTimeMs();
+    live.iLastTimeMs = m_lapTimer.lastTimeMs();
+    live.iBestTimeMs = m_lapTimer.bestTimeMs();
+    live.sessionType = static_cast<int>(m_sessionType);
+    live.status = m_running ? 2 : 0;
+    live.inPit = st.inPitLane;
+    live.carModel = m_carName;
+    live.trackName = m_trackData.name;
+    live.maxRpm = 8500;
+    live.totalLaps = m_totalLaps;
+    live.sectorCount = m_lapTimer.sectorCount();
+    live.sessionTimeLeft = static_cast<float>(m_timeRemaining);
+
+    m_shm->publish(live);
+#endif
+}
+
 void SimulationLoop::updateWeather()
 {
     auto& rs = ks::engine::graphics::RenderSystem::instance();
@@ -315,6 +445,9 @@ void SimulationLoop::updateWeather()
     rs.setFog(m_weather.cloudCover > 0.35f, {0.6f, 0.7f, 0.85f},
               0.0001f + m_weather.cloudCover * 0.002f);
     rs.setRain(m_weather.rainIntensity, m_weather.trackWetness);
+
+    ks::physics::TrackSurface::instance().syncFromWeather(
+        m_weather.trackWetness, m_weather.trackTemp);
 
     if (m_vulkanRenderer) {
         DirectionalLight light;
@@ -337,10 +470,13 @@ void SimulationLoop::syncUiFromVehicle()
     if (!m_vehicle) return;
     const auto st = m_vehicle->getState();
     m_ui.telemetry().update(
-        st.speed, st.rpm, st.throttle, st.brake, st.steering, 0.f, 0.f);
+        st.speed, m_vehicle->rpm(), st.throttle, st.brake, st.steering, 0.f, 0.f);
     m_ui.dashboard().update(
-        st.speed, st.rpm, st.gear, st.throttle, st.brake,
-        m_currentLap, 0.f, 0.f, 0.f, 1, 1);
+        st.speed, m_vehicle->rpm(), m_vehicle->currentGear(), st.throttle, st.brake,
+        m_lapTimer.completedLaps(),
+        m_lapTimer.currentTimeMs() * 0.001f,
+        m_lapTimer.bestTimeMs() * 0.001f,
+        0.f, 1, 1);
 #endif
 }
 
@@ -419,6 +555,7 @@ void SimulationLoop::applyRemoteInput(int, const net::InputData&) {}
 void SimulationLoop::tick()
 {
     if (!m_running) {
+        publishSharedMemory();
         render();
         return;
     }
@@ -434,6 +571,8 @@ void SimulationLoop::tick()
 #if HAS_VEHICLE_SIM
         if (m_vehicle) m_vehicle->updatePhysics(m_physicsDt);
 #endif
+        if (m_sessionPhase == PHASE_GREEN_FLAG)
+            updateLapAndSurface(m_physicsDt);
         m_simAccumulator -= m_physicsDt;
     }
 
@@ -459,12 +598,14 @@ void SimulationLoop::tick()
 #endif
 
     updateWeather();
+    publishSharedMemory();
 
     if (m_sessionPhase == PHASE_COUNTDOWN) {
         m_timeRemaining -= elapsed;
         if (m_timeRemaining <= 0.0) {
             m_sessionPhase = PHASE_GREEN_FLAG;
             m_timeRemaining = 0.0;
+            m_lapTimer.start();
         }
         if (onSessionStateChanged)
             onSessionStateChanged(m_sessionType, m_sessionPhase, m_currentLap, m_totalLaps, m_timeRemaining);
@@ -472,22 +613,6 @@ void SimulationLoop::tick()
         if (onSessionStateChanged)
             onSessionStateChanged(m_sessionType, m_sessionPhase, m_currentLap, m_totalLaps, m_timeRemaining);
     }
-
-#if HAS_VEHICLE_SIM
-    if (m_vehicle && m_sessionPhase == PHASE_GREEN_FLAG) {
-        auto st = m_vehicle->getState();
-        static double lastZ = 0.0;
-        double z = st.position.z;
-        if ((lastZ <= 0.0 && z > 0.0) || (lastZ > 0.0 && z <= 0.0)) {
-            if (m_currentLap < m_totalLaps) {
-                m_currentLap++;
-                if (onSessionStateChanged)
-                    onSessionStateChanged(m_sessionType, m_sessionPhase, m_currentLap, m_totalLaps, m_timeRemaining);
-            }
-        }
-        lastZ = z;
-    }
-#endif
 
     if (m_sessionPhase == PHASE_GREEN_FLAG && m_currentLap >= m_totalLaps && m_totalLaps > 0) {
         m_sessionPhase = PHASE_CHECKERED_FLAG;
