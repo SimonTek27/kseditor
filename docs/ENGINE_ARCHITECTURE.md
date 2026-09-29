@@ -1,61 +1,36 @@
-# Architecture: ksengine vs SimulatorApp
+# Architecture: ksengine vs SimulatorApp (ksim)
 
 ## Product tree
 
 ```
-SimulatorApp  ≈  AC + CSP (open source)
+SimulatorApp (ksim)     independent open-source racing simulator
        │
-       ├── ksengine          (motore generico)
-       ├── adapters/ac       (contenuti / SM / CSP)
-       └── network           (multiplayer / telemetry transport)
+       ├── ksengine          generic simulation runtime
+       ├── adapters/content  content format loaders (cars, tracks, surfaces, …)
+       └── network           multiplayer / telemetry transport
 ```
 
 | Branch | Role |
 |--------|------|
-| **SimulatorApp** | Product: open-source AC + CSP experience |
-| **ksengine** | Generic sim runtime (physics, FFB, Vulkan, tick, NativeUi core) |
-| **adapters/ac** | AC/CSP formats only (`src/adapters/assetto_corsa`) |
-| **network** | Multiplayer, UDP/TCP, session sync (`src/simulator` net + engine net services) |
-| **kseditor** | Qt authoring tool (separate target) |
+| **ksim / SimulatorApp** | Standalone product: sessions, HUD, garage, multiplayer, content UX |
+| **ksengine** | Generic physics, FFB, Vulkan, tick, NativeUi — no game branding |
+| **adapters/content** | File-format bridges (INI, meshes, banks, shared-memory layouts). *May* interoperate with third-party content trees that use the same on-disk layouts; the product does **not** depend on any commercial title’s name, license, or binaries |
+| **network** | MP, UDP/TCP, session sync |
+| **kseditor** | Qt authoring tool (separate) |
 
-```
-┌──────────────────────────────────────────────┐
-│           SimulatorApp (product)             │
-│     sessions · HUD · garage · content UX     │
-└───────┬──────────────┬──────────────┬────────┘
-        │              │              │
-        ▼              ▼              ▼
-   ksengine      adapters/ac      network
-   physics         SM / CSP        MP / UDP
-   FFB / Vulkan    surfaces.ini    session sync
-   NativeUi core   banks / GUID    car state
-```
+## Independence rule
 
-## Dependency rules
+- **ksim is its own product.** It does not present itself as a rebrand, fork, or official companion of any commercial simulator.
+- Compatibility is **technical only**: reading the same *file layouts* where useful for modders and tooling.
+- Source, docs, window titles, and public messaging avoid tying the product identity to a third-party trademark.
+- Core engine never hard-requires a specific commercial content install.
+
 ```
 SimulatorApp  →  ksengine
-SimulatorApp  →  adapters/assetto_corsa
-SimulatorApp  →  network (simulator + optional engine/network helpers)
+SimulatorApp  →  adapters/content   (optional format packs)
+SimulatorApp  →  network
 ksengine      ↛  adapters/*
-ksengine      ↛  SimulatorApp-only UI
-adapters/ac   ↛  network protocol ownership (app wires them)
 ```
 
-### ksengine (`src/engine/`)
-Generic only. Must not `#include` `adapters/*`.
-
-### adapters/ac (`src/adapters/assetto_corsa/`)
-Shared memory, surfaces.ini, CSP configs, AC banks/GUIDs. Linked by SimulatorApp.
-
-### network
-| Location | Use |
-|----------|-----|
-| `src/simulator/NetworkManager*` | App multiplayer orchestration |
-| `src/simulator/NetworkLowLevel*` | Sockets / packets |
-| `src/simulator/UdpTelemetryListener*` | AC-style telemetry ingest |
-| `src/engine/network/*` (if present) | Reusable transport primitives |
-
-Network is a **first-class peer** of the product stack: not buried only inside physics, and not an AC adapter concern.
-
 ## Qt-free
-`ksengine` + `ksimulator` (SimulatorApp): `KSENGINE_QT_FREE=1`.
+`ksengine` + `ksimulator`: build without Qt (`KSENGINE_QT_FREE=1`).

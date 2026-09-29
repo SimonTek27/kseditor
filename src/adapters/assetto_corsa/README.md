@@ -1,14 +1,17 @@
-# Assetto Corsa / CSP adapters
+# Content format adapters
 
-Used by **SimulatorApp** (open-source AC+CSP product).  
-**Not** linked into core `ksengine` as a hard dependency.
+Path kept for history; treat as **content-format pack** for ksim.
+
+These modules parse on-disk layouts (INI, banks, shared-memory page shapes,
+surface tables) used by many racing mods. They exist so **ksim** can interoperate
+with existing content and overlay tools.
+
+**ksim is an independent product.** Format compatibility is not product branding.
 
 | Component | Role |
 |-----------|------|
-| `AcSharedMemory*` | AC overlay shared memory |
-| `AcSurfacesLoader` | surfaces.ini → grip |
-| `CspConfigParser` | Custom Shaders Patch configs |
-| `ACGuidsParser` | GUID tables |
-| `FSPROImporter` / `Exporter` | Audio banks |
+| Shared-memory publisher | Overlay-compatible live pages |
+| Surfaces loader | Grip tables → TrackSurface |
+| Config / GUID / bank helpers | Optional content tooling |
 
-SimulatorApp owns the product UX; these modules speak AC/CSP file formats.
+Linked by **SimulatorApp** only. Never a hard dependency of `ksengine` core.

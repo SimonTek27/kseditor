@@ -1,26 +1,28 @@
-# SimulatorApp — open-source AC + CSP
+# SimulatorApp (ksim)
+
+Independent **open-source racing simulator** built on **ksengine**.
 
 ```
-SimulatorApp  ≈  AC + CSP (open source)
-       │
-       ├── ksengine          (motore generico)
-       ├── adapters/ac       (contenuti / SM / CSP)
-       └── network           (multiplayer / telemetry)
+ksim
+ ├── ksengine
+ ├── adapters/content   (format loaders)
+ └── network
 ```
 
-## Branches
-| Path | Responsibility |
-|------|----------------|
-| **ksengine** | Physics, devices/FFB, Vulkan, fixed tick, native UI primitives |
-| **adapters/ac** | AC folder formats, shared memory, CSP, surfaces.ini |
-| **network** | Multiplayer sessions, car-state sync, UDP telemetry |
+## Principles
+1. **Independent product** — own name, roadmap, and license surface.
+2. **Format interoperability** — can load content that uses common racing-sim on-disk layouts (cars, tracks, surfaces, telemetry pages) so existing mod workflows stay useful.
+3. **No brand coupling** — code and user-facing strings do not require or advertise a commercial third-party simulator as a dependency of identity.
+4. **Engine stays generic** — ksengine remains usable by any simulator app, not only ksim.
 
-## Product goals
-- Load AC cars/tracks
-- AC-compatible shared memory for overlays
-- CSP-oriented options via adapter (not in engine core)
-- Online / LAN multiplayer as a peer subsystem
-- Qt-free runtime binary (`ksimulator`)
+## Compatibility (technical)
+| Capability | Meaning |
+|------------|---------|
+| Content folders | Optional roots that mirror widely used car/track data layouts |
+| Shared-memory pages | Optional publisher so existing overlay tools can attach |
+| Surfaces / tyre / aero INI | Parsers under adapters/content |
+
+Interoperability ≠ product affiliation.
 
 ## Build
 ```bash
