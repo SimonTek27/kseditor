@@ -1,15 +1,13 @@
 #pragma once
 /**
- * Assetto Corsa–compatible shared memory layout (adapter only).
- * Lets third-party AC apps / overlays read ksengine live data.
- * Layout mirrors public AC physics/graphics/static pages (packed).
- *
- * Windows: Local\\acpmf_physics | Local\\acpmf_graphics | Local\\acpmf_static
- * Linux:   /dev/shm/acpmf_* (POSIX shm) when enabled.
+ * AC-compatible shared memory layout (adapter only).
+ * Windows: Local\\acpmf_physics | graphics | static
+ * Linux:   /acpmf_physics etc. via POSIX shm_open
  */
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <cstdio>
 
 namespace ks {
 namespace ac {
@@ -21,7 +19,7 @@ struct AcPhysicsPage {
     float gas = 0;
     float brake = 0;
     float fuel = 0;
-    int gear = 0;          // 0=R, 1=N, 2=1st...
+    int gear = 0; // 0=R, 1=N, 2=1st...
     int rpms = 0;
     float steerAngle = 0;
     float speedKmh = 0;
@@ -81,8 +79,8 @@ struct AcPhysicsPage {
 
 struct AcGraphicsPage {
     int packetId = 0;
-    int status = 0;       // 0 off 1 replay 2 live 3 pause
-    int session = 0;      // 0 practice 1 qualify 2 race 3 hotlap
+    int status = 0;
+    int session = 0;
     wchar_t currentTime[15] = {};
     wchar_t lastTime[15] = {};
     wchar_t bestTime[15] = {};
@@ -157,12 +155,11 @@ struct AcStaticPage {
 
 #pragma pack(pop)
 
-/** Snapshot filled from VehicleSimulator + session state (engine-agnostic). */
 struct AcLiveInput {
     float throttle = 0, brake = 0, clutch = 0, steer = 0;
     float speedMs = 0;
     float rpm = 0;
-    int gear = 1; // 1=1st
+    int gear = 1;
     float fuel = 50.f;
     float velocity[3] = {};
     float accG[3] = {};
@@ -171,34 +168,59 @@ struct AcLiveInput {
     float wheelSlip[4] = {};
     float wheelLoad[4] = {3500, 3500, 3500, 3500};
     float tyreTemp[4] = {80, 80, 80, 80};
-    float tyreWear[4] = {0, 0, 0, 0};
+    float tyreWear[4] = {};
+    float tyrePressure[4] = {2.2f, 2.2f, 2.0f, 2.0f};
     float brakeTemp[4] = {200, 200, 200, 200};
     float suspensionTravel[4] = {};
     float camber[4] = {};
     float finalFF = 0;
     float surfaceGrip = 1.f;
     float airTemp = 25.f, roadTemp = 30.f;
+    float airDensity = 1.225f;
     float carX = 0, carY = 0, carZ = 0;
     float normalizedSpline = 0;
+    float distanceTraveled = 0;
     int completedLaps = 0;
     int position = 1;
     int currentSector = 0;
     int iCurrentTimeMs = 0;
     int iLastTimeMs = 0;
     int iBestTimeMs = 0;
-    int sessionType = 2; // race
-    int status = 2;      // live
+    int lastSectorTimeMs = 0;
+    int sessionType = 2;
+    int status = 2;
     bool inPit = false;
+    bool pitLimiter = false;
     int flag = 0;
+    float brakeBias = 0.55f;
     std::string carModel;
     std::string trackName;
     std::string playerName;
+    std::string tyreCompound = "D";
     int maxRpm = 8500;
     float maxFuel = 100.f;
     int sectorCount = 3;
     int totalLaps = 0;
     float sessionTimeLeft = 0;
+    float trackSplineLength = 0;
 };
+
+inline void formatAcTime(wchar_t* dst, size_t n, int ms) {
+    if (!dst || n < 2) return;
+    if (ms <= 0) {
+        dst[0] = L'-'; dst[1] = L'-'; dst[2] = 0;
+        return;
+    }
+    const int m = ms / 60000;
+    const int s = (ms / 1000) % 60;
+    const int frac = ms % 1000;
+    char buf[16];
+    std::snprintf(buf, sizeof(buf), "%d:%02d.%03d", m, s, frac);
+    size_t i = 0;
+    for (; i + 1 < n && buf[i]; ++i)
+        dst[i] = static_cast<wchar_t>(static_cast<unsigned char>(buf[i]));
+    dst[i] = 0;
+}
 
 inline void fillPhysics(AcPhysicsPage& p, const AcLiveInput& in) {
     p.packetId++;
@@ -206,8 +228,13 @@ inline void fillPhysics(AcPhysicsPage& p, const AcLiveInput& in) {
     p.brake = in.brake;
     p.clutch = in.clutch;
     p.fuel = in.fuel;
-    p.gear = in.gear + 1; // AC: 0=R 1=N 2=1st → we map 1st→2
-    if (in.gear <= 0) p.gear = 0;
+    // AC gear: 0=R, 1=N, 2=1st...
+    if (in.gear < 0)
+        p.gear = 0;
+    else if (in.gear == 0)
+        p.gear = 1;
+    else
+        p.gear = in.gear + 1;
     p.rpms = static_cast<int>(in.rpm);
     p.steerAngle = in.steer;
     p.speedKmh = in.speedMs * 3.6f;
@@ -220,6 +247,7 @@ inline void fillPhysics(AcPhysicsPage& p, const AcLiveInput& in) {
     for (int i = 0; i < 4; ++i) {
         p.wheelSlip[i] = in.wheelSlip[i];
         p.wheelLoad[i] = in.wheelLoad[i];
+        p.wheelsPressure[i] = in.tyrePressure[i];
         p.tyreCoreTemperature[i] = in.tyreTemp[i];
         p.tyreTempI[i] = in.tyreTemp[i];
         p.tyreTempM[i] = in.tyreTemp[i];
@@ -235,6 +263,9 @@ inline void fillPhysics(AcPhysicsPage& p, const AcLiveInput& in) {
     p.finalFF = in.finalFF;
     p.airTemp = in.airTemp;
     p.roadTemp = in.roadTemp;
+    p.airDensity = in.airDensity;
+    p.pitLimiterOn = in.pitLimiter ? 1 : 0;
+    p.brakeBias = in.brakeBias;
 }
 
 inline void fillGraphics(AcGraphicsPage& g, const AcLiveInput& in) {
@@ -246,6 +277,7 @@ inline void fillGraphics(AcGraphicsPage& g, const AcLiveInput& in) {
     g.iCurrentTime = in.iCurrentTimeMs;
     g.iLastTime = in.iLastTimeMs;
     g.iBestTime = in.iBestTimeMs;
+    g.lastSectorTime = in.lastSectorTimeMs;
     g.currentSectorIndex = in.currentSector;
     g.numberOfLaps = in.totalLaps;
     g.sessionTimeLeft = in.sessionTimeLeft;
@@ -253,10 +285,21 @@ inline void fillGraphics(AcGraphicsPage& g, const AcLiveInput& in) {
     g.isInPitLane = in.inPit ? 1 : 0;
     g.surfaceGrip = in.surfaceGrip;
     g.normalizedCarPosition = in.normalizedSpline;
+    g.distanceTraveled = in.distanceTraveled;
     g.carCoordinates[0] = in.carX;
     g.carCoordinates[1] = in.carY;
     g.carCoordinates[2] = in.carZ;
     g.flag = in.flag;
+    formatAcTime(g.currentTime, 15, in.iCurrentTimeMs);
+    formatAcTime(g.lastTime, 15, in.iLastTimeMs);
+    formatAcTime(g.bestTime, 15, in.iBestTimeMs);
+    // compound ascii→wchar
+    {
+        size_t i = 0;
+        for (; i + 1 < 33 && i < in.tyreCompound.size(); ++i)
+            g.tyreCompound[i] = static_cast<wchar_t>(static_cast<unsigned char>(in.tyreCompound[i]));
+        g.tyreCompound[i] = 0;
+    }
 }
 
 inline void fillStatic(AcStaticPage& s, const AcLiveInput& in) {
@@ -267,14 +310,16 @@ inline void fillStatic(AcStaticPage& s, const AcLiveInput& in) {
         dst[i] = 0;
     };
     copyW(s.smVersion, 15, "1.7");
-    copyW(s.acVersion, 15, "ksengine");
+    copyW(s.acVersion, 15, "ksim");
     copyW(s.carModel, 33, in.carModel);
     copyW(s.track, 33, in.trackName);
     copyW(s.playerName, 33, in.playerName.empty() ? "Driver" : in.playerName);
+    copyW(s.carId, 33, in.carModel);
     s.numCars = 1;
     s.sectorCount = in.sectorCount;
     s.maxRpm = in.maxRpm;
     s.maxFuel = in.maxFuel;
+    s.trackSPlineLength = in.trackSplineLength;
 }
 
 } // namespace ac
