@@ -2,7 +2,7 @@
 
 /**
  * SimulationLoop — fixed-timestep sim + NativeUiHub + GPU UI pass.
- * LapSectorTimer + shared-memory + UDP telemetry bridge + TrackSurface.
+ * LapSectorTimer + shared-memory + UDP/TCP telemetry + TrackSurface.
  */
 
 #include "engine/physics/PhysicsCoreTypes.h"
@@ -44,6 +44,7 @@ class NativeRenderer;
 class MultiCarManager;
 class NetworkManager;
 class UdpTelemetryBridge;
+class TcpTelemetryBridge;
 
 namespace ui {
 class UiGpuPass;
@@ -130,6 +131,7 @@ public:
     NetworkManager* networkManager() { return m_network.get(); }
     ks::physics::LapSectorTimer& lapTimer() { return m_lapTimer; }
     UdpTelemetryBridge* udpBridge() { return m_udp.get(); }
+    TcpTelemetryBridge* tcpBridge() { return m_tcp.get(); }
     DashboardOverlay* dashboard() { return &m_ui.dashboard(); }
     TelemetryOverlay* telemetry() { return &m_ui.telemetry(); }
     void setCameraMode(CameraController::Mode m) {
@@ -166,12 +168,16 @@ public:
 
     void setUdpTelemetryEnabled(bool e) { m_udpEnabled = e; }
     bool udpTelemetryEnabled() const { return m_udpEnabled; }
-    /** host/port applied on next initialize or openUdp(). */
     void setUdpTelemetryEndpoint(const std::string& host, uint16_t port) {
         m_udpHost = host;
         m_udpPort = port;
     }
     bool openUdp();
+
+    void setTcpTelemetryEnabled(bool e) { m_tcpEnabled = e; }
+    bool tcpTelemetryEnabled() const { return m_tcpEnabled; }
+    void setTcpTelemetryPort(uint16_t port) { m_tcpPort = port; }
+    bool openTcp();
 
     void applyRemoteInput(int clientIndex, const net::InputData& input);
 
@@ -190,6 +196,7 @@ private:
     void syncUiFromVehicle();
     void publishSharedMemory();
     void publishUdpTelemetry();
+    void publishTcpTelemetry();
     void updateLapAndSurface(double dt);
     static std::string readFileText(const std::string& path);
 
@@ -204,6 +211,7 @@ private:
     std::unique_ptr<SetupGarage> m_setupGarage;
     std::unique_ptr<ks::ac::AcSharedMemoryPublisher> m_shm;
     std::unique_ptr<UdpTelemetryBridge> m_udp;
+    std::unique_ptr<TcpTelemetryBridge> m_tcp;
 
     ui::NativeUiHub m_ui;
     std::shared_ptr<ui::UiGpuPass> m_uiGpu;
@@ -218,6 +226,8 @@ private:
     bool m_udpEnabled = true;
     std::string m_udpHost = "127.0.0.1";
     uint16_t m_udpPort = 20777;
+    bool m_tcpEnabled = true;
+    uint16_t m_tcpPort = 20778;
     double m_simTime = 0.0;
 
     std::chrono::steady_clock::time_point m_lastTime{};
