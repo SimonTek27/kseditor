@@ -132,7 +132,16 @@ public:
     }
 
 private:
-    // Layout for cinematic menu (left rail + detail pane)
+    static TextStyle sty(const Color& c, float scale, bool boldFeel = false) {
+        TextStyle s;
+        s.color = c;
+        s.scale = scale;
+        s.align = TextAlign::Left;
+        s.shadow = true;
+        s.outline = boldFeel;
+        return s;
+    }
+
     struct MenuLayout {
         float left = 72.f;
         float top = 140.f;
@@ -141,8 +150,7 @@ private:
         float accentW = 4.f;
     };
 
-    void updateMenuHover(float mx, float my, int w, int h) {
-        (void)w; (void)h;
+    void updateMenuHover(float mx, float my, int /*w*/, int /*h*/) {
         MenuLayout L;
         const auto& items = m_menu->items();
         int hover = -1;
@@ -169,35 +177,31 @@ private:
         const float t = m_menu->transitionProgress();
         const float slide = (1.f - t) * 40.f;
 
-        // Full-screen dark scrim + subtle left vignette bar
         dl.addRectFilled({0, 0, (float)w, (float)h}, Color::rgba(0.f, 0.f, 0.f, 0.72f * a));
         dl.addRectFilled({0, 0, 8.f, (float)h}, Color::rgba(0.85f, 0.12f, 0.12f, 0.9f * a));
 
-        // Top brand strip
         m_text.draw(dl, 72.f + slide, 48.f, "KSIM",
-                    TextStyle{TextAlign::Left, Color::rgba(1, 1, 1, a), 2.4f, true});
-        m_text.draw(dl, 72.f + slide, 88.f, m_menu->sectionTitle().c_str(),
-                    TextStyle{TextAlign::Left, Color::rgba(0.75f, 0.75f, 0.78f, a), 1.1f, false});
+                    sty(Color::rgba(1, 1, 1, a), 2.4f, true));
+        m_text.draw(dl, 72.f + slide, 88.f, m_menu->sectionTitle(),
+                    sty(Color::rgba(0.75f, 0.75f, 0.78f, a), 1.1f));
 
-        // Context line (track / car)
         char ctx[128];
         std::snprintf(ctx, sizeof(ctx), "%s  ·  %s",
                       m_menu->carName().empty() ? "Vehicle" : m_menu->carName().c_str(),
                       m_menu->trackName().empty() ? "Circuit" : m_menu->trackName().c_str());
         m_text.draw(dl, 72.f + slide, static_cast<float>(h) - 48.f, ctx,
-                    TextStyle{TextAlign::Left, Color::rgba(0.55f, 0.55f, 0.6f, a), 1.f, false});
+                    sty(Color::rgba(0.55f, 0.55f, 0.6f, a), 1.f));
 
         MenuLayout L;
         L.left += slide;
         const auto& items = m_menu->items();
         const int sel = m_menu->selectedIndex();
         float iy = L.top;
-
         std::string desc;
+
         for (int i = 0; i < static_cast<int>(items.size()); ++i) {
             const auto& it = items[i];
             if (it.isSeparator) {
-                // thin rule
                 dl.addRectFilled({L.left, iy + L.rowH * 0.15f, L.listW * 0.55f, 1.f},
                                  Color::rgba(1, 1, 1, 0.12f * a));
                 iy += L.rowH * 0.45f;
@@ -208,10 +212,8 @@ private:
             const bool hover = (i == m_menu->hoverIndex());
 
             if (selected || hover) {
-                // selection plate
                 dl.addRectFilled({L.left - 12.f, iy - 2.f, L.listW + 24.f, L.rowH - 2.f},
                                  Color::rgba(1.f, 1.f, 1.f, 0.06f * a));
-                // accent bar
                 dl.addRectFilled({L.left - 12.f, iy - 2.f, L.accentW, L.rowH - 2.f},
                                  Color::rgba(0.9f, 0.15f, 0.15f, a));
             }
@@ -219,16 +221,14 @@ private:
             Color titleCol = selected
                 ? Color::rgba(1.f, 1.f, 1.f, a)
                 : Color::rgba(0.72f, 0.72f, 0.75f, a);
-            m_text.draw(dl, L.left + 8.f, iy + 10.f, it.text.c_str(),
-                        TextStyle{TextAlign::Left, titleCol, selected ? 1.35f : 1.2f, selected});
+            m_text.draw(dl, L.left + 8.f, iy + 10.f, it.text,
+                        sty(titleCol, selected ? 1.35f : 1.2f, selected));
 
             if (selected)
                 desc = it.description;
-
             iy += L.rowH;
         }
 
-        // Right detail pane
         if (!desc.empty()) {
             const float px = static_cast<float>(w) * 0.52f;
             const float py = L.top;
@@ -237,16 +237,15 @@ private:
                 dl.addRectFilled({px, py, pw, 160.f}, Color::rgba(0.05f, 0.05f, 0.07f, 0.85f * a));
                 dl.addRectFilled({px, py, 3.f, 160.f}, Color::rgba(0.9f, 0.15f, 0.15f, 0.7f * a));
                 m_text.draw(dl, px + 20.f, py + 24.f, "INFO",
-                            TextStyle{TextAlign::Left, Color::rgba(0.9f, 0.25f, 0.25f, a), 1.f, true});
-                m_text.draw(dl, px + 20.f, py + 56.f, desc.c_str(),
-                            TextStyle{TextAlign::Left, Color::rgba(0.85f, 0.85f, 0.88f, a), 1.15f, false});
+                            sty(Color::rgba(0.9f, 0.25f, 0.25f, a), 1.f, true));
+                m_text.draw(dl, px + 20.f, py + 56.f, desc,
+                            sty(Color::rgba(0.85f, 0.85f, 0.88f, a), 1.15f));
             }
         }
 
-        // Footer hints
         m_text.draw(dl, static_cast<float>(w) - 280.f, static_cast<float>(h) - 48.f,
                     "ENTER  select    ESC  back",
-                    TextStyle{TextAlign::Left, Color::rgba(0.5f, 0.5f, 0.55f, a), 0.95f, false});
+                    sty(Color::rgba(0.5f, 0.5f, 0.55f, a), 0.95f));
     }
 
     void buildDashboard(DrawList& dl, int /*w*/, int h) {
