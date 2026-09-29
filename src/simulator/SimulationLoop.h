@@ -2,10 +2,12 @@
 
 /**
  * SimulationLoop — fixed-timestep sim + NativeUiHub + GPU UI pass.
+ * Wires LapSectorTimer + content shared-memory publisher + TrackSurface.
  */
 
 #include "engine/physics/PhysicsCoreTypes.h"
 #include "engine/physics/TrackSurface.h"
+#include "engine/physics/LapSectorTimer.h"
 #include "engine/scene/Registry.h"
 #include "ui/NativeUiHub.h"
 #include "CameraController.h"
@@ -26,6 +28,10 @@ class VehicleSimulator;
 
 namespace ks::device {
 class FFBBase;
+}
+
+namespace ks::ac {
+class AcSharedMemoryPublisher;
 }
 
 namespace ks::sim {
@@ -87,6 +93,7 @@ struct SimTrackData {
     std::string kn5Path;
     std::string directory;
     bool valid = false;
+    float splineLength = 5000.f; // metres — used for normalized progress
 };
 
 class SimulationLoop {
@@ -120,6 +127,7 @@ public:
     ks::physics::VehicleSimulator* vehicle() { return m_vehicle.get(); }
     MultiCarManager* multiCarManager() { return m_multiCar.get(); }
     NetworkManager* networkManager() { return m_network.get(); }
+    ks::physics::LapSectorTimer& lapTimer() { return m_lapTimer; }
     DashboardOverlay* dashboard() { return &m_ui.dashboard(); }
     TelemetryOverlay* telemetry() { return &m_ui.telemetry(); }
     void setCameraMode(CameraController::Mode m) {
@@ -151,6 +159,9 @@ public:
     void setFfbEnabled(bool e) { m_ffbEnabled = e; }
     bool ffbEnabled() const { return m_ffbEnabled; }
 
+    void setSharedMemoryEnabled(bool e) { m_shmEnabled = e; }
+    bool sharedMemoryEnabled() const { return m_shmEnabled; }
+
     void applyRemoteInput(int clientIndex, const net::InputData& input);
 
     std::function<void()> onSimulationStarted;
@@ -166,6 +177,8 @@ private:
     void handleRemoteCarState(uint32_t carId, const net::CarStateData& state);
     void ensureScenePipeline();
     void syncUiFromVehicle();
+    void publishSharedMemory();
+    void updateLapAndSurface(double dt);
     static std::string readFileText(const std::string& path);
 
     bool m_vulkanMode = true;
@@ -177,6 +190,7 @@ private:
     std::unique_ptr<NetworkManager> m_network;
     std::unique_ptr<SimulatorAudio> m_audio;
     std::unique_ptr<SetupGarage> m_setupGarage;
+    std::unique_ptr<ks::ac::AcSharedMemoryPublisher> m_shm;
 
     ui::NativeUiHub m_ui;
     std::shared_ptr<ui::UiGpuPass> m_uiGpu;
@@ -184,6 +198,11 @@ private:
     int m_viewH = 720;
 
     SimTrackData m_trackData;
+    ks::physics::LapSectorTimer m_lapTimer;
+    float m_lapDistance = 0.f;
+    float m_normalizedSpline = 0.f;
+    bool m_shmEnabled = true;
+
     std::chrono::steady_clock::time_point m_lastTime{};
     double m_simAccumulator = 0;
     static constexpr double m_physicsDt = 0.001;
@@ -206,6 +225,7 @@ private:
     std::string m_spawnedSceneDir;
     bool m_pipelineInitialized = false;
     uint32_t m_streamlineFrameIndex = 0;
+    std::string m_carName;
 };
 
 } // namespace ks::sim
