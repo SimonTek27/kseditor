@@ -1,87 +1,104 @@
 # ksengine — Roadmap Parity (multi-target)
 
-**Stato verificato:** 2026-09-29, su `src/engine` + `src/simulator` (build Qt-free verde, `check_no_qt.ps1 -Strict` → 0/801).
+**Aggiornato:** 2026-09-29 — progresso P0 telemetria + C API + golden scaffold.
 
-La roadmap è organizzata per **aree**; ogni area indica a quali target serve:
+Target:
 
-- **AC** = Assetto Corsa-like (feeling, contenuti, telemetria condivisa, renderer "production")
-- **rF2** = rFactor 2-like (piattaforma motorsport: multiplayer, dedicated server, tooling pista, modding)
-- **GD** = Godot-hosted (ksengine come libreria di simulazione sotto un host esterno)
+- **AC** = feeling / contenuti / telemetria / renderer
+- **rF2** = multiplayer, dedicated server, tooling, modding
+- **GD** = ksengine come libreria sotto host esterno
+
+> Identità prodotto: **ksim**. Formati AC solo in `adapters/` — niente branding AC nell’UI.
 
 ---
 
-## 0. Stato attuale (evidenza)
+## 0. Stato attuale
 
 | Area | Stato | Evidenza |
 | --- | --- | --- |
-| Loop | Fixed timestep **1 kHz** con accumulator, render disaccoppiato; ECS a 120 Hz | `src/simulator/SimulationLoop.h:189` (`m_physicsDt = 0.001`), `SimulationLoop.cpp:432` |
-| Fisica veicolo | Pacejka, aero, diff, sospensione, engine, brake thermal/wear, tire wear/flatspot, danno, ERS/DRS, ibrido, meteo | `src/engine/physics/*` |
-| Input / FFB | InputManager + XInput; FFB con SDK reali (Fanatec, Logitech, Moza, Simucube, Thrustmaster) + condition effects + HIL | `src/engine/devices/simracing/*`, `src/simulator/SimulationLoop.cpp:442-457` |
-| Telemetria | CSV (`TelemetryPhysics`), overlay UI, listener UDP; **no shared-memory** | `src/engine/physics/TelemetryPhysics.h`, `src/simulator/UdpTelemetryListener.*` |
-| Render | Vulkan reale: GBuffer → lighting (PBR CSM + volumetrici) → resolve TAA; TAA **opt-in** (nessuna verifica visiva) | `docs/QT_FREE_STATUS.md:109-129`, `src/simulator/shaders/*` |
-| UI nativa | NativeUiHub + UiRenderer + UiGpuPass Vulkan + font atlas; HUD, menu, garage, overlay | `src/simulator/ui/*` |
-| Rete | yojimbo (client/server), chat, collaborazione, multi-auto; maturità base | `src/simulator/NetworkManager.h` (`HAS_YOJIMBO`) |
-| Audio | WASAPI, mixer, track/car audio, parser INI suoni; bank FMOD ancora **stub** (`valid=false`) | `src/simulator/SimulatorAudio.*`, `src/engine/Audio/BankParserBridge` |
-| Adapter AC | Import/export FSPRO, parser CSP config, GUIDs | `src/adapters/assetto_corsa/*` |
-| Scripting | Lua 5.4.8 vendored, `ScriptModule` nei sistemi ECS | `src/engine/Scripting/*` |
-| Test | 7 test Qt-free (CTest) + test unit Qt; nessun test di validazione fisica vs dati reali | `tests/qtfree/CMakeLists.txt` |
+| Loop | 1 kHz fixed + render disaccoppiato | `SimulationLoop` |
+| Fisica | Pacejka, aero, sosp, freni, wear, danno, meteo | `src/engine/physics/*` |
+| Input / FFB | XInput + SDK volanti | `devices/simracing/*` |
+| **Shared memory** | **DONE** — physics/graphics/static Win+POSIX | `AcSharedMemoryPublisher` |
+| **UDP out** | **DONE** — `:20777` binary `KSIM` + JSON | `UdpTelemetryBridge` |
+| **TCP out** | **DONE** — listen `:20778`, length-prefix | `TcpTelemetryBridge` |
+| Lap / settori | **DONE** | `LapSectorTimer` |
+| Race HUD | **DONE** Compact/Race/Engineer | `RaceTelemetryHud` |
+| **C API headless** | **DONE** create/step/get_state/replay | `include/ksengine_c.h` |
+| **Golden harness** | **Scaffold** synthetic CSV | `PhysicsGolden` + `tests/data/golden_lap.csv` |
+| Replay | **DONE** binary frames | `ReplaySystem` via C API |
+| Render Vulkan | Presente, TAA opt-in, no visual diff | shaders |
+| UI nativa | NativeUiHub, garage/pit/menu cinematic | `src/simulator/ui/*` |
+| Rete game | yojimbo base | `NetworkManager` |
+| Audio bank | Stub FMOD | `BankParserBridge` |
+| Qt-free | Engine + simulator app strict | `check_no_qt` |
 
 ---
 
-## 1. Fondamenta (tutti i target) — P0
+## 1. Fondamenta — P0
 
-Base senza la quale nessun target è raggiungibile.
-
-| # | Milestone | Target | Note |
+| # | Milestone | Status | Note |
 | --- | --- | --- | --- |
-| 1.1 | **Validazione fisica vs dati reali** | AC, rF2 | Golden test: giri registrati (es. da telemetria AC/rF2) → confronto velocità/ giri / slip. Esiste già `test_LapTimeValidation` da estendere. |
-| 1.2 | **Telemetria shared-memory** | AC | Stile AC: mappatura memoria condivisa con canali (velocità, giri, gomme, fuel, danno). Oggi solo CSV + UDP. |
-| 1.3 | **Headless / libreria** | GD, rF2 | Target `ksengine` già separato; serve API C stabile + modalità senza window per server dedicato e GDExtension. |
-| 1.4 | **Determinismo & replay** | tutti | Fisso 1 kHz + seed → replay bit-exact. Esiste `ReplaySystem` da collegare al loop. |
+| 1.1 | Validazione fisica vs dati reali | **In corso** | `PhysicsGolden` + CSV sintetico. Sostituire con export AC/rF2; target **corr speed > 0.95** |
+| 1.2 | Shared-memory telemetria | **DONE** | Canali base: speed, rpm, gear, fuel, tyres, times, pos |
+| 1.3 | Headless / C API | **DONE** | `ks_engine_create/step/get_state`; replay path |
+| 1.4 | Determinismo & replay | **Parziale** | `ReplaySystem` record/load; manca seed RNG globale + bit-exact assert test |
 
-## 2. AC-like — feeling, contenuti, renderer — P1
+### Telemetria canali (parity AC metric)
 
-| # | Milestone | Gap oggi |
-| --- | --- | --- |
-| 2.1 | **Renderer scena validato** | TAA/deferred compila ma nessuna verifica visiva; serve pipeline "production" con riferimenti (screenshot diff). |
-| 2.2 | **Loader contenuti** | `TrackLoader` esiste; manca caricamento asset AC (kn5) via adapter, o formato proprio documentato. |
-| 2.3 | **Feeling / correlazione pista** | Pacejka presente ma non validato; serve tuning su dati reali (1.1) + FFB condition effects estese (kerb, rumble, ABS). |
-| 2.4 | **Sessioni gara** | `RaceSessionManager` esiste; mancano giri di qualifica, safety car, penalità, gestione bandiere. |
-| 2.5 | **Audio banca completa** | `BankParserBridge` è stub (`valid=false`); serve reader FMOD bank o formato proprio. |
-
-## 3. rF2-like — piattaforma motorsport — P2
-
-| # | Milestone | Gap oggi |
-| --- | --- | --- |
-| 3.1 | **Multiplayer maturo** | yojimbo base presente; mancano lag compensation, gestione sessioni, lista server, NAT. |
-| 3.2 | **Server dedicato** | Richiede 1.3 (headless); poi build senza render/UI. |
-| 3.3 | **Tooling pista** | Validazione pista (larghezza, AI line, superfici); esiste `AiFileReader` (binary AC) da riusare. |
-| 3.4 | **Modding / SDK** | Formato asset documentato + API scripting Lua esposta ai mod (oggi Lua è interno). |
-| 3.5 | **AI di gara** | `AIDriver` (fisica) + `AIController` (simulator) esistono; manca gara AI completa (sorpassi, pit, strategia). |
-
-## 4. Godot-hosted — ksengine come libreria — P3
-
-| # | Milestone | Gap oggi |
-| --- | --- | --- |
-| 4.1 | **GDExtension C++** | Wrapper C API su `SimulationLoop` + `VehicleSimulator`; nessun binding oggi. |
-| 4.2 | **Headless puro** | Server/headless senza Vulkan: render opzionale (oggi `NativeRenderer` è Vulkan-only). |
-| 4.3 | **Bridge scene tree** | Sincronizzazione stato veicoli → nodi Godot (la direzione è inversa a `syncCarTransforms`). |
+| Canale | SM | UDP | TCP |
+|--------|----|-----|-----|
+| speed / rpm / gear / fuel | ✓ | ✓ | ✓ |
+| tyres temp/wear | ✓ | ✓ | ✓ |
+| lap times / sector | ✓ | ✓ | ✓ |
+| position / spline | ✓ | ✓ | ✓ |
+| FFB torque | ✓ | — | — |
 
 ---
 
-## Sequenza consigliata
+## 2. AC-like — P1
 
-1. **Fondamenta (1.1 → 1.3)** — validazione fisica prima di tutto: senza correlazione pista nessun "parity" è misurabile.
-2. **AC-like (2.x)** — massimo valore percepito: renderer validato + telemetria + feeling.
-3. **rF2-like (3.x)** — sbloccato da 1.3 (headless) e 3.1 (rete).
-4. **GD-hosted (4.x)** — sbloccato da 1.3; ultimo perché è un packaging, non una capability.
-
-## Metriche di parity
-
-| Target | Metrica | Soglia "parity" |
+| # | Milestone | Status |
 | --- | --- | --- |
-| AC | Correlazione giri vs telemetria reale | > 0.95 su circuito di riferimento |
-| AC | Canali shared-memory | ≥ set base AC (velocità, giri, gomme, fuel, danno) |
-| rF2 | Multiplayer | 8+ client, lag comp, server dedicato headless |
-| rF2 | Frequenza sim | 1 kHz validato, determinismo replay |
-| GD | Host esterno | GDExtension carica e guida un veicolo senza codice Godot custom |
+| 2.1 | Renderer scena validato (screenshot diff) | TODO |
+| 2.2 | Loader contenuti (kn5 / formato proprio) | Parziale TrackLoader |
+| 2.3 | Feeling correlato (dopo 1.1 reale) | TODO |
+| 2.4 | Sessioni (quali, bandiere, penalità) | Parziale countdown/green |
+| 2.5 | Audio bank non-stub | TODO |
+
+## 3. rF2-like — P2
+
+| # | Milestone | Status |
+| --- | --- | --- |
+| 3.1 | Multiplayer maturo (lag comp, list) | TODO |
+| 3.2 | Server dedicato headless | Sbloccato da 1.3 |
+| 3.3 | Tooling pista / AI line | TODO |
+| 3.4 | Mod SDK Lua | TODO |
+| 3.5 | AI gara completa | TODO |
+
+## 4. Godot-hosted — P3
+
+| # | Milestone | Status |
+| --- | --- | --- |
+| 4.1 | GDExtension su C API | TODO (API pronta) |
+| 4.2 | Headless senza Vulkan | TODO flag |
+| 4.3 | Bridge scene tree | TODO |
+
+---
+
+## Prossimi passi operativi
+
+1. **1.1** — Registrare un giro reale → CSV → `test_PhysicsGolden` → corr > 0.95  
+2. **1.4** — Test determinismo: stesso seed → stessi frame hash  
+3. **Wire TCP** in `SimulationLoop::tick` (come UDP)  
+4. **2.4** — Flag/penalties in session manager  
+5. **3.2** — Binary dedicated server linkando solo `ksengine` C API  
+
+## Metriche
+
+| Target | Metrica | Soglia |
+| --- | --- | --- |
+| AC | corr speed vs telemetria | > 0.95 |
+| AC | shared-memory channels | set base ✓ |
+| rF2 | multiplayer | 8+ client + dedicated |
+| GD | GDExtension guida veicolo | C API ✓ base |
