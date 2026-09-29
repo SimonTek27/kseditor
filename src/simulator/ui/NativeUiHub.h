@@ -1,14 +1,14 @@
 #pragma once
 /**
- * Composes overlays into one UiRenderer batch; routes keyboard + mouse.
- * Main menu: cinematic racing layout (full scrim, large type, accent bar).
- * Product branding: ksim only — no third-party titles.
+ * Composes overlays; cinematic menu + RaceTelemetryHud + devices/mp.
+ * Branding: ksim only.
  */
 #include "UiRenderer.h"
 #include "TextRenderer.h"
 #include "UiInput.h"
 #include "DeviceSettingsOverlay.h"
 #include "MultiplayerOverlay.h"
+#include "RaceTelemetryHud.h"
 #include "../GameMenuOverlay.h"
 #include "../DashboardOverlay.h"
 #include "../TelemetryOverlay.h"
@@ -32,6 +32,7 @@ public:
         m_telem = std::make_unique<TelemetryOverlay>();
         m_devices = std::make_unique<DeviceSettingsOverlay>();
         m_mp = std::make_unique<MultiplayerOverlay>();
+        m_raceHud.setMode(RaceHudMode::Race);
         m_renderer.setFont(m_text.atlasPtr());
     }
 
@@ -40,6 +41,7 @@ public:
     TelemetryOverlay& telemetry() { return *m_telem; }
     DeviceSettingsOverlay& devices() { return *m_devices; }
     MultiplayerOverlay& multiplayer() { return *m_mp; }
+    RaceTelemetryHud& raceHud() { return m_raceHud; }
     UiRenderer& renderer() { return m_renderer; }
     TextRenderer& text() { return m_text; }
     UiInput& input() { return m_input; }
@@ -50,6 +52,8 @@ public:
         m_renderer.setViewport(w, h);
     }
 
+    void pushRaceSample(const RaceHudSample& s) { m_raceHud.push(s); }
+
     void renderFrame(int width, int height) {
         m_viewW = width;
         m_viewH = height;
@@ -59,11 +63,15 @@ public:
         m_renderer.beginFrame();
         auto& dl = m_renderer.list();
 
-        if (m_dash->isVisible()) {
+        // Race HUD first (under modal menus)
+        if (!m_menu->isVisible() && m_raceHud.isVisible())
+            m_raceHud.build(dl, m_text, width, height);
+
+        if (m_dash->isVisible() && !m_menu->isVisible()) {
             m_dash->render(width, height);
             buildDashboard(dl, width, height);
         }
-        if (m_telem->isVisible())
+        if (m_telem->isVisible() && !m_menu->isVisible())
             buildTelemetry(dl, width, height);
 
         m_menu->render(width, height);
@@ -81,6 +89,11 @@ public:
         if (m_devices->isVisible() && m_devices->handleKey(key)) return true;
         if (m_mp->isVisible() && m_mp->handleKey(key)) return true;
         if (m_menu->isVisible() && m_menu->handleKeyPress(key)) return true;
+        // T = cycle race HUD mode
+        if (key == 'T' || key == 't') {
+            m_raceHud.cycleMode();
+            return true;
+        }
         if (key == 112) { m_devices->toggle(); return true; }
         if (key == 113) { m_mp->toggle(); return true; }
         if (key == 27 && !m_menu->isVisible()) {
@@ -296,6 +309,7 @@ private:
     UiRenderer m_renderer;
     TextRenderer m_text;
     UiInput m_input;
+    RaceTelemetryHud m_raceHud;
     int m_viewW = 1280, m_viewH = 720;
 
     std::unique_ptr<GameMenuOverlay> m_menu;
