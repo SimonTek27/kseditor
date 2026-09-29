@@ -7,7 +7,12 @@
 namespace ks::sim {
 
 struct SimPoint { int x = 0; int y = 0; };
-struct SimRect { int x = 0; int y = 0; int w = 0; int h = 0; bool contains(const SimPoint& p) const { return p.x >= x && p.x < x+w && p.y >= y && p.y < y+h; } };
+struct SimRect {
+    int x = 0, y = 0, w = 0, h = 0;
+    bool contains(const SimPoint& p) const {
+        return p.x >= x && p.x < x + w && p.y >= y && p.y < y + h;
+    }
+};
 
 enum class MenuState {
     Main,
@@ -25,9 +30,9 @@ enum class MenuState {
 
 struct DriverProfile {
     std::string name = "Player";
-    std::string nationality = "Italian";
+    std::string nationality = "—";
     int raceNumber = 1;
-    std::string bio = "Racing enthusiast";
+    std::string bio;
     int helmetDesign = 0;
     int controlsPreset = 0;
     int lastReplayIndex = -1;
@@ -50,8 +55,7 @@ class GameMenuOverlay {
 public:
     GameMenuOverlay();
 
-    // Stubbed - no QPainter in pure Win32/Vulkan path
-    void render(int width, int height);
+    void render(int width, int height); // advances fade/transition timers
     bool handleKeyPress(int key);
     void handleMouseMove(const SimPoint& pos, int widgetWidth, int widgetHeight);
     void handleClick(const SimPoint& pos, int widgetWidth, int widgetHeight);
@@ -69,6 +73,19 @@ public:
 
     DriverProfile& profile() { return m_profile; }
     const DriverProfile& profile() const { return m_profile; }
+
+    // --- for NativeUi cinematic draw ---
+    const std::vector<MenuItem>& items() const { return m_items; }
+    int selectedIndex() const { return m_selectedIndex; }
+    int hoverIndex() const { return m_hoverIndex; }
+    void setSelectedIndex(int i) { m_selectedIndex = i; }
+    void setHoverIndex(int i) { m_hoverIndex = i; }
+    MenuState state() const { return m_currentState; }
+    float fadeAlpha() const { return m_fadeAlpha; }
+    float transitionProgress() const { return m_transitionProgress; }
+    const std::string& trackName() const { return m_trackName; }
+    const std::string& carName() const { return m_carName; }
+    std::string sectionTitle() const;
 
     std::function<void()> onExitRequested;
     std::function<void()> onStartDrivingRequested;
@@ -101,6 +118,7 @@ private:
     void buildQuitConfirm();
     void switchMenu(MenuState state);
     void goBack();
+    void activateSelected();
 
     bool m_visible = true;
     bool m_menuDirty = true;
@@ -109,7 +127,7 @@ private:
     int m_selectedIndex = 0;
     int m_hoverIndex = -1;
     float m_animationTime = 0.0f;
-    float m_fadeAlpha = 0.0f;
+    float m_fadeAlpha = 1.0f;
     float m_transitionProgress = 1.0f;
     std::string m_trackName;
     std::string m_carName;

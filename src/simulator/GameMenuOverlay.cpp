@@ -1,18 +1,30 @@
 #include "GameMenuOverlay.h"
-#include <cstdio>
-#include <cmath>
 #include <algorithm>
-#include <chrono>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#include <cmath>
 
 namespace ks::sim {
 
 GameMenuOverlay::GameMenuOverlay()
 {
     buildMainMenu();
+}
+
+std::string GameMenuOverlay::sectionTitle() const
+{
+    switch (m_currentState) {
+    case MenuState::Main: return "MAIN MENU";
+    case MenuState::Singleplayer: return "SINGLE PLAYER";
+    case MenuState::Multiplayer: return "MULTI PLAYER";
+    case MenuState::Profile: return "DRIVER";
+    case MenuState::Garage: return "GARAGE";
+    case MenuState::Replay: return "REPLAY";
+    case MenuState::ContentManager: return "CONTENT";
+    case MenuState::Settings: return "SETTINGS";
+    case MenuState::Controls: return "CONTROLS";
+    case MenuState::DevModeConfirm: return "EDITOR";
+    case MenuState::QuitConfirm: return "QUIT";
+    }
+    return "MENU";
 }
 
 void GameMenuOverlay::setVisible(bool visible)
@@ -42,9 +54,8 @@ void GameMenuOverlay::setProfileField(const std::string& fieldName, const std::s
 void GameMenuOverlay::setNationalityFromList(int index)
 {
     static const char* nationalities[] = {
-        "Italian", "German", "British", "French", "Spanish", "American",
-        "Japanese", "Brazilian", "Australian", "Canadian", "Dutch",
-        "Finnish", "Swedish", "Belgian", "Swiss", "Austrian"
+        "IT", "DE", "GB", "FR", "ES", "US", "JP", "BR",
+        "AU", "CA", "NL", "FI", "SE", "BE", "CH", "AT"
     };
     if (index >= 0 && index < 16) {
         m_profile.nationality = nationalities[index];
@@ -55,49 +66,49 @@ void GameMenuOverlay::setNationalityFromList(int index)
 void GameMenuOverlay::buildMainMenu()
 {
     m_items.clear();
-    m_items.push_back({ "SINGLEPLAYER", "Race modes, practice and championships",
+    m_items.push_back({ "SINGLE PLAYER", "Practice, race and time attack",
         [this]() { switchMenu(MenuState::Singleplayer); } });
-    m_items.push_back({ "MULTIPLAYER", "Online racing with rated and casual events",
+    m_items.push_back({ "MULTI PLAYER", "Online and LAN sessions",
         [this]() { switchMenu(MenuState::Multiplayer); } });
-    m_items.push_back({ "GARAGE", "Car setup, tuning and tire management",
+    m_items.push_back({ "GARAGE", "Setup, tyres and vehicle options",
         [this]() { switchMenu(MenuState::Garage); } });
-    m_items.push_back({ "REPLAY", "Watch, record and manage race replays",
+    m_items.push_back({ "REPLAY", "Playback and recording",
         [this]() { switchMenu(MenuState::Replay); } });
-    m_items.push_back({ "CONTENT MANAGER", "Browse, download and update content",
+    m_items.push_back({ "CONTENT", "Cars, tracks and packages",
         [this]() { switchMenu(MenuState::ContentManager); } });
     m_items.push_back({ "", "", nullptr, true });
-    m_items.push_back({ "PROFILE", "Driver info, stats and quick shortcuts",
+    m_items.push_back({ "DRIVER", "Profile and career stats",
         [this]() { switchMenu(MenuState::Profile); } });
-    m_items.push_back({ "SETTINGS", "Graphics, audio, display and controls",
+    m_items.push_back({ "SETTINGS", "Display, audio and input",
         [this]() { switchMenu(MenuState::Settings); } });
     m_items.push_back({ "", "", nullptr, true });
-    m_items.push_back({ "DEV MODE", "Exit and launch ksEditor editor",
+    m_items.push_back({ "EDITOR", "Leave simulator and open the editor",
         [this]() { switchMenu(MenuState::DevModeConfirm); } });
-    m_items.push_back({ "QUIT", "Exit the simulator",
+    m_items.push_back({ "QUIT", "Exit ksim",
         [this]() { switchMenu(MenuState::QuitConfirm); } });
 }
 
 void GameMenuOverlay::buildSingleplayerMenu()
 {
     m_items.clear();
-    m_items.push_back({ "PRACTICE", "Free practice on any track",
+    m_items.push_back({ "PRACTICE", "Open session on the selected circuit",
         [this]() { if (onStartDrivingRequested) onStartDrivingRequested(); setVisible(false); } });
-    m_items.push_back({ "QUICK RACE", "Single race against AI opponents",
+    m_items.push_back({ "QUICK RACE", "Grid start against AI",
         [this]() { if (onStartDrivingRequested) onStartDrivingRequested(); setVisible(false); } });
-    m_items.push_back({ "TIME TRIAL", "Race against the clock for best laps",
+    m_items.push_back({ "TIME ATTACK", "Clean laps against the clock",
         [this]() { if (onStartDrivingRequested) onStartDrivingRequested(); setVisible(false); } });
     m_items.push_back({ "", "", nullptr, true });
-    m_items.push_back({ "BACK", "Return to main menu",
+    m_items.push_back({ "BACK", "Return",
         [this]() { goBack(); } });
 }
 
 void GameMenuOverlay::buildMultiplayerMenu()
 {
     m_items.clear();
-    m_items.push_back({ "RATED", "Competitive ranked racing with ELO", [this]() {} });
-    m_items.push_back({ "CASUAL EVENT", "Relaxed racing, no rank impact", [this]() {} });
+    m_items.push_back({ "RANKED", "Competitive sessions", [this]() {} });
+    m_items.push_back({ "CASUAL", "Open lobbies", [this]() {} });
     m_items.push_back({ "", "", nullptr, true });
-    m_items.push_back({ "BACK", "Return to main menu", [this]() { goBack(); } });
+    m_items.push_back({ "BACK", "Return", [this]() { goBack(); } });
 }
 
 void GameMenuOverlay::buildProfileMenu()
@@ -107,73 +118,75 @@ void GameMenuOverlay::buildProfileMenu()
         [this]() { if (onTextInputRequested) onTextInputRequested("NAME", m_profile.name); } });
     m_items.push_back({ "NATIONALITY", m_profile.nationality,
         [this]() { if (onNationalityInputRequested) onNationalityInputRequested(); } });
-    m_items.push_back({ "RACE NUMBER", std::to_string(m_profile.raceNumber),
-        [this]() { m_profile.raceNumber = (m_profile.raceNumber % 99) + 1; } });
-    m_items.push_back({ "BIO", m_profile.bio,
-        [this]() { if (onTextInputRequested) onTextInputRequested("BIO", m_profile.bio); } });
+    m_items.push_back({ "NUMBER", std::to_string(m_profile.raceNumber),
+        [this]() { m_profile.raceNumber = (m_profile.raceNumber % 99) + 1; m_menuDirty = true; } });
     m_items.push_back({ "", "", nullptr, true });
-    m_items.push_back({ "HELMET DESIGN", "#" + std::to_string(m_profile.helmetDesign + 1),
-        [this]() { m_profile.helmetDesign = (m_profile.helmetDesign + 1) % 10; } });
-    m_items.push_back({ "", "", nullptr, true });
-    m_items.push_back({ "BACK", "Return to main menu", [this]() { goBack(); } });
+    m_items.push_back({ "BACK", "Return", [this]() { goBack(); } });
 }
 
 void GameMenuOverlay::buildGarageMenu()
 {
     m_items.clear();
-    m_items.push_back({ "CAR SETUP", "Adjust aerodynamics, gearing, brakes",
+    m_items.push_back({ "SETUP", "Aero, gears, brakes and dampers",
         [this]() { if (onOpenSetupGarageRequested) onOpenSetupGarageRequested(); } });
-    m_items.push_back({ "BACK", "Return to main menu", [this]() { goBack(); } });
+    m_items.push_back({ "BACK", "Return", [this]() { goBack(); } });
 }
 
 void GameMenuOverlay::buildReplayMenu()
 {
     m_items.clear();
-    m_items.push_back({ "LOAD REPLAY", "Select a saved replay file",
+    m_items.push_back({ "LOAD", "Open a saved session",
         [this]() { if (onLoadReplayRequested) onLoadReplayRequested(); } });
-    m_items.push_back({ "BACK", "Return to main menu", [this]() { goBack(); } });
+    m_items.push_back({ "BACK", "Return", [this]() { goBack(); } });
 }
 
 void GameMenuOverlay::buildContentManagerMenu()
 {
     m_items.clear();
-    m_items.push_back({ "TRACKS", "Browse and download new tracks",
+    m_items.push_back({ "TRACKS", "Browse circuits",
         [this]() { if (onOpenContentBrowserRequested) onOpenContentBrowserRequested("tracks"); } });
-    m_items.push_back({ "CARS", "Browse and download new vehicles",
+    m_items.push_back({ "CARS", "Browse vehicles",
         [this]() { if (onOpenContentBrowserRequested) onOpenContentBrowserRequested("cars"); } });
-    m_items.push_back({ "BACK", "Return to main menu", [this]() { goBack(); } });
+    m_items.push_back({ "BACK", "Return", [this]() { goBack(); } });
 }
 
 void GameMenuOverlay::buildSettingsMenu()
 {
     m_items.clear();
-    m_items.push_back({ "GRAPHICS", "Resolution, VSync, quality presets", [this]() {} });
-    m_items.push_back({ "AUDIO", "Engine, wind, crowd volume levels",
+    m_items.push_back({ "GRAPHICS", "Resolution and quality", [this]() {
+        if (onOpenSettingsPanelRequested) onOpenSettingsPanelRequested("graphics");
+    } });
+    m_items.push_back({ "AUDIO", "Volumes and devices",
         [this]() { if (onOpenSettingsPanelRequested) onOpenSettingsPanelRequested("audio"); } });
-    m_items.push_back({ "BACK", "Return to main menu", [this]() { goBack(); } });
+    m_items.push_back({ "CONTROLS", "Bindings and devices",
+        [this]() { switchMenu(MenuState::Controls); } });
+    m_items.push_back({ "BACK", "Return", [this]() { goBack(); } });
 }
 
 void GameMenuOverlay::buildControlsMenu()
 {
     m_items.clear();
-    m_items.push_back({ "KEYBOARD BINDINGS", "Reassign driving controls", [this]() {} });
-    m_items.push_back({ "BACK", "Return to settings", [this]() { switchMenu(MenuState::Settings); } });
+    m_items.push_back({ "KEYBOARD", "Driving bindings", [this]() {} });
+    m_items.push_back({ "WHEEL", "Device and FFB", [this]() {
+        if (onOpenSettingsPanelRequested) onOpenSettingsPanelRequested("devices");
+    } });
+    m_items.push_back({ "BACK", "Return", [this]() { switchMenu(MenuState::Settings); } });
 }
 
 void GameMenuOverlay::buildDevModeConfirm()
 {
     m_items.clear();
-    m_items.push_back({ "YES, OPEN EDITOR", "Exit simulator and launch ksEditor",
+    m_items.push_back({ "CONFIRM", "Open editor",
         [this]() { if (onDevModeRequested) onDevModeRequested(); } });
-    m_items.push_back({ "CANCEL", "Return to menu", [this]() { goBack(); } });
+    m_items.push_back({ "CANCEL", "Stay in ksim", [this]() { goBack(); } });
 }
 
 void GameMenuOverlay::buildQuitConfirm()
 {
     m_items.clear();
-    m_items.push_back({ "YES, QUIT", "Exit ksEditor Simulator",
+    m_items.push_back({ "CONFIRM", "Exit ksim",
         [this]() { if (onExitRequested) onExitRequested(); } });
-    m_items.push_back({ "CANCEL", "Return to menu", [this]() { goBack(); } });
+    m_items.push_back({ "CANCEL", "Return", [this]() { goBack(); } });
 }
 
 void GameMenuOverlay::switchMenu(MenuState state)
@@ -197,6 +210,9 @@ void GameMenuOverlay::switchMenu(MenuState state)
     case MenuState::DevModeConfirm: buildDevModeConfirm(); break;
     case MenuState::QuitConfirm: buildQuitConfirm(); break;
     }
+    // skip leading separators
+    while (m_selectedIndex < static_cast<int>(m_items.size()) && m_items[m_selectedIndex].isSeparator)
+        ++m_selectedIndex;
 }
 
 void GameMenuOverlay::goBack()
@@ -209,102 +225,75 @@ void GameMenuOverlay::goBack()
         switchMenu(MenuState::Settings);
         return;
     }
-    if (m_currentState == MenuState::DevModeConfirm || m_currentState == MenuState::QuitConfirm) {
-        switchMenu(MenuState::Main);
-        return;
-    }
     switchMenu(MenuState::Main);
 }
 
-void GameMenuOverlay::render(int width, int height)
+void GameMenuOverlay::activateSelected()
+{
+    if (m_selectedIndex < 0 || m_selectedIndex >= static_cast<int>(m_items.size())) return;
+    const auto& item = m_items[m_selectedIndex];
+    if (item.enabled && item.action && !item.isSeparator)
+        item.action();
+}
+
+void GameMenuOverlay::render(int /*width*/, int /*height*/)
 {
     if (!m_visible && m_fadeAlpha <= 0.01f) return;
-
-    m_animationTime += 0.02f;
-
-    if (m_visible && m_fadeAlpha < 1.0f) {
-        m_fadeAlpha = std::min(1.0f, m_fadeAlpha + 0.08f);
-    } else if (!m_visible && m_fadeAlpha > 0.0f) {
-        m_fadeAlpha = std::max(0.0f, m_fadeAlpha - 0.08f);
-    }
-
-    if (m_transitionProgress < 1.0f) {
-        m_transitionProgress = std::min(1.0f, m_transitionProgress + 0.06f);
-    }
-    // Stubbed: No QPainter available in Win32/Vulkan path.
-    // Menu will be rendered via Vulkan overlay or ImGui in the future.
+    m_animationTime += 0.016f;
+    if (m_visible && m_fadeAlpha < 1.0f)
+        m_fadeAlpha = std::min(1.0f, m_fadeAlpha + 0.07f);
+    else if (!m_visible && m_fadeAlpha > 0.0f)
+        m_fadeAlpha = std::max(0.0f, m_fadeAlpha - 0.09f);
+    if (m_transitionProgress < 1.0f)
+        m_transitionProgress = std::min(1.0f, m_transitionProgress + 0.08f);
 }
 
 bool GameMenuOverlay::handleKeyPress(int key)
 {
     if (!m_visible) return false;
 
-    bool isProfile = (m_currentState == MenuState::Profile);
-    bool isConfirm = (m_currentState == MenuState::QuitConfirm || m_currentState == MenuState::DevModeConfirm);
-    int maxFieldIndex = isProfile ? 6 : (isConfirm ? 1 : 0);
+    auto nextEnabled = [&](int from, int dir) {
+        int n = static_cast<int>(m_items.size());
+        if (n == 0) return 0;
+        int idx = from;
+        for (int k = 0; k < n; ++k) {
+            idx = (idx + dir + n) % n;
+            if (!m_items[idx].isSeparator && m_items[idx].enabled)
+                return idx;
+        }
+        return from;
+    };
 
-    // Use Windows virtual key codes
     switch (key) {
-    case 0x26: { // VK_UP
-        if (isProfile || isConfirm) {
-            m_selectedIndex--;
-            if (m_selectedIndex < 0) m_selectedIndex = maxFieldIndex;
-        } else {
-            int idx = m_selectedIndex;
-            do {
-                idx--;
-                if (idx < 0) idx = static_cast<int>(m_items.size()) - 1;
-            } while (m_items[idx].isSeparator && idx != m_selectedIndex);
-            m_selectedIndex = idx;
-        }
+    case 0x26: // UP
+        m_selectedIndex = nextEnabled(m_selectedIndex, -1);
         return true;
-    }
-    case 0x28: { // VK_DOWN
-        if (isProfile || isConfirm) {
-            m_selectedIndex++;
-            if (m_selectedIndex > maxFieldIndex) m_selectedIndex = 0;
-        } else {
-            int idx = m_selectedIndex;
-            do {
-                idx++;
-                if (idx >= static_cast<int>(m_items.size())) idx = 0;
-            } while (m_items[idx].isSeparator && idx != m_selectedIndex);
-            m_selectedIndex = idx;
-        }
+    case 0x28: // DOWN
+        m_selectedIndex = nextEnabled(m_selectedIndex, +1);
         return true;
-    }
-    case 0x0D: // VK_RETURN
-    case 0x60: { // VK_NUMPAD0 used as enter alternative
-        if (m_selectedIndex >= 0 && m_selectedIndex < static_cast<int>(m_items.size())) {
-            const auto& item = m_items[m_selectedIndex];
-            if (item.enabled && item.action) {
-                item.action();
-            }
-        }
+    case 0x0D: // ENTER
+        activateSelected();
         return true;
-    }
-    case 0x1B: { // VK_ESCAPE
+    case 0x1B: // ESC
         goBack();
         return true;
-    }
     default:
         break;
     }
     return false;
 }
 
-void GameMenuOverlay::handleMouseMove(const SimPoint& pos, int widgetWidth, int widgetHeight)
+void GameMenuOverlay::handleMouseMove(const SimPoint& pos, int /*w*/, int /*h*/)
 {
-    (void)pos; (void)widgetWidth; (void)widgetHeight;
     if (!m_visible) return;
-    // Stubbed: no mouse in pure keyboard mode
+    // hit-test is performed in NativeUiHub using layout constants
+    (void)pos;
 }
 
-void GameMenuOverlay::handleClick(const SimPoint& pos, int widgetWidth, int widgetHeight)
+void GameMenuOverlay::handleClick(const SimPoint& /*pos*/, int /*w*/, int /*h*/)
 {
-    (void)pos; (void)widgetWidth; (void)widgetHeight;
     if (!m_visible) return;
-    // Stubbed: no mouse in pure keyboard mode
+    activateSelected();
 }
 
 } // namespace ks::sim

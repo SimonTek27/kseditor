@@ -1,6 +1,8 @@
 #pragma once
 /**
  * Composes overlays into one UiRenderer batch; routes keyboard + mouse.
+ * Main menu: cinematic racing layout (full scrim, large type, accent bar).
+ * Product branding: ksim only — no third-party titles.
  */
 #include "UiRenderer.h"
 #include "TextRenderer.h"
@@ -13,6 +15,8 @@
 #include <memory>
 #include <string>
 #include <cstdio>
+#include <algorithm>
+#include <cmath>
 
 namespace ks {
 namespace sim {
@@ -61,8 +65,10 @@ public:
         }
         if (m_telem->isVisible())
             buildTelemetry(dl, width, height);
-        if (m_menu->isVisible())
-            buildMenu(dl, width, height);
+
+        m_menu->render(width, height);
+        if (m_menu->isVisible() || m_menu->fadeAlpha() > 0.01f)
+            buildCinematicMenu(dl, width, height);
 
         m_devices->build(dl, width, height, &m_input);
         m_mp->build(dl, width, height, &m_input);
@@ -84,7 +90,6 @@ public:
         return false;
     }
 
-    /** Platform: forward mouse. Returns true if UI consumed it. */
     bool handleMouse(const MouseEvent& e) {
         m_input.inject(e);
         if (e.type == MouseEventType::Down && e.button == MouseButton::Left)
@@ -92,30 +97,33 @@ public:
 
         if (m_devices->isVisible() && m_devices->handleMouse(e)) return true;
         if (m_mp->isVisible() && m_mp->handleMouse(e)) return true;
-        if (m_menu->isVisible()) return true; // modal menu swallows
+
+        if (m_menu->isVisible() || m_menu->fadeAlpha() > 0.5f) {
+            updateMenuHover(e.x, e.y, m_viewW, m_viewH);
+            if (e.type == MouseEventType::Up && e.button == MouseButton::Left &&
+                m_menu->hoverIndex() >= 0) {
+                m_menu->setSelectedIndex(m_menu->hoverIndex());
+                m_menu->handleClick({(int)e.x, (int)e.y}, m_viewW, m_viewH);
+            }
+            return true;
+        }
         return false;
     }
 
     bool handleMouseMove(float x, float y) {
-        MouseEvent e;
-        e.type = MouseEventType::Move;
-        e.x = x; e.y = y;
+        MouseEvent e; e.type = MouseEventType::Move; e.x = x; e.y = y;
         return handleMouse(e);
     }
 
     bool handleMouseButton(MouseButton b, bool down, float x, float y) {
         MouseEvent e;
         e.type = down ? MouseEventType::Down : MouseEventType::Up;
-        e.button = b;
-        e.x = x; e.y = y;
+        e.button = b; e.x = x; e.y = y;
         return handleMouse(e);
     }
 
     bool handleMouseWheel(float delta, float x, float y) {
-        MouseEvent e;
-        e.type = MouseEventType::Wheel;
-        e.wheelDelta = delta;
-        e.x = x; e.y = y;
+        MouseEvent e; e.type = MouseEventType::Wheel; e.wheelDelta = delta; e.x = x; e.y = y;
         return handleMouse(e);
     }
 
@@ -124,6 +132,123 @@ public:
     }
 
 private:
+    // Layout for cinematic menu (left rail + detail pane)
+    struct MenuLayout {
+        float left = 72.f;
+        float top = 140.f;
+        float rowH = 44.f;
+        float listW = 420.f;
+        float accentW = 4.f;
+    };
+
+    void updateMenuHover(float mx, float my, int w, int h) {
+        (void)w; (void)h;
+        MenuLayout L;
+        const auto& items = m_menu->items();
+        int hover = -1;
+        float iy = L.top;
+        for (int i = 0; i < static_cast<int>(items.size()); ++i) {
+            if (items[i].isSeparator) {
+                iy += L.rowH * 0.45f;
+                continue;
+            }
+            Rect rr{L.left, iy, L.listW, L.rowH - 4.f};
+            if (rr.contains(mx, my))
+                hover = i;
+            iy += L.rowH;
+        }
+        m_menu->setHoverIndex(hover);
+        if (hover >= 0)
+            m_menu->setSelectedIndex(hover);
+    }
+
+    void buildCinematicMenu(DrawList& dl, int w, int h) {
+        const float a = m_menu->fadeAlpha();
+        if (a <= 0.01f) return;
+
+        const float t = m_menu->transitionProgress();
+        const float slide = (1.f - t) * 40.f;
+
+        // Full-screen dark scrim + subtle left vignette bar
+        dl.addRectFilled({0, 0, (float)w, (float)h}, Color::rgba(0.f, 0.f, 0.f, 0.72f * a));
+        dl.addRectFilled({0, 0, 8.f, (float)h}, Color::rgba(0.85f, 0.12f, 0.12f, 0.9f * a));
+
+        // Top brand strip
+        m_text.draw(dl, 72.f + slide, 48.f, "KSIM",
+                    TextStyle{TextAlign::Left, Color::rgba(1, 1, 1, a), 2.4f, true});
+        m_text.draw(dl, 72.f + slide, 88.f, m_menu->sectionTitle().c_str(),
+                    TextStyle{TextAlign::Left, Color::rgba(0.75f, 0.75f, 0.78f, a), 1.1f, false});
+
+        // Context line (track / car)
+        char ctx[128];
+        std::snprintf(ctx, sizeof(ctx), "%s  ·  %s",
+                      m_menu->carName().empty() ? "Vehicle" : m_menu->carName().c_str(),
+                      m_menu->trackName().empty() ? "Circuit" : m_menu->trackName().c_str());
+        m_text.draw(dl, 72.f + slide, static_cast<float>(h) - 48.f, ctx,
+                    TextStyle{TextAlign::Left, Color::rgba(0.55f, 0.55f, 0.6f, a), 1.f, false});
+
+        MenuLayout L;
+        L.left += slide;
+        const auto& items = m_menu->items();
+        const int sel = m_menu->selectedIndex();
+        float iy = L.top;
+
+        std::string desc;
+        for (int i = 0; i < static_cast<int>(items.size()); ++i) {
+            const auto& it = items[i];
+            if (it.isSeparator) {
+                // thin rule
+                dl.addRectFilled({L.left, iy + L.rowH * 0.15f, L.listW * 0.55f, 1.f},
+                                 Color::rgba(1, 1, 1, 0.12f * a));
+                iy += L.rowH * 0.45f;
+                continue;
+            }
+
+            const bool selected = (i == sel);
+            const bool hover = (i == m_menu->hoverIndex());
+
+            if (selected || hover) {
+                // selection plate
+                dl.addRectFilled({L.left - 12.f, iy - 2.f, L.listW + 24.f, L.rowH - 2.f},
+                                 Color::rgba(1.f, 1.f, 1.f, 0.06f * a));
+                // accent bar
+                dl.addRectFilled({L.left - 12.f, iy - 2.f, L.accentW, L.rowH - 2.f},
+                                 Color::rgba(0.9f, 0.15f, 0.15f, a));
+            }
+
+            Color titleCol = selected
+                ? Color::rgba(1.f, 1.f, 1.f, a)
+                : Color::rgba(0.72f, 0.72f, 0.75f, a);
+            m_text.draw(dl, L.left + 8.f, iy + 10.f, it.text.c_str(),
+                        TextStyle{TextAlign::Left, titleCol, selected ? 1.35f : 1.2f, selected});
+
+            if (selected)
+                desc = it.description;
+
+            iy += L.rowH;
+        }
+
+        // Right detail pane
+        if (!desc.empty()) {
+            const float px = static_cast<float>(w) * 0.52f;
+            const float py = L.top;
+            const float pw = static_cast<float>(w) - px - 64.f;
+            if (pw > 120.f) {
+                dl.addRectFilled({px, py, pw, 160.f}, Color::rgba(0.05f, 0.05f, 0.07f, 0.85f * a));
+                dl.addRectFilled({px, py, 3.f, 160.f}, Color::rgba(0.9f, 0.15f, 0.15f, 0.7f * a));
+                m_text.draw(dl, px + 20.f, py + 24.f, "INFO",
+                            TextStyle{TextAlign::Left, Color::rgba(0.9f, 0.25f, 0.25f, a), 1.f, true});
+                m_text.draw(dl, px + 20.f, py + 56.f, desc.c_str(),
+                            TextStyle{TextAlign::Left, Color::rgba(0.85f, 0.85f, 0.88f, a), 1.15f, false});
+            }
+        }
+
+        // Footer hints
+        m_text.draw(dl, static_cast<float>(w) - 280.f, static_cast<float>(h) - 48.f,
+                    "ENTER  select    ESC  back",
+                    TextStyle{TextAlign::Left, Color::rgba(0.5f, 0.5f, 0.55f, a), 0.95f, false});
+    }
+
     void buildDashboard(DrawList& dl, int /*w*/, int h) {
         const float barW = 240.f;
         const float x = 24.f;
@@ -169,55 +294,10 @@ private:
         m_text.draw(dl, x + 12, y + 140, buf, TextRenderer::hudLabel());
     }
 
-    void buildMenu(DrawList& dl, int w, int h) {
-        const float panelW = 380.f;
-        const float panelH = 420.f;
-        const float x = (w - panelW) * 0.5f;
-        const float y = (h - panelH) * 0.5f;
-
-        dl.addRectFilled({0, 0, (float)w, (float)h}, Color::rgba(0, 0, 0, 0.55f));
-        dl.addRectFilled({x, y, panelW, panelH}, Color::rgba(0.06f, 0.07f, 0.1f, 0.96f));
-        dl.addRect({x, y, panelW, panelH}, Color::rgb(90, 140, 255), 2.f);
-
-        m_text.draw(dl, x + 24, y + 24, "KS Simulator", TextRenderer::menuTitle());
-        m_text.draw(dl, x + 24, y + 70, "Click item or keyboard",
-                    TextRenderer::menuItem());
-
-        const char* items[] = {
-            "Start Driving", "Load Track", "Garage",
-            "Multiplayer", "Settings", "Quit"
-        };
-        float iy = y + 120.f;
-        for (int i = 0; i < 6; ++i) {
-            Rect rr{x + 20, iy - 4, panelW - 40, 28};
-            bool hover = m_input.isHovering(rr);
-            if (m_input.state().leftReleased() && rr.contains(m_input.state().x, m_input.state().y)) {
-                m_menuIndex = i;
-                // Map simple actions
-                if (i == 0) m_menu->setVisible(false);
-                else if (i == 3) { m_menu->setVisible(false); m_mp->setVisible(true); }
-                else if (i == 4) { m_menu->setVisible(false); m_devices->setVisible(true); }
-                else if (i == 5) { /* quit callback left to app */ }
-            }
-            Color bg = (i == m_menuIndex)
-                ? Color::rgba(0.15f, 0.22f, 0.35f, 1.f)
-                : (hover ? Color::rgba(0.12f, 0.16f, 0.22f, 1.f)
-                         : Color::rgba(0.12f, 0.14f, 0.18f, 1.f));
-            dl.addRectFilled(rr, bg);
-            if (hover)
-                dl.addRect(rr, Color::rgb(120, 170, 255), 1.f);
-            m_text.draw(dl, x + 32, iy + 4, items[i], TextRenderer::menuItem());
-            iy += 36.f;
-        }
-
-        m_menu->render(w, h);
-    }
-
     UiRenderer m_renderer;
     TextRenderer m_text;
     UiInput m_input;
     int m_viewW = 1280, m_viewH = 720;
-    int m_menuIndex = 0;
 
     std::unique_ptr<GameMenuOverlay> m_menu;
     std::unique_ptr<DashboardOverlay> m_dash;
