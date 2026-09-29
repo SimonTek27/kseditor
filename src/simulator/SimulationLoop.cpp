@@ -1,6 +1,6 @@
 /**
  * SimulationLoop.cpp — std-only / Qt-free
- * Fixed 1 kHz physics + LapSectorTimer + shared-memory + UDP telemetry
+ * 1 kHz physics + LapSectorTimer + SM + UDP + TCP telemetry
  */
 
 #include "SimulationLoop.h"
@@ -12,6 +12,7 @@
 #include "ui/UiGpuPass.h"
 #include "ui/RaceTelemetryHud.h"
 #include "UdpTelemetryBridge.h"
+#include "TcpTelemetryBridge.h"
 
 #include "engine/Engine.h"
 #include "engine/scene/Components.h"
@@ -88,6 +89,7 @@ SimulationLoop::~SimulationLoop() {
     stop();
     if (m_shm) m_shm->close();
     if (m_udp) m_udp->close();
+    if (m_tcp) m_tcp->close();
     ks::ecs::SceneModule::instance().clearSystems();
     ks::ecs::SceneModule::instance().attach(nullptr);
     ks::scripting::ScriptModule::instance().shutdown();
@@ -131,8 +133,12 @@ bool SimulationLoop::initialize() {
     if (m_udpEnabled) {
         m_udp = std::make_unique<UdpTelemetryBridge>();
         if (m_udp->open(m_udpHost.c_str(), m_udpPort))
-            std::fprintf(stderr, "SimulationLoop: UDP telemetry → %s:%u\n",
-                         m_udpHost.c_str(), static_cast<unsigned>(m_udpPort));
+            std::fprintf(stderr, "SimulationLoop: UDP → %s:%u\n", m_udpHost.c_str(), unsigned(m_udpPort));
+    }
+    if (m_tcpEnabled) {
+        m_tcp = std::make_unique<TcpTelemetryBridge>();
+        if (m_tcp->listen("0.0.0.0", m_tcpPort))
+            std::fprintf(stderr, "SimulationLoop: TCP listen :%u\n", unsigned(m_tcpPort));
     }
     return true;
 }
@@ -282,6 +288,12 @@ bool SimulationLoop::openUdp() {
     return m_udp->open(m_udpHost.c_str(), m_udpPort);
 }
 
+bool SimulationLoop::openTcp() {
+    if (!m_tcp) m_tcp = std::make_unique<TcpTelemetryBridge>();
+    m_tcp->setEnabled(m_tcpEnabled);
+    return m_tcp->listen("0.0.0.0", m_tcpPort);
+}
+
 void SimulationLoop::publishUdpTelemetry() {
     if (!m_udp || !m_udpEnabled) return;
 #if HAS_VEHICLE_SIM
@@ -298,9 +310,7 @@ void SimulationLoop::publishUdpTelemetry() {
     s.fuelL = static_cast<float>(st.fuel);
     s.posX = st.position.x; s.posY = st.position.y; s.posZ = st.position.z;
     s.velX = st.velocity.x; s.velY = st.velocity.y; s.velZ = st.velocity.z;
-    s.accGX = st.acceleration.x / 9.81f;
-    s.accGY = st.acceleration.y / 9.81f;
-    s.accGZ = st.acceleration.z / 9.81f;
+    s.accGX = st.acceleration.x / 9.81f; s.accGY = st.acceleration.y / 9.81f; s.accGZ = st.acceleration.z / 9.81f;
     s.heading = st.heading;
     for (int i = 0; i < 4; ++i) {
         s.tyreTemp[i] = static_cast<float>(st.tyreTemp[i]);
@@ -316,12 +326,51 @@ void SimulationLoop::publishUdpTelemetry() {
     s.sessionType = static_cast<int>(m_sessionType);
     s.status = m_running ? 2 : 0;
     s.normalizedSpline = m_normalizedSpline;
-    s.surfaceGrip = ks::physics::TrackSurface::instance().getGrip({st.position.x, st.position.y, st.position.z});
     s.airTemp = m_weather.ambientTemp;
     s.roadTemp = m_weather.trackTemp;
     s.inPit = st.inPitLane;
     s.pitLimiter = st.pitLimiterActive;
     m_udp->publish(s);
+#endif
+}
+
+void SimulationLoop::publishTcpTelemetry() {
+    if (!m_tcp || !m_tcpEnabled) return;
+#if HAS_VEHICLE_SIM
+    if (!m_vehicle) return;
+    const auto st = m_vehicle->getState();
+    UdpTelemSample s;
+    s.timeSec = m_simTime;
+    s.speedMs = static_cast<float>(st.speed);
+    s.rpm = static_cast<float>(m_vehicle->rpm());
+    s.throttle = static_cast<float>(st.throttle);
+    s.brake = static_cast<float>(st.brake);
+    s.steer = static_cast<float>(st.steering);
+    s.gear = m_vehicle->currentGear();
+    s.fuelL = static_cast<float>(st.fuel);
+    s.posX = st.position.x; s.posY = st.position.y; s.posZ = st.position.z;
+    s.velX = st.velocity.x; s.velY = st.velocity.y; s.velZ = st.velocity.z;
+    s.accGX = st.acceleration.x / 9.81f; s.accGY = st.acceleration.y / 9.81f; s.accGZ = st.acceleration.z / 9.81f;
+    s.heading = st.heading;
+    for (int i = 0; i < 4; ++i) {
+        s.tyreTemp[i] = static_cast<float>(st.tyreTemp[i]);
+        s.tyreWear[i] = static_cast<float>(st.tyreWear[i]);
+        s.tyrePressure[i] = static_cast<float>(st.tyrePressure[i]);
+    }
+    s.completedLaps = m_lapTimer.completedLaps();
+    s.currentSector = m_lapTimer.sectorIndex();
+    s.currentTimeMs = m_lapTimer.currentTimeMs();
+    s.lastTimeMs = m_lapTimer.lastTimeMs();
+    s.bestTimeMs = m_lapTimer.bestTimeMs();
+    s.position = 1;
+    s.sessionType = static_cast<int>(m_sessionType);
+    s.status = m_running ? 2 : 0;
+    s.normalizedSpline = m_normalizedSpline;
+    s.airTemp = m_weather.ambientTemp;
+    s.roadTemp = m_weather.trackTemp;
+    s.inPit = st.inPitLane;
+    s.pitLimiter = st.pitLimiterActive;
+    m_tcp->publish(s);
 #endif
 }
 
@@ -341,7 +390,6 @@ void SimulationLoop::publishSharedMemory() {
     live.fuel = static_cast<float>(st.fuel);
     live.velocity[0] = st.velocity.x; live.velocity[1] = st.velocity.y; live.velocity[2] = st.velocity.z;
     live.accG[0] = st.acceleration.x / 9.81f; live.accG[1] = st.acceleration.y / 9.81f; live.accG[2] = st.acceleration.z / 9.81f;
-    live.localAngularVel[0] = st.angularVelocity.x; live.localAngularVel[1] = st.angularVelocity.y; live.localAngularVel[2] = st.angularVelocity.z;
     live.heading = st.heading;
     live.wheelSlip[0] = ffb.slipAngleFL; live.wheelSlip[1] = ffb.slipAngleFR;
     live.wheelLoad[0] = ffb.loadFL; live.wheelLoad[1] = ffb.loadFR;
@@ -354,10 +402,9 @@ void SimulationLoop::publishSharedMemory() {
     live.carX = st.position.x; live.carY = st.position.y; live.carZ = st.position.z;
     live.normalizedSpline = m_normalizedSpline;
     live.distanceTraveled = m_lapDistance;
-    live.surfaceGrip = ks::physics::TrackSurface::instance().getGrip({st.position.x, st.position.y, st.position.z});
-    live.airTemp = m_weather.ambientTemp; live.roadTemp = m_weather.trackTemp; live.airDensity = m_weather.airDensity;
+    live.airTemp = m_weather.ambientTemp; live.roadTemp = m_weather.trackTemp;
     live.completedLaps = m_lapTimer.completedLaps();
-    live.position = 1; live.currentSector = m_lapTimer.sectorIndex();
+    live.currentSector = m_lapTimer.sectorIndex();
     live.iCurrentTimeMs = m_lapTimer.currentTimeMs();
     live.iLastTimeMs = m_lapTimer.lastTimeMs();
     live.iBestTimeMs = m_lapTimer.bestTimeMs();
@@ -477,6 +524,7 @@ void SimulationLoop::tick() {
     if (!m_running) {
         publishSharedMemory();
         publishUdpTelemetry();
+        publishTcpTelemetry();
         render();
         return;
     }
@@ -510,6 +558,7 @@ void SimulationLoop::tick() {
     updateWeather();
     publishSharedMemory();
     publishUdpTelemetry();
+    publishTcpTelemetry();
     if (m_sessionPhase == PHASE_COUNTDOWN) {
         m_timeRemaining -= elapsed;
         if (m_timeRemaining <= 0.0) { m_sessionPhase = PHASE_GREEN_FLAG; m_timeRemaining = 0.0; m_lapTimer.start(); }
