@@ -2,18 +2,31 @@
 
 **Not part of the core engine.**
 
-These modules speak AC/CSP formats and conventions so the simulator can load
-Assetto Corsa tracks, cars, banks, and CSP configs. The engine itself stays a
-generic open-source simulation runtime (physics, devices, render, loop).
-
 | Component | Role |
 |-----------|------|
-| `CspConfigParser` | CSP (Custom Shaders Patch) config files |
-| `ACGuidsParser` | AC GUID tables |
-| `FSPROImporter` / `FSPROExporter` | FMOD Studio / AC audio banks |
-| `P3DModelLoader` | Bohemia/AC-related model bits if needed |
-| `PAATextureConverter` | Arma/PAA-style textures (legacy tooling) |
-| `KsAcSndEventDefs` | AC sound event name tables |
+| `AcSharedMemory*` | AC-compatible physics/graphics/static pages for overlays |
+| `AcSurfacesLoader` | `surfaces.ini` → TrackSurface grip |
+| `CspConfigParser` | CSP configs |
+| `ACGuidsParser` | GUID tables |
+| `FSPROImporter` / `Exporter` | FMOD / AC banks |
 
-Core engine must not `#include` these from `physics/` or `Engine.h`.
-Wire them only from the simulator app or a content-pack plugin.
+## Shared memory (Windows)
+```
+Local\\acpmf_physics
+Local\\acpmf_graphics
+Local\\acpmf_static
+```
+Publisher fills pages each physics tick from `AcLiveInput`.
+
+```cpp
+ks::ac::AcSharedMemoryPublisher pub;
+pub.open();
+// each frame:
+pub.publish(liveInput);
+```
+
+## Surfaces
+```cpp
+ks::ac::AcSurfacesLoader surf;
+surf.load(trackDir + "/data/surfaces.ini");
+```
