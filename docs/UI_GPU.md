@@ -1,33 +1,49 @@
-# UI GPU rendering
+# UI GPU + Vulkan pipeline
 
-## Pipeline
-```
-NativeUiHub → UiRenderer (CPU verts + atlas UVs)
-           → UiGpuPass::uploadFrame / draw
-           → NativeRenderer::drawUi
-```
+## Classes
+| Class | Role |
+|-------|------|
+| `UiGpuPass` | CPU batch + hooks |
+| `VulkanUiPipeline` | Vk pipeline, atlas R8, host VB/IB, draw |
+| `NativeRenderer::drawUi` | calls upload + draw |
 
-## Shaders
-- `ui/shaders/ui.vert.glsl` — pixel → NDC, push constant `screenSize`
-- `ui/shaders/ui.frag.glsl` — sample R8 atlas as alpha, `outColor.a *= tex.r`
-
-## Platform hooks (real Vulkan)
+## Bootstrap
 ```cpp
-auto* pass = loop.uiGpu();
-pass->onUploadAtlas = [&](const uint8_t* r8, int w, int h) {
-  // vkCreateImage R8_UNORM, staging copy
-};
-pass->onUploadDynamic = [&](const UiVertex* v, uint32_t vc,
-                            const uint32_t* i, uint32_t ic) {
-  // map host-visible VB/IB or staging
-};
-pass->onDraw = [&](uint32_t vc, uint32_t ic, float sw, float sh) {
-  // bind pipeline, push screenSize, vkCmdDrawIndexed
-};
+ks::sim::ui::VulkanUiPipeline pipe;
+ks::sim::ui::VulkanUiPipeline::CreateInfo ci;
+ci.physicalDevice = phys;
+ci.device = device;
+ci.queue = graphicsQueue;
+ci.renderPass = mainPass;   // must allow blending
+ci.queueFamily = graphicsFamily;
+ci.vertSpvPath = "shaders/ui.vert.spv";
+ci.fragSpvPath = "shaders/ui.frag.spv";
+if (!pipe.create(ci)) { /* error */ }
+
+pipe.bindTo(*loop.uiGpu());
+// each frame, before UI draw:
+pipe.setCommandBuffer(cmd);
 ```
 
-## Limits
-- 65k vertices / 98k indices per frame (grow later if needed)
+## Compile shaders
+```bash
+cd src/simulator/ui && bash compile_ui_shaders.sh
+```
 
-## Soft path
-Without hooks, `UiGpuPass` keeps CPU mirrors and increments soft draw counters — useful for headless tests.
+## Pipeline state
+- Topology: triangle list
+- Blend: SRC_ALPHA / ONE_MINUS_SRC_ALPHA
+- Depth: off
+- Cull: none
+- Push constant: `vec2 screenSize`
+- Descriptor 0: combined image sampler (R8 atlas, nearest)
+- Vertex: `UiVertex` { xy, rgba, uv }
+
+## Frame order
+```
+beginRenderPass
+  draw 3D…
+  uiPass.uploadFrame(uiRenderer)  // maps host VB/IB
+  uiPass.draw()                   // vkCmdDrawIndexed via VulkanUiPipeline
+endRenderPass
+```
