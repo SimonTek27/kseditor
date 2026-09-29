@@ -402,15 +402,18 @@ void SimulationLoop::publishSharedMemory()
     for (int i = 0; i < 4; ++i) {
         live.tyreTemp[i] = static_cast<float>(st.tyreTemp[i]);
         live.tyreWear[i] = static_cast<float>(st.tyreWear[i]);
+        live.tyrePressure[i] = static_cast<float>(st.tyrePressure[i]);
     }
     live.carX = st.position.x;
     live.carY = st.position.y;
     live.carZ = st.position.z;
     live.normalizedSpline = m_normalizedSpline;
+    live.distanceTraveled = m_lapDistance;
     live.surfaceGrip = ks::physics::TrackSurface::instance().getGrip(
         {st.position.x, st.position.y, st.position.z});
     live.airTemp = m_weather.ambientTemp;
     live.roadTemp = m_weather.trackTemp;
+    live.airDensity = m_weather.airDensity;
     live.completedLaps = m_lapTimer.completedLaps();
     live.position = 1;
     live.currentSector = m_lapTimer.sectorIndex();
@@ -420,12 +423,14 @@ void SimulationLoop::publishSharedMemory()
     live.sessionType = static_cast<int>(m_sessionType);
     live.status = m_running ? 2 : 0;
     live.inPit = st.inPitLane;
+    live.pitLimiter = st.pitLimiterActive;
     live.carModel = m_carName;
     live.trackName = m_trackData.name;
     live.maxRpm = 8500;
     live.totalLaps = m_totalLaps;
     live.sectorCount = m_lapTimer.sectorCount();
     live.sessionTimeLeft = static_cast<float>(m_timeRemaining);
+    live.trackSplineLength = m_trackData.splineLength;
 
     m_shm->publish(live);
 #endif
