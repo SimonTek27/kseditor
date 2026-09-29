@@ -1,32 +1,14 @@
-# Assetto Corsa content adapters
+# Assetto Corsa / CSP adapters
 
-**Not part of the core engine.**
+Used by **SimulatorApp** (open-source AC+CSP product).  
+**Not** linked into core `ksengine` as a hard dependency.
 
 | Component | Role |
 |-----------|------|
-| `AcSharedMemory*` | AC-compatible physics/graphics/static pages for overlays |
-| `AcSurfacesLoader` | `surfaces.ini` → TrackSurface grip |
-| `CspConfigParser` | CSP configs |
+| `AcSharedMemory*` | AC overlay shared memory |
+| `AcSurfacesLoader` | surfaces.ini → grip |
+| `CspConfigParser` | Custom Shaders Patch configs |
 | `ACGuidsParser` | GUID tables |
-| `FSPROImporter` / `Exporter` | FMOD / AC banks |
+| `FSPROImporter` / `Exporter` | Audio banks |
 
-## Shared memory (Windows)
-```
-Local\\acpmf_physics
-Local\\acpmf_graphics
-Local\\acpmf_static
-```
-Publisher fills pages each physics tick from `AcLiveInput`.
-
-```cpp
-ks::ac::AcSharedMemoryPublisher pub;
-pub.open();
-// each frame:
-pub.publish(liveInput);
-```
-
-## Surfaces
-```cpp
-ks::ac::AcSurfacesLoader surf;
-surf.load(trackDir + "/data/surfaces.ini");
-```
+SimulatorApp owns the product UX; these modules speak AC/CSP file formats.
