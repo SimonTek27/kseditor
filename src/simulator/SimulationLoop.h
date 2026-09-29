@@ -2,7 +2,7 @@
 
 /**
  * SimulationLoop — fixed-timestep sim + NativeUiHub + GPU UI pass.
- * Wires LapSectorTimer + content shared-memory publisher + TrackSurface.
+ * LapSectorTimer + shared-memory + UDP telemetry bridge + TrackSurface.
  */
 
 #include "engine/physics/PhysicsCoreTypes.h"
@@ -43,6 +43,7 @@ class SetupGarage;
 class NativeRenderer;
 class MultiCarManager;
 class NetworkManager;
+class UdpTelemetryBridge;
 
 namespace ui {
 class UiGpuPass;
@@ -93,7 +94,7 @@ struct SimTrackData {
     std::string kn5Path;
     std::string directory;
     bool valid = false;
-    float splineLength = 5000.f; // metres — used for normalized progress
+    float splineLength = 5000.f;
 };
 
 class SimulationLoop {
@@ -128,6 +129,7 @@ public:
     MultiCarManager* multiCarManager() { return m_multiCar.get(); }
     NetworkManager* networkManager() { return m_network.get(); }
     ks::physics::LapSectorTimer& lapTimer() { return m_lapTimer; }
+    UdpTelemetryBridge* udpBridge() { return m_udp.get(); }
     DashboardOverlay* dashboard() { return &m_ui.dashboard(); }
     TelemetryOverlay* telemetry() { return &m_ui.telemetry(); }
     void setCameraMode(CameraController::Mode m) {
@@ -162,6 +164,15 @@ public:
     void setSharedMemoryEnabled(bool e) { m_shmEnabled = e; }
     bool sharedMemoryEnabled() const { return m_shmEnabled; }
 
+    void setUdpTelemetryEnabled(bool e) { m_udpEnabled = e; }
+    bool udpTelemetryEnabled() const { return m_udpEnabled; }
+    /** host/port applied on next initialize or openUdp(). */
+    void setUdpTelemetryEndpoint(const std::string& host, uint16_t port) {
+        m_udpHost = host;
+        m_udpPort = port;
+    }
+    bool openUdp();
+
     void applyRemoteInput(int clientIndex, const net::InputData& input);
 
     std::function<void()> onSimulationStarted;
@@ -178,6 +189,7 @@ private:
     void ensureScenePipeline();
     void syncUiFromVehicle();
     void publishSharedMemory();
+    void publishUdpTelemetry();
     void updateLapAndSurface(double dt);
     static std::string readFileText(const std::string& path);
 
@@ -191,6 +203,7 @@ private:
     std::unique_ptr<SimulatorAudio> m_audio;
     std::unique_ptr<SetupGarage> m_setupGarage;
     std::unique_ptr<ks::ac::AcSharedMemoryPublisher> m_shm;
+    std::unique_ptr<UdpTelemetryBridge> m_udp;
 
     ui::NativeUiHub m_ui;
     std::shared_ptr<ui::UiGpuPass> m_uiGpu;
@@ -202,6 +215,10 @@ private:
     float m_lapDistance = 0.f;
     float m_normalizedSpline = 0.f;
     bool m_shmEnabled = true;
+    bool m_udpEnabled = true;
+    std::string m_udpHost = "127.0.0.1";
+    uint16_t m_udpPort = 20777;
+    double m_simTime = 0.0;
 
     std::chrono::steady_clock::time_point m_lastTime{};
     double m_simAccumulator = 0;
