@@ -30,20 +30,24 @@ enum class DrawCmdType : uint8_t {
     RectOutline,
     Line,
     Text,
-    ProgressBar
+    ProgressBar,
+    VectorStroke, // polyline stored in pathPoints
+    VectorFill    // convex polygon in pathPoints
 };
 
 struct DrawCmd {
     DrawCmdType type = DrawCmdType::RectFilled;
-    float x0 = 0, y0 = 0, x1 = 0, y1 = 0; // rect or line ends
+    float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
     float thickness = 1.f;
     Color color;
-    float value = 0.f; // progress 0..1
+    float value = 0.f;
     std::string text;
     float fontScale = 1.f;
+    // Vector path flattened points (x,y pairs)
+    std::vector<float> pathPoints;
+    bool pathClosed = false;
 };
 
-/** Screen-space vertex for batched UI (x,y in pixels, rgba, u,v). */
 struct UiVertex {
     float x, y;
     float r, g, b, a;
@@ -99,6 +103,26 @@ public:
         d.x0 = f.x; d.y0 = f.y; d.x1 = f.x + f.w; d.y1 = f.y + f.h;
         d.color = fill;
         d.value = value01;
+        m_cmds.push_back(std::move(d));
+    }
+
+    /** Append stroked path (already flattened x,y pairs). */
+    void addPolyline(const std::vector<float>& xy, const Color& c, float width, bool closed = false) {
+        DrawCmd d;
+        d.type = DrawCmdType::VectorStroke;
+        d.color = c;
+        d.thickness = width;
+        d.pathPoints = xy;
+        d.pathClosed = closed;
+        m_cmds.push_back(std::move(d));
+    }
+
+    void addPolygonFill(const std::vector<float>& xy, const Color& c) {
+        DrawCmd d;
+        d.type = DrawCmdType::VectorFill;
+        d.color = c;
+        d.pathPoints = xy;
+        d.pathClosed = true;
         m_cmds.push_back(std::move(d));
     }
 
