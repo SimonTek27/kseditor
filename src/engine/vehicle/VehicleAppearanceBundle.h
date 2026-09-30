@@ -1,7 +1,7 @@
 #pragma once
 /**
  * Resolved appearance for a car at a given race round:
- *   nodes + livery + sound + physics mods
+ *   nodes + livery + sound + physics
  */
 #include "RaceComponentConfig.h"
 #include "VehicleUpgradeSystem.h"
@@ -14,7 +14,7 @@ namespace vehicle {
 
 struct VehicleAppearanceBundle {
     RaceComponentConfig components;
-    LiveryRef livery;   // from RaceComponentConfig.h
+    LiveryRef livery;
     SoundPackRef sound;
     std::vector<std::string> enableNodes;
     std::vector<std::string> disableNodes;
@@ -29,51 +29,11 @@ struct VehicleAppearanceBundle {
     }
 };
 
-namespace detail {
-
-inline LiveryRef toRaceLivery(const ks::vehicle::LiveryRef& /*placeholder*/) {
-    return {};
-}
-
-// Copy from UpgradeSystem livery (same field layout) into RaceComponentConfig::LiveryRef
-template <typename UpLiv>
-inline LiveryRef copyLivery(const UpLiv& u) {
-    LiveryRef L;
-    L.id = u.id;
-    L.name = u.name;
-    L.folder = u.folder;
-    L.diffuse = u.diffuse;
-    L.specular = u.specular;
-    L.normal = u.normal;
-    L.preview = u.preview;
-    L.number = u.number;
-    L.driverName = u.driverName;
-    L.teamName = u.teamName;
-    return L;
-}
-
-template <typename UpSnd>
-inline SoundPackRef copySound(const UpSnd& u) {
-    SoundPackRef S;
-    S.id = u.id;
-    S.name = u.name;
-    S.bankPath = u.bankPath;
-    S.engineIni = u.engineIni;
-    S.soundsIni = u.soundsIni;
-    S.engineGain = u.engineGain;
-    S.exteriorGain = u.exteriorGain;
-    S.turboGain = u.turboGain;
-    S.sampleOverrides = u.sampleOverrides;
-    return S;
-}
-
-} // namespace detail
-
 /**
  * Priority for livery/sound:
- *   1. Selected UpgradeCategory::Livery / Sound (or Engine-embedded sound)
- *   2. Race _rd*.ini [Livery]/[Sound]
- *   3. Empty → keep car defaults in the app
+ *   1. Selected UpgradeCategory::Livery / Sound (Engine may embed SoundBank)
+ *   2. Race _rd*.ini [Livery] / [Sound]
+ *   3. Empty → app keeps car defaults
  */
 inline VehicleAppearanceBundle resolveAppearance(
     const std::string& kn5Path,
@@ -93,12 +53,11 @@ inline VehicleAppearanceBundle resolveAppearance(
             const auto* L = t.current();
             if (!L) continue;
             if (t.category == UpgradeCategory::Livery && L->hasLivery())
-                out.livery = detail::copyLivery(L->livery);
+                out.livery = L->livery;
             if (t.category == UpgradeCategory::Sound && L->hasSound())
-                out.sound = detail::copySound(L->sound);
-            if (t.category == UpgradeCategory::Engine && L->hasSound() &&
-                out.sound.bankPath.empty() && out.sound.id.empty())
-                out.sound = detail::copySound(L->sound);
+                out.sound = L->sound;
+            if (t.category == UpgradeCategory::Engine && L->hasSound() && !out.hasSound())
+                out.sound = L->sound;
         }
     }
 
