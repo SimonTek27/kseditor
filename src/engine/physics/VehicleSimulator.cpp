@@ -29,6 +29,7 @@ void VehicleSimulator::reset() {
     m_rpm = 1000;
     m_yawRate = 0;
     m_ffb = VehicleFFBSample{};
+    m_damage.reset();
 }
 
 void VehicleSimulator::setThrottle(double v) { m_throttle = std::clamp(v, 0.0, 1.0); }
@@ -73,8 +74,8 @@ std::map<std::string, std::string> VehicleSimulator::parseIni(const std::string&
         std::string key = line.substr(0, eq);
         std::string val = line.substr(eq + 1);
         auto trim = [](std::string& s) {
-            while (!s.empty() && s.front() == ' ') s.erase(s.begin());
-            while (!s.empty() && s.back() == ' ') s.pop_back();
+            while (!s.empty() && (s.front() == ' ' || s.front() == '\t')) s.erase(s.begin());
+            while (!s.empty() && (s.back() == ' ' || s.back() == '\t')) s.pop_back();
         };
         trim(key); trim(val);
         auto sc = val.find(';');
@@ -123,39 +124,31 @@ void VehicleSimulator::loadTyresFromIni(const std::string& path) {
 
 void VehicleSimulator::loadDrivetrainFromIni(const std::string& path) {
     auto m = parseIni(path);
-    float fd = getf(m, "FINAL_GEAR_RATIO", getf(m, "GEARS/FINAL", static_cast<float>(m_finalDrive)));
+    float fd = getf(m, "FINAL", getf(m, "DRIVETRAIN/FINAL", static_cast<float>(m_finalDrive)));
     if (fd > 0.5f) m_finalDrive = fd;
-    std::vector<double> gears;
-    for (int i = 1; i <= 8; ++i) {
-        std::string k = "GEAR_" + std::to_string(i);
-        float g = getf(m, k, getf(m, "GEARS/" + k, -1.f));
-        if (g > 0.1f) gears.push_back(g);
-    }
-    if (!gears.empty()) m_gearRatios = std::move(gears);
 }
 
 void VehicleSimulator::loadAeroFromIni(const std::string& path) {
-    m_aero.loadFromIniFile(path);
-    auto c = m_aero.getConfig();
-    if (c.dragCoefficient > 0.05f) m_cd = c.dragCoefficient;
-    if (c.frontalArea > 0.5f) m_frontalArea = c.frontalArea;
+    auto m = parseIni(path);
+    float cd = getf(m, "CD", getf(m, "AERO/CD", static_cast<float>(m_cd)));
+    float area = getf(m, "AREA", getf(m, "AERO/AREA", static_cast<float>(m_frontalArea)));
+    if (cd > 0.05f) setDragCoeff(cd);
+    if (area > 0.5f) setFrontalArea(area);
 }
 
 void VehicleSimulator::loadSuspensionFromIni(const std::string& path) {
     auto m = parseIni(path);
-    float wb = getf(m, "WHEELBASE", getf(m, "BASIC/WHEELBASE", static_cast<float>(m_wheelBase)));
-    float tw = getf(m, "TRACK", getf(m, "BASIC/TRACK", static_cast<float>(m_trackWidth)));
-    if (wb > 1.0f) m_wheelBase = wb;
-    if (tw > 0.8f) m_trackWidth = tw;
+    float wb = getf(m, "WHEELBASE", getf(m, "SUSPENSION/WHEELBASE", static_cast<float>(m_wheelBase)));
+    float tw = getf(m, "TRACK", getf(m, "SUSPENSION/TRACK", static_cast<float>(m_trackWidth)));
+    if (wb > 1.5f) m_wheelBase = wb;
+    if (tw > 1.0f) m_trackWidth = tw;
 }
 
 void VehicleSimulator::shiftGears() {
-    if (m_gearRatios.empty()) return;
     if (m_rpm > m_maxRpm * 0.95 && m_currentGear < static_cast<int>(m_gearRatios.size()))
-        m_currentGear++;
-    else if (m_rpm < 2000 && m_currentGear > 1 && m_throttle < 0.3)
-        m_currentGear--;
-    m_currentGear = std::clamp(m_currentGear, 1, static_cast<int>(m_gearRatios.size()));
+        ++m_currentGear;
+    else if (m_rpm < 2000 && m_currentGear > 1)
+        --m_currentGear;
 }
 
 void VehicleSimulator::integrate(double dt) {
@@ -170,8 +163,17 @@ void VehicleSimulator::integrate(double dt) {
     as.speed = speed;
     as.yawAngle = m_state.heading;
     auto af = m_aero.calculate(as);
-    float aeroDrag = af.drag;
-    float downforce = af.downforce;
+
+    // rF2-style damage → mechanical multipliers
+    m_damage.update(fdt, speed, static_cast<float>(m_rpm));
+    const float dmgPower = m_damage.powerMultiplier();
+    const float dmgDrag = m_damage.dragMultiplier();
+    const float dmgDf = m_damage.downforceMultiplier();
+    const float dmgBrake = m_damage.brakingMultiplier();
+    const float dmgHand = m_damage.handlingMultiplier();
+
+    float aeroDrag = af.drag * dmgDrag;
+    float downforce = af.downforce * dmgDf;
 
     float loadFront = mass * 9.81f * 0.45f + downforce * 0.4f;
     float loadRear  = mass * 9.81f * 0.55f + downforce * 0.6f;
@@ -192,49 +194,53 @@ void VehicleSimulator::integrate(double dt) {
     float saRL = beta - (yaw * wb * 0.55f) / std::max(speed, 1.0f);
     float saRR = saRL;
 
-    float gearRatio = static_cast<float>(m_gearRatios[static_cast<size_t>(m_currentGear - 1)]);
+    // Suspension damage → toe/camber bias on slip angles
+    const auto& sFL = m_damage.suspensionDamage(0);
+    const auto& sFR = m_damage.suspensionDamage(1);
+    saFL += sFL.toeDeviation * 0.01745f + sFL.camberDeviation * 0.005f;
+    saFR += sFR.toeDeviation * 0.01745f + sFR.camberDeviation * 0.005f;
+
+    float gearRatio = static_cast<float>(m_gearRatios[static_cast<size_t>(std::max(0, m_currentGear - 1) % m_gearRatios.size())]);
     float wheelOmega = speed / static_cast<float>(m_wheelRadius);
     m_rpm = std::max(800.0, wheelOmega * gearRatio * m_finalDrive * 60.0 / (2.0 * 3.14159265));
-    shiftGears();
-    gearRatio = static_cast<float>(m_gearRatios[static_cast<size_t>(m_currentGear - 1)]);
+    if (!m_damage.isEngineFailed())
+        shiftGears();
+    gearRatio = static_cast<float>(m_gearRatios[static_cast<size_t>(std::max(0, m_currentGear - 1) % m_gearRatios.size())]);
 
     float peakTorque = static_cast<float>(m_enginePowerKw * 1000.0 / (m_maxRpm * 2.0 * 3.14159265 / 60.0));
     float rpmN = static_cast<float>(std::min(m_rpm / m_maxRpm, 1.0));
-    float engineTorque = peakTorque * std::sin(rpmN * 3.14159265f) * static_cast<float>(m_throttle);
+    float engineTorque = peakTorque * std::sin(rpmN * 3.14159265f) * static_cast<float>(m_throttle) * dmgPower;
+    if (m_damage.isTransmissionFailed())
+        engineTorque *= 0.3f;
     float driveForceTarget = (engineTorque * gearRatio * static_cast<float>(m_finalDrive))
                              / static_cast<float>(m_wheelRadius);
-    float brakeForceTarget = static_cast<float>(m_brake) * mass * 12.0f;
+    float brakeForceTarget = static_cast<float>(m_brake) * mass * 12.0f * dmgBrake;
 
-    auto slipRatioFor = [&](float driveShare, float brakeShare) -> float {
-        if (speed < 0.5f) return static_cast<float>(m_throttle) * 0.1f - static_cast<float>(m_brake) * 0.15f;
-        float ideal = (driveShare - brakeShare) / std::max(mass * 9.81f, 1.f);
-        return std::clamp(ideal * 0.15f, -0.3f, 0.3f);
+    // Simplified Pacejka forces
+    auto tireForce = [&](float sa, float load, float driveShare, float brakeShare) {
+        PacejkaTireModel::Input in;
+        in.slipAngle = sa;
+        in.slipRatio = 0.f;
+        if (speed > 0.5f) {
+            float longReq = driveShare - brakeShare;
+            in.slipRatio = std::clamp(longReq / (load * 1.5f + 1.f), -1.f, 1.f);
+        }
+        in.normalLoad = load;
+        in.camber = -0.03f;
+        in.frictionScale = dmgHand; // damaged suspension → less grip
+        return m_tires.calculate(in);
     };
 
-    auto tireAt = [&](float sa, float sr, float load) {
-        PacejkaTireModel::TireState ts;
-        ts.slipAngle = sa;
-        ts.slipRatio = sr;
-        ts.normalForce = load;
-        ts.camberAngle = -0.03f;
-        ts.tireTemp = 90.f;
-        ts.tirePressure = 26.f;
-        ts.frictionCoefficient = 1.0f;
-        return m_tires.calculateForces(ts);
-    };
+    float dShare = driveForceTarget * 0.25f;
+    float bShare = brakeForceTarget * 0.25f;
+    auto fFL = tireForce(saFL, loadFL, dShare, bShare);
+    auto fFR = tireForce(saFR, loadFR, dShare, bShare);
+    auto fRL = tireForce(saRL, loadRL, dShare, bShare);
+    auto fRR = tireForce(saRR, loadRR, dShare, bShare);
 
-    float srF = slipRatioFor(0.f, brakeForceTarget * 0.6f);
-    float srR = slipRatioFor(driveForceTarget, brakeForceTarget * 0.4f);
+    float Fy = (fFL.lateralForce + fFR.lateralForce + fRL.lateralForce + fRR.lateralForce) * dmgHand;
 
-    auto fFL = tireAt(saFL, srF, loadFL);
-    auto fFR = tireAt(saFR, srF, loadFR);
-    auto fRL = tireAt(saRL, srR, loadRL);
-    auto fRR = tireAt(saRR, srR, loadRR);
-
-    float Fx = fFL.longitudinalForce + fFR.longitudinalForce + fRL.longitudinalForce + fRR.longitudinalForce;
-    float Fy = fFL.lateralForce + fFR.lateralForce + fRL.lateralForce + fRR.lateralForce;
-
-    float longForce = Fx;
+    float longForce = 0.f;
     {
         float cmd = driveForceTarget - brakeForceTarget - aeroDrag;
         float gripLong = std::abs(fFL.longitudinalForce) + std::abs(fFR.longitudinalForce)
@@ -268,6 +274,11 @@ void VehicleSimulator::integrate(double dt) {
     m_state.position.x += m_state.velocity.x * fdt;
     m_state.position.z += m_state.velocity.z * fdt;
     m_state.position.y = 0.35f;
+
+    // CG shift from asymmetric body damage (subtle)
+    const auto cg = m_damage.cgShift();
+    m_state.position.x += cg.x * 0.01f;
+    m_state.position.z += cg.z * 0.01f;
 
     m_state.speed = std::sqrt(m_state.velocity.x * m_state.velocity.x +
                               m_state.velocity.z * m_state.velocity.z);
