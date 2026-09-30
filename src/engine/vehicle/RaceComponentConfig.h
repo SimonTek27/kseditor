@@ -2,28 +2,14 @@
 /**
  * Race / event component configuration for KN5-style assets.
  *
- * Concept (content pipeline, independent product identity):
- *   - The KN5 (or node catalog) holds the FULL vehicle mesh set (like a complete node list).
- *   - A sidecar INI selects which nodes are active for a given race / weekend.
+ * The KN5 (or node catalog) holds the FULL vehicle mesh set.
+ * A sidecar INI selects which nodes are active for a given race / weekend.
  *
- * Naming convention (next to car.kn5):
- *   car_rd1.ini           — race / round 1 layout
- *   car_rd1-2.ini         — same layout used for rounds 1 and 2
- *   car_rd1-2-rd6.ini     — rounds 1,2 and 6
+ * Naming (next to car.kn5):
+ *   car_rd1.ini           — round 1
+ *   car_rd1-2.ini         — rounds 1 and 2
+ *   car_rd1-2-rd6.ini     — rounds 1, 2 and 6
  *   car_rd3.ini           — round 3 only
- *
- * INI format (simple):
- *   [Nodes]
- *   GEO_WHEEL_LF=1
- *   GEO_WING_RACE=1
- *   GEO_WING_STOCK=0
- *   ; or list form:
- *   Active=GEO_WHEEL_LF,GEO_WING_RACE,COCKPIT
- *   Inactive=GEO_WING_STOCK
- *
- *   [Meta]
- *   Rounds=1,2,6
- *   Description=High downforce package
  */
 #include <string>
 #include <vector>
@@ -34,6 +20,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cctype>
+#include <filesystem>
 
 namespace ks {
 namespace vehicle {
@@ -41,37 +28,27 @@ namespace vehicle {
 struct RaceComponentConfig {
     std::string sourcePath;
     std::string description;
-    std::vector<int> rounds;                 // parsed from filename and/or Meta
-    std::unordered_set<std::string> active;  // nodes ON
-    std::unordered_set<std::string> inactive; // nodes forced OFF
+    std::vector<int> rounds;
+    std::unordered_set<std::string> active;
+    std::unordered_set<std::string> inactive;
     bool hasExplicitList = false;
 
     bool isActive(const std::string& node) const {
         if (inactive.count(node)) return false;
-        if (!hasExplicitList) return true; // no filter → all on
+        if (!hasExplicitList) return true;
         if (active.empty()) return !inactive.count(node);
         return active.count(node) > 0;
     }
 };
 
-/** Full catalog = every node known for the car (ProView-like complete list). */
 struct VehicleNodeCatalog {
     std::string kn5Path;
-    std::vector<std::string> nodes; // ordered
-
+    std::vector<std::string> nodes;
     bool empty() const { return nodes.empty(); }
 };
 
 class RaceComponentConfigLoader {
 public:
-    /**
- * Parse rounds from filename stem suffix after last '_rd'.
- * Examples:
- *   car_rd1          → {1}
- *   car_rd1-2        → {1,2}
- *   car_rd1-2-rd6    → {1,2,6}
- *   car_rd3          → {3}
- */
     static std::vector<int> parseRoundsFromFilename(const std::string& pathOrStem) {
         std::string stem = pathOrStem;
         auto slash = stem.find_last_of("/\\"
@@ -80,7 +57,6 @@ public:
         auto dot = stem.find_last_of('.');
         if (dot != std::string::npos) stem = stem.substr(0, dot);
 
-        // find "_rd"
         auto pos = stem.find("_rd");
         if (pos == std::string::npos) return {};
         std::string tag = stem.substr(pos + 1); // rd1-2-rd6
@@ -99,7 +75,6 @@ public:
                 num.push_back(c);
             } else if (c == '-' || c == '_') {
                 flush();
-                // skip "rd" letters after separator
                 if (i + 2 < tag.size() && tag[i + 1] == 'r' && tag[i + 2] == 'd')
                     i += 2;
             } else {
@@ -107,7 +82,6 @@ public:
             }
         }
         flush();
-        // unique sorted
         std::sort(rounds.begin(), rounds.end());
         rounds.erase(std::unique(rounds.begin(), rounds.end()), rounds.end());
         return rounds;
@@ -147,7 +121,6 @@ public:
 
             auto eq = line.find('=');
             if (eq == std::string::npos) {
-                // bare node name in [Nodes] → active
                 if (section == "nodes" || section == "active") {
                     cfg.active.insert(line);
                     cfg.hasExplicitList = true;
@@ -173,7 +146,6 @@ public:
                 continue;
             }
 
-            // [Nodes] KEY=0|1  or Active=a,b,c
             if (key == "Active" || key == "Nodes") {
                 std::stringstream ss(val);
                 std::string part;
@@ -195,14 +167,11 @@ public:
                 continue;
             }
 
-            // GEO_FOO=1 / 0
             int on = std::atoi(val.c_str());
             if (val == "true" || val == "on" || val == "yes") on = 1;
             if (val == "false" || val == "off" || val == "no") on = 0;
-            if (on)
-                cfg.active.insert(key);
-            else
-                cfg.inactive.insert(key);
+            if (on) cfg.active.insert(key);
+            else cfg.inactive.insert(key);
             cfg.hasExplicitList = true;
         }
 
@@ -211,54 +180,39 @@ public:
         return cfg;
     }
 
-    /** Find best config file next to kn5 for a given round number. */
     static std::string findConfigPathForRound(const std::string& kn5Path, int round) {
-        namespace fs = std::__fs::filesystem; // may not exist — use string ops
-        std::string dir, stem;
-        auto slash = kn5Path.find_last_of("/\\"
-                                         );
-        if (slash != std::string::npos) {
-            dir = kn5Path.substr(0, slash + 1);
-            stem = kn5Path.substr(slash + 1);
-        } else {
-            stem = kn5Path;
-        }
-        auto dot = stem.find_last_of('.');
-        if (dot != std::string::npos) stem = stem.substr(0, dot);
+        namespace fs = std::filesystem;
+        fs::path kn5(kn5Path);
+        fs::path dir = kn5.parent_path();
+        if (dir.empty()) dir = ".";
+        const std::string stem = kn5.stem().string();
 
-        // Candidate patterns: stem_rd*.ini in same folder — scan via sequential try
-        // Prefer exact match containing this round; longest match wins (most specific).
         std::vector<std::string> candidates;
-        // We cannot list dir portably without filesystem — try common names + read dir if available
-#ifdef __cpp_lib_filesystem
         try {
-            for (auto& e : std::filesystem::directory_iterator(dir.empty() ? "." : dir)) {
+            for (auto& e : fs::directory_iterator(dir)) {
                 if (!e.is_regular_file()) continue;
-                auto p = e.path().string();
-                auto name = e.path().filename().string();
-                if (name.find(stem + "_rd") != 0) continue;
                 if (e.path().extension() != ".ini") continue;
+                const std::string name = e.path().filename().string();
+                if (name.rfind(stem + "_rd", 0) != 0) continue;
                 auto rounds = parseRoundsFromFilename(name);
                 if (std::find(rounds.begin(), rounds.end(), round) != rounds.end())
-                    candidates.push_back(p);
+                    candidates.push_back(e.path().string());
             }
         } catch (...) {}
-#else
-        (void)dir;
-#endif
-        // Fallback explicit tries
-        auto tryPush = [&](const std::string& name) {
-            std::string p = dir + name;
-            std::ifstream t(p);
-            if (t) candidates.push_back(p);
-        };
-        tryPush(stem + "_rd" + std::to_string(round) + ".ini");
+
+        // Fallback explicit name
+        {
+            fs::path p = dir / (stem + "_rd" + std::to_string(round) + ".ini");
+            if (fs::exists(p))
+                candidates.push_back(p.string());
+        }
 
         if (candidates.empty()) return {};
-        // Prefer file whose rounds list is smallest (most specific) among those containing round
         std::sort(candidates.begin(), candidates.end(), [](const std::string& a, const std::string& b) {
             return parseRoundsFromFilename(a).size() < parseRoundsFromFilename(b).size();
         });
+        // unique
+        candidates.erase(std::unique(candidates.begin(), candidates.end()), candidates.end());
         return candidates.front();
     }
 
@@ -272,7 +226,6 @@ public:
         return loadIni(path);
     }
 
-    /** Filter catalog → list of nodes to draw / collide. */
     static std::vector<std::string> filterNodes(const VehicleNodeCatalog& catalog,
                                                  const RaceComponentConfig& cfg) {
         std::vector<std::string> out;
@@ -287,6 +240,3 @@ public:
 
 } // namespace vehicle
 } // namespace ks
-
-// filesystem include for directory scan
-#include <filesystem>
