@@ -1,12 +1,5 @@
 #pragma once
-/**
- * UDP telemetry bridge — publish ksim live state to localhost/LAN.
- * Qt-free. Complements shared-memory for tools that prefer sockets.
- *
- * Default: UDP 127.0.0.1:20777  (listener side remains free for external AC streams)
- * Packet: little-endian binary header "KSIM" + UdpTelemPacket v1
- * Optional: JSON line mode for scripts (newline-terminated UTF-8)
- */
+/** UDP telemetry — KSIM binary v2 includes damage channels. */
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -33,47 +26,27 @@ namespace ks {
 namespace sim {
 
 #pragma pack(push, 1)
-/** Fixed binary payload (v1) — keep fields append-only for future versions. */
 struct UdpTelemPacket {
-    char magic[4];          // 'K','S','I','M'
-    uint16_t version;       // 1
-    uint16_t size;          // sizeof(UdpTelemPacket)
+    char magic[4];
+    uint16_t version; // 2
+    uint16_t size;
     uint32_t sequence;
     double timeSec;
-
-    float speedMs;
-    float rpm;
-    float throttle;
-    float brake;
-    float steer;
+    float speedMs, rpm, throttle, brake, steer;
     int32_t gear;
     float fuelL;
-
     float posX, posY, posZ;
     float velX, velY, velZ;
     float accGX, accGY, accGZ;
     float heading;
-
-    float tyreTemp[4];
-    float tyreWear[4];
-    float tyrePressure[4];
-
-    int32_t completedLaps;
-    int32_t currentSector;
-    int32_t currentTimeMs;
-    int32_t lastTimeMs;
-    int32_t bestTimeMs;
-    int32_t position;
-    int32_t sessionType;
-    int32_t status;         // 0 off 2 live
-
-    float normalizedSpline;
-    float surfaceGrip;
-    float airTemp;
-    float roadTemp;
-    uint8_t inPit;
-    uint8_t pitLimiter;
-    uint8_t _pad[2];
+    float tyreTemp[4], tyreWear[4], tyrePressure[4];
+    int32_t completedLaps, currentSector, currentTimeMs, lastTimeMs, bestTimeMs;
+    int32_t position, sessionType, status;
+    float normalizedSpline, surfaceGrip, airTemp, roadTemp;
+    uint8_t inPit, pitLimiter, damageWarning, engineSeized;
+    float damageOverall, engineHealth, powerMult, dragMult, downforceMult;
+    float carDamage[5];
+    float suspIntegrity[4];
 };
 #pragma pack(pop)
 
@@ -92,20 +65,18 @@ struct UdpTelemSample {
     float tyreTemp[4] = {80, 80, 80, 80};
     float tyreWear[4] = {};
     float tyrePressure[4] = {2.2f, 2.2f, 2.0f, 2.0f};
-    int completedLaps = 0;
-    int currentSector = 0;
-    int currentTimeMs = 0;
-    int lastTimeMs = 0;
-    int bestTimeMs = 0;
-    int position = 1;
-    int sessionType = 2;
-    int status = 2;
-    float normalizedSpline = 0;
-    float surfaceGrip = 1.f;
-    float airTemp = 25.f;
-    float roadTemp = 30.f;
-    bool inPit = false;
-    bool pitLimiter = false;
+    int completedLaps = 0, currentSector = 0;
+    int currentTimeMs = 0, lastTimeMs = 0, bestTimeMs = 0;
+    int position = 1, sessionType = 2, status = 2;
+    float normalizedSpline = 0, surfaceGrip = 1.f;
+    float airTemp = 25.f, roadTemp = 30.f;
+    bool inPit = false, pitLimiter = false;
+    float damageOverall = 0.f, engineHealth = 1.f;
+    float powerMult = 1.f, dragMult = 1.f, downforceMult = 1.f;
+    float carDamage[5] = {};
+    float suspIntegrity[4] = {1, 1, 1, 1};
+    int damageWarning = 0;
+    bool engineSeized = false;
 };
 
 class UdpTelemetryBridge {
@@ -113,89 +84,58 @@ public:
     UdpTelemetryBridge() = default;
     ~UdpTelemetryBridge() { close(); }
 
-    /** Bind local ephemeral port and set destination. */
     bool open(const char* host = "127.0.0.1", uint16_t port = 20777) {
         std::lock_guard<std::mutex> lock(m_mutex);
         closeUnlocked();
-
 #ifdef _WIN32
         if (!m_wsa) {
             WSADATA wsa;
-            if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
-                std::fprintf(stderr, "UdpTelemetryBridge: WSAStartup failed\n");
-                return false;
-            }
+            if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) return false;
             m_wsa = true;
         }
         m_sock = static_cast<int>(::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
-        if (m_sock == INVALID_SOCKET) {
-            m_sock = -1;
-            return false;
-        }
+        if (m_sock == INVALID_SOCKET) { m_sock = -1; return false; }
 #else
         m_sock = ::socket(AF_INET, SOCK_DGRAM, 0);
         if (m_sock < 0) return false;
         int flags = fcntl(m_sock, F_GETFL, 0);
         if (flags >= 0) fcntl(m_sock, F_SETFL, flags | O_NONBLOCK);
 #endif
-
         std::memset(&m_dest, 0, sizeof(m_dest));
         m_dest.sin_family = AF_INET;
         m_dest.sin_port = htons(port);
-        if (::inet_pton(AF_INET, host, &m_dest.sin_addr) != 1) {
-            std::fprintf(stderr, "UdpTelemetryBridge: bad host %s\n", host);
-            closeUnlocked();
-            return false;
-        }
-
-        m_host = host;
-        m_port = port;
-        m_ok = true;
-        std::fprintf(stderr, "UdpTelemetryBridge: → %s:%u\n", host, static_cast<unsigned>(port));
+        if (::inet_pton(AF_INET, host, &m_dest.sin_addr) != 1) { closeUnlocked(); return false; }
+        m_host = host; m_port = port; m_ok = true;
+        std::fprintf(stderr, "UdpTelemetryBridge: → %s:%u (v2+damage)\n", host, unsigned(port));
         return true;
     }
 
-    void close() {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        closeUnlocked();
-    }
-
+    void close() { std::lock_guard<std::mutex> lock(m_mutex); closeUnlocked(); }
     void setEnabled(bool e) { m_enabled = e; }
     bool isEnabled() const { return m_enabled; }
     bool isOpen() const { return m_ok; }
-
     void setJsonMode(bool j) { m_json = j; }
-    bool jsonMode() const { return m_json; }
 
-    /** Send one sample (binary or JSON). Thread-safe. */
     bool publish(const UdpTelemSample& s) {
         if (!m_enabled) return false;
         std::lock_guard<std::mutex> lock(m_mutex);
         if (!m_ok || m_sock < 0) return false;
-
         m_seq++;
-        if (m_json)
-            return sendJson(s);
+        if (m_json) return sendJson(s);
         return sendBinary(s);
     }
-
-    uint32_t sequence() const { return m_seq; }
 
 private:
     bool sendBinary(const UdpTelemSample& s) {
         UdpTelemPacket p{};
         p.magic[0] = 'K'; p.magic[1] = 'S'; p.magic[2] = 'I'; p.magic[3] = 'M';
-        p.version = 1;
+        p.version = 2;
         p.size = static_cast<uint16_t>(sizeof(UdpTelemPacket));
         p.sequence = m_seq;
         p.timeSec = s.timeSec;
-        p.speedMs = s.speedMs;
-        p.rpm = s.rpm;
-        p.throttle = s.throttle;
-        p.brake = s.brake;
-        p.steer = s.steer;
-        p.gear = s.gear;
-        p.fuelL = s.fuelL;
+        p.speedMs = s.speedMs; p.rpm = s.rpm;
+        p.throttle = s.throttle; p.brake = s.brake; p.steer = s.steer;
+        p.gear = s.gear; p.fuelL = s.fuelL;
         p.posX = s.posX; p.posY = s.posY; p.posZ = s.posZ;
         p.velX = s.velX; p.velY = s.velY; p.velZ = s.velZ;
         p.accGX = s.accGX; p.accGY = s.accGY; p.accGZ = s.accGZ;
@@ -204,37 +144,30 @@ private:
             p.tyreTemp[i] = s.tyreTemp[i];
             p.tyreWear[i] = s.tyreWear[i];
             p.tyrePressure[i] = s.tyrePressure[i];
+            p.suspIntegrity[i] = s.suspIntegrity[i];
         }
-        p.completedLaps = s.completedLaps;
-        p.currentSector = s.currentSector;
-        p.currentTimeMs = s.currentTimeMs;
-        p.lastTimeMs = s.lastTimeMs;
-        p.bestTimeMs = s.bestTimeMs;
-        p.position = s.position;
-        p.sessionType = s.sessionType;
-        p.status = s.status;
-        p.normalizedSpline = s.normalizedSpline;
-        p.surfaceGrip = s.surfaceGrip;
-        p.airTemp = s.airTemp;
-        p.roadTemp = s.roadTemp;
-        p.inPit = s.inPit ? 1 : 0;
-        p.pitLimiter = s.pitLimiter ? 1 : 0;
-
+        p.completedLaps = s.completedLaps; p.currentSector = s.currentSector;
+        p.currentTimeMs = s.currentTimeMs; p.lastTimeMs = s.lastTimeMs; p.bestTimeMs = s.bestTimeMs;
+        p.position = s.position; p.sessionType = s.sessionType; p.status = s.status;
+        p.normalizedSpline = s.normalizedSpline; p.surfaceGrip = s.surfaceGrip;
+        p.airTemp = s.airTemp; p.roadTemp = s.roadTemp;
+        p.inPit = s.inPit ? 1 : 0; p.pitLimiter = s.pitLimiter ? 1 : 0;
+        p.damageWarning = static_cast<uint8_t>(s.damageWarning);
+        p.engineSeized = s.engineSeized ? 1 : 0;
+        p.damageOverall = s.damageOverall; p.engineHealth = s.engineHealth;
+        p.powerMult = s.powerMult; p.dragMult = s.dragMult; p.downforceMult = s.downforceMult;
+        for (int i = 0; i < 5; ++i) p.carDamage[i] = s.carDamage[i];
         return sendBytes(reinterpret_cast<const char*>(&p), sizeof(p));
     }
 
     bool sendJson(const UdpTelemSample& s) {
-        char buf[1024];
+        char buf[1280];
         int n = std::snprintf(buf, sizeof(buf),
-            "{\"seq\":%u,\"t\":%.3f,\"v\":%.2f,\"rpm\":%.0f,\"gear\":%d,"
-            "\"thr\":%.3f,\"brk\":%.3f,\"str\":%.3f,\"fuel\":%.2f,"
-            "\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,"
-            "\"lap\":%d,\"sec\":%d,\"ct\":%d,\"bt\":%d,\"pos\":%d,\"spline\":%.4f}\n",
-            m_seq, s.timeSec, s.speedMs * 3.6, s.rpm, s.gear,
-            s.throttle, s.brake, s.steer, s.fuelL,
-            s.posX, s.posY, s.posZ,
-            s.completedLaps, s.currentSector, s.currentTimeMs, s.bestTimeMs,
-            s.position, s.normalizedSpline);
+            "{\"seq\":%u,\"t\":%.3f,\"v\":%.1f,\"rpm\":%.0f,\"dmg\":%.3f,\"engH\":%.2f,\"pwr\":%.2f,"
+            "\"warn\":%d,\"seized\":%d,\"cd\":[%.2f,%.2f,%.2f,%.2f,%.2f]}\n",
+            m_seq, s.timeSec, s.speedMs * 3.6, s.rpm, s.damageOverall, s.engineHealth, s.powerMult,
+            s.damageWarning, int(s.engineSeized),
+            s.carDamage[0], s.carDamage[1], s.carDamage[2], s.carDamage[3], s.carDamage[4]);
         if (n <= 0) return false;
         return sendBytes(buf, static_cast<size_t>(n));
     }
@@ -264,10 +197,7 @@ private:
     }
 
     std::mutex m_mutex;
-    bool m_ok = false;
-    bool m_enabled = true;
-    bool m_json = false;
-    bool m_wsa = false;
+    bool m_ok = false, m_enabled = true, m_json = false, m_wsa = false;
     int m_sock = -1;
     sockaddr_in m_dest{};
     std::string m_host;
