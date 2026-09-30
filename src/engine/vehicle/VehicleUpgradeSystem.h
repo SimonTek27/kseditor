@@ -1,7 +1,7 @@
 #pragma once
 /**
  * Vehicle upgrade system — mechanical + livery + sound packages.
- * rF2-inspired levels; ksim product identity.
+ * LiveryRef / SoundPackRef defined in RaceComponentConfig.h
  */
 #include <string>
 #include <vector>
@@ -12,6 +12,7 @@
 #include <sstream>
 #include <cstdio>
 #include <cctype>
+#include "RaceComponentConfig.h"
 
 namespace ks {
 namespace vehicle {
@@ -23,8 +24,8 @@ enum class UpgradeCategory : int {
     Suspension,
     Brakes,
     Body,
-    Livery,     // skin / textures / race number
-    Sound,      // engine bank / sounds.ini
+    Livery,
+    Sound,
     COUNT
 };
 
@@ -81,31 +82,6 @@ struct PhysicsMods {
     }
 };
 
-struct LiveryRef {
-    std::string id;
-    std::string name;
-    std::string folder;
-    std::string diffuse;
-    std::string specular;
-    std::string normal;
-    std::string preview;
-    int number = -1;
-    std::string driverName;
-    std::string teamName;
-};
-
-struct SoundPackRef {
-    std::string id;
-    std::string name;
-    std::string bankPath;
-    std::string engineIni;
-    std::string soundsIni;
-    float engineGain = 1.f;
-    float exteriorGain = 1.f;
-    float turboGain = 1.f;
-    std::map<std::string, std::string> sampleOverrides;
-};
-
 struct UpgradeLevel {
     std::string id;
     std::string name;
@@ -144,7 +120,6 @@ class VehicleUpgradeSystem {
 public:
     const std::vector<UpgradeType>& types() const { return m_types; }
     std::vector<UpgradeType>& types() { return m_types; }
-
     void clear() { m_types.clear(); }
 
     UpgradeType& addType(UpgradeCategory cat, const std::string& name) {
@@ -188,7 +163,6 @@ public:
         return m;
     }
 
-    /** First selected livery among Livery category (or empty). */
     LiveryRef selectedLivery() const {
         for (const auto& t : m_types) {
             if (t.category != UpgradeCategory::Livery) continue;
@@ -204,7 +178,6 @@ public:
             if (const auto* L = t.current())
                 if (L->hasSound()) return L->sound;
         }
-        // Engine level may embed sound
         for (const auto& t : m_types) {
             if (t.category != UpgradeCategory::Engine) continue;
             if (const auto* L = t.current())
@@ -271,7 +244,6 @@ public:
             if (sc != std::string::npos) line = line.substr(0, sc);
             line = trim(line);
             if (line.empty()) continue;
-
             if (line == "{") { ++brace; continue; }
             if (line == "}") {
                 --brace;
@@ -279,7 +251,6 @@ public:
                 if (brace <= 0) { curType = nullptr; brace = 0; }
                 continue;
             }
-
             if (line.rfind("UpgradeType", 0) == 0) {
                 auto eq = line.find('=');
                 std::string name = eq != std::string::npos ? unquote(line.substr(eq + 1)) : "Package";
@@ -290,7 +261,6 @@ public:
                 curLevel = nullptr;
                 continue;
             }
-
             if (line.rfind("UpgradeLevel", 0) == 0 && curType) {
                 auto eq = line.find('=');
                 std::string name = eq != std::string::npos ? unquote(line.substr(eq + 1)) : "Level";
@@ -304,7 +274,6 @@ public:
                 }
                 continue;
             }
-
             if (!curLevel) continue;
             auto eq = line.find('=');
             if (eq == std::string::npos) continue;
@@ -333,7 +302,6 @@ public:
             else if (key == "EnableNode") curLevel->enableNodes.push_back(val);
             else if (key == "DisableNode") curLevel->disableNodes.push_back(val);
             else if (key == "Instance" && curType) curType->instance = val;
-            // --- Livery ---
             else if (key == "LiveryId" || key == "SkinId") curLevel->livery.id = val;
             else if (key == "LiveryName" || key == "SkinName") curLevel->livery.name = val;
             else if (key == "LiveryFolder" || key == "SkinFolder" || key == "Skin") curLevel->livery.folder = val;
@@ -344,7 +312,6 @@ public:
             else if (key == "RaceNumber" || key == "Number") curLevel->livery.number = std::atoi(val.c_str());
             else if (key == "Driver") curLevel->livery.driverName = val;
             else if (key == "Team") curLevel->livery.teamName = val;
-            // --- Sound ---
             else if (key == "SoundId" || key == "SoundPack") curLevel->sound.id = val;
             else if (key == "SoundName") curLevel->sound.name = val;
             else if (key == "SoundBank" || key == "Bank" || key == "BankPath") curLevel->sound.bankPath = val;
@@ -353,9 +320,8 @@ public:
             else if (key == "EngineGain") curLevel->sound.engineGain = std::strtof(val.c_str(), nullptr);
             else if (key == "ExteriorGain") curLevel->sound.exteriorGain = std::strtof(val.c_str(), nullptr);
             else if (key == "TurboGain") curLevel->sound.turboGain = std::strtof(val.c_str(), nullptr);
-            else if (key.rfind("Sample.", 0) == 0) {
+            else if (key.rfind("Sample.", 0) == 0)
                 curLevel->sound.sampleOverrides[key.substr(7)] = val;
-            }
             else if (key == "Swap" || key == "GEN") {
                 auto colon = val.find(':');
                 auto eq2 = val.find('=');
@@ -395,8 +361,8 @@ public:
         }
         {
             auto& t = addType(UpgradeCategory::Livery, "Livery");
-            UpgradeLevel a; a.id = "factory"; a.name = "Factory"; a.livery.id = "factory";
-            a.livery.folder = "skins/factory"; a.livery.number = 1;
+            UpgradeLevel a; a.id = "factory"; a.name = "Factory";
+            a.livery.id = "factory"; a.livery.folder = "skins/factory"; a.livery.number = 1;
             UpgradeLevel b; b.id = "sponsor_red"; b.name = "Sponsor Red"; b.price = 500;
             b.livery.id = "sponsor_red"; b.livery.folder = "skins/sponsor_red";
             b.livery.number = 7; b.livery.teamName = "ksim Racing";
@@ -404,8 +370,8 @@ public:
         }
         {
             auto& t = addType(UpgradeCategory::Sound, "Sound Pack");
-            UpgradeLevel a; a.id = "stock_sfx"; a.name = "Stock"; a.sound.id = "stock";
-            a.sound.bankPath = "sfx/stock"; a.sound.soundsIni = "sfx/stock/sounds.ini";
+            UpgradeLevel a; a.id = "stock_sfx"; a.name = "Stock";
+            a.sound.id = "stock"; a.sound.bankPath = "sfx/stock"; a.sound.soundsIni = "sfx/stock/sounds.ini";
             UpgradeLevel b; b.id = "race_sfx"; b.name = "Race exhaust"; b.price = 300;
             b.sound.id = "race"; b.sound.bankPath = "sfx/race";
             b.sound.soundsIni = "sfx/race/sounds.ini"; b.sound.engineGain = 1.15f;
