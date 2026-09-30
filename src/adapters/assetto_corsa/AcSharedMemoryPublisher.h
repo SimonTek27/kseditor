@@ -151,7 +151,9 @@ private:
         if (m_phys && m_phys != &m_physSoft) { UnmapViewOfFile(m_phys); }
         if (m_gfx && m_gfx != &m_gfxSoft) { UnmapViewOfFile(m_gfx); }
         if (m_stat && m_stat != &m_statSoft) { UnmapViewOfFile(m_stat); }
-        m_phys = m_gfx = m_stat = nullptr;
+        m_phys = nullptr;
+        m_gfx = nullptr;
+        m_stat = nullptr;
         if (m_physMap) { CloseHandle(m_physMap); m_physMap = nullptr; }
         if (m_gfxMap) { CloseHandle(m_gfxMap); m_gfxMap = nullptr; }
         if (m_statMap) { CloseHandle(m_statMap); m_statMap = nullptr; }
@@ -166,7 +168,9 @@ private:
             unmap(m_gfx, sizeof(AcGraphicsPage), m_gfxFd);
         if (m_stat && m_stat != &m_statSoft)
             unmap(m_stat, sizeof(AcStaticPage), m_statFd);
-        m_phys = m_gfx = m_stat = nullptr;
+        m_phys = nullptr;
+        m_gfx = nullptr;
+        m_stat = nullptr;
         m_physFd = m_gfxFd = m_statFd = -1;
 #endif
         m_ok = false;
