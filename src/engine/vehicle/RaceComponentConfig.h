@@ -2,19 +2,16 @@
 /**
  * Race / event component configuration for KN5-style assets.
  *
- * The KN5 (or node catalog) holds the FULL vehicle mesh set.
- * A sidecar INI selects which nodes are active for a given race / weekend.
+ * Sidecar INI next to car.kn5:
+ *   car_rd1.ini / car_rd1-2.ini / car_rd1-2-rd6.ini
  *
- * Naming (next to car.kn5):
- *   car_rd1.ini           — round 1
- *   car_rd1-2.ini         — rounds 1 and 2
- *   car_rd1-2-rd6.ini     — rounds 1, 2 and 6
- *   car_rd3.ini           — round 3 only
+ * Sections:
+ *   [Meta] [Nodes] [Livery] [Sound]
  */
 #include <string>
 #include <vector>
 #include <unordered_set>
-#include <unordered_map>
+#include <map>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
@@ -25,6 +22,32 @@
 namespace ks {
 namespace vehicle {
 
+// Forward — full defs used by bundle; lightweight copies here to avoid cycles
+struct LiveryRef {
+    std::string id;
+    std::string name;
+    std::string folder;
+    std::string diffuse;
+    std::string specular;
+    std::string normal;
+    std::string preview;
+    int number = -1;
+    std::string driverName;
+    std::string teamName;
+};
+
+struct SoundPackRef {
+    std::string id;
+    std::string name;
+    std::string bankPath;
+    std::string engineIni;
+    std::string soundsIni;
+    float engineGain = 1.f;
+    float exteriorGain = 1.f;
+    float turboGain = 1.f;
+    std::map<std::string, std::string> sampleOverrides;
+};
+
 struct RaceComponentConfig {
     std::string sourcePath;
     std::string description;
@@ -32,6 +55,8 @@ struct RaceComponentConfig {
     std::unordered_set<std::string> active;
     std::unordered_set<std::string> inactive;
     bool hasExplicitList = false;
+    LiveryRef livery;
+    SoundPackRef sound;
 
     bool isActive(const std::string& node) const {
         if (inactive.count(node)) return false;
@@ -51,15 +76,14 @@ class RaceComponentConfigLoader {
 public:
     static std::vector<int> parseRoundsFromFilename(const std::string& pathOrStem) {
         std::string stem = pathOrStem;
-        auto slash = stem.find_last_of("/\\"
-                                       );
+        auto slash = stem.find_last_of("/\\");
         if (slash != std::string::npos) stem = stem.substr(slash + 1);
         auto dot = stem.find_last_of('.');
         if (dot != std::string::npos) stem = stem.substr(0, dot);
 
         auto pos = stem.find("_rd");
         if (pos == std::string::npos) return {};
-        std::string tag = stem.substr(pos + 1); // rd1-2-rd6
+        std::string tag = stem.substr(pos + 1);
 
         std::vector<int> rounds;
         std::string num;
@@ -103,6 +127,13 @@ public:
             while (!s.empty() && (unsigned char)s.back() <= ' ') s.pop_back();
             return s;
         };
+        auto unquote = [&](std::string s) {
+            s = trim(s);
+            if (s.size() >= 2 && ((s.front() == '"' && s.back() == '"') ||
+                                  (s.front() == '\'' && s.back() == '\'')))
+                return s.substr(1, s.size() - 2);
+            return s;
+        };
 
         std::string line, section;
         while (std::getline(in, line)) {
@@ -129,7 +160,7 @@ public:
             }
 
             std::string key = trim(line.substr(0, eq));
-            std::string val = trim(line.substr(eq + 1));
+            std::string val = unquote(line.substr(eq + 1));
 
             if (section == "meta") {
                 if (key == "Description") cfg.description = val;
@@ -142,6 +173,37 @@ public:
                     }
                     std::sort(cfg.rounds.begin(), cfg.rounds.end());
                     cfg.rounds.erase(std::unique(cfg.rounds.begin(), cfg.rounds.end()), cfg.rounds.end());
+                }
+                continue;
+            }
+
+            if (section == "livery" || section == "skin") {
+                if (key == "Id" || key == "Skin" || key == "Livery") cfg.livery.id = val;
+                else if (key == "Name") cfg.livery.name = val;
+                else if (key == "Folder" || key == "Path") cfg.livery.folder = val;
+                else if (key == "Diffuse" || key == "Albedo" || key == "Texture") cfg.livery.diffuse = val;
+                else if (key == "Specular") cfg.livery.specular = val;
+                else if (key == "Normal") cfg.livery.normal = val;
+                else if (key == "Preview") cfg.livery.preview = val;
+                else if (key == "Number") cfg.livery.number = std::atoi(val.c_str());
+                else if (key == "Driver") cfg.livery.driverName = val;
+                else if (key == "Team") cfg.livery.teamName = val;
+                continue;
+            }
+
+            if (section == "sound" || section == "audio") {
+                if (key == "Id" || key == "Pack") cfg.sound.id = val;
+                else if (key == "Name") cfg.sound.name = val;
+                else if (key == "Bank" || key == "BankPath" || key == "Path") cfg.sound.bankPath = val;
+                else if (key == "EngineIni") cfg.sound.engineIni = val;
+                else if (key == "SoundsIni") cfg.sound.soundsIni = val;
+                else if (key == "EngineGain") cfg.sound.engineGain = std::strtof(val.c_str(), nullptr);
+                else if (key == "ExteriorGain") cfg.sound.exteriorGain = std::strtof(val.c_str(), nullptr);
+                else if (key == "TurboGain") cfg.sound.turboGain = std::strtof(val.c_str(), nullptr);
+                else if (key.rfind("Sample.", 0) == 0 || key.rfind("Sample_", 0) == 0) {
+                    // Sample.EngineInterior=path.wav
+                    std::string cat = key.substr(7);
+                    cfg.sound.sampleOverrides[cat] = val;
                 }
                 continue;
             }
@@ -167,16 +229,23 @@ public:
                 continue;
             }
 
-            int on = std::atoi(val.c_str());
-            if (val == "true" || val == "on" || val == "yes") on = 1;
-            if (val == "false" || val == "off" || val == "no") on = 0;
-            if (on) cfg.active.insert(key);
-            else cfg.inactive.insert(key);
-            cfg.hasExplicitList = true;
+            // node=0|1 under [Nodes] or bare section
+            if (section == "nodes" || section.empty() || section == "active") {
+                int on = std::atoi(val.c_str());
+                if (val == "true" || val == "on" || val == "yes") on = 1;
+                if (val == "false" || val == "off" || val == "no") on = 0;
+                if (on) cfg.active.insert(key);
+                else cfg.inactive.insert(key);
+                cfg.hasExplicitList = true;
+            }
         }
 
-        std::fprintf(stderr, "RaceComponentConfig: %s active=%zu inactive=%zu rounds=%zu\n",
-                     path.c_str(), cfg.active.size(), cfg.inactive.size(), cfg.rounds.size());
+        std::fprintf(stderr,
+            "RaceComponentConfig: %s nodes+=%zu nodes-=%zu livery=%s sound=%s rounds=%zu\n",
+            path.c_str(), cfg.active.size(), cfg.inactive.size(),
+            cfg.livery.id.empty() ? cfg.livery.folder.c_str() : cfg.livery.id.c_str(),
+            cfg.sound.id.empty() ? cfg.sound.bankPath.c_str() : cfg.sound.id.c_str(),
+            cfg.rounds.size());
         return cfg;
     }
 
@@ -200,7 +269,6 @@ public:
             }
         } catch (...) {}
 
-        // Fallback explicit name
         {
             fs::path p = dir / (stem + "_rd" + std::to_string(round) + ".ini");
             if (fs::exists(p))
@@ -211,7 +279,6 @@ public:
         std::sort(candidates.begin(), candidates.end(), [](const std::string& a, const std::string& b) {
             return parseRoundsFromFilename(a).size() < parseRoundsFromFilename(b).size();
         });
-        // unique
         candidates.erase(std::unique(candidates.begin(), candidates.end()), candidates.end());
         return candidates.front();
     }
