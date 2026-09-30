@@ -12,6 +12,7 @@
 #include <atomic>
 #include <mutex>
 #include <cstdint>
+#include <unordered_map>
 
 namespace ks::sim {
 
@@ -49,7 +50,6 @@ public:
     };
 
     enum class CameraMode { Cockpit, Chase, Free, TV, Replay };
-
     enum class SurfaceType { Asphalt, Grass, Gravel, Kerb, Wet, Ice, Count };
 
     SimulatorAudio();
@@ -60,6 +60,20 @@ public:
 
     bool loadCarAudio(const std::string& carDirectory);
     bool loadBank(const std::string& bankPath);
+
+    /**
+     * Apply race/upgrade sound pack on top of baseline car audio.
+     * Paths absolute or already resolved against car folder.
+     */
+    bool applySoundPack(
+        const std::string& bankPath,
+        const std::string& soundsIniPath,
+        const std::string& engineIniPath,
+        float engineGain,
+        float exteriorGain,
+        float turboGain,
+        const std::unordered_map<std::string, std::string>& sampleOverrides,
+        const std::string& carDirectory);
 
     void update(float rpm, float throttle, float brake, float speed, int gear,
                 CameraMode mode, float dt);
@@ -110,22 +124,13 @@ public:
     };
 
     struct AudioState {
-        float rpm = 0;
-        float throttle = 0;
-        float brake = 0;
-        float speed = 0;
-        float steering = 0;
+        float rpm = 0, throttle = 0, brake = 0, speed = 0, steering = 0;
         int gear = 0;
         bool isShifting = false;
-        float slipRatio = 0;
-        float slipAngle = 0;
+        float slipRatio = 0, slipAngle = 0;
         int surface = 0;
-        float suspensionDamage = 0;
-        float brakeTemp = 0;
-        float boostPressure = 0;
-        float windSpeed = 0;
-        float wetness = 0;
-        float rainIntensity = 0;
+        float suspensionDamage = 0, brakeTemp = 0, boostPressure = 0;
+        float windSpeed = 0, wetness = 0, rainIntensity = 0;
     };
 
     struct PlaybackState {
@@ -137,22 +142,9 @@ public:
     };
 
     enum ChannelId {
-        ChEngineInt = 0,
-        ChEngineExt,
-        ChTurbo,
-        ChWind,
-        ChSkid,
-        ChGearShift,
-        ChBrakes,
-        ChTransmission,
-        ChBodywork,
-        ChBackfire,
-        ChLimiter,
-        ChRainAmbient,
-        ChRainCar,
-        ChWiper,
-        ChCspSkid,
-        ChCount
+        ChEngineInt = 0, ChEngineExt, ChTurbo, ChWind, ChSkid, ChGearShift,
+        ChBrakes, ChTransmission, ChBodywork, ChBackfire, ChLimiter,
+        ChRainAmbient, ChRainCar, ChWiper, ChCspSkid, ChCount
     };
 
 private:
@@ -193,7 +185,6 @@ private:
     std::atomic<float> m_engineVolume{1.0f};
     std::atomic<float> m_environmentVolume{0.6f};
     std::atomic<float> m_interiorMix{0.85f};
-
     std::atomic<int> m_cameraMode{0};
 
     float m_listenerX = 0, m_listenerY = 0, m_listenerZ = 0;
@@ -224,7 +215,7 @@ private:
     struct ExtConfigData {
         std::unordered_map<std::string, float> volumeOverrides;
         std::unordered_map<std::string, float> pitchOverrides;
-        std::unordered_map<std::string, std::pair<std::string, float>> parameterOverrides; // param_name -> (default, value)
+        std::unordered_map<std::string, std::pair<std::string, float>> parameterOverrides;
     } m_extConfig;
     int64_t m_sampleCounter = 0;
 
