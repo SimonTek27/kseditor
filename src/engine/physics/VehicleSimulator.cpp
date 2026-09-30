@@ -164,7 +164,6 @@ void VehicleSimulator::integrate(double dt) {
     as.yawAngle = m_state.heading;
     auto af = m_aero.calculate(as);
 
-    // rF2-style damage → mechanical multipliers
     m_damage.update(fdt, speed, static_cast<float>(m_rpm));
     const float dmgPower = m_damage.powerMultiplier();
     const float dmgDrag = m_damage.dragMultiplier();
@@ -194,18 +193,19 @@ void VehicleSimulator::integrate(double dt) {
     float saRL = beta - (yaw * wb * 0.55f) / std::max(speed, 1.0f);
     float saRR = saRL;
 
-    // Suspension damage → toe/camber bias on slip angles
     const auto& sFL = m_damage.suspensionDamage(0);
     const auto& sFR = m_damage.suspensionDamage(1);
-    saFL += sFL.toeDeviation * 0.01745f + sFL.camberDeviation * 0.005f;
-    saFR += sFR.toeDeviation * 0.01745f + sFR.camberDeviation * 0.005f;
+    saFL += sFL.toeDeviation * 0.01745f;
+    saFR += sFR.toeDeviation * 0.01745f;
 
-    float gearRatio = static_cast<float>(m_gearRatios[static_cast<size_t>(std::max(0, m_currentGear - 1) % m_gearRatios.size())]);
+    const size_t gi = static_cast<size_t>(std::max(0, m_currentGear - 1) % static_cast<int>(m_gearRatios.size()));
+    float gearRatio = static_cast<float>(m_gearRatios[gi]);
     float wheelOmega = speed / static_cast<float>(m_wheelRadius);
     m_rpm = std::max(800.0, wheelOmega * gearRatio * m_finalDrive * 60.0 / (2.0 * 3.14159265));
     if (!m_damage.isEngineFailed())
         shiftGears();
-    gearRatio = static_cast<float>(m_gearRatios[static_cast<size_t>(std::max(0, m_currentGear - 1) % m_gearRatios.size())]);
+    const size_t gi2 = static_cast<size_t>(std::max(0, m_currentGear - 1) % static_cast<int>(m_gearRatios.size()));
+    gearRatio = static_cast<float>(m_gearRatios[gi2]);
 
     float peakTorque = static_cast<float>(m_enginePowerKw * 1000.0 / (m_maxRpm * 2.0 * 3.14159265 / 60.0));
     float rpmN = static_cast<float>(std::min(m_rpm / m_maxRpm, 1.0));
@@ -216,35 +216,23 @@ void VehicleSimulator::integrate(double dt) {
                              / static_cast<float>(m_wheelRadius);
     float brakeForceTarget = static_cast<float>(m_brake) * mass * 12.0f * dmgBrake;
 
-    // Simplified Pacejka forces
-    auto tireForce = [&](float sa, float load, float driveShare, float brakeShare) {
-        PacejkaTireModel::Input in;
-        in.slipAngle = sa;
-        in.slipRatio = 0.f;
-        if (speed > 0.5f) {
-            float longReq = driveShare - brakeShare;
-            in.slipRatio = std::clamp(longReq / (load * 1.5f + 1.f), -1.f, 1.f);
-        }
-        in.normalLoad = load;
-        in.camber = -0.03f;
-        in.frictionScale = dmgHand; // damaged suspension → less grip
-        return m_tires.calculate(in);
+    auto tireForce = [&](float sa, float load) {
+        return m_tires.calculateCombinedSlip(sa, 0.f, load, -0.03f);
     };
 
-    float dShare = driveForceTarget * 0.25f;
-    float bShare = brakeForceTarget * 0.25f;
-    auto fFL = tireForce(saFL, loadFL, dShare, bShare);
-    auto fFR = tireForce(saFR, loadFR, dShare, bShare);
-    auto fRL = tireForce(saRL, loadRL, dShare, bShare);
-    auto fRR = tireForce(saRR, loadRR, dShare, bShare);
+    auto fFL = tireForce(saFL, loadFL);
+    auto fFR = tireForce(saFR, loadFR);
+    auto fRL = tireForce(saRL, loadRL);
+    auto fRR = tireForce(saRR, loadRR);
 
     float Fy = (fFL.lateralForce + fFR.lateralForce + fRL.lateralForce + fRR.lateralForce) * dmgHand;
 
     float longForce = 0.f;
     {
         float cmd = driveForceTarget - brakeForceTarget - aeroDrag;
-        float gripLong = std::abs(fFL.longitudinalForce) + std::abs(fFR.longitudinalForce)
-                       + std::abs(fRL.longitudinalForce) + std::abs(fRR.longitudinalForce);
+        float gripLong = (std::abs(fFL.longitudinalForce) + std::abs(fFR.longitudinalForce)
+                       + std::abs(fRL.longitudinalForce) + std::abs(fRR.longitudinalForce));
+        if (gripLong < 1.f) gripLong = mass * 12.f;
         longForce = std::clamp(cmd, -gripLong - 1.f, gripLong + 1.f);
         if (speed < 1.0f && m_throttle > 0.05)
             longForce = std::max(longForce, driveForceTarget * 0.5f);
@@ -275,7 +263,6 @@ void VehicleSimulator::integrate(double dt) {
     m_state.position.z += m_state.velocity.z * fdt;
     m_state.position.y = 0.35f;
 
-    // CG shift from asymmetric body damage (subtle)
     const auto cg = m_damage.cgShift();
     m_state.position.x += cg.x * 0.01f;
     m_state.position.z += cg.z * 0.01f;
