@@ -1,109 +1,67 @@
-# Vehicle upgrades + race component configs
+# Vehicle upgrades — physics, livery, sound, race components
 
-## 1. Mechanical upgrades (rF2-inspired)
-
-**API:** `src/engine/vehicle/VehicleUpgradeSystem.h`
-
-| Category | Typical effect |
-|----------|----------------|
-| Engine | PowerKwAdd, PowerMult, MaxRpmAdd |
-| Aero | Cd/Cl, wing DF mult, EnableNode/DisableNode |
-| Transmission | FinalDriveMult |
-| Suspension / Brakes | GripMult, BrakeForceMult |
-| Body | MassAddKg, instance swaps |
-
-### upgrades.ini (next to car data)
-
-```ini
-UpgradeType="Engine"
-{
-  UpgradeLevel="Stock" { Description="Factory" }
-  UpgradeLevel="Stage 2" {
-    Description="ECU + intake"
-    Price=2500
-    PowerKwAdd=20
-    PowerMult=1.05
-    MaxRpmAdd=200
-  }
-}
-
-UpgradeType="Aero"
-{
-  UpgradeLevel="Stock" {
-    EnableNode=WING_STOCK
-    DisableNode=WING_RACE
-  }
-  UpgradeLevel="Race wing" {
-    Price=1800
-    ClAdd=-0.12
-    CdAdd=0.04
-    RearWingDfMult=1.25
-    EnableNode=WING_RACE
-    DisableNode=WING_STOCK
-  }
-}
-```
-
-### Apply
+## Resolve one bundle per race
 
 ```cpp
 ks::vehicle::VehicleUpgradeSystem ups;
-ups.loadFromIni(carDir + "/upgrades.ini"); // or loadDefaults()
-ups.selectById(ks::vehicle::UpgradeCategory::Engine, "stage2");
-ups.selectById(ks::vehicle::UpgradeCategory::Aero, "race_wing");
+ups.loadFromIni(carDir + "/upgrades.ini");
+ups.selectById(UpgradeCategory::Engine, "stage2");
+ups.selectById(UpgradeCategory::Livery, "sponsor_red");
+ups.selectById(UpgradeCategory::Sound, "race_exhaust");
 
-ks::vehicle::BaselineVehicleParams base{1200, 260, 8500, 0.35, 2.2};
-ks::vehicle::applyUpgradesToVehicleSimulator(veh, base, ups);
+auto appearance = ks::vehicle::resolveAppearance("cars/myCar.kn5", /*round*/ 1, &ups);
+// appearance.components  → nodes ON/OFF
+// appearance.livery      → folder / diffuse / number
+// appearance.sound       → bankPath / soundsIni / gains
+// appearance.physics     → power / aero mods
 ```
+
+**Priority livery & sound:** upgrade selection overrides `_rd*.ini` if set; else race config; else car default.
 
 ---
 
-## 2. Race component configs (KN5 node subsets)
-
-**API:** `src/engine/vehicle/RaceComponentConfig.h`
-
-The **KN5** holds the full car (complete node catalog).  
-A sidecar **INI** turns nodes on/off for a specific race weekend.
-
-### File naming
-
-| File | Meaning |
-|------|---------|
-| `myCar_rd1.ini` | Round / race 1 |
-| `myCar_rd1-2.ini` | Same layout for races 1 and 2 |
-| `myCar_rd1-2-rd6.ini` | Races 1, 2 and 6 |
-| `myCar_rd3.ini` | Race 3 only |
-
-### INI example
+## Race INI (`myCar_rd1-2.ini`)
 
 ```ini
 [Meta]
-Description=High DF package
 Rounds=1,2
 
 [Nodes]
-GEO_WHEEL_LF=1
-GEO_WHEEL_RF=1
-GEO_WING_RACE=1
-GEO_WING_STOCK=0
-COCKPIT=1
-; or:
-; Active=GEO_WHEEL_LF,GEO_WING_RACE,COCKPIT
-; Inactive=GEO_WING_STOCK
+WING_RACE=1
+WING_STOCK=0
+
+[Livery]
+Id=rd1_sponsor
+Folder=skins/rd1_sponsor
+Number=21
+Driver=Player
+Team=ksim Racing
+
+[Sound]
+Id=v8_race_weekend
+Bank=sfx/v8_race
+SoundsIni=sfx/v8_race/sounds.ini
+EngineGain=1.12
 ```
-
-### Code
-
-```cpp
-auto cfg = ks::vehicle::RaceComponentConfigLoader::loadForRound("cars/myCar.kn5", /*round*/ 1);
-auto visible = ks::vehicle::RaceComponentConfigLoader::filterNodes(catalog, cfg);
-```
-
-Upgrades can also force `EnableNode` / `DisableNode` (merged with race config by the app).
 
 ---
 
-## Product identity
+## upgrades.ini categories
 
-- Format-compatible ideas only; no AC/rF2 branding in UI.
-- Adapters may map external content; ksim uses neutral names (Engine Package, Race wing).
+| Type | Keys |
+|------|------|
+| Engine / Aero / … | PowerKwAdd, ClAdd, EnableNode, … |
+| **Livery** | LiveryFolder, LiveryDiffuse, RaceNumber, Team, Driver |
+| **Sound** | SoundBank, SoundsIni, EngineGain, Sample.EngineInterior=… |
+| Engine (optional) | SoundBank on Stage 2/3 so engine package swaps SFX |
+
+---
+
+## Wire to runtime
+
+1. **Render** — load textures from `appearance.livery.folder` / `diffuse`
+2. **Audio** — `SimulatorAudio` / `AudioBankManager` load `appearance.sound.bankPath` + `soundsIni`
+3. **Physics** — `applyUpgradesToVehicleSimulator(veh, base, appearance.physics)`
+4. **Nodes** — `filterNodes(catalog, appearance.components)`
+
+Product identity: neutral names (Livery, Sound Pack), no third-party branding in UI.

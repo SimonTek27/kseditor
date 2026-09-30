@@ -1,12 +1,7 @@
 #pragma once
 /**
- * Vehicle upgrade system — mechanical packages (engine, aero, …).
- * Inspired by rF2 UpgradeType/UpgradeLevel + HDV deltas; ksim identity (no third-party branding).
- *
- * Flow:
- *   1. loadFromIni(carDir/upgrades.ini)  OR  register packages in code
- *   2. select(category, levelId)
- *   3. applyTo(VehicleSimulator&) / appliedMods()
+ * Vehicle upgrade system — mechanical + livery + sound packages.
+ * rF2-inspired levels; ksim product identity.
  */
 #include <string>
 #include <vector>
@@ -16,6 +11,7 @@
 #include <fstream>
 #include <sstream>
 #include <cstdio>
+#include <cctype>
 
 namespace ks {
 namespace vehicle {
@@ -26,7 +22,9 @@ enum class UpgradeCategory : int {
     Transmission,
     Suspension,
     Brakes,
-    Body,       // mass / CG / cosmetic instance swap
+    Body,
+    Livery,     // skin / textures / race number
+    Sound,      // engine bank / sounds.ini
     COUNT
 };
 
@@ -38,33 +36,27 @@ inline const char* categoryName(UpgradeCategory c) {
     case UpgradeCategory::Suspension: return "Suspension";
     case UpgradeCategory::Brakes: return "Brakes";
     case UpgradeCategory::Body: return "Body";
+    case UpgradeCategory::Livery: return "Livery";
+    case UpgradeCategory::Sound: return "Sound";
     default: return "Unknown";
     }
 }
 
-/** Additive / multiplicative physics deltas applied after base car params. */
 struct PhysicsMods {
-    // Engine
-    float powerKwAdd = 0.f;          // +kW peak
-    float powerMult = 1.f;           // × peak power
+    float powerKwAdd = 0.f;
+    float powerMult = 1.f;
     float maxRpmAdd = 0.f;
     float fuelUseMult = 1.f;
-
-    // Aero
-    float cdAdd = 0.f;               // Δ Cd
+    float cdAdd = 0.f;
     float cdMult = 1.f;
-    float clAdd = 0.f;               // Δ lift coeff (negative = more DF)
+    float clAdd = 0.f;
     float clMult = 1.f;
     float frontalAreaAdd = 0.f;
     float frontWingDfMult = 1.f;
     float rearWingDfMult = 1.f;
     float diffuserDfMult = 1.f;
-
-    // Drivetrain / mass
     float massAddKg = 0.f;
     float finalDriveMult = 1.f;
-
-    // Brakes / handling soft
     float brakeForceMult = 1.f;
     float gripMult = 1.f;
 
@@ -89,24 +81,57 @@ struct PhysicsMods {
     }
 };
 
+struct LiveryRef {
+    std::string id;
+    std::string name;
+    std::string folder;
+    std::string diffuse;
+    std::string specular;
+    std::string normal;
+    std::string preview;
+    int number = -1;
+    std::string driverName;
+    std::string teamName;
+};
+
+struct SoundPackRef {
+    std::string id;
+    std::string name;
+    std::string bankPath;
+    std::string engineIni;
+    std::string soundsIni;
+    float engineGain = 1.f;
+    float exteriorGain = 1.f;
+    float turboGain = 1.f;
+    std::map<std::string, std::string> sampleOverrides;
+};
+
 struct UpgradeLevel {
-    std::string id;              // e.g. "stock", "stage2"
-    std::string name;            // display
+    std::string id;
+    std::string name;
     std::string description;
     int price = 0;
     PhysicsMods mods;
-    /** Optional mesh/instance tags (GEN-like): node → mesh or visibility */
-    std::map<std::string, std::string> instanceSwaps; // Instance → mesh or "off"
+    std::map<std::string, std::string> instanceSwaps;
     std::vector<std::string> enableNodes;
     std::vector<std::string> disableNodes;
+    LiveryRef livery;
+    SoundPackRef sound;
+
+    bool hasLivery() const {
+        return !livery.folder.empty() || !livery.diffuse.empty() || !livery.id.empty();
+    }
+    bool hasSound() const {
+        return !sound.bankPath.empty() || !sound.soundsIni.empty() || !sound.id.empty();
+    }
 };
 
 struct UpgradeType {
     UpgradeCategory category = UpgradeCategory::Engine;
-    std::string name;            // "Engine Package"
-    std::string instance;        // primary visual instance (optional)
+    std::string name;
+    std::string instance;
     std::vector<UpgradeLevel> levels;
-    int selected = 0;            // index into levels
+    int selected = 0;
 
     const UpgradeLevel* current() const {
         if (levels.empty() || selected < 0 || selected >= (int)levels.size())
@@ -122,7 +147,6 @@ public:
 
     void clear() { m_types.clear(); }
 
-    /** Register a type with at least one level. */
     UpgradeType& addType(UpgradeCategory cat, const std::string& name) {
         UpgradeType t;
         t.category = cat;
@@ -155,7 +179,6 @@ public:
         return false;
     }
 
-    /** Stack all selected levels. */
     PhysicsMods appliedMods() const {
         PhysicsMods m;
         for (const auto& t : m_types) {
@@ -165,7 +188,31 @@ public:
         return m;
     }
 
-    /** Nodes forced on/off by current selection (for render / KN5 filter). */
+    /** First selected livery among Livery category (or empty). */
+    LiveryRef selectedLivery() const {
+        for (const auto& t : m_types) {
+            if (t.category != UpgradeCategory::Livery) continue;
+            if (const auto* L = t.current())
+                if (L->hasLivery()) return L->livery;
+        }
+        return {};
+    }
+
+    SoundPackRef selectedSound() const {
+        for (const auto& t : m_types) {
+            if (t.category != UpgradeCategory::Sound) continue;
+            if (const auto* L = t.current())
+                if (L->hasSound()) return L->sound;
+        }
+        // Engine level may embed sound
+        for (const auto& t : m_types) {
+            if (t.category != UpgradeCategory::Engine) continue;
+            if (const auto* L = t.current())
+                if (L->hasSound()) return L->sound;
+        }
+        return {};
+    }
+
     void collectNodeOverrides(std::vector<std::string>& enable,
                               std::vector<std::string>& disable,
                               std::map<std::string, std::string>& swaps) const {
@@ -180,24 +227,6 @@ public:
         }
     }
 
-    /**
- * Minimal upgrades.ini parser (ksim dialect, rF2-inspired).
- *
- * UpgradeType="Engine"
- * {
- *   UpgradeLevel="Stock" { Description="Base" }
- *   UpgradeLevel="Stage 2" {
- *     Description="More power"
- *     Price=2500
- *     PowerKwAdd=25
- *     PowerMult=1.08
- *     CdAdd=-0.01
- *     ClAdd=-0.05
- *     EnableNode=WING_RACE
- *     DisableNode=WING_STOCK
- *   }
- * }
- */
     bool loadFromIni(const std::string& path) {
         std::ifstream in(path);
         if (!in) {
@@ -205,7 +234,6 @@ public:
             return false;
         }
         m_types.clear();
-        std::string line, section;
         UpgradeType* curType = nullptr;
         UpgradeLevel* curLevel = nullptr;
         int brace = 0;
@@ -221,7 +249,23 @@ public:
                 return s.substr(1, s.size() - 2);
             return s;
         };
+        auto catFromName = [](std::string low) -> UpgradeCategory {
+            for (char& c : low) c = static_cast<char>(std::tolower((unsigned char)c));
+            if (low.find("engine") != std::string::npos) return UpgradeCategory::Engine;
+            if (low.find("aero") != std::string::npos || low.find("wing") != std::string::npos)
+                return UpgradeCategory::Aero;
+            if (low.find("trans") != std::string::npos || low.find("gear") != std::string::npos)
+                return UpgradeCategory::Transmission;
+            if (low.find("susp") != std::string::npos) return UpgradeCategory::Suspension;
+            if (low.find("brake") != std::string::npos) return UpgradeCategory::Brakes;
+            if (low.find("liver") != std::string::npos || low.find("skin") != std::string::npos)
+                return UpgradeCategory::Livery;
+            if (low.find("sound") != std::string::npos || low.find("audio") != std::string::npos)
+                return UpgradeCategory::Sound;
+            return UpgradeCategory::Body;
+        };
 
+        std::string line;
         while (std::getline(in, line)) {
             auto sc = line.find(';');
             if (sc != std::string::npos) line = line.substr(0, sc);
@@ -239,19 +283,9 @@ public:
             if (line.rfind("UpgradeType", 0) == 0) {
                 auto eq = line.find('=');
                 std::string name = eq != std::string::npos ? unquote(line.substr(eq + 1)) : "Package";
-                UpgradeCategory cat = UpgradeCategory::Body;
-                std::string low = name;
-                for (char& c : low) c = static_cast<char>(std::tolower((unsigned char)c));
-                if (low.find("engine") != std::string::npos) cat = UpgradeCategory::Engine;
-                else if (low.find("aero") != std::string::npos || low.find("wing") != std::string::npos)
-                    cat = UpgradeCategory::Aero;
-                else if (low.find("trans") != std::string::npos || low.find("gear") != std::string::npos)
-                    cat = UpgradeCategory::Transmission;
-                else if (low.find("susp") != std::string::npos) cat = UpgradeCategory::Suspension;
-                else if (low.find("brake") != std::string::npos) cat = UpgradeCategory::Brakes;
                 m_types.push_back({});
                 curType = &m_types.back();
-                curType->category = cat;
+                curType->category = catFromName(name);
                 curType->name = name;
                 curLevel = nullptr;
                 continue;
@@ -299,8 +333,30 @@ public:
             else if (key == "EnableNode") curLevel->enableNodes.push_back(val);
             else if (key == "DisableNode") curLevel->disableNodes.push_back(val);
             else if (key == "Instance" && curType) curType->instance = val;
+            // --- Livery ---
+            else if (key == "LiveryId" || key == "SkinId") curLevel->livery.id = val;
+            else if (key == "LiveryName" || key == "SkinName") curLevel->livery.name = val;
+            else if (key == "LiveryFolder" || key == "SkinFolder" || key == "Skin") curLevel->livery.folder = val;
+            else if (key == "LiveryDiffuse" || key == "Diffuse") curLevel->livery.diffuse = val;
+            else if (key == "LiverySpecular") curLevel->livery.specular = val;
+            else if (key == "LiveryNormal") curLevel->livery.normal = val;
+            else if (key == "LiveryPreview") curLevel->livery.preview = val;
+            else if (key == "RaceNumber" || key == "Number") curLevel->livery.number = std::atoi(val.c_str());
+            else if (key == "Driver") curLevel->livery.driverName = val;
+            else if (key == "Team") curLevel->livery.teamName = val;
+            // --- Sound ---
+            else if (key == "SoundId" || key == "SoundPack") curLevel->sound.id = val;
+            else if (key == "SoundName") curLevel->sound.name = val;
+            else if (key == "SoundBank" || key == "Bank" || key == "BankPath") curLevel->sound.bankPath = val;
+            else if (key == "EngineIni" || key == "SoundEngineIni") curLevel->sound.engineIni = val;
+            else if (key == "SoundsIni") curLevel->sound.soundsIni = val;
+            else if (key == "EngineGain") curLevel->sound.engineGain = std::strtof(val.c_str(), nullptr);
+            else if (key == "ExteriorGain") curLevel->sound.exteriorGain = std::strtof(val.c_str(), nullptr);
+            else if (key == "TurboGain") curLevel->sound.turboGain = std::strtof(val.c_str(), nullptr);
+            else if (key.rfind("Sample.", 0) == 0) {
+                curLevel->sound.sampleOverrides[key.substr(7)] = val;
+            }
             else if (key == "Swap" || key == "GEN") {
-                // Swap=NODE:mesh  or GEN=<TAG>=mesh
                 auto colon = val.find(':');
                 auto eq2 = val.find('=');
                 if (colon != std::string::npos)
@@ -314,56 +370,52 @@ public:
         return !m_types.empty();
     }
 
-    /** Built-in demo packages (engine + aero) if no ini. */
     void loadDefaults() {
         clear();
         {
             auto& t = addType(UpgradeCategory::Engine, "Engine Package");
-            UpgradeLevel stock; stock.id = "stock"; stock.name = "Stock"; stock.description = "Factory engine";
-            UpgradeLevel s2; s2.id = "stage2"; s2.name = "Stage 2"; s2.description = "ECU + intake";
-            s2.price = 2500; s2.mods.powerKwAdd = 20.f; s2.mods.powerMult = 1.05f; s2.mods.maxRpmAdd = 200.f;
-            UpgradeLevel s3; s3.id = "stage3"; s3.name = "Stage 3"; s3.description = "Full race engine";
-            s3.price = 8000; s3.mods.powerKwAdd = 45.f; s3.mods.powerMult = 1.12f; s3.mods.maxRpmAdd = 500.f;
-            s3.mods.fuelUseMult = 1.15f;
+            UpgradeLevel stock; stock.id = "stock"; stock.name = "Stock";
+            UpgradeLevel s2; s2.id = "stage2"; s2.name = "Stage 2"; s2.price = 2500;
+            s2.mods.powerKwAdd = 20.f; s2.mods.powerMult = 1.05f;
+            s2.sound.id = "stage2_bank"; s2.sound.bankPath = "sfx/engine_stage2";
+            UpgradeLevel s3; s3.id = "stage3"; s3.name = "Stage 3"; s3.price = 8000;
+            s3.mods.powerKwAdd = 45.f; s3.mods.powerMult = 1.12f;
+            s3.sound.id = "stage3_bank"; s3.sound.bankPath = "sfx/engine_race";
+            s3.sound.engineGain = 1.1f;
             t.levels = { stock, s2, s3 };
         }
         {
             auto& t = addType(UpgradeCategory::Aero, "Aero Package");
             UpgradeLevel stock; stock.id = "stock"; stock.name = "Stock body";
             stock.enableNodes = { "WING_STOCK" }; stock.disableNodes = { "WING_RACE" };
-            UpgradeLevel race; race.id = "race_wing"; race.name = "Race wing";
-            race.description = "Higher downforce, more drag"; race.price = 1800;
+            UpgradeLevel race; race.id = "race_wing"; race.name = "Race wing"; race.price = 1800;
             race.mods.clAdd = -0.12f; race.mods.cdAdd = 0.04f;
-            race.mods.rearWingDfMult = 1.25f;
             race.enableNodes = { "WING_RACE" }; race.disableNodes = { "WING_STOCK" };
-            UpgradeLevel low; low.id = "low_drag"; low.name = "Low drag";
-            low.description = "Reduced wing for speed tracks"; low.price = 1200;
-            low.mods.clAdd = 0.05f; low.mods.cdAdd = -0.03f;
-            low.mods.rearWingDfMult = 0.7f;
-            low.enableNodes = { "WING_LOW" }; low.disableNodes = { "WING_STOCK", "WING_RACE" };
-            t.levels = { stock, race, low };
+            t.levels = { stock, race };
+        }
+        {
+            auto& t = addType(UpgradeCategory::Livery, "Livery");
+            UpgradeLevel a; a.id = "factory"; a.name = "Factory"; a.livery.id = "factory";
+            a.livery.folder = "skins/factory"; a.livery.number = 1;
+            UpgradeLevel b; b.id = "sponsor_red"; b.name = "Sponsor Red"; b.price = 500;
+            b.livery.id = "sponsor_red"; b.livery.folder = "skins/sponsor_red";
+            b.livery.number = 7; b.livery.teamName = "ksim Racing";
+            t.levels = { a, b };
+        }
+        {
+            auto& t = addType(UpgradeCategory::Sound, "Sound Pack");
+            UpgradeLevel a; a.id = "stock_sfx"; a.name = "Stock"; a.sound.id = "stock";
+            a.sound.bankPath = "sfx/stock"; a.sound.soundsIni = "sfx/stock/sounds.ini";
+            UpgradeLevel b; b.id = "race_sfx"; b.name = "Race exhaust"; b.price = 300;
+            b.sound.id = "race"; b.sound.bankPath = "sfx/race";
+            b.sound.soundsIni = "sfx/race/sounds.ini"; b.sound.engineGain = 1.15f;
+            t.levels = { a, b };
         }
     }
 
 private:
     std::vector<UpgradeType> m_types;
 };
-
-/** Apply stacked mods onto base vehicle parameters (call after loadVehicleParams). */
-template <typename VehicleT>
-void applyUpgradesToVehicle(VehicleT& veh, const PhysicsMods& m) {
-    // Base reads then write — VehicleSimulator-style setters
-    const auto st = veh.getState();
-    const float baseMass = st.mass > 1.f ? st.mass : 1200.f;
-    veh.setMass(baseMass + m.massAddKg);
-
-    // Power: assume setEnginePower is peak kW
-    // We don't have getters for all — apply relative from typical path:
-    // Caller should pass basePower if needed. Soft approach: setEnginePower scaled if available.
-    (void)m.powerMult;
-    (void)m.powerKwAdd;
-    // Concrete apply lives in applyUpgradesToVehicleSimulator below for known type.
-}
 
 } // namespace vehicle
 } // namespace ks
