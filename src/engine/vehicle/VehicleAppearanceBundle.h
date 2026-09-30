@@ -1,8 +1,7 @@
 #pragma once
 /**
  * Resolved appearance for a car at a given race round:
- *   nodes + livery + sound bank
- * Merges RaceComponentConfig (_rd*) with selected upgrades (Livery / Sound categories).
+ *   nodes + livery + sound + physics mods
  */
 #include "RaceComponentConfig.h"
 #include "VehicleUpgradeSystem.h"
@@ -13,52 +12,68 @@
 namespace ks {
 namespace vehicle {
 
-/** Paths relative to car folder or absolute. */
-struct LiveryRef {
-    std::string id;              // e.g. "rd1_sponsor_a"
-    std::string name;            // display
-    std::string folder;          // skins/rd1_sponsor_a/ or texture set dir
-    std::string diffuse;         // optional single albedo override
-    std::string specular;
-    std::string normal;
-    std::string preview;         // UI thumbnail
-    int number = -1;             // race number on door (-1 = keep default)
-    std::string driverName;
-    std::string teamName;
-};
-
-struct SoundPackRef {
-    std::string id;              // e.g. "v8_race"
-    std::string name;
-    std::string bankPath;        // path to bank / folder (AudioBankManager)
-    std::string engineIni;       // optional engine sound ini
-    std::string soundsIni;       // sounds.ini override
-    float engineGain = 1.f;
-    float exteriorGain = 1.f;
-    float turboGain = 1.f;
-    /** Optional sample overrides: category name → file */
-    std::map<std::string, std::string> sampleOverrides;
-};
-
 struct VehicleAppearanceBundle {
     RaceComponentConfig components;
-    LiveryRef livery;
+    LiveryRef livery;   // from RaceComponentConfig.h
     SoundPackRef sound;
     std::vector<std::string> enableNodes;
     std::vector<std::string> disableNodes;
     std::map<std::string, std::string> instanceSwaps;
-    PhysicsMods physics;         // stacked mechanical upgrades
+    PhysicsMods physics;
 
-    bool hasLivery() const { return !livery.folder.empty() || !livery.diffuse.empty() || !livery.id.empty(); }
-    bool hasSound() const { return !sound.bankPath.empty() || !sound.soundsIni.empty() || !sound.id.empty(); }
+    bool hasLivery() const {
+        return !livery.folder.empty() || !livery.diffuse.empty() || !livery.id.empty();
+    }
+    bool hasSound() const {
+        return !sound.bankPath.empty() || !sound.soundsIni.empty() || !sound.id.empty();
+    }
 };
 
+namespace detail {
+
+inline LiveryRef toRaceLivery(const ks::vehicle::LiveryRef& /*placeholder*/) {
+    return {};
+}
+
+// Copy from UpgradeSystem livery (same field layout) into RaceComponentConfig::LiveryRef
+template <typename UpLiv>
+inline LiveryRef copyLivery(const UpLiv& u) {
+    LiveryRef L;
+    L.id = u.id;
+    L.name = u.name;
+    L.folder = u.folder;
+    L.diffuse = u.diffuse;
+    L.specular = u.specular;
+    L.normal = u.normal;
+    L.preview = u.preview;
+    L.number = u.number;
+    L.driverName = u.driverName;
+    L.teamName = u.teamName;
+    return L;
+}
+
+template <typename UpSnd>
+inline SoundPackRef copySound(const UpSnd& u) {
+    SoundPackRef S;
+    S.id = u.id;
+    S.name = u.name;
+    S.bankPath = u.bankPath;
+    S.engineIni = u.engineIni;
+    S.soundsIni = u.soundsIni;
+    S.engineGain = u.engineGain;
+    S.exteriorGain = u.exteriorGain;
+    S.turboGain = u.turboGain;
+    S.sampleOverrides = u.sampleOverrides;
+    return S;
+}
+
+} // namespace detail
+
 /**
- * Build appearance for (kn5, round) + optional upgrades selection.
  * Priority for livery/sound:
- *   1. Race _rd*.ini [Livery]/[Sound]
- *   2. Selected UpgradeCategory::Livery / Sound levels
- *   3. Empty (caller keeps defaults)
+ *   1. Selected UpgradeCategory::Livery / Sound (or Engine-embedded sound)
+ *   2. Race _rd*.ini [Livery]/[Sound]
+ *   3. Empty → keep car defaults in the app
  */
 inline VehicleAppearanceBundle resolveAppearance(
     const std::string& kn5Path,
@@ -67,8 +82,6 @@ inline VehicleAppearanceBundle resolveAppearance(
 
     VehicleAppearanceBundle out;
     out.components = RaceComponentConfigLoader::loadForRound(kn5Path, round);
-
-    // From race config
     out.livery = out.components.livery;
     out.sound = out.components.sound;
 
@@ -76,22 +89,19 @@ inline VehicleAppearanceBundle resolveAppearance(
         out.physics = upgrades->appliedMods();
         upgrades->collectNodeOverrides(out.enableNodes, out.disableNodes, out.instanceSwaps);
 
-        // Livery / Sound upgrade categories override race defaults if set
         for (const auto& t : upgrades->types()) {
             const auto* L = t.current();
             if (!L) continue;
             if (t.category == UpgradeCategory::Livery && L->hasLivery())
-                out.livery = L->livery;
+                out.livery = detail::copyLivery(L->livery);
             if (t.category == UpgradeCategory::Sound && L->hasSound())
-                out.sound = L->sound;
-            // Engine upgrades may also ship a sound bank (optional field on level)
-            if (t.category == UpgradeCategory::Engine && L->hasSound() && !out.hasSound())
-                out.sound = L->sound;
+                out.sound = detail::copySound(L->sound);
+            if (t.category == UpgradeCategory::Engine && L->hasSound() &&
+                out.sound.bankPath.empty() && out.sound.id.empty())
+                out.sound = detail::copySound(L->sound);
         }
     }
 
-    // Merge enable/disable from race nodes already in components;
-    // enableNodes from upgrades additive
     for (const auto& n : out.enableNodes)
         out.components.active.insert(n);
     for (const auto& n : out.disableNodes)
