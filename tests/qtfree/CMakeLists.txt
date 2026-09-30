@@ -27,7 +27,25 @@ set(KS_QT_FREE_TESTS
 )
 
 foreach(_t ${KS_QT_FREE_TESTS})
-    add_executable(${_t} "${_t}.cpp")
-    target_link_libraries(${_t} PRIVATE ksengine)
-    add_test(NAME ${_t} COMMAND ${_t})
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${_t}.cpp")
+        add_executable(${_t} "${_t}.cpp")
+        target_link_libraries(${_t} PRIVATE ksengine)
+        add_test(NAME ${_t} COMMAND ${_t})
+    endif()
 endforeach()
+
+# Parity 1.4 — determinism
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test_determinism.cpp")
+    add_executable(test_determinism test_determinism.cpp)
+    target_link_libraries(test_determinism PRIVATE ksengine)
+    add_test(NAME test_determinism COMMAND test_determinism)
+endif()
+
+# Parity 1.1 — golden trajectory
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test_PhysicsGolden.cpp")
+    add_executable(test_PhysicsGolden test_PhysicsGolden.cpp)
+    target_link_libraries(test_PhysicsGolden PRIVATE ksengine)
+    # Working directory = repo root so tests/data/golden_lap.csv resolves
+    add_test(NAME test_PhysicsGolden COMMAND test_PhysicsGolden
+             WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+endif()
