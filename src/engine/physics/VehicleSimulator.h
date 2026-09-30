@@ -6,6 +6,8 @@
 #include "AeroModel.h"
 #include "DifferentialModel.h"
 #include "SuspensionModel.h"
+#include "DamageSystem.h"
+#include "Rf2DamageModel.h"
 
 #include <string>
 #include <vector>
@@ -67,6 +69,28 @@ public:
     PacejkaTireModel& tires() { return m_tires; }
     AeroModel& aero() { return m_aero; }
 
+    // --- rF2-style damage ---
+    DamageSystem& damage() { return m_damage; }
+    const DamageSystem& damage() const { return m_damage; }
+    Rf2DamageParams& damageParams() { return m_rf2Dmg; }
+    const Rf2DamageParams& damageParams() const { return m_rf2Dmg; }
+    void setDamageEnabled(bool e) {
+        auto c = m_damage.config();
+        c.enabled = e;
+        m_damage.setConfig(c);
+    }
+    /** Apply collision impulse (rF2-like thresholds → mechanical systems). */
+    void applyCollisionImpulse(float impulse, const PhysVec3& contactPoint,
+                               const PhysVec3& contactNormal) {
+        applyRf2Impulse(m_damage, m_rf2Dmg, impulse, contactPoint, contactNormal);
+    }
+    /** Wall/car impact helper from relative speed (m/s). */
+    void applyImpactFromSpeed(float relativeSpeedMs, const PhysVec3& contactPoint,
+                              const PhysVec3& contactNormal) {
+        const float J = impulseFromImpact(relativeSpeedMs, static_cast<float>(m_mass));
+        applyCollisionImpulse(J, contactPoint, contactNormal);
+    }
+
 private:
     static std::map<std::string, std::string> parseIni(const std::string& path);
     static float getf(const std::map<std::string, std::string>& m, const std::string& k, float def);
@@ -91,6 +115,8 @@ private:
     AeroModel m_aero;
     DifferentialModel m_diff;
     SuspensionModel m_suspension;
+    DamageSystem m_damage;
+    Rf2DamageParams m_rf2Dmg;
 };
 
 } // namespace physics
