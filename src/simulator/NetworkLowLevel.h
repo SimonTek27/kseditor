@@ -2,7 +2,7 @@
 
 #include "NetworkConfig.h"
 
-#if HAS_YOJIMBO
+#if HAS_KSNET
 
 #include <memory>
 #include <string>

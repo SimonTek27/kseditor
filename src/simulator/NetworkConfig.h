@@ -1,10 +1,10 @@
 #pragma once
 
-#ifdef HAS_YOJIMBO
+#if defined(HAS_KSNET) && HAS_KSNET
 #include <ksnet.h>
 #endif
 
-#if HAS_YOJIMBO
+#if HAS_KSNET
 
 #include <cstdint>
 #include <cstring>

@@ -10,8 +10,21 @@ RaceSessionManager::~RaceSessionManager() = default;
 void RaceSessionManager::configure(const RaceConfig& config)
 {
     m_config = config;
-    m_currentLap = 0;
+    m_active = false;
+    m_paused = false;
     m_sessionTime = 0;
+    m_remainingTime = 0;
+    m_lapStartTime = 0;
+    m_countingDown = false;
+    m_countdownValue = 0;
+    m_countdownTimer = 0;
+    m_lastCountdownInt = 0;
+    m_currentLap = 0;
+    m_timeWarningSent = false;
+    m_lastCrossingDistance = 0;
+    m_sectorStartTime = 0;
+    m_sectorIndex = 0;
+    m_crossedLine = false;
     m_timing = LapTiming();
     m_pendingPenalties.clear();
     m_trackLimitsViolations.clear();
@@ -25,23 +38,36 @@ void RaceSessionManager::configure(const RaceConfig& config)
         standing.position = i + 1;
         m_standings.push_back(standing);
     }
+    if (m_playerCarIndex < 0 || m_playerCarIndex >= static_cast<int>(m_standings.size()))
+        m_playerCarIndex = 0;
 }
 
 void RaceSessionManager::startSession()
 {
     m_active = true;
     m_paused = false;
-    m_sessionStart = std::chrono::steady_clock::now();
     m_sessionTime = 0;
     m_lapStartTime = 0;
+    m_lastCrossingDistance = 0;
+    m_sectorStartTime = 0;
+    m_sectorIndex = 0;
+    m_crossedLine = false;
+    m_currentLap = 0;
+    m_timeWarningSent = false;
+    m_timing = LapTiming();
+    m_countingDown = false;
+    m_countdownValue = 0;
+    m_countdownTimer = 0;
+    m_lastCountdownInt = 0;
 
-    if (m_config.sessionTimeSeconds > 0) {
-        m_remainingTime = static_cast<float>(m_config.sessionTimeSeconds);
+    const int timeLimit = timeLimitSeconds();
+    if (timeLimit > 0) {
+        m_remainingTime = static_cast<float>(timeLimit);
     } else if (m_config.totalLaps > 0) {
         m_remainingTime = 1e9f;
+    } else {
+        m_remainingTime = 0;
     }
-
-    applyPenalties();
 
     printf("RaceSessionManager: Session started Laps:%d Time:%ds\n",
            m_config.totalLaps, m_config.sessionTimeSeconds);
@@ -60,14 +86,19 @@ void RaceSessionManager::resumeSession()
 {
     if (!m_active || !m_paused) return;
     m_paused = false;
-    m_sessionStart = std::chrono::steady_clock::now() - std::chrono::milliseconds(static_cast<long long>(m_sessionTime * 1000));
     printf("RaceSessionManager: Session resumed\n");
 }
 
 void RaceSessionManager::endSession()
 {
+    if (!m_active) return;
+
     m_active = false;
     m_paused = false;
+    m_countingDown = false;
+    m_countdownValue = 0;
+    m_countdownTimer = 0;
+    m_lastCountdownInt = 0;
 
     applyPenalties();
     updateStandings();
@@ -92,13 +123,18 @@ void RaceSessionManager::update(const ks::physics::SimulationState& state, float
     updateCountdown(dt);
     if (m_countingDown) return;
 
-    auto now = std::chrono::steady_clock::now();
-    m_sessionTime = std::chrono::duration<float>(now - m_sessionStart).count();
+    m_sessionTime += std::max(0.0f, dt);
 
-    if (m_config.sessionTimeSeconds > 0) {
-        m_remainingTime = m_config.sessionTimeSeconds - m_sessionTime;
+    const int timeLimit = timeLimitSeconds();
+    if (timeLimit > 0) {
+        m_remainingTime = timeLimit - m_sessionTime;
+        if (!m_timeWarningSent && m_config.sessionTimeWarningSeconds > 0 &&
+            m_remainingTime <= m_config.sessionTimeWarningSeconds) {
+            m_timeWarningSent = true;
+            if (onSessionTimeWarning)
+                onSessionTimeWarning(std::max(0.0f, m_remainingTime));
+        }
         if (m_remainingTime <= 0) {
-            applyPenalties();
             endSession();
             return;
         }
@@ -107,10 +143,10 @@ void RaceSessionManager::update(const ks::physics::SimulationState& state, float
     m_timing.currentLapDistance = state.currentLapDistance;
     m_timing.lapTime = m_sessionTime - m_lapStartTime;
 
-    if (m_playerCarIndex < (int)m_standings.size()) {
+    if (m_playerCarIndex >= 0 && m_playerCarIndex < static_cast<int>(m_standings.size())) {
         auto& player = m_standings[m_playerCarIndex];
         player.currentLap = m_currentLap;
-        player.totalDistance = state.currentLapDistance + m_currentLap * 1000.0f;
+        player.totalDistance = state.currentLapDistance + m_currentLap * m_config.trackLength;
         player.lastLapTime = m_timing.lastLapTime;
         player.bestLapTime = m_timing.bestLapTime;
         player.totalTime = m_sessionTime;
@@ -121,9 +157,15 @@ void RaceSessionManager::update(const ks::physics::SimulationState& state, float
 
 void RaceSessionManager::checkLapCrossing(const ks::physics::SimulationState& state)
 {
-    float currentDist = state.currentLapDistance;
+    const float lapLength = std::max(1.0f, m_config.trackLength);
+    const float currentDist = std::clamp(state.currentLapDistance, 0.0f, lapLength);
+    const float finishThreshold = std::min(10.0f, lapLength * 0.02f);
+    const float approachThreshold = std::min(50.0f, lapLength * 0.1f);
+    const bool crossedFinish = m_crossedLine &&
+                               m_lastCrossingDistance >= lapLength * 0.8f &&
+                               currentDist < finishThreshold;
 
-    if (m_crossedLine && currentDist < 10.0f) {
+    if (crossedFinish) {
         m_crossedLine = false;
         m_currentLap++;
 
@@ -135,7 +177,7 @@ void RaceSessionManager::checkLapCrossing(const ks::physics::SimulationState& st
             m_timing.bestLapTime = lapTime;
         }
 
-        if (m_playerCarIndex < (int)m_standings.size()) {
+        if (m_playerCarIndex >= 0 && m_playerCarIndex < static_cast<int>(m_standings.size())) {
             auto& player = m_standings[m_playerCarIndex];
             player.currentLap = m_currentLap;
             player.lastLapTime = lapTime;
@@ -146,23 +188,48 @@ void RaceSessionManager::checkLapCrossing(const ks::physics::SimulationState& st
         printf("RaceSessionManager: Lap %d completed in %fs (best: %fs)\n",
                m_currentLap, lapTime, m_timing.bestLapTime);
 
+        const float finalSectorTime = m_sessionTime - m_sectorStartTime;
+        m_timing.sectorTimes[2] = finalSectorTime;
+        for (int sector = 0; sector < 3; ++sector)
+            m_timing.lastSectorTimes[sector] = m_timing.sectorTimes[sector];
+        if (onSectorCompleted) onSectorCompleted(3, finalSectorTime);
         if (onLapCompleted) onLapCompleted(m_currentLap, lapTime, m_timing.bestLapTime);
 
         if (m_config.totalLaps > 0 && m_currentLap >= m_config.totalLaps) {
-            applyPenalties();
+            if (m_playerCarIndex >= 0 && m_playerCarIndex < static_cast<int>(m_standings.size())) {
+                auto& player = m_standings[static_cast<size_t>(m_playerCarIndex)];
+                player.finished = true;
+                player.totalDistance = currentDist +
+                                      m_currentLap * m_config.trackLength;
+            }
+            m_lastCrossingDistance = currentDist;
             endSession();
             return;
         }
 
         m_lapStartTime = m_sessionTime;
+        m_sectorStartTime = m_sessionTime;
+        m_sectorIndex = 0;
         m_timing.sectorTimes[0] = 0;
         m_timing.sectorTimes[1] = 0;
         m_timing.sectorTimes[2] = 0;
+    } else {
+        while (m_sectorIndex < 2) {
+            const float boundary = lapLength * static_cast<float>(m_sectorIndex + 1) / 3.0f;
+            if (m_lastCrossingDistance >= boundary || currentDist < boundary) break;
+
+            const float sectorTime = m_sessionTime - m_sectorStartTime;
+            m_timing.sectorTimes[m_sectorIndex] = sectorTime;
+            ++m_sectorIndex;
+            m_sectorStartTime = m_sessionTime;
+            if (onSectorCompleted) onSectorCompleted(m_sectorIndex, sectorTime);
+        }
     }
 
-    if (currentDist > 50.0f) {
+    if (currentDist > approachThreshold) {
         m_crossedLine = true;
     }
+    m_lastCrossingDistance = currentDist;
 }
 
 void RaceSessionManager::updateStandings()
@@ -180,11 +247,15 @@ void RaceSessionManager::updateStandings()
 void RaceSessionManager::sortStandings()
 {
     std::sort(m_standings.begin(), m_standings.end(),
-              [](const DriverStanding& a, const DriverStanding& b) {
+              [this](const DriverStanding& a, const DriverStanding& b) {
                   if (a.disqualified != b.disqualified) return !a.disqualified;
-                  if (a.finished != b.finished) return !a.finished;
+                  if (a.finished != b.finished) return a.finished;
                   if (a.currentLap != b.currentLap) return a.currentLap > b.currentLap;
-                  return a.totalDistance > b.totalDistance;
+                  if (a.totalDistance != b.totalDistance) return a.totalDistance > b.totalDistance;
+                  if (a.totalTime != b.totalTime) return a.totalTime < b.totalTime;
+                  if (m_config.useGridPositions && a.gridPosition != b.gridPosition)
+                      return a.gridPosition < b.gridPosition;
+                  return a.carIndex < b.carIndex;
               });
 }
 
@@ -235,15 +306,35 @@ void RaceSessionManager::addPenalty(int carIndex, Penalty::Type type, float valu
     penalty.value = value;
     penalty.reason = reason;
     m_pendingPenalties.push_back(penalty);
+    m_standings[static_cast<size_t>(carIndex)].penalties.push_back(penalty);
 
-    if (onPenaltyIssued) onPenaltyIssued(carIndex, reason, reason);
+    if (onPenaltyIssued) {
+        const char* typeName = "Time Added";
+        switch (type) {
+            case Penalty::Type::DriveThrough: typeName = "Drive Through"; break;
+            case Penalty::Type::StopGo: typeName = "Stop-Go"; break;
+            case Penalty::Type::Disqualification: typeName = "Disqualification"; break;
+            case Penalty::Type::TimeAdded: break;
+        }
+        onPenaltyIssued(carIndex, typeName, reason);
+    }
 }
 
 void RaceSessionManager::servePenalty(int carIndex)
 {
     for (auto& p : m_pendingPenalties) {
-        if (p.targetCarIndex == carIndex && !p.served) {
+        const bool pitPenalty = p.type == Penalty::Type::DriveThrough ||
+                    p.type == Penalty::Type::StopGo;
+        if (p.targetCarIndex == carIndex && !p.served && pitPenalty) {
             p.served = true;
+            auto& standingPenalties = m_standings[static_cast<size_t>(carIndex)].penalties;
+            for (auto& standingPenalty : standingPenalties) {
+                if (!standingPenalty.served && standingPenalty.type == p.type &&
+                    standingPenalty.value == p.value && standingPenalty.reason == p.reason) {
+                    standingPenalty.served = true;
+                    break;
+                }
+            }
             printf("RaceSessionManager: Penalty served by car %d\n", carIndex);
             break;
         }
@@ -287,6 +378,15 @@ void RaceSessionManager::applyPenalties()
                 break;
         }
     }
+}
+
+int RaceSessionManager::timeLimitSeconds() const
+{
+    if (m_config.sessionTimeSeconds > 0)
+        return m_config.sessionTimeSeconds;
+    if (m_config.sessionType == RaceConfig::SessionType::Qualifying)
+        return std::max(0, m_config.qualifyingTimeSeconds);
+    return 0;
 }
 
 } // namespace ks::sim

@@ -13,7 +13,7 @@ struct TrackData {
     std::string directory;
     std::string kn5Path;
     std::string aiSplinePath;
-    bool kn5Loaded = false;
+    bool kn5HeaderValidated = false;
     bool aiSplineLoaded = false;
 
     float trackLength = 0.0f;
@@ -24,8 +24,8 @@ struct TrackData {
 
     std::shared_ptr<ks::ai::AiSpline> aiSpline;
 
-    bool isValid() const { return kn5Loaded; }
-    bool isComplete() const { return kn5Loaded && aiSplineLoaded; }
+    bool isValid() const { return kn5HeaderValidated; }
+    bool isComplete() const { return kn5HeaderValidated && aiSplineLoaded; }
 };
 
 class TrackLoader {

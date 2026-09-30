@@ -1,12 +1,15 @@
 #include "NetworkManager.h"
-#include "SimulationLoop.h"
-#include "MultiCarManager.h"
 #include <cstdio>
 #include <chrono>
 
+#if HAS_KSNET
+#include "SimulationLoop.h"
+#include "MultiCarManager.h"
+#endif
+
 namespace ks::sim {
 
-#if HAS_YOJIMBO
+#if HAS_KSNET
 
 NetworkManager::NetworkManager(SimulationLoop* simLoop)
     : m_simLoop(simLoop)
@@ -205,7 +208,7 @@ void NetworkManager::updatePlayerList() {
     if (onPlayerListUpdated) onPlayerListUpdated(players);
 }
 
-#else // !HAS_YOJIMBO
+#else // !HAS_KSNET
 
 #endif
 

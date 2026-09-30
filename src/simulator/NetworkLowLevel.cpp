@@ -1,10 +1,11 @@
 #include "NetworkLowLevel.h"
+#include <cstring>
+
+#if HAS_KSNET
+
 #include "SimulationLoop.h"
 #include "MultiCarManager.h"
 #include "engine/physics/VehiclePhysics.h"
-#include <cstring>
-
-#if HAS_YOJIMBO
 
 namespace ks::sim::net {
 

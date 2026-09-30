@@ -2,7 +2,6 @@
 
 #include "MathTypes.h"
 #include "engine/physics/PhysicsCoreTypes.h"
-#include <chrono>
 #include <string>
 #include <vector>
 #include <functional>
@@ -14,8 +13,10 @@ struct RaceConfig {
     enum class TrackCondition { Dry, Damp, Wet };
 
     SessionType sessionType = SessionType::Race;
+    float trackLength = 1000.0f;
     int totalLaps = 0;
     int sessionTimeSeconds = 0;
+    int sessionTimeWarningSeconds = 60;
     int numCars = 1;
     TrackCondition trackCondition = TrackCondition::Dry;
     float trackTemperature = 25.0f;
@@ -44,6 +45,7 @@ struct LapTiming {
     float bestLapTime = 1e9f;
     float lastLapTime = 0;
     float sectorTimes[3] = {0, 0, 0};
+    float lastSectorTimes[3] = {0, 0, 0};
     float currentLapDistance = 0;
     bool valid = true;
     bool trackLimitsViolation = false;
@@ -86,7 +88,10 @@ public:
     const LapTiming& timing() const { return m_timing; }
     const std::vector<DriverStanding>& standings() const { return m_standings; }
 
-    void setPlayerCarIndex(int idx) { m_playerCarIndex = idx; }
+    void setPlayerCarIndex(int idx) {
+        if (idx >= 0 && idx < static_cast<int>(m_standings.size()))
+            m_playerCarIndex = idx;
+    }
 
     void setGridPosition(int carIndex, int gridPosition);
     void startCountdown(float countdownSeconds = 5.0f);
@@ -117,12 +122,12 @@ private:
     void sortStandings();
     void applyPenalties();
     void updateCountdown(float dt);
+    int timeLimitSeconds() const;
 
     RaceConfig m_config;
     bool m_active = false;
     bool m_paused = false;
 
-    std::chrono::steady_clock::time_point m_sessionStart;
     float m_sessionTime = 0;
     float m_remainingTime = 0;
     float m_lapStartTime = 0;
@@ -133,7 +138,10 @@ private:
     int m_lastCountdownInt = 0;
 
     int m_currentLap = 0;
+    bool m_timeWarningSent = false;
     float m_lastCrossingDistance = 0;
+    float m_sectorStartTime = 0;
+    int m_sectorIndex = 0;
     bool m_crossedLine = false;
     LapTiming m_timing;
 

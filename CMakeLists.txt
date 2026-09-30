@@ -25,8 +25,12 @@ if(MSVC)
 	add_compile_options(/bigobj)
 endif()
 
+# Qt-free build switch (KSENGINE_QT_FREE / KSIMULATOR_QT_FREE) - must come
+# first so no Qt lookup or moc/uic/rcc happens in Qt-free configurations.
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeLists_root_qtfree_hook.cmake")
+
 # Auto-detect Qt6 path from environment or cache
-if(NOT QT6_PATH)
+if(NOT KS_QT_FREE_BUILD AND NOT QT6_PATH)
 	if(DEFINED ENV{QTDIR})
 		set(QT6_PATH "$ENV{QTDIR}")
 	elseif(DEFINED ENV{QT6_DIR})
@@ -48,15 +52,16 @@ endif()
 
 set(QML_IMPORT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/resources/ui/qml CACHE PATH "QML import paths")
 
-find_package(Qt6 COMPONENTS Core Gui Widgets Network Qml Quick Quick3D QuickControls2 QuickWidgets Multimedia OpenGL Sql Charts WebSockets Svg DataVisualization QUIET)
+if(NOT KS_QT_FREE_BUILD)
+	find_package(Qt6 COMPONENTS Core Gui Widgets Network Qml Quick Quick3D QuickControls2 QuickWidgets Multimedia OpenGL Sql Charts WebSockets Svg DataVisualization QUIET)
+	if(NOT Qt6Svg_FOUND)
+		message(STATUS "Qt6 Svg not found, PaintVector SVG features will be disabled")
+	endif()
+	if(NOT Qt6DataVisualization_FOUND)
+		message(STATUS "Qt6 DataVisualization not found, CfdWidget will be disabled")
+	endif()
+endif()
 find_package(Vulkan QUIET)
-
-if(NOT Qt6Svg_FOUND)
-    message(STATUS "Qt6 Svg not found, PaintVector SVG features will be disabled")
-endif()
-if(NOT Qt6DataVisualization_FOUND)
-    message(STATUS "Qt6 DataVisualization not found, CfdWidget will be disabled")
-endif()
 
 # ============================================================================
 # Eigen 3.4+ (header-only linear algebra)
@@ -124,15 +129,25 @@ endif()
 # ============================================================================
 # Optional Scripting Languages
 # ============================================================================
-find_package(Lua QUIET)
-if(Lua_FOUND)
+# The vendored copy in src/engine/external/lua wins over a system install:
+# it means a fresh clone builds scripting with no extra package, and it keeps
+# every target compiling against exactly one lua.h. A system Lua remains the
+# fallback when the vendored tree is absent.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/external/lua/lua.h")
 	set(HAS_LUA TRUE)
-	message(STATUS "Lua found: ${LUA_VERSION}")
+	message(STATUS "Lua found: vendored copy in src/engine/external/lua")
 	add_compile_definitions(HAS_LUA=1)
 else()
-	set(HAS_LUA FALSE)
-	message(STATUS "Lua not found")
-	add_compile_definitions(HAS_LUA=0)
+	find_package(Lua QUIET)
+	if(Lua_FOUND)
+		set(HAS_LUA TRUE)
+		message(STATUS "Lua found: ${LUA_VERSION}")
+		add_compile_definitions(HAS_LUA=1)
+	else()
+		set(HAS_LUA FALSE)
+		message(STATUS "Lua not found")
+		add_compile_definitions(HAS_LUA=0)
+	endif()
 endif()
 
 find_package(Python3 COMPONENTS Development QUIET)
@@ -169,6 +184,38 @@ else()
 endif()
 
 # ============================================================================
+# Qt-free build: ksengine (+ SimulatorApp). No Qt package, no editor, no moc.
+# ============================================================================
+if(KS_QT_FREE_BUILD)
+	if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/external/stb")
+		add_compile_definitions(HAS_STB=1)
+	endif()
+	if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/engine/external/openxr")
+		add_compile_definitions(HAS_OPENXR_HEADERS=1)
+	endif()
+	add_compile_definitions(KSASSETTOCORSA_EXPORTS)
+	include_directories(
+		"${CMAKE_CURRENT_SOURCE_DIR}"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/simulator"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/engine/external/stb"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/engine/external/openxr"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/engine/external/mikktspace"
+	)
+	if(Vulkan_FOUND)
+		include_directories(${Vulkan_INCLUDE_DIRS})
+	endif()
+	add_subdirectory(src/engine)
+	if(KSIMULATOR_QT_FREE)
+		include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeLists_ksimulator_QtFree.cmake")
+	endif()
+	enable_testing()
+	add_subdirectory(tests/qtfree)
+	return()
+endif()
+
+
+# ============================================================================
 # ksnet - Multiplayer networking library (yojimbo-based) for client/server games
 # ============================================================================
 # Reliable UDP networking with encryption, authentication, and message serialization
@@ -189,7 +236,7 @@ endif()
 # ============================================================================
 # KSEngine - Independent Engine Framework
 # ============================================================================
-add_subdirectory(src/core/engine EXCLUDE_FROM_ALL)
+add_subdirectory(src/engine)
 set(HAS_KSENGINE TRUE)
 message(STATUS "KSEngine included as subdirectory")
 

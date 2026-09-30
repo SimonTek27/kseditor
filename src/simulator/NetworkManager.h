@@ -10,7 +10,7 @@ namespace ks::sim {
 
 class SimulationLoop;
 
-#if HAS_YOJIMBO
+#if HAS_KSNET
 
 class NetworkManager {
 public:
@@ -90,7 +90,7 @@ private:
     static constexpr double STATS_POLL_INTERVAL = 0.5; // seconds
 };
 
-#else // !HAS_YOJIMBO
+#else // !HAS_KSNET
 
 namespace net {
 struct NetworkStats { float rtt = 0; float packetLoss = 0; float sendBandwidth = 0; float recvBandwidth = 0; };
