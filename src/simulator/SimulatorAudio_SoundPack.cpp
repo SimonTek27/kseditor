@@ -1,9 +1,9 @@
 /**
- * SimulatorAudio::applySoundPack — load alternate bank / sounds.ini / gains
- * from race config or vehicle upgrades.
+ * SimulatorAudio::applySoundPack — race/upgrade sound banks.
  */
 #include "SimulatorAudio.h"
 #include <cstdio>
+#include <cctype>
 #include <filesystem>
 
 namespace fs = std::filesystem;
@@ -54,27 +54,31 @@ bool SimulatorAudio::applySoundPack(
 
     bool any = false;
 
-    // --- Bank ---
     if (!bankPath.empty()) {
         if (!m_bankManager)
             m_bankManager = std::make_unique<AudioBankManager>();
 
-        // bankPath may be a directory (sfx/v8_race) or a file
         std::string dir = bankPath;
         std::string carId = "pack";
         try {
             fs::path p(bankPath);
-            if (fs::is_regular_file(p)) {
+            if (fs::exists(p) && fs::is_regular_file(p)) {
                 dir = p.parent_path().string();
                 carId = p.stem().string();
-            } else if (fs::is_directory(p)) {
+            } else if (fs::exists(p) && fs::is_directory(p)) {
                 dir = p.string();
                 carId = p.filename().string();
                 if (carId.empty() || carId == "." || carId == "..")
                     carId = "pack";
+            } else {
+                // path may not exist yet — still try parent as dir
+                auto slash = bankPath.find_last_of("/\\");
+                if (slash != std::string::npos) {
+                    dir = bankPath.substr(0, slash);
+                    carId = bankPath.substr(slash + 1);
+                }
             }
         } catch (...) {
-            // keep string ops fallback
             auto slash = bankPath.find_last_of("/\\");
             if (slash != std::string::npos) {
                 dir = bankPath.substr(0, slash);
@@ -82,12 +86,9 @@ bool SimulatorAudio::applySoundPack(
             }
         }
 
-        // Prefer loading from bank folder as carDirectory root for bank manager
         bool ok = m_bankManager->loadBank(dir, carId);
-        if (!ok && !carDirectory.empty()) {
-            // Relative pack under car: carDir + bankPath already resolved by hook
+        if (!ok && !carDirectory.empty())
             ok = m_bankManager->loadBank(carDirectory, carId);
-        }
         if (ok) {
             any = true;
             std::fprintf(stderr, "SimulatorAudio: sound pack bank loaded dir=%s id=%s\n",
@@ -95,28 +96,9 @@ bool SimulatorAudio::applySoundPack(
         } else {
             std::fprintf(stderr, "SimulatorAudio: sound pack bank not found at %s\n",
                          bankPath.c_str());
-            // Try loading engine layer WAVs from bank folder
-            int layers = 0;
-            for (int i = 0; i < ENGINE_LAYERS_PER_SET; ++i) {
-                std::string path = dir + "/engine_int_" + std::to_string(i) + ".wav";
-                // loadWav is file-local in SimulatorAudio.cpp — use loadBank path only
-                (void)path;
-            }
-            (void)layers;
         }
-
-        // Reload sfx wavs from pack directory if present
-        auto tryLoadWavInto = [&](const std::string& file, SoundCategory cat) {
-            // Implemented via public path: loadCarAudio already filled synth;
-            // override only if file exists — use external loadWav if available.
-            // Soft: mark path for mixer via sampleOverrides processing below.
-            (void)file;
-            (void)cat;
-        };
-        tryLoadWavInto(dir + "/engine_int_0.wav", SoundCategory::EngineInterior);
     }
 
-    // --- sounds.ini ---
     if (!soundsIniPath.empty()) {
         SoundsIniParser iniParser;
         if (iniParser.parse(soundsIniPath)) {
@@ -130,16 +112,12 @@ bool SimulatorAudio::applySoundPack(
         }
     }
 
-    // --- Gains (atomic volumes + turbo ini) ---
     if (engineGain > 0.f) {
-        const float base = m_engineVolume.load();
-        m_engineVolume.store(base * engineGain);
+        m_engineVolume.store(m_engineVolume.load() * engineGain);
         any = true;
     }
     if (exteriorGain > 0.f && exteriorGain != 1.f) {
-        // Fold exterior into environment slightly when not cockpit
-        const float env = m_environmentVolume.load();
-        m_environmentVolume.store(env * exteriorGain);
+        m_environmentVolume.store(m_environmentVolume.load() * exteriorGain);
         any = true;
     }
     if (turboGain > 0.f && m_soundsIni.valid) {
@@ -148,14 +126,9 @@ bool SimulatorAudio::applySoundPack(
         any = true;
     }
 
-    // --- Sample path overrides (store in extConfig for future playback path) ---
     for (const auto& kv : sampleOverrides) {
         m_extConfig.parameterOverrides["sample." + kv.first] = { kv.second, 1.f };
-        auto cat = categoryFromName(kv.first);
-        if (cat != SoundCategory::Count) {
-            // Remember category → path for tools / later hot-reload
-            m_extConfig.volumeOverrides["override." + kv.first] = 1.f;
-        }
+        (void)categoryFromName(kv.first);
         any = true;
         std::fprintf(stderr, "SimulatorAudio: sample override %s → %s\n",
                      kv.first.c_str(), kv.second.c_str());
