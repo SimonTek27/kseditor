@@ -2,49 +2,42 @@
 
 ## Wired on GitHub (runtime)
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| FeatureHub | Done | session, discovery, API, limits, weather, PB, setup, replay |
-| Session modes | Done | menu → beginSession |
-| Garage exit + Pit queue/collision/repair | Done | full tick stack |
-| AI multi-car in pit | Done | bodies in queue + OBB |
-| AI spawn into garage boxes | Done | spawnAiGrid |
-| Damage → HUD + power scale | Done | RaceHudSample + setEnginePower |
-| **Track pit boxes** | Done | `loadGarageFromTrack` (pit_boxes.ini / garage.ini) |
-| **Snap to box** | Done | `snapVehicleToPose` via SimulationState |
-| **SM / UDP / TCP telemetry** | Done | publish restored in tick |
+| Feature | Status |
+|---------|--------|
+| FeatureHub + session modes | Done |
+| Garage exit / pit queue / collision / repair | Done |
+| AI multi-car + garage spawn | Done |
+| Track pit boxes + snap to pose | Done |
+| **Post-snap physics hold (0.35s)** | Done |
+| Damage HUD + power scale | Done |
+| SM / UDP / TCP telemetry | Done |
+| **SimulatorServer headless** | Done |
+| **FeatureMethods + Telemetry in SimulatorApp CMake** | Done |
 
 ## Tick order
 
 ```
-applyInput → vehicle + multiCar physics
-updateLapAndSurface
+applyInput (blocks during snap hold)
+vehicle + multiCar physics
 m_features.tick
-updatePitLane / updateGarageExit / updatePitRepair
-publishSharedMemory + UDP + TCP
-render (damage HUD)
+updatePitLane (decays snap hold, freezes vel)
+updateGarageExit (no leave while hold)
+updatePitRepair
+publish SM/UDP/TCP
+render HUD
 ```
 
-## Track pit file format (optional)
+## SimulatorServer
 
 ```
-[BOX_0]
-X=10.0
-Y=0.0
-Z=-5.0
-HEADING=1.57
-PIT_HEADING=1.57
-
-[BOX_1]
-...
+SimulatorServer [--announce] [--track DIR] [--ai N] [--name NAME]
 ```
 
-Paths tried: `data/pit_boxes.ini`, `pit_boxes.ini`, `data/garage.ini`, `garage.ini`, `data/pits.ini`
+Discovery UDP :20779, control TCP :20780.
 
 ## Still open
 
 | Item | Notes |
 |------|-------|
-| Full physics teleport stability | may need integrate-hold after snap |
-| AI spline load on track load | MultiCarManager::loadAiSpline |
-| Dedicated server executable | SimulatorServerApp |
+| Full dedicated multiplayer server | beyond FeatureHub host |
+| Integrate hold with vehicle integrate() pause flag | optional |

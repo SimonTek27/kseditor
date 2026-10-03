@@ -1,11 +1,9 @@
-# Optional Qt-free simulator
-#   cmake -DKSIMULATOR_QT_FREE=ON ..
-
+# Optional Qt-free simulator + headless server
 if(NOT KSIMULATOR_QT_FREE AND NOT KSENGINE_QT_FREE)
   return()
 endif()
 
-find_package(Vulkan REQUIRED)
+find_package(Vulkan QUIET)
 
 set(KSIM_SOURCES
   ${CMAKE_SOURCE_DIR}/src/simulator/SimulatorApp.cpp
@@ -37,18 +35,25 @@ foreach(f ${KSIM_SOURCES})
   endif()
 endforeach()
 
-add_executable(ksimulator WIN32 ${_ksim_existing})
-target_compile_definitions(ksimulator PRIVATE KSENGINE_QT_FREE=1 HAS_VEHICLE_SIM=1 HAS_FFB=1)
-target_include_directories(ksimulator PRIVATE
-  ${CMAKE_SOURCE_DIR}/src
-  ${CMAKE_SOURCE_DIR}/src/engine
-  ${CMAKE_SOURCE_DIR}/src/engine/physics
-  ${CMAKE_SOURCE_DIR}/src/simulator
-  ${CMAKE_SOURCE_DIR}/src/adapters
-  ${Vulkan_INCLUDE_DIRS}
-)
-target_link_libraries(ksimulator PRIVATE ${Vulkan_LIBRARIES})
-if(WIN32)
-  target_link_libraries(ksimulator PRIVATE dinput8 dxguid xinput ole32 user32 gdi32 ws2_32)
+if(_ksim_existing)
+  add_executable(ksimulator WIN32 ${_ksim_existing})
+  target_compile_definitions(ksimulator PRIVATE KSENGINE_QT_FREE=1 HAS_VEHICLE_SIM=1 HAS_FFB=1)
+  target_include_directories(ksimulator PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/engine
+    ${CMAKE_SOURCE_DIR}/src/engine/physics
+    ${CMAKE_SOURCE_DIR}/src/simulator
+    ${CMAKE_SOURCE_DIR}/src/adapters
+  )
+  if(Vulkan_FOUND)
+    target_include_directories(ksimulator PRIVATE ${Vulkan_INCLUDE_DIRS})
+    target_link_libraries(ksimulator PRIVATE ${Vulkan_LIBRARIES})
+  endif()
+  if(WIN32)
+    target_link_libraries(ksimulator PRIVATE dinput8 dxguid xinput ole32 user32 gdi32 ws2_32)
+  endif()
+  message(STATUS "ksimulator Qt-free target configured")
 endif()
-message(STATUS "ksimulator Qt-free target configured")
+
+include("${CMAKE_SOURCE_DIR}/CMakeLists_SimulatorServer.cmake" OPTIONAL)
+include("${CMAKE_SOURCE_DIR}/cmake/CMakeLists_SimulatorServer.cmake" OPTIONAL)
