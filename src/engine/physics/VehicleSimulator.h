@@ -38,7 +38,6 @@ public:
     void reset();
     bool isRunning() const { return m_running; }
 
-    /** Freeze integrate (snap hold / garage park). Inputs still accepted. */
     void setFrozen(bool f) { m_frozen = f; }
     bool isFrozen() const { return m_frozen; }
 
@@ -59,6 +58,25 @@ public:
     void setFrontalArea(double m2);
     void setWheelBase(double m);
     void setTrackWidth(double m);
+
+    struct SetupParams {
+        float tirePsi[4] = {2.2f, 2.2f, 2.0f, 2.0f};
+        float brakeBias = 0.56f;
+        float rideHeightFrontMm = 30.f;
+        float rideHeightRearMm = 35.f;
+        float springRateFront = 150.f;
+        float springRateRear = 180.f;
+        float frontWingDeg = 10.f;
+        float rearWingDeg = 12.f;
+        float diffPreloadNm = 30.f;
+        float fuelL = 50.f;
+        float ballastKg = 0.f;
+        int tcLevel = 0;
+        int absLevel = 0;
+    };
+    void applySetup(const SetupParams& p);
+    const SetupParams& setupParams() const { return m_setup; }
+    float brakeBias() const { return m_setup.brakeBias; }
 
     void loadVehicleParams(const std::string& carPath);
     void loadEngineFromIni(const std::string& path);
@@ -111,6 +129,8 @@ private:
     int m_currentGear = 1;
     double m_rpm = 1000;
     double m_yawRate = 0;
+    SetupParams m_setup{};
+    double m_baseMass = 1200;
 
     EngineModel m_engine;
     PacejkaTireModel m_tires;
