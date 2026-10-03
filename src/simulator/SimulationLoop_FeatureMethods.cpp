@@ -9,6 +9,8 @@
 #include "MultiCarManager.h"
 #include <cctype>
 #include <cstdio>
+#include <fstream>
+#include <filesystem>
 #include <algorithm>
 
 namespace ks::sim {
@@ -21,6 +23,9 @@ void SimulationLoop::setupDefaultGarageLayout(int boxCount) {
     if (!m_garageLayout.boxes.empty()) {
         m_garageLayout.boxes[0].occupied = true;
         m_garageExit.bindBox(0, m_garageLayout.boxes[0].pose, m_garageLayout.pitLaneHeading);
+#if HAS_VEHICLE_SIM
+        snapVehicleToPose(m_vehicle.get(), m_garageLayout.boxes[0].pose);
+#endif
     }
     std::fprintf(stderr, "SimulationLoop: garage layout %d boxes\n", boxCount);
 }
@@ -40,7 +45,10 @@ void SimulationLoop::beginSession(GameSessionMode mode) {
     m_pitSystemsReady = true;
     m_requestPitService = false;
 
-    setupDefaultGarageLayout(std::max(8, p.aiCars + 1));
+    if (!m_trackData.directory.empty() && loadGarageFromTrack(m_trackData.directory))
+        ;
+    else
+        setupDefaultGarageLayout(std::max(8, p.aiCars + 1));
     if (p.aiCars > 0)
         spawnAiGrid(p.aiCars);
 
@@ -110,24 +118,88 @@ void SimulationLoop::configurePitAxis(float originX, float originZ, float headin
     m_pitQueue.setConfig(qc);
 }
 
+void SimulationLoop::snapVehicleToPose(ks::physics::VehicleSimulator* veh, const WorldPose& pose) {
+    if (!veh) return;
+    auto& st = veh->state();
+    st.position.x = pose.x;
+    st.position.y = pose.y;
+    st.position.z = pose.z;
+    st.heading = pose.heading;
+    st.velocity = {};
+    st.angularVelocity = {};
+}
+
+bool SimulationLoop::loadGarageFromTrack(const std::string& trackDir) {
+    namespace fs = std::filesystem;
+    if (trackDir.empty()) return false;
+    const char* candidates[] = {
+        "/data/pit_boxes.ini", "/pit_boxes.ini", "/data/garage.ini", "/garage.ini", "/data/pits.ini"
+    };
+    std::string path;
+    for (auto c : candidates) {
+        fs::path p = fs::path(trackDir + c);
+        if (fs::exists(p)) { path = p.string(); break; }
+    }
+    if (path.empty()) return false;
+
+    std::ifstream in(path);
+    if (!in) return false;
+    m_garageLayout.boxes.clear();
+    GarageBox box;
+    bool have = false;
+    std::string line;
+    while (std::getline(in, line)) {
+        while (!line.empty() && (line.back()=='\r' || line.back()==' ')) line.pop_back();
+        if (line.empty() || line[0]==';' || line[0]==';') continue;
+        if (line.front()=='[') {
+            if (have) { m_garageLayout.boxes.push_back(box); box = GarageBox{}; }
+            have = true;
+            int idx = 0;
+            for (char ch : line) if (ch>='0' && ch<='9') idx = idx*10 + (ch-'0');
+            box.index = idx;
+            continue;
+        }
+        auto eq = line.find('=');
+        if (eq == std::string::npos || !have) continue;
+        auto key = line.substr(0, eq);
+        auto val = line.substr(eq+1);
+        auto f = [&](const char* k) { return key.find(k) != std::string::npos; };
+        try {
+            if (f("WORLD_POSITION") || f("POS_X") || key=="X") box.pose.x = std::stof(val);
+            else if (f("POS_Y") || key=="Y") box.pose.y = std::stof(val);
+            else if (f("POS_Z") || key=="Z") box.pose.z = std::stof(val);
+            else if (f("HEADING") || f("YAW")) box.pose.heading = std::stof(val);
+            else if (f("PIT_HEADING")) m_garageLayout.pitLaneHeading = std::stof(val);
+        } catch (...) {}
+    }
+    if (have) m_garageLayout.boxes.push_back(box);
+    if (m_garageLayout.boxes.empty()) return false;
+    if (m_garageLayout.pitLaneHeading == 0.f)
+        m_garageLayout.pitLaneHeading = m_garageLayout.boxes[0].pose.heading;
+    configurePitAxis(m_garageLayout.boxes[0].pose.x, m_garageLayout.boxes[0].pose.z,
+                     m_garageLayout.pitLaneHeading, 120.f);
+    m_garageExit.bindBox(0, m_garageLayout.boxes[0].pose, m_garageLayout.pitLaneHeading);
+    m_garageLayout.boxes[0].occupied = true;
+#if HAS_VEHICLE_SIM
+    snapVehicleToPose(m_vehicle.get(), m_garageLayout.boxes[0].pose);
+#endif
+    std::fprintf(stderr, "SimulationLoop: loaded %zu pit boxes from %s\n",
+                 m_garageLayout.boxes.size(), path.c_str());
+    return true;
+}
+
 void SimulationLoop::updatePitLane(float dt) {
     if (!m_pitSystemsReady) m_pitSystemsReady = true;
     m_pitQueue.setSimTime(static_cast<float>(m_simTime));
-
 #if HAS_VEHICLE_SIM
-    if (!m_vehicle) {
-        m_pitQueue.update(dt);
-        return;
-    }
+    if (!m_vehicle) { m_pitQueue.update(dt); return; }
     const auto st = m_vehicle->getState();
     const float x = static_cast<float>(st.position.x);
     const float z = static_cast<float>(st.position.z);
     const float speed = static_cast<float>(st.speed);
-    const float heading = static_cast<float>(st.heading);
-
     PitCarBody body;
     body.carId = kPlayerCarId;
-    body.x = x; body.z = z; body.heading = heading;
+    body.x = x; body.z = z; body.heading = static_cast<float>(st.heading);
     body.vx = static_cast<float>(st.velocity.x);
     body.vz = static_cast<float>(st.velocity.z);
     body.active = true;
@@ -135,7 +207,6 @@ void SimulationLoop::updatePitLane(float dt) {
                          m_garageExit.phase() == GarageExitPhase::Preparing ||
                          m_garageExit.phase() == GarageExitPhase::EngineStart);
     m_pitCollision.upsert(body);
-
     if (m_multiCar) {
         for (const auto& ce : m_multiCar->cars()) {
             if (!ce || !ce->isActive || ce->isPlayer || !ce->vehicle) continue;
@@ -152,7 +223,6 @@ void SimulationLoop::updatePitLane(float dt) {
             m_pitQueue.updateCar(ce->id, ob.x, ob.z, static_cast<float>(ost.speed));
         }
     }
-
     const auto phase = m_garageExit.phase();
     if (phase == GarageExitPhase::Preparing || phase == GarageExitPhase::BoxClear ||
         phase == GarageExitPhase::RollingOut || phase == GarageExitPhase::PitLane) {
@@ -161,29 +231,24 @@ void SimulationLoop::updatePitLane(float dt) {
         if (m_pitQueue.isCleared(kPlayerCarId) && phase == GarageExitPhase::RollingOut)
             m_pitQueue.markMoving(kPlayerCarId);
     }
-    if (phase == GarageExitPhase::OnTrack)
-        m_pitQueue.leaveQueue(kPlayerCarId);
+    if (phase == GarageExitPhase::OnTrack) m_pitQueue.leaveQueue(kPlayerCarId);
     if (phase == GarageExitPhase::Returning) {
         m_pitQueue.requestEnter(kPlayerCarId, 1, m_garageExit.garageIndex(), true, x, z);
         m_pitQueue.updateCar(kPlayerCarId, x, z, speed);
     }
-
     m_pitQueue.update(dt);
     m_pitCollision.step(dt);
     m_pitCollision.applyToQueue(m_pitQueue);
-
     const float maxMs = m_pitQueue.suggestedMaxSpeedMs(kPlayerCarId);
-    if (phase == GarageExitPhase::PitLane || phase == GarageExitPhase::RollingOut) {
-        if (speed > maxMs && maxMs >= 0.f) {
-            m_vehicle->setThrottle(0);
-            m_vehicle->setBrake(maxMs < 0.5f ? 0.6 : 0.25);
-        }
+    if ((phase == GarageExitPhase::PitLane || phase == GarageExitPhase::RollingOut) &&
+        speed > maxMs && maxMs >= 0.f) {
+        m_vehicle->setThrottle(0);
+        m_vehicle->setBrake(maxMs < 0.5f ? 0.6 : 0.25);
     }
     if (m_pitCollision.damageImpulseFor(kPlayerCarId) > 0.f)
         m_raceSession.addPenalty(kPlayerCarId, Penalty::Type::TimeAdded, 0.f, "pit contact");
 #else
-    (void)dt;
-    m_pitQueue.update(dt);
+    (void)dt; m_pitQueue.update(dt);
 #endif
 }
 
@@ -191,7 +256,6 @@ void SimulationLoop::updateGarageExit(float dt) {
 #if HAS_VEHICLE_SIM
     if (!m_vehicle) return;
     const auto st = m_vehicle->getState();
-
     GarageExitInput in;
     in.engineRunning = st.rpm > 200.0;
     in.ignitionOn = true;
@@ -204,17 +268,14 @@ void SimulationLoop::updateGarageExit(float dt) {
     in.posZ = static_cast<float>(st.position.z);
     in.heading = static_cast<float>(st.heading);
     in.pitLaneOpen = true;
-
     const bool queueBlock = m_pitQueue.shouldBlockGarageExit(kPlayerCarId);
     const bool contactBlock = m_pitCollision.isInContact(kPlayerCarId) &&
         (m_garageExit.phase() == GarageExitPhase::BoxClear ||
          m_garageExit.phase() == GarageExitPhase::RollingOut);
     const bool serviceBlock = m_pitRepair.isBusy();
     in.pathBlocked = queueBlock || contactBlock || serviceBlock;
-
     if (m_garageExit.phase() == GarageExitPhase::InGarage && st.throttle > 0.2 && !serviceBlock)
         in.requestLeave = true;
-
     GarageExitOutput out = m_garageExit.update(dt, in);
     if (out.holdControls || serviceBlock) {
         m_vehicle->setThrottle(0);
@@ -236,30 +297,22 @@ void SimulationLoop::updatePitRepair(float dt) {
     applyDamageEffects();
     const auto st = m_vehicle->getState();
     const auto phase = m_garageExit.phase();
-
     PitRepairInput in;
     in.inGarageBox = (phase == GarageExitPhase::InGarage || phase == GarageExitPhase::Returning);
     in.speedMs = static_cast<float>(st.speed);
     in.fuelL = static_cast<float>(st.fuel);
     in.fuelCapacityL = 100.f;
     in.targetFuelL = 100.f;
-    in.wantTyres = true;
-    in.wantBody = true;
-    in.wantSuspension = true;
-    in.wantAero = true;
+    in.wantTyres = true; in.wantBody = true; in.wantSuspension = true; in.wantAero = true;
     in.requestService = m_requestPitService && in.inGarageBox;
-
     PitRepairOutput out = m_pitRepair.update(dt, in, m_damage, phase);
     if (out.holdCar) {
-        m_vehicle->setThrottle(0);
-        m_vehicle->setBrake(1.0);
-        m_vehicle->setSteering(0);
+        m_vehicle->setThrottle(0); m_vehicle->setBrake(1.0); m_vehicle->setSteering(0);
     }
     if (out.completedThisFrame) {
         m_requestPitService = false;
         m_vehicle->damage().repairPartial(1.f);
-        std::fprintf(stderr, "SimulationLoop: pit service COMPLETE (%.0f%%)\n",
-                     out.overallProgress * 100.f);
+        std::fprintf(stderr, "SimulationLoop: pit service COMPLETE\n");
     }
 #else
     (void)dt;
@@ -268,16 +321,11 @@ void SimulationLoop::updatePitRepair(float dt) {
 
 void SimulationLoop::spawnAiGrid(int count) {
     if (count <= 0) return;
-    if (!m_multiCar)
-        m_multiCar = std::make_unique<MultiCarManager>();
-
+    if (!m_multiCar) m_multiCar = std::make_unique<MultiCarManager>();
     std::vector<int> toRemove;
-    for (const auto& ce : m_multiCar->cars()) {
+    for (const auto& ce : m_multiCar->cars())
         if (ce && !ce->isPlayer) toRemove.push_back(ce->id);
-    }
-    for (int id : toRemove)
-        m_multiCar->removeCar(id);
-
+    for (int id : toRemove) m_multiCar->removeCar(id);
     const int boxes = static_cast<int>(m_garageLayout.boxes.size());
     for (int i = 0; i < count; ++i) {
         const int boxIdx = (i + 1) % std::max(1, boxes);
@@ -286,22 +334,18 @@ void SimulationLoop::spawnAiGrid(int count) {
             pose = m_garageLayout.boxes[boxIdx].pose;
             m_garageLayout.boxes[boxIdx].occupied = true;
         } else {
-            pose.x = 6.f * float(i + 1);
-            pose.z = 0.f;
-            pose.heading = m_garageLayout.pitLaneHeading;
+            pose.x = 6.f * float(i + 1); pose.heading = m_garageLayout.pitLaneHeading;
         }
         char name[32];
         std::snprintf(name, sizeof(name), "AI_%02d", i + 1);
-        const int id = m_multiCar->addCar("ai_car", name,
-            vec3{pose.x, pose.y, pose.z}, false);
+        const int id = m_multiCar->addCar("ai_car", name, vec3{pose.x, pose.y, pose.z}, false);
         if (auto* ce = m_multiCar->getCar(id)) {
             ce->transform = mat4();
             ce->transform(0, 3) = pose.x;
             ce->transform(1, 3) = pose.y;
             ce->transform(2, 3) = pose.z;
+            snapVehicleToPose(ce->vehicle.get(), pose);
         }
-        std::fprintf(stderr, "SimulationLoop: AI %s -> garage box %d (%.1f,%.1f)\n",
-                     name, boxIdx, pose.x, pose.z);
     }
     m_aiCarCount = count;
 }
@@ -309,9 +353,7 @@ void SimulationLoop::spawnAiGrid(int count) {
 void SimulationLoop::applyDamageEffects() {
 #if HAS_VEHICLE_SIM
     if (!m_vehicle) return;
-    auto& dmg = m_vehicle->damage();
-    const float pm = dmg.powerMultiplier();
-    m_vehicle->setEnginePower(260.0 * std::max(0.15, (double)pm));
+    m_vehicle->setEnginePower(260.0 * std::max(0.15, (double)m_vehicle->damage().powerMultiplier()));
 #endif
 }
 
