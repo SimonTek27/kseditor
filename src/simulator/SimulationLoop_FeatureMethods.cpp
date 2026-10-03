@@ -9,6 +9,7 @@
 #include "MultiCarManager.h"
 #include <cctype>
 #include <cstdio>
+#include <algorithm>
 
 namespace ks::sim {
 
@@ -40,6 +41,8 @@ void SimulationLoop::beginSession(GameSessionMode mode) {
     m_requestPitService = false;
 
     setupDefaultGarageLayout(std::max(8, p.aiCars + 1));
+    if (p.aiCars > 0)
+        spawnAiGrid(p.aiCars);
 
     if (p.startInGarage) {
         m_garageExit.forceEnterGarage();
@@ -230,6 +233,7 @@ void SimulationLoop::updateGarageExit(float dt) {
 void SimulationLoop::updatePitRepair(float dt) {
 #if HAS_VEHICLE_SIM
     if (!m_vehicle) return;
+    applyDamageEffects();
     const auto st = m_vehicle->getState();
     const auto phase = m_garageExit.phase();
 
@@ -253,11 +257,61 @@ void SimulationLoop::updatePitRepair(float dt) {
     }
     if (out.completedThisFrame) {
         m_requestPitService = false;
+        m_vehicle->damage().repairPartial(1.f);
         std::fprintf(stderr, "SimulationLoop: pit service COMPLETE (%.0f%%)\n",
                      out.overallProgress * 100.f);
     }
 #else
     (void)dt;
+#endif
+}
+
+void SimulationLoop::spawnAiGrid(int count) {
+    if (count <= 0) return;
+    if (!m_multiCar)
+        m_multiCar = std::make_unique<MultiCarManager>();
+
+    std::vector<int> toRemove;
+    for (const auto& ce : m_multiCar->cars()) {
+        if (ce && !ce->isPlayer) toRemove.push_back(ce->id);
+    }
+    for (int id : toRemove)
+        m_multiCar->removeCar(id);
+
+    const int boxes = static_cast<int>(m_garageLayout.boxes.size());
+    for (int i = 0; i < count; ++i) {
+        const int boxIdx = (i + 1) % std::max(1, boxes);
+        WorldPose pose;
+        if (boxes > 0) {
+            pose = m_garageLayout.boxes[boxIdx].pose;
+            m_garageLayout.boxes[boxIdx].occupied = true;
+        } else {
+            pose.x = 6.f * float(i + 1);
+            pose.z = 0.f;
+            pose.heading = m_garageLayout.pitLaneHeading;
+        }
+        char name[32];
+        std::snprintf(name, sizeof(name), "AI_%02d", i + 1);
+        const int id = m_multiCar->addCar("ai_car", name,
+            vec3{pose.x, pose.y, pose.z}, false);
+        if (auto* ce = m_multiCar->getCar(id)) {
+            ce->transform = mat4();
+            ce->transform(0, 3) = pose.x;
+            ce->transform(1, 3) = pose.y;
+            ce->transform(2, 3) = pose.z;
+        }
+        std::fprintf(stderr, "SimulationLoop: AI %s -> garage box %d (%.1f,%.1f)\n",
+                     name, boxIdx, pose.x, pose.z);
+    }
+    m_aiCarCount = count;
+}
+
+void SimulationLoop::applyDamageEffects() {
+#if HAS_VEHICLE_SIM
+    if (!m_vehicle) return;
+    auto& dmg = m_vehicle->damage();
+    const float pm = dmg.powerMultiplier();
+    m_vehicle->setEnginePower(260.0 * std::max(0.15, (double)pm));
 #endif
 }
 
