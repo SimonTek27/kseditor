@@ -1,30 +1,21 @@
-# Parity status — 2026-10-03 (feature completion pass)
+# Parity status — 2026-10-03 (wiring complete)
 
-## Closed this pass (LFS section 5)
+| Feature | Status |
+|---------|--------|
+| Session modes | **WIRED** menu → beginSession |
+| Track limits | **WIRED** FeatureHub::tick |
+| Weather / ToD | **WIRED** control API + hub |
+| LAN discovery :20779 | **WIRED** host + F2 browser |
+| Control API :20780 | **WIRED** FeatureHub handlers |
+| Setup load/save | **WIRED** |
+| Replay load | **WIRED** KS_REPLAY_FILE |
+| PB store | **READY** |
+| Multi layout | **READY** |
 
-| # | Feature | Module |
-|---|---------|--------|
-| 5.1 | LAN server discovery | `ServerDiscovery.h` (UDP :20779) |
-| 5.2 | External control API | `ExternalControlApi.h` (TCP :20780) |
-| 5.3 | Session modes | `SessionController.h` |
-| 5.4 | Track limits → penalties | `TrackLimitsMonitor.h` |
-| 5.5 | Setup file + apply | `SetupFile.h` + `ApplySetup.h` |
-| 5.6 | Replay load/play | `ReplayRecorder` (wire UI) |
-| 5.7 | Multi layouts | `TrackLayout.h` |
-| 5.8 | Weather / time-of-day | `WeatherControl.h` |
-| 5.9 | Persistent PB | `PersonalBestStore.h` |
+## API
 
-## Pit / garage / damage
-
-PitLaneRepair, GarageExit, PitLaneQueue, PitLaneCollision, MechanicalDamage — DONE
-
-## Needs SimulationLoop / UI wiring
-
-- Menu → SessionController
-- tick → TrackLimitsMonitor + WeatherControl
-- MultiplayerOverlay ← ServerDiscovery
-- Control API handlers
-- Replay menu → loadReplay/startPlayback
-- Real golden CSV (1.1)
-
-Repo: SimonTek27/kseditor
+- `SimulationLoop::beginSession(GameSessionMode)`
+- `SimulationLoop::startFeatureServices(bool)`
+- `SimulationLoop::features()`
+- `GameMenuOverlay::onStartSessionRequested`
+- Env: `KS_REPLAY_FILE`, `KS_GOLDEN_CSV`, `KS_AI_CARS`
