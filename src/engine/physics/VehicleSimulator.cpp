@@ -1,5 +1,6 @@
 #include "VehicleSimulator.h"
 #include <cstdio>
+#include <cmath>
 #include <filesystem>
 
 namespace fs = std::filesystem;
@@ -291,7 +292,21 @@ void VehicleSimulator::integrate(double dt) {
 
 void VehicleSimulator::updatePhysics(double dt) {
     if (!m_running || m_frozen) return;
+    if (!std::isfinite(dt) || dt <= 0.0 || dt > 0.1) return;
     integrate(dt);
+    if (!std::isfinite(m_state.speed) || !std::isfinite(m_state.position.x) ||
+        !std::isfinite(m_state.position.z) || !std::isfinite(m_state.heading)) {
+        m_state.velocity = {};
+        m_state.angularVelocity = {};
+        m_state.acceleration = {};
+        m_state.speed = 0.f;
+        if (!std::isfinite(m_state.position.x)) m_state.position.x = 0.f;
+        if (!std::isfinite(m_state.position.y)) m_state.position.y = 0.35f;
+        if (!std::isfinite(m_state.position.z)) m_state.position.z = 0.f;
+        if (!std::isfinite(m_state.heading)) m_state.heading = 0.f;
+        m_yawRate = 0;
+        m_rpm = 1000;
+    }
 }
 
 } // namespace physics
