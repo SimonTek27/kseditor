@@ -76,6 +76,20 @@ bool SimulationLoop::loadReplayFile(const std::string& path) {
     return m_features.loadReplay(path);
 }
 
+void SimulationLoop::configurePitAxis(float originX, float originZ, float headingRad, float lengthM) {
+    PitAxis axis;
+    axis.originX = originX;
+    axis.originZ = originZ;
+    axis.heading = headingRad;
+    m_pitQueue.setAxis(axis);
+    m_pitCollision.setAxis(axis);
+    PitLaneQueueConfig qc = m_pitQueue.config();
+    qc.pitEndAlong = lengthM > 1.f ? lengthM : 120.f;
+    m_pitQueue.setConfig(qc);
+    std::fprintf(stderr, "SimulationLoop: pit axis origin=(%.1f,%.1f) hdg=%.2f len=%.0f\n",
+                 originX, originZ, headingRad, qc.pitEndAlong);
+}
+
 void SimulationLoop::updatePitLane(float dt) {
     if (!m_pitSystemsReady)
         m_pitSystemsReady = true;

@@ -98,6 +98,8 @@ public:
 
     void updateGarageExit(float dt);
     void updatePitLane(float dt);
+    /** Set pit corridor axis (call after track load / garage spawn). */
+    void configurePitAxis(float originX, float originZ, float headingRad, float lengthM = 120.f);
     GarageExitController& garageExit() { return m_garageExit; }
     PitLaneQueue& pitQueue() { return m_pitQueue; }
     PitLaneCollision& pitCollision() { return m_pitCollision; }

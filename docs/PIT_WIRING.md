@@ -5,43 +5,49 @@
 ```
 updateLapAndSurface
 m_features.tick(...)
-updatePitLane(dt)      // queue + OBB collision  ← call BEFORE garage
-updateGarageExit(dt)   // uses pathBlocked from queue/collision
+updatePitLane(dt)      // queue + OBB collision FIRST
+updateGarageExit(dt)   // pathBlocked from queue/collision
 ```
 
-Add in `SimulationLoop.cpp` after FeatureHub tick:
+In `SimulationLoop.cpp` after FeatureHub tick:
 
 ```cpp
 updatePitLane((float)m_physicsDt);
 updateGarageExit((float)m_physicsDt);
 ```
 
+Also in `initialize()`:
+
+```cpp
+startFeatureServices(false);
+configurePitAxis(0.f, 0.f, 0.f, 120.f); // until track provides real pit spline
+```
+
+## configurePitAxis
+
+Call after loading track/garage boxes with the real pit corridor:
+
+```cpp
+loop.configurePitAxis(pitStartX, pitStartZ, pitHeadingRad, pitLengthM);
+```
+
+Sets the same `PitAxis` on both `PitLaneQueue` and `PitLaneCollision`.
+
 ## Data flow
 
 ```
-GarageExit phase Preparing / RollingOut / PitLane
-        │
-        ▼
-PitLaneQueue.requestLeave(player) + updateCar
-        │
-        ▼
-shouldBlockGarageExit ──► GarageExitInput.pathBlocked
-        │
-        ▼
-PitLaneCollision.upsert(body) → step → contacts
-        │
-        ├── suggestedMaxSpeedMs → throttle/brake soft cap
-        └── damageImpulseFor → RaceSession penalty note
+GarageExit Preparing/RollingOut/PitLane
+    → PitLaneQueue.requestLeave + updateCar
+    → shouldBlockGarageExit → pathBlocked
+    → PitLaneCollision.upsert + step
+    → suggestedMaxSpeedMs / damageImpulse
 ```
 
 ## Modules
 
 | Module | Role |
 |--------|------|
-| **PitLaneQueue** | Spacing ≥8 m, release gap, ClearedToMove, leave/enter |
-| **PitLaneCollision** | 2D OBB car–car + corridor walls, soft restitution |
-| **GarageExit** | InGarage → … → OnTrack state machine |
-
-## Session reset
-
-`beginSession` rebuilds queue + collision and sets garage phase from `startInGarage`.
+| PitLaneQueue | spacing ≥8 m, ClearedToMove, leave/enter |
+| PitLaneCollision | 2D OBB + corridor walls |
+| GarageExit | box state machine |
+| configurePitAxis | shared axis for queue + collision |
