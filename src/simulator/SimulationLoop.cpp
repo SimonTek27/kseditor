@@ -1,7 +1,7 @@
 /**
  * SimulationLoop.cpp — std-only / Qt-free
- * FeatureHub + pit stack + AI + damage HUD
- * Publish implementations: SimulationLoop_Telemetry.cpp
+ * FeatureHub + pit stack + AI + damage HUD + snap hold
+ * Publish: SimulationLoop_Telemetry.cpp
  */
 
 #include "SimulationLoop.h"
@@ -219,11 +219,16 @@ bool SimulationLoop::handleUiMouseWheel(float d, float x, float y) {
 
 void SimulationLoop::applyInput() {
     if (!m_input) return;
-    const bool blocked = m_ui.blocksDrivingInput();
-    if (!blocked) m_input->update();
+    const bool blocked = m_ui.blocksDrivingInput() || m_snapHoldSec > 0.f;
+    if (!m_ui.blocksDrivingInput()) m_input->update();
 #if HAS_VEHICLE_SIM
     if (!m_vehicle) return;
-    if (blocked) { m_vehicle->setThrottle(0); m_vehicle->setBrake(0); m_vehicle->setSteering(0); return; }
+    if (blocked) {
+        m_vehicle->setThrottle(0);
+        m_vehicle->setBrake(m_snapHoldSec > 0.f ? 1.0 : 0);
+        m_vehicle->setSteering(0);
+        return;
+    }
     m_vehicle->setThrottle(m_input->throttle());
     m_vehicle->setBrake(m_input->brake());
     m_vehicle->setSteering(m_input->steer());
