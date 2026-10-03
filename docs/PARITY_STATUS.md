@@ -1,23 +1,29 @@
-# Parity status — 2026-10-03 (wiring complete)
+# Parity status — 2026-10-03 (full commit)
 
-| Feature | Status |
-|---------|--------|
-| Session modes | **WIRED** menu → beginSession |
-| Track limits | **WIRED** FeatureHub::tick |
-| Weather / ToD | **WIRED** |
-| LAN discovery :20779 | **WIRED** |
-| Control API :20780 | **WIRED** |
-| Setup load/save | **WIRED** |
-| Replay load | **WIRED** KS_REPLAY_FILE |
-| PB store | READY |
-| Multi layout | READY |
+## Wired and on GitHub
 
-## API
+| Feature | Files |
+|---------|-------|
+| FeatureHub | `FeatureHub.h` |
+| Session modes | `SessionController.h`, menu, `beginSession` |
+| Track limits | `TrackLimitsMonitor.h` |
+| Weather / ToD | `WeatherControl.h` |
+| LAN discovery | `ServerDiscovery.h` :20779 |
+| Control API | `ExternalControlApi.h` :20780 |
+| Setup | `SetupFile.h`, `ApplySetup.h` |
+| Replay | `ReplayRecorder` + `loadReplayFile` |
+| PB | `PersonalBestStore.h` |
+| Layouts | `TrackLayout.h` |
+| Pit stack | GarageExit, PitLaneQueue/Collision/Repair |
 
-- `SimulationLoop::beginSession(GameSessionMode)`
-- `SimulationLoop::startFeatureServices(bool)`
-- `SimulationLoop::features()`
-- `GameMenuOverlay::onStartSessionRequested`
+## SimulationLoop / App
+
+- `beginSession(GameSessionMode)`
+- `startFeatureServices` / `features()`
+- `loadReplayFile`
+- Menu PRACTICE / QUICK RACE / TIME ATTACK
 - Env: `KS_REPLAY_FILE`, `KS_GOLDEN_CSV`, `KS_AI_CARS`
 
-See `docs/WIRING_DIFF.md` and `FeatureHub.h`.
+## Commit tip
+
+See latest master commits for FeatureHub + menu + app wiring.
