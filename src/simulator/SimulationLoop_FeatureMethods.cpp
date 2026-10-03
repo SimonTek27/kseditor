@@ -129,6 +129,7 @@ void SimulationLoop::snapVehicleToPose(ks::physics::VehicleSimulator* veh, const
     st.angularVelocity = {};
     st.speed = 0.f;
     m_snapHoldSec = kSnapHoldDuration;
+    veh->setFrozen(true);
 }
 
 bool SimulationLoop::loadGarageFromTrack(const std::string& trackDir) {
@@ -195,6 +196,7 @@ void SimulationLoop::updatePitLane(float dt) {
         m_snapHoldSec = std::max(0.f, m_snapHoldSec - dt);
 #if HAS_VEHICLE_SIM
         if (m_vehicle) {
+            m_vehicle->setFrozen(true);
             m_vehicle->setThrottle(0);
             m_vehicle->setBrake(1.0);
             m_vehicle->setSteering(0);
@@ -204,6 +206,11 @@ void SimulationLoop::updatePitLane(float dt) {
             st.speed = 0.f;
         }
 #endif
+        if (m_snapHoldSec <= 0.f) {
+#if HAS_VEHICLE_SIM
+            if (m_vehicle) m_vehicle->setFrozen(false);
+#endif
+        }
     }
     if (!m_pitSystemsReady) m_pitSystemsReady = true;
     m_pitQueue.setSimTime(static_cast<float>(m_simTime));
