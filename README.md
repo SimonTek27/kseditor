@@ -23,7 +23,7 @@ mikktspace.
 
 # ksEditor
 
-A comprehensive, professional-grade modding toolkit for **Assetto Corsa** and other Kunos/Steam racing games. ksEditor provides a unified environment for editing game audio, 3D models, physics, telemetry, liveries, events, server configs, and more.
+A comprehensive, professional-grade modding toolkit for racing-game content. ksEditor provides a unified environment for editing audio, 3D models, physics, telemetry, liveries, events, server configs, and more.
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)]()
 [![License](https://img.shields.io/badge/license-GPL3-blue.svg)](LICENSE.txt)
@@ -31,14 +31,87 @@ A comprehensive, professional-grade modding toolkit for **Assetto Corsa** and ot
 [![Qt](https://img.shields.io/badge/Qt-6.11-green)]()
 [![C++](https://img.shields.io/badge/C++-17-blue)]()
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)]()
+
 ---
 
 ## Overview
 
-ksEditor is a **Qt6-based desktop application** designed to provide modders with professional editing tools for racing game content. It combines multiple specialized editors into a single, cohesive environment with native performance and a modern UI, uses ksengine to run.** The editor (`kseditor.exe`) links `kslib`,
-which PUBLIC-links `ksengine`; `ksengine.lib` is copied next to the executable at build time. Physics, file-format parsing, FFB/device handling and the rest of the engine logic used by the editor's modules all come from ksengine — the Qt layer only provides the UI.
+This repository ships three products that share one core:
 
-The editor supports the **full Assetto Corsa modding pipeline**, from audio synthesis to 3D modeling, physics simulation, livery painting, event creation, and server configuration. It is compatible with **FMOD Studio 1.08.12** project formats used by the game and includes its own internal audio workstation (**ksAudioStudio**).
+1. **ksengine** — Qt-free C++17 static library (math, physics, devices, formats).
+2. **SimulatorApp (ksim)** — Qt-free race runtime (Vulkan + `SimulationLoop`).
+3. **ksEditor** — optional Qt6 modding UI that links ksengine for all non-UI work.
+
+The editor (`kseditor.exe`) links `kslib`, which PUBLIC-links `ksengine`; `ksengine.lib` is copied next to the executable at build time. Physics, file-format parsing, FFB/device handling and engine logic used by editor modules come from ksengine — the Qt layer only provides the UI.
+
+ksEditor still covers the full modding pipeline (audio, 3D, physics, liveries, events, server config) and **ksAudioStudio** for FMOD-compatible banks. See **Architecture** below for layering and data flow.
+
+---
+
+## Architecture
+
+ksengine is organized in **layers**. The editor is optional; the engine and simulator build without Qt.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ksEditor (Qt6)                                             │
+│  MainWindow + modding modules (modeler, audio, physics UI…) │
+└────────────────────────────┬────────────────────────────────┘
+                             │ links
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│  SimulatorApp / ksim  (Qt-free)                             │
+│  Win32 + Vulkan · SimulationLoop · FeatureHub · native UI   │
+│  session modes · pit/garage · telemetry · multiplayer       │
+└────────────────────────────┬────────────────────────────────┘
+                             │ links
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│  ksengine  (Qt-free static lib)                             │
+│  Math · physics · devices/FFB · formats · scene · network   │
+│  Engine + EngineModule registry · fixed-timestep core       │
+└────────────────────────────┬────────────────────────────────┘
+                             │ uses (optional)
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│  adapters/  (format bridges, not game-specific runtime)     │
+│  assetto_corsa → shared memory, surfaces.ini, CSP configs   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Responsibilities
+
+| Component | Responsibility |
+|-----------|----------------|
+| **ksengine** | Generic sim engine: vehicle dynamics, input/FFB, file I/O, ECS scene, low-level net. No UI framework. |
+| **SimulatorApp** | Standalone race client: load track/car, drive loop, HUD/menu, sessions, pits, replay, LAN discovery, control API. |
+| **adapters/** | Read/write content formats used by existing mods. Keeps the engine independent of any one title. |
+| **ksEditor** | Modding toolkit UI on top of ksengine; not required to run ksim. |
+
+### Runtime data flow (SimulatorApp)
+
+```
+Input (wheel/keys) → InputManager → VehicleSimulator (ksengine physics)
+                                         │
+                                         ▼
+                              SimulationLoop tick @ fixed dt
+                                         │
+                    ┌────────────────────┼────────────────────┐
+                    ▼                    ▼                    ▼
+              FeatureHub            NativeRenderer         Telemetry
+         (session, limits,         (Vulkan frame)     (UDP/TCP/shared mem)
+          weather, PB, API)
+                    │
+                    ▼
+              GameMenuOverlay / NativeUiHub  (GPU UI pass)
+```
+
+### Design rules
+
+1. **Qt only in the editor** — `src/engine/` and `src/simulator/` stay std/Vulkan.
+2. **No hard dependency on a commercial title** — format adapters are isolated under `src/adapters/`.
+3. **FeatureHub** centralizes session mode, LAN discovery (`:20779`), external control (`:20780`), track limits, weather, setup, and personal bests.
+4. **Pit/garage** follows a clear state machine (garage exit → pit queue → collision → repair) separate from core vehicle physics.
 
 ---
 
@@ -50,65 +123,45 @@ The **3D Printing Module** prepares **game assets for physical fabrication**. Th
 
 ### VR Support
 
-The **VR Editor** enables **immersive content creation** via OpenXR. The **VR viewport renderer** provides stereoscopic rendering with **lens distortion correction**, **variable rate shading**, and **foveated rendering** support. **Controller input** maps 6-DOF poses, triggers, thumbsticks, haptics to editor tools (grab/scale/rotate objects, paint liveries, sculpt terrain, place trackside objects). **UI panels** appear as world-space tablets or wrist-mounted menus. **Vulkan interop** shares textures/buffers between desktop and VR views for zero-copy mirroring. Supports **Meta Quest (Link/AirLink), Valve Index, HTC Vive, Varjo, Pimax, Windows Mixed Reality**.
+The **VR Editor** enables **immersive content creation** via OpenXR. The **VR viewport renderer** provides stereoscopic rendering with **lens distortion correction**, **variable rate shading**, and **foveated rendering** support. **Controller input** maps 6-DOF poses, triggers, thumbsticks, haptics to editor tools. **Vulkan interop** shares textures/buffers between desktop and VR views. Supports **Meta Quest, Valve Index, HTC Vive, Varjo, Pimax, Windows Mixed Reality**.
 
 ### Workshop Manager
 
-The **Workshop Manager** integrates **Steam Workshop** for mod distribution. It provides **upload/publish workflows** with metadata (title, description, tags, preview images, changelog). **Version management** tracks updates with semantic versioning. **Dependency declaration** links required mods/content. **Local staging** validates package structure before publishing. **Download manager** handles subscribed content with auto-update and conflict detection.
+The **Workshop Manager** integrates **Steam Workshop** for mod distribution: upload/publish, versioning, dependencies, local staging, and subscribed-content downloads.
 
 ### Mod Manager
 
-The **Mod Manager** organizes **installed content** with a unified library view. It tracks **mod metadata** (version, author, dependencies, compatibility), provides **enable/disable toggles** with load-order management, and runs **integrity checks** (file hashes, missing assets, version conflicts). **Repair function** re-downloads corrupted files from Workshop or source. **Profile system** saves mod sets for different leagues, series, or testing scenarios.
+The **Mod Manager** organizes installed content with metadata tracking, enable/disable, load order, integrity checks, repair, and profiles.
 
 ### Assets Library
 
-The **Assets Library** is a **centralized content browser** for all project assets. It indexes **3D models, textures, audio, materials, physics configs, scripts** with metadata extraction (poly count, texture resolution, duration, format). **Search** supports filters (type, tags, size, date, usage), **full-text** in scripts/configs, and **visual similarity** for textures. **Preview pane** renders 3D models (turntable), plays audio, displays images with histogram. **Dependency graph** shows asset references (what uses this texture, which car needs this physics file). **Cloud sync** backs up library index and shares across workstations.
+Centralized browser for models, textures, audio, materials, physics configs, and scripts with search, preview, and dependency graph.
 
-### Event Editor
+### Event Editor / Server Config / FFB / Telemetry / Weather / Help
 
-The **Event Editor** creates **single-player career content**: **championships** (calendar, points systems, penalties, drop rounds), **races** (grid size, qualifying format, pit rules, weather slots, time acceleration), **special events** (time attack, drift, autocross, hillclimb, endurance with driver swaps). **AI roster management** assigns cars/liveries/names/skill per event. **Reward trees** define unlockables (cars, liveries, tracks, currency) with branching prerequisites. **Export** generates CSP-compatible event JSON for Career Mode.
-
-### Server Config Editor
-
-The **Server Config Editor** administers **dedicated multiplayer servers**. It edits **session rules** (practice/qualify/race durations, weather progression, dynamic track rubbering), **entry list** (car restrictions, BOP ballast, restrictor, fuel capacity, tire compounds), **driver aids** (ABS, TC, stability, auto-clutch, auto-blip), **penalty system** (track limits, pit speed, contact, drive-through/stop-go), and **admin commands** (kick, ban, restart, weather change, grid penalty). **Presets** for common series (GT3, TCR, Formula, Cup). **Live preview** validates config syntax and simulates session flow.
-
-### FFB Editor
-
-The **Force Feedback Editor** tunes **steering wheel feedback** for each car. It adjusts **gain, filter, damping, spring, friction** per effect type (curb, slip, impact, understeer, oversteer, ABS, surface). **Frequency analysis** visualizes FFB spectrum. **Curve editors** shape force-vs-slip and force-vs-speed relationships. **Profile comparison** overlays multiple configs. **Presets** for popular wheels (Fanatec, Logitech, Thrustmaster, Simucube, Moza) with auto-detection.
-
-### Telemetry Viewer
-
-The **Telemetry Viewer** records, analyzes, and compares **vehicle telemetry data**. It captures **high-frequency samples** (100-1000 Hz) for channels: speed, RPM, throttle/brake/clutch, steering, G-forces, suspension travel, tire temps/pressures, aero loads, fuel, temperatures. **Lap timing** auto-detects sectors with split comparison against reference laps. **Data export** supports CSV, JSON, and MAT formats for external analysis (MATLAB, Python). Overlay multiple laps with **delta-time visualization** and **driver input comparison**.
-
-### Weather Editor
-
-The **Weather Editor** designs **dynamic weather sequences** for races and showrooms. It defines **keyframes** (time, cloud cover, precipitation, fog, wind speed/direction, ambient/track temperature, humidity). **Interpolation** creates smooth transitions. **Preset library** includes clear, overcast, light rain, heavy storm, foggy morning, sunset transition. **Preview renderer** shows sky dome, cloud layers, rain particles, puddle formation, track drying line in real-time. **Export** generates CSP weather scripts and showroom lighting states.
-
-### Help System
-
-The **Help System** provides **context-sensitive assistance** throughout the application. **F1 key** opens relevant documentation for the focused widget/panel. **Tutorial system** guides users through multi-step workflows (create car from scratch, build track, setup physics, paint livery) with interactive highlights. **QuickStart** covers first-launch setup (game paths, SDK init, plugin config). **Help browser** searches all docs, shows keyboard shortcuts, FAQ, troubleshooting. **20+ help contexts** map to specific editors, panels, and dialogs. **Offline-first** with optional online updates.
+Career events, dedicated-server rules, force-feedback curves, high-rate telemetry analysis, weather keyframes, and context-sensitive help (F1).
 
 ## Modules
 
 ### Text Editor (ksIDEEditor)
 
-The **Text Editor** is a **code-aware IDE** for scripting and config files. It provides **LSP client** integration (clangd for C++, pylsp for Python, lua-language-server for Lua) with **hover docs, go-to-definition, find-references, rename, diagnostics**. **Syntax highlighting** for 20+ languages (C++, Python, Lua, JSON, XML, INI, GLSL, HLSL, CSP, ACD). **Minimap** with error/warning markers. **Multi-cursor editing**, **snippets**, **bracket matching**, **auto-indent**, **folding**. **Integrated terminal** for build/test commands.
+Code-aware IDE with LSP, syntax highlighting for 20+ languages, minimap, multi-cursor, and integrated terminal.
 
 ### 3D Modeler (ksModeler)
 
-**KSModeler** is a **Vulkan-powered 3D modeling environment** purpose-built for racing game assets. It offers **mesh primitives**, **UV mapping**, **skeletal rigging**, **PBR material system**, and **file format converters** for **KN5, FBX, GLB, OBJ**. Specialized editors include **CarEditor**, **TrackEditor**, and **CharacterEditor**.
+Vulkan-powered modeling for racing assets: primitives, UV, rigging, PBR, KN5/FBX/GLB/OBJ, Car/Track/Character editors.
 
 ### Audio Editor (ksAudioEditor)
 
-The **Audio Editor** is a full-featured digital audio workstation built into ksEditor with multi-track mixing, effects, FMOD bank compatibility, and **ksAudioStudio** as the internal engine.
+DAW built into ksEditor with multi-track mixing, effects, FMOD bank compatibility, and **ksAudioStudio** as the internal engine.
 
 ### Physics Editor (ksPhysicsEditor)
 
-The **Physics Editor** delivers vehicle dynamics simulation and tuning: Pacejka tires, suspension kinematics, brakes, aero, powertrain, damage, and weather effects on grip.
+Vehicle dynamics tuning: Pacejka tires, suspension, brakes, aero, powertrain, damage, weather grip effects.
 
 ### Display / Font / Paint / License Plates / Showroom / PP Filters
 
-Specialized editors for dashboards, font atlases, liveries, plates, showroom presentation, and post-processing filter chains.
+Dashboards, font atlases, liveries, plates, showroom presentation, and post-processing filter chains.
 
 ---
 
