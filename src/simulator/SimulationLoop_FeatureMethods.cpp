@@ -127,6 +127,8 @@ void SimulationLoop::snapVehicleToPose(ks::physics::VehicleSimulator* veh, const
     st.heading = pose.heading;
     st.velocity = {};
     st.angularVelocity = {};
+    st.speed = 0.f;
+    m_snapHoldSec = kSnapHoldDuration;
 }
 
 bool SimulationLoop::loadGarageFromTrack(const std::string& trackDir) {
@@ -189,6 +191,20 @@ bool SimulationLoop::loadGarageFromTrack(const std::string& trackDir) {
 }
 
 void SimulationLoop::updatePitLane(float dt) {
+    if (m_snapHoldSec > 0.f) {
+        m_snapHoldSec = std::max(0.f, m_snapHoldSec - dt);
+#if HAS_VEHICLE_SIM
+        if (m_vehicle) {
+            m_vehicle->setThrottle(0);
+            m_vehicle->setBrake(1.0);
+            m_vehicle->setSteering(0);
+            auto& st = m_vehicle->state();
+            st.velocity = {};
+            st.angularVelocity = {};
+            st.speed = 0.f;
+        }
+#endif
+    }
     if (!m_pitSystemsReady) m_pitSystemsReady = true;
     m_pitQueue.setSimTime(static_cast<float>(m_simTime));
 #if HAS_VEHICLE_SIM
@@ -274,7 +290,7 @@ void SimulationLoop::updateGarageExit(float dt) {
          m_garageExit.phase() == GarageExitPhase::RollingOut);
     const bool serviceBlock = m_pitRepair.isBusy();
     in.pathBlocked = queueBlock || contactBlock || serviceBlock;
-    if (m_garageExit.phase() == GarageExitPhase::InGarage && st.throttle > 0.2 && !serviceBlock)
+    if (m_garageExit.phase() == GarageExitPhase::InGarage && st.throttle > 0.2 && !serviceBlock && m_snapHoldSec <= 0.f)
         in.requestLeave = true;
     GarageExitOutput out = m_garageExit.update(dt, in);
     if (out.holdControls || serviceBlock) {
