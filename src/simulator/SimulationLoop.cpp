@@ -1,11 +1,11 @@
 /**
  * SimulationLoop.cpp — std-only / Qt-free
- * FeatureHub + PitLaneQueue + Collision + GarageExit + Repair
+ * FeatureHub + pit stack + AI grid + damage HUD
  */
 
 #include "SimulationLoop.h"
-#include "InputManager.h"
 #include "MultiCarManager.h"
+#include "InputManager.h"
 #include "NetworkManager.h"
 #include "SetupGarage.h"
 #include "SimulatorAudio.h"
@@ -86,6 +86,7 @@ bool SimulationLoop::initialize() {
     engine.registerModule("ks.script", borrowModule(script));
     script.initialize();
     if (m_input) m_input->initialize();
+    if (!m_multiCar) m_multiCar = std::make_unique<MultiCarManager>();
 
     startFeatureServices(false);
     setupDefaultGarageLayout(8);
@@ -258,6 +259,7 @@ void SimulationLoop::tick() {
         applyInput();
 #if HAS_VEHICLE_SIM
         if (m_vehicle) m_vehicle->updatePhysics(m_physicsDt);
+        if (m_multiCar) m_multiCar->update((float)m_physicsDt);
 #endif
         if (m_sessionPhase == PHASE_GREEN_FLAG)
             updateLapAndSurface(m_physicsDt);
@@ -305,6 +307,35 @@ void SimulationLoop::tick() {
 }
 
 void SimulationLoop::render() {
+#if HAS_VEHICLE_SIM
+    if (m_vehicle) {
+        const auto st = m_vehicle->getState();
+        const auto& dmg = m_vehicle->damage();
+        ui::RaceHudSample s;
+        s.speedMs = static_cast<float>(st.speed);
+        s.rpm = static_cast<float>(m_vehicle->rpm());
+        s.maxRpm = 8500.f;
+        s.gear = m_vehicle->currentGear();
+        s.throttle = static_cast<float>(st.throttle);
+        s.brake = static_cast<float>(st.brake);
+        s.steer = static_cast<float>(st.steering);
+        s.fuelL = static_cast<float>(st.fuel);
+        s.lap = m_currentLap + 1;
+        s.totalLaps = m_totalLaps;
+        s.currentTimeMs = m_lapTimer.currentTimeMs();
+        s.lastTimeMs = m_lapTimer.lastTimeMs();
+        s.bestTimeMs = m_lapTimer.bestTimeMs();
+        s.damageOverall = dmg.overallDamage();
+        s.engineHealth = dmg.powerMultiplier();
+        s.powerMult = dmg.powerMultiplier();
+        s.damageWarning = (s.damageOverall > 0.6f) ? 2 : (s.damageOverall > 0.25f ? 1 : 0);
+        for (int i = 0; i < 4; ++i) {
+            s.tyreTemp[i] = static_cast<float>(st.tyreTemp[i]);
+            s.tyreWear[i] = static_cast<float>(st.tyreWear[i]);
+        }
+        m_ui.pushRaceSample(s);
+    }
+#endif
     m_ui.update(0.016f);
 }
 
