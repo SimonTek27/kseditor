@@ -1,6 +1,7 @@
 /**
  * SimulationLoop.cpp — std-only / Qt-free
- * FeatureHub + pit stack + AI grid + damage HUD
+ * FeatureHub + pit stack + AI + damage HUD
+ * Publish implementations: SimulationLoop_Telemetry.cpp
  */
 
 #include "SimulationLoop.h"
@@ -63,6 +64,9 @@ SimulationLoop::SimulationLoop() {
 
 SimulationLoop::~SimulationLoop() {
     stop();
+    if (m_shm) m_shm->close();
+    if (m_udp) m_udp->close();
+    if (m_tcp) m_tcp->close();
     ks::ecs::SceneModule::instance().clearSystems();
     ks::ecs::SceneModule::instance().attach(nullptr);
     ks::scripting::ScriptModule::instance().shutdown();
@@ -87,6 +91,18 @@ bool SimulationLoop::initialize() {
     script.initialize();
     if (m_input) m_input->initialize();
     if (!m_multiCar) m_multiCar = std::make_unique<MultiCarManager>();
+    if (m_shmEnabled) {
+        m_shm = std::make_unique<ks::ac::AcSharedMemoryPublisher>();
+        m_shm->open();
+    }
+    if (m_udpEnabled) {
+        m_udp = std::make_unique<UdpTelemetryBridge>();
+        m_udp->open(m_udpHost.c_str(), m_udpPort);
+    }
+    if (m_tcpEnabled) {
+        m_tcp = std::make_unique<TcpTelemetryBridge>();
+        m_tcp->listen("0.0.0.0", m_tcpPort);
+    }
 
     startFeatureServices(false);
     setupDefaultGarageLayout(8);
@@ -109,6 +125,8 @@ bool SimulationLoop::loadTrackFolder(const std::string& trackDirectory) {
     if (!fs::is_directory(trackDirectory)) return false;
     m_trackData.directory = trackDirectory;
     m_trackData.name = fs::path(trackDirectory).filename().string();
+    loadGarageFromTrack(trackDirectory);
+    if (m_multiCar) m_multiCar->loadAiSpline(trackDirectory);
     fs::path surf = fs::path(trackDirectory) / "data" / "surfaces.ini";
     if (!fs::exists(surf)) surf = fs::path(trackDirectory) / "surfaces.ini";
     if (fs::exists(surf)) { ks::ac::AcSurfacesLoader loader; loader.load(surf.string()); }
@@ -247,6 +265,7 @@ void SimulationLoop::updateWeather() {
 
 void SimulationLoop::tick() {
     if (!m_running) {
+        publishSharedMemory();
         render();
         return;
     }
@@ -303,6 +322,9 @@ void SimulationLoop::tick() {
     }
 
     updateWeather();
+    publishSharedMemory();
+    publishUdpTelemetry();
+    publishTcpTelemetry();
     render();
 }
 
@@ -340,9 +362,6 @@ void SimulationLoop::render() {
 }
 
 void SimulationLoop::updateCamera(float) {}
-void SimulationLoop::publishSharedMemory() {}
-void SimulationLoop::publishUdpTelemetry() {}
-void SimulationLoop::publishTcpTelemetry() {}
 
 ks::ecs::Registry& SimulationLoop::scene() {
     return Engine::instance().registry();
