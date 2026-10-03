@@ -2,12 +2,31 @@
 #include "ApplySetup.h"
 #include "SetupFile.h"
 #include "GarageExit.h"
+#include "GarageSpawn.h"
 #include "PitLaneQueue.h"
 #include "PitLaneCollision.h"
+#include "PitLaneRepair.h"
 #include <cctype>
 #include <cstdio>
 
 namespace ks::sim {
+
+void SimulationLoop::setupDefaultGarageLayout(int boxCount) {
+    WorldPose first;
+    first.x = 0.f;
+    first.y = 0.f;
+    first.z = 0.f;
+    first.heading = 0.f;
+    m_garageLayout = GarageSpawnPolicy::makeLinearRow(boxCount, first, 6.f, 0.f);
+    configurePitAxis(first.x, first.z, m_garageLayout.pitLaneHeading, 120.f);
+    if (!m_garageLayout.boxes.empty()) {
+        m_garageLayout.boxes[0].occupied = true;
+        const auto& box = m_garageLayout.boxes[0];
+        m_garageExit.bindBox(0, box.pose, m_garageLayout.pitLaneHeading);
+    }
+    std::fprintf(stderr, "SimulationLoop: garage layout %d boxes, pit hdg=%.2f\n",
+                 boxCount, m_garageLayout.pitLaneHeading);
+}
 
 void SimulationLoop::beginSession(GameSessionMode mode) {
     m_features.setSessionMode(mode);
@@ -16,11 +35,15 @@ void SimulationLoop::beginSession(GameSessionMode mode) {
     m_currentLap = 0;
     m_totalLaps = p.totalLaps > 0 ? p.totalLaps : (p.sessionTimeSeconds > 0 ? 0 : 5);
     m_timeRemaining = p.sessionTimeSeconds > 0 ? (double)p.sessionTimeSeconds : 0.0;
-    m_sessionPhase = 1; // PHASE_COUNTDOWN
+    m_sessionPhase = 1;
 
     m_pitQueue = PitLaneQueue{};
     m_pitCollision = PitLaneCollision{};
+    m_pitRepair = PitLaneRepair{};
     m_pitSystemsReady = true;
+    m_requestPitService = false;
+
+    setupDefaultGarageLayout(std::max(8, p.aiCars + 1));
 
     if (p.startInGarage) {
         m_garageExit.forceEnterGarage();
@@ -48,6 +71,8 @@ void SimulationLoop::startFeatureServices(bool hostAnnounce) {
         if (kind == 1) ty = PT::DriveThrough;
         else if (kind == 2) ty = PT::StopGo;
         m_raceSession.addPenalty(car, ty, value, reason);
+        if (kind == 2)
+            m_requestPitService = true;
     };
     m_features.onSetTimeOfDay = [this](float h) { setTimeOfDay(h); };
     m_features.onSetWeather = [this](const std::string& name) {
@@ -142,15 +167,11 @@ void SimulationLoop::updatePitLane(float dt) {
     if (phase == GarageExitPhase::PitLane || phase == GarageExitPhase::RollingOut) {
         if (speed > maxMs && maxMs >= 0.f) {
             m_vehicle->setThrottle(0);
-            if (maxMs < 0.5f)
-                m_vehicle->setBrake(0.6);
-            else
-                m_vehicle->setBrake(0.25);
+            m_vehicle->setBrake(maxMs < 0.5f ? 0.6 : 0.25);
         }
     }
 
-    const float dmg = m_pitCollision.damageImpulseFor(kPlayerCarId);
-    if (dmg > 0.f) {
+    if (m_pitCollision.damageImpulseFor(kPlayerCarId) > 0.f) {
         m_raceSession.addPenalty(kPlayerCarId, Penalty::Type::TimeAdded, 0.f, "pit contact");
     }
 #else
@@ -163,8 +184,6 @@ void SimulationLoop::updateGarageExit(float dt) {
 #if HAS_VEHICLE_SIM
     if (!m_vehicle) return;
     const auto st = m_vehicle->getState();
-    const float x = static_cast<float>(st.position.x);
-    const float z = static_cast<float>(st.position.z);
 
     GarageExitInput in;
     in.engineRunning = st.rpm > 200.0;
@@ -173,9 +192,9 @@ void SimulationLoop::updateGarageExit(float dt) {
     in.throttle = static_cast<float>(st.throttle);
     in.brake = static_cast<float>(st.brake);
     in.steer = static_cast<float>(st.steering);
-    in.posX = x;
+    in.posX = static_cast<float>(st.position.x);
     in.posY = static_cast<float>(st.position.y);
-    in.posZ = z;
+    in.posZ = static_cast<float>(st.position.z);
     in.heading = static_cast<float>(st.heading);
     in.pitLaneOpen = true;
 
@@ -183,21 +202,59 @@ void SimulationLoop::updateGarageExit(float dt) {
     const bool contactBlock = m_pitCollision.isInContact(kPlayerCarId) &&
         (m_garageExit.phase() == GarageExitPhase::BoxClear ||
          m_garageExit.phase() == GarageExitPhase::RollingOut);
-    in.pathBlocked = queueBlock || contactBlock;
+    const bool serviceBlock = m_pitRepair.isBusy();
+    in.pathBlocked = queueBlock || contactBlock || serviceBlock;
 
-    if (m_garageExit.phase() == GarageExitPhase::InGarage && st.throttle > 0.2)
+    if (m_garageExit.phase() == GarageExitPhase::InGarage && st.throttle > 0.2 && !serviceBlock)
         in.requestLeave = true;
 
     GarageExitOutput out = m_garageExit.update(dt, in);
-    if (out.holdControls) {
+    if (out.holdControls || serviceBlock) {
         m_vehicle->setThrottle(0);
-        m_vehicle->setBrake(out.snapToBox ? 1.0 : st.brake);
-        if (out.snapToBox)
+        m_vehicle->setBrake(out.snapToBox || serviceBlock ? 1.0 : st.brake);
+        if (out.snapToBox || serviceBlock)
             m_vehicle->setSteering(0);
     }
     if (out.pitLimiterActive && st.speed > out.pitLimiterMaxMs) {
         m_vehicle->setThrottle(0);
         m_vehicle->setBrake(0.4);
+    }
+#else
+    (void)dt;
+#endif
+}
+
+void SimulationLoop::updatePitRepair(float dt) {
+#if HAS_VEHICLE_SIM
+    if (!m_vehicle) return;
+    const auto st = m_vehicle->getState();
+    const auto phase = m_garageExit.phase();
+
+    PitRepairInput in;
+    in.inGarageBox = (phase == GarageExitPhase::InGarage || phase == GarageExitPhase::Returning);
+    in.speedMs = static_cast<float>(st.speed);
+    in.fuelL = static_cast<float>(st.fuel);
+    in.fuelCapacityL = 100.f;
+    in.targetFuelL = 100.f;
+    in.wantTyres = true;
+    in.wantBody = true;
+    in.wantSuspension = true;
+    in.wantAero = true;
+    in.wantEngine = false;
+    in.requestService = m_requestPitService && in.inGarageBox;
+    in.requestAbort = false;
+
+    PitRepairOutput out = m_pitRepair.update(dt, in, m_damage, phase);
+
+    if (out.holdCar) {
+        m_vehicle->setThrottle(0);
+        m_vehicle->setBrake(1.0);
+        m_vehicle->setSteering(0);
+    }
+    if (out.completedThisFrame) {
+        m_requestPitService = false;
+        std::fprintf(stderr, "SimulationLoop: pit service COMPLETE (%.0f%%) fuel=%.1f\n",
+                     out.overallProgress * 100.f, out.fuelL);
     }
 #else
     (void)dt;
