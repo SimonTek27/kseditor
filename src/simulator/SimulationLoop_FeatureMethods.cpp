@@ -6,6 +6,7 @@
 #include "PitLaneQueue.h"
 #include "PitLaneCollision.h"
 #include "PitLaneRepair.h"
+#include "MultiCarManager.h"
 #include <cctype>
 #include <cstdio>
 
@@ -13,19 +14,14 @@ namespace ks::sim {
 
 void SimulationLoop::setupDefaultGarageLayout(int boxCount) {
     WorldPose first;
-    first.x = 0.f;
-    first.y = 0.f;
-    first.z = 0.f;
-    first.heading = 0.f;
+    first.x = 0.f; first.y = 0.f; first.z = 0.f; first.heading = 0.f;
     m_garageLayout = GarageSpawnPolicy::makeLinearRow(boxCount, first, 6.f, 0.f);
     configurePitAxis(first.x, first.z, m_garageLayout.pitLaneHeading, 120.f);
     if (!m_garageLayout.boxes.empty()) {
         m_garageLayout.boxes[0].occupied = true;
-        const auto& box = m_garageLayout.boxes[0];
-        m_garageExit.bindBox(0, box.pose, m_garageLayout.pitLaneHeading);
+        m_garageExit.bindBox(0, m_garageLayout.boxes[0].pose, m_garageLayout.pitLaneHeading);
     }
-    std::fprintf(stderr, "SimulationLoop: garage layout %d boxes, pit hdg=%.2f\n",
-                 boxCount, m_garageLayout.pitLaneHeading);
+    std::fprintf(stderr, "SimulationLoop: garage layout %d boxes\n", boxCount);
 }
 
 void SimulationLoop::beginSession(GameSessionMode mode) {
@@ -47,8 +43,7 @@ void SimulationLoop::beginSession(GameSessionMode mode) {
 
     if (p.startInGarage) {
         m_garageExit.forceEnterGarage();
-        std::fprintf(stderr, "SimulationLoop: session %s starts IN GARAGE\n",
-                     sessionModeName(mode));
+        std::fprintf(stderr, "SimulationLoop: session %s starts IN GARAGE\n", sessionModeName(mode));
     } else {
         m_garageExit.forceOnTrack();
     }
@@ -71,8 +66,7 @@ void SimulationLoop::startFeatureServices(bool hostAnnounce) {
         if (kind == 1) ty = PT::DriveThrough;
         else if (kind == 2) ty = PT::StopGo;
         m_raceSession.addPenalty(car, ty, value, reason);
-        if (kind == 2)
-            m_requestPitService = true;
+        if (kind == 2) m_requestPitService = true;
     };
     m_features.onSetTimeOfDay = [this](float h) { setTimeOfDay(h); };
     m_features.onSetWeather = [this](const std::string& name) {
@@ -111,13 +105,10 @@ void SimulationLoop::configurePitAxis(float originX, float originZ, float headin
     PitLaneQueueConfig qc = m_pitQueue.config();
     qc.pitEndAlong = lengthM > 1.f ? lengthM : 120.f;
     m_pitQueue.setConfig(qc);
-    std::fprintf(stderr, "SimulationLoop: pit axis origin=(%.1f,%.1f) hdg=%.2f len=%.0f\n",
-                 originX, originZ, headingRad, qc.pitEndAlong);
 }
 
 void SimulationLoop::updatePitLane(float dt) {
-    if (!m_pitSystemsReady)
-        m_pitSystemsReady = true;
+    if (!m_pitSystemsReady) m_pitSystemsReady = true;
     m_pitQueue.setSimTime(static_cast<float>(m_simTime));
 
 #if HAS_VEHICLE_SIM
@@ -133,9 +124,7 @@ void SimulationLoop::updatePitLane(float dt) {
 
     PitCarBody body;
     body.carId = kPlayerCarId;
-    body.x = x;
-    body.z = z;
-    body.heading = heading;
+    body.x = x; body.z = z; body.heading = heading;
     body.vx = static_cast<float>(st.velocity.x);
     body.vz = static_cast<float>(st.velocity.z);
     body.active = true;
@@ -143,6 +132,23 @@ void SimulationLoop::updatePitLane(float dt) {
                          m_garageExit.phase() == GarageExitPhase::Preparing ||
                          m_garageExit.phase() == GarageExitPhase::EngineStart);
     m_pitCollision.upsert(body);
+
+    if (m_multiCar) {
+        for (const auto& ce : m_multiCar->cars()) {
+            if (!ce || !ce->isActive || ce->isPlayer || !ce->vehicle) continue;
+            const auto ost = ce->vehicle->getState();
+            PitCarBody ob;
+            ob.carId = ce->id;
+            ob.x = static_cast<float>(ost.position.x);
+            ob.z = static_cast<float>(ost.position.z);
+            ob.heading = static_cast<float>(ost.heading);
+            ob.vx = static_cast<float>(ost.velocity.x);
+            ob.vz = static_cast<float>(ost.velocity.z);
+            ob.active = true;
+            m_pitCollision.upsert(ob);
+            m_pitQueue.updateCar(ce->id, ob.x, ob.z, static_cast<float>(ost.speed));
+        }
+    }
 
     const auto phase = m_garageExit.phase();
     if (phase == GarageExitPhase::Preparing || phase == GarageExitPhase::BoxClear ||
@@ -170,10 +176,8 @@ void SimulationLoop::updatePitLane(float dt) {
             m_vehicle->setBrake(maxMs < 0.5f ? 0.6 : 0.25);
         }
     }
-
-    if (m_pitCollision.damageImpulseFor(kPlayerCarId) > 0.f) {
+    if (m_pitCollision.damageImpulseFor(kPlayerCarId) > 0.f)
         m_raceSession.addPenalty(kPlayerCarId, Penalty::Type::TimeAdded, 0.f, "pit contact");
-    }
 #else
     (void)dt;
     m_pitQueue.update(dt);
@@ -212,8 +216,7 @@ void SimulationLoop::updateGarageExit(float dt) {
     if (out.holdControls || serviceBlock) {
         m_vehicle->setThrottle(0);
         m_vehicle->setBrake(out.snapToBox || serviceBlock ? 1.0 : st.brake);
-        if (out.snapToBox || serviceBlock)
-            m_vehicle->setSteering(0);
+        if (out.snapToBox || serviceBlock) m_vehicle->setSteering(0);
     }
     if (out.pitLimiterActive && st.speed > out.pitLimiterMaxMs) {
         m_vehicle->setThrottle(0);
@@ -240,12 +243,9 @@ void SimulationLoop::updatePitRepair(float dt) {
     in.wantBody = true;
     in.wantSuspension = true;
     in.wantAero = true;
-    in.wantEngine = false;
     in.requestService = m_requestPitService && in.inGarageBox;
-    in.requestAbort = false;
 
     PitRepairOutput out = m_pitRepair.update(dt, in, m_damage, phase);
-
     if (out.holdCar) {
         m_vehicle->setThrottle(0);
         m_vehicle->setBrake(1.0);
@@ -253,8 +253,8 @@ void SimulationLoop::updatePitRepair(float dt) {
     }
     if (out.completedThisFrame) {
         m_requestPitService = false;
-        std::fprintf(stderr, "SimulationLoop: pit service COMPLETE (%.0f%%) fuel=%.1f\n",
-                     out.overallProgress * 100.f, out.fuelL);
+        std::fprintf(stderr, "SimulationLoop: pit service COMPLETE (%.0f%%)\n",
+                     out.overallProgress * 100.f);
     }
 #else
     (void)dt;
