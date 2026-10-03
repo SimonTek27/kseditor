@@ -12,10 +12,26 @@
 #include <fstream>
 #include <filesystem>
 #include <algorithm>
+#include <cmath>
+
+namespace {
+bool isSafePath(const std::string& path) {
+    if (path.empty() || path.size() > 4096) return false;
+    if (path.find('\0') != std::string::npos) return false;
+    std::string norm = path;
+    for (char& c : norm) if (c == '\\') c = '/';
+    if (norm.find("/../") != std::string::npos || norm.find("../") == 0 ||
+        norm.find("/..") == norm.size() - 3 || norm == "..")
+        return false;
+    return true;
+}
+float finiteOr(float v, float fallback) { return std::isfinite(v) ? v : fallback; }
+} // namespace
 
 namespace ks::sim {
 
 void SimulationLoop::setupDefaultGarageLayout(int boxCount) {
+    boxCount = std::clamp(boxCount, 1, 32);
     WorldPose first;
     first.x = 0.f; first.y = 0.f; first.z = 0.f; first.heading = 0.f;
     m_garageLayout = GarageSpawnPolicy::makeLinearRow(boxCount, first, 6.f, 0.f);
@@ -35,8 +51,8 @@ void SimulationLoop::beginSession(GameSessionMode mode) {
     const auto& p = m_features.sessionParams;
     m_sessionType = toNetSessionType(mode);
     m_currentLap = 0;
-    m_totalLaps = p.totalLaps > 0 ? p.totalLaps : (p.sessionTimeSeconds > 0 ? 0 : 5);
-    m_timeRemaining = p.sessionTimeSeconds > 0 ? (double)p.sessionTimeSeconds : 0.0;
+    m_totalLaps = p.totalLaps > 0 ? std::min(p.totalLaps, 200) : (p.sessionTimeSeconds > 0 ? 0 : 5);
+    m_timeRemaining = p.sessionTimeSeconds > 0 ? std::min((double)p.sessionTimeSeconds, 86400.0) : 0.0;
     m_sessionPhase = 1;
 
     m_pitQueue = PitLaneQueue{};
@@ -48,9 +64,9 @@ void SimulationLoop::beginSession(GameSessionMode mode) {
     if (!m_trackData.directory.empty() && loadGarageFromTrack(m_trackData.directory))
         ;
     else
-        setupDefaultGarageLayout(std::max(8, p.aiCars + 1));
+        setupDefaultGarageLayout(std::max(8, std::min(p.aiCars + 1, 32)));
     if (p.aiCars > 0)
-        spawnAiGrid(p.aiCars);
+        spawnAiGrid(std::min(p.aiCars, 32));
 
     if (p.startInGarage) {
         m_garageExit.forceEnterGarage();
@@ -91,18 +107,19 @@ void SimulationLoop::startFeatureServices(bool hostAnnounce) {
         m_features.weatherCtrl.applyPreset(name);
     };
     m_features.onSetupLoad = [this](const std::string& path) {
-        if (!m_setupGarage) return;
+        if (!m_setupGarage || !isSafePath(path)) return;
         SetupData s = m_setupGarage->setup();
         loadSetupFromFile(s, path);
         m_setupGarage->setSetup(s);
     };
     m_features.onSetupSave = [this](const std::string& path) {
-        if (!m_setupGarage) return;
+        if (!m_setupGarage || !isSafePath(path)) return;
         saveSetupToFile(m_setupGarage->setup(), path);
     };
 }
 
 bool SimulationLoop::loadReplayFile(const std::string& path) {
+    if (!isSafePath(path)) return false;
     return m_features.loadReplay(path);
 }
 
@@ -114,17 +131,17 @@ void SimulationLoop::configurePitAxis(float originX, float originZ, float headin
     m_pitQueue.setAxis(axis);
     m_pitCollision.setAxis(axis);
     PitLaneQueueConfig qc = m_pitQueue.config();
-    qc.pitEndAlong = lengthM > 1.f ? lengthM : 120.f;
+    qc.pitEndAlong = lengthM > 1.f ? std::min(lengthM, 5000.f) : 120.f;
     m_pitQueue.setConfig(qc);
 }
 
 void SimulationLoop::snapVehicleToPose(ks::physics::VehicleSimulator* veh, const WorldPose& pose) {
     if (!veh) return;
     auto& st = veh->state();
-    st.position.x = pose.x;
-    st.position.y = pose.y;
-    st.position.z = pose.z;
-    st.heading = pose.heading;
+    st.position.x = finiteOr(pose.x, 0.f);
+    st.position.y = finiteOr(pose.y, 0.f);
+    st.position.z = finiteOr(pose.z, 0.f);
+    st.heading = finiteOr(pose.heading, 0.f);
     st.velocity = {};
     st.angularVelocity = {};
     st.speed = 0.f;
@@ -134,7 +151,7 @@ void SimulationLoop::snapVehicleToPose(ks::physics::VehicleSimulator* veh, const
 
 bool SimulationLoop::loadGarageFromTrack(const std::string& trackDir) {
     namespace fs = std::filesystem;
-    if (trackDir.empty()) return false;
+    if (!isSafePath(trackDir)) return false;
     const char* candidates[] = {
         "/data/pit_boxes.ini", "/pit_boxes.ini", "/data/garage.ini", "/garage.ini", "/data/pits.ini"
     };
@@ -177,6 +194,8 @@ bool SimulationLoop::loadGarageFromTrack(const std::string& trackDir) {
     }
     if (have) m_garageLayout.boxes.push_back(box);
     if (m_garageLayout.boxes.empty()) return false;
+    if (m_garageLayout.boxes.size() > 32)
+        m_garageLayout.boxes.resize(32);
     if (m_garageLayout.pitLaneHeading == 0.f)
         m_garageLayout.pitLaneHeading = m_garageLayout.boxes[0].pose.heading;
     configurePitAxis(m_garageLayout.boxes[0].pose.x, m_garageLayout.boxes[0].pose.z,
@@ -344,6 +363,7 @@ void SimulationLoop::updatePitRepair(float dt) {
 
 void SimulationLoop::spawnAiGrid(int count) {
     if (count <= 0) return;
+    count = std::min(count, 32);
     if (!m_multiCar) m_multiCar = std::make_unique<MultiCarManager>();
     std::vector<int> toRemove;
     for (const auto& ce : m_multiCar->cars())
