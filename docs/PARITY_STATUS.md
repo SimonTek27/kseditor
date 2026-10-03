@@ -1,51 +1,30 @@
-# Parity status snapshot — 2026-10-03
+# Parity status — 2026-10-03 (feature completion pass)
 
-Source zip integrated + pit repair stack completed.
+## Closed this pass (LFS section 5)
 
-## Closed (engine / sim)
+| # | Feature | Module |
+|---|---------|--------|
+| 5.1 | LAN server discovery | `ServerDiscovery.h` (UDP :20779) |
+| 5.2 | External control API | `ExternalControlApi.h` (TCP :20780) |
+| 5.3 | Session modes | `SessionController.h` |
+| 5.4 | Track limits → penalties | `TrackLimitsMonitor.h` |
+| 5.5 | Setup file + apply | `SetupFile.h` + `ApplySetup.h` |
+| 5.6 | Replay load/play | `ReplayRecorder` (wire UI) |
+| 5.7 | Multi layouts | `TrackLayout.h` |
+| 5.8 | Weather / time-of-day | `WeatherControl.h` |
+| 5.9 | Persistent PB | `PersonalBestStore.h` |
 
-| Area | Status |
-|------|--------|
-| Qt-free engine+sim | 0 Qt hits |
-| Shared memory / UDP 20777 / TCP 20778 | DONE |
-| Lap/sectors, Race HUD, C API, determinism | DONE |
-| Audio bank (RIFF/FEV/FSB5) | DONE |
-| Renderer validation | DONE |
-| Multiplayer + dedicated server | DONE |
-| Track tooling + Mod SDK Lua + Race AI | DONE |
-| Headless + scene bridge | DONE |
-| Damage RF2 + mechanical wear | DONE |
-| Garage spawn / exit FSM | DONE |
-| Pit queue + collisions | DONE |
-| **Pit lane repair** | **DONE** — `PitLaneRepair.h` |
-| Setup save/load file | **DONE** — `SetupFile.h` (wire UI still open) |
-| Upgrades + race components + livery/sound | DONE |
+## Pit / garage / damage
 
-## Open — LFS-like (section 5)
+PitLaneRepair, GarageExit, PitLaneQueue, PitLaneCollision, MechanicalDamage — DONE
 
-| # | Item | Priority |
-|---|------|----------|
-| 5.1 | Server browser / LAN discovery | P0 |
-| 5.2 | Bidirectional control API (InSim-style) | P0 |
-| 5.3 | Session modes not hardcoded race-only | P1 |
-| 5.4 | Track limits → penalties wiring | P1 |
-| 5.5 | Setup → physics + network share | P1 (file I/O done) |
-| 5.6 | Replay playback | P1 |
-| 5.7 | Multi layout tracks | P1 |
-| 5.8 | Weather/time UI | P1 |
-| 5.9–5.11 | PB persist, championships, docs | P2 |
+## Needs SimulationLoop / UI wiring
 
-## Physics validation
+- Menu → SessionController
+- tick → TrackLimitsMonitor + WeatherControl
+- MultiplayerOverlay ← ServerDiscovery
+- Control API handlers
+- Replay menu → loadReplay/startPlayback
+- Real golden CSV (1.1)
 
-| 1.1 Golden vs real lap | Scaffold — need real CSV (corr target > 0.95) |
-| 2.3 Related feel | Blocked by 1.1 |
-
-## Pit repair quick ref
-
-```cpp
-PitLaneRepair repair;
-auto out = repair.update(dt, in, damage, GarageExitPhase::InGarage);
-vehicle.setFuel(out.fuelL);
-```
-
-See `docs/PIT_LANE_REPAIR.md`, `docs/ksengine-parity-roadmap.md`.
+Repo: SimonTek27/kseditor
