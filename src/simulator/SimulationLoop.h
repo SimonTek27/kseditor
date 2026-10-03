@@ -3,7 +3,7 @@
 /**
  * SimulationLoop — fixed-timestep sim + NativeUiHub + GPU UI pass.
  * FeatureHub: session modes, discovery, control API, track limits, weather.
- * GarageExit: rF2-style practice/qualify start in box.
+ * GarageExit + PitLaneQueue + PitLaneCollision: rF2-style pit stack.
  */
 
 #include "engine/physics/PhysicsCoreTypes.h"
@@ -17,6 +17,8 @@
 #include "RaceSessionManager.h"
 #include "FeatureHub.h"
 #include "GarageExit.h"
+#include "PitLaneQueue.h"
+#include "PitLaneCollision.h"
 
 #include <memory>
 #include <chrono>
@@ -93,8 +95,12 @@ public:
     const FeatureHub& features() const { return m_features; }
     void startFeatureServices(bool hostAnnounce = false);
     bool loadReplayFile(const std::string& path);
+
     void updateGarageExit(float dt);
+    void updatePitLane(float dt);
     GarageExitController& garageExit() { return m_garageExit; }
+    PitLaneQueue& pitQueue() { return m_pitQueue; }
+    PitLaneCollision& pitCollision() { return m_pitCollision; }
 
     void setAiCarCount(int n) { m_aiCarCount = n; }
     int aiCarCount() const { return m_aiCarCount; }
@@ -126,6 +132,10 @@ private:
     ks::physics::LapSectorTimer m_lapTimer;
     FeatureHub m_features;
     GarageExitController m_garageExit;
+    PitLaneQueue m_pitQueue;
+    PitLaneCollision m_pitCollision;
+    bool m_pitSystemsReady = false;
+    static constexpr int kPlayerCarId = 0;
 
     float m_timeOfDay = 12.0f;
     ks::physics::WeatherState m_weather{};
