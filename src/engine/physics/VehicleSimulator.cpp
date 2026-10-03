@@ -21,6 +21,7 @@ void VehicleSimulator::startSimulation() { m_running = true; }
 void VehicleSimulator::stopSimulation() { m_running = false; }
 
 void VehicleSimulator::reset() {
+    m_frozen = false;
     m_state = SimulationState{};
     m_state.mass = static_cast<float>(m_mass);
     m_state.position = {0, 0.35f, 0};
@@ -289,7 +290,7 @@ void VehicleSimulator::integrate(double dt) {
 }
 
 void VehicleSimulator::updatePhysics(double dt) {
-    if (!m_running) return;
+    if (!m_running || m_frozen) return;
     integrate(dt);
 }
 
