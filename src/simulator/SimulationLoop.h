@@ -2,8 +2,8 @@
 
 /**
  * SimulationLoop — fixed-timestep sim + NativeUiHub + GPU UI pass.
- * LapSectorTimer + shared-memory + UDP/TCP telemetry + TrackSurface.
  * FeatureHub: session modes, discovery, control API, track limits, weather.
+ * GarageExit: rF2-style practice/qualify start in box.
  */
 
 #include "engine/physics/PhysicsCoreTypes.h"
@@ -16,28 +16,17 @@
 #include "NativeRenderer.h"
 #include "RaceSessionManager.h"
 #include "FeatureHub.h"
+#include "GarageExit.h"
 
 #include <memory>
 #include <chrono>
 #include <cstdint>
 #include <string>
 #include <functional>
-#include <unordered_map>
-#include <vector>
-#include <array>
-#include <cmath>
 
-namespace ks::physics {
-class VehicleSimulator;
-}
-
-namespace ks::device {
-class FFBBase;
-}
-
-namespace ks::ac {
-class AcSharedMemoryPublisher;
-}
+namespace ks::physics { class VehicleSimulator; }
+namespace ks::device { class FFBBase; }
+namespace ks::ac { class AcSharedMemoryPublisher; }
 
 namespace ks::sim {
 
@@ -51,15 +40,12 @@ class NetworkManager;
 class UdpTelemetryBridge;
 class TcpTelemetryBridge;
 
-// NOTE: Full body matches local wired SimulationLoop.h — public FeatureHub API:
-//   beginSession(GameSessionMode)
-//   features() / startFeatureServices() / loadReplayFile()
-// See SimulationLoop_Features.inl for method bodies.
-// Full header is large; merge from local tree or artifacts/SimulationLoop.h if needed.
-
 struct TrackRuntimeData {
     bool valid = false;
     float splineLength = 5000.f;
+    std::string name;
+    std::string kn5Path;
+    std::string directory;
 };
 
 class SimulationLoop {
@@ -107,6 +93,8 @@ public:
     const FeatureHub& features() const { return m_features; }
     void startFeatureServices(bool hostAnnounce = false);
     bool loadReplayFile(const std::string& path);
+    void updateGarageExit(float dt);
+    GarageExitController& garageExit() { return m_garageExit; }
 
     void setAiCarCount(int n) { m_aiCarCount = n; }
     int aiCarCount() const { return m_aiCarCount; }
@@ -135,7 +123,9 @@ private:
     std::unique_ptr<SetupGarage> m_setupGarage;
     ui::NativeUiHub m_ui;
     RaceSessionManager m_raceSession;
+    ks::physics::LapSectorTimer m_lapTimer;
     FeatureHub m_features;
+    GarageExitController m_garageExit;
 
     float m_timeOfDay = 12.0f;
     ks::physics::WeatherState m_weather{};
@@ -146,6 +136,15 @@ private:
     double m_timeRemaining = 0.0;
     int m_aiCarCount = 0;
     TrackRuntimeData m_trackData;
+    std::string m_carName;
+    double m_physicsDt = 0.001;
+    double m_simAccumulator = 0;
+    double m_simTime = 0;
+    double m_lapDistance = 0;
+    float m_normalizedSpline = 0;
+    bool m_trackLoaded = false;
+    bool m_carLoaded = false;
+    std::chrono::steady_clock::time_point m_lastTime{};
 };
 
 } // namespace ks::sim

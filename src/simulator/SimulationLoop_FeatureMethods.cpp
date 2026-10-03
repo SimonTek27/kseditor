@@ -1,6 +1,7 @@
 #include "SimulationLoop.h"
 #include "ApplySetup.h"
 #include "SetupFile.h"
+#include "GarageExit.h"
 #include <cctype>
 
 namespace ks::sim {
@@ -10,9 +11,18 @@ void SimulationLoop::beginSession(GameSessionMode mode) {
     const auto& p = m_features.sessionParams;
     m_sessionType = toNetSessionType(mode);
     m_currentLap = 0;
-    m_totalLaps = p.totalLaps > 0 ? p.totalLaps : 5;
+    m_totalLaps = p.totalLaps > 0 ? p.totalLaps : (p.sessionTimeSeconds > 0 ? 0 : 5);
     m_timeRemaining = p.sessionTimeSeconds > 0 ? (double)p.sessionTimeSeconds : 0.0;
     m_sessionPhase = 1; // PHASE_COUNTDOWN
+
+    // Practice / Qualifying: start in garage (rF2-style)
+    if (p.startInGarage) {
+        m_garageExit.forceEnterGarage();
+        std::fprintf(stderr, "SimulationLoop: session %s starts IN GARAGE\n",
+                     sessionModeName(mode));
+    } else {
+        m_garageExit.forceOnTrack();
+    }
 }
 
 void SimulationLoop::startFeatureServices(bool hostAnnounce) {
@@ -42,6 +52,7 @@ void SimulationLoop::startFeatureServices(bool hostAnnounce) {
         ws.trackWetness = wp.wetness;
         ws.rainIntensity = wp.rain;
         setWeatherPreset(ws);
+        m_features.weatherCtrl.applyPreset(name);
     };
     m_features.onSetupLoad = [this](const std::string& path) {
         if (!m_setupGarage) return;
@@ -57,6 +68,42 @@ void SimulationLoop::startFeatureServices(bool hostAnnounce) {
 
 bool SimulationLoop::loadReplayFile(const std::string& path) {
     return m_features.loadReplay(path);
+}
+
+void SimulationLoop::updateGarageExit(float dt) {
+#if HAS_VEHICLE_SIM
+    if (!m_vehicle) return;
+    const auto st = m_vehicle->getState();
+    GarageExitInput in;
+    in.engineRunning = st.rpm > 200.0;
+    in.ignitionOn = true;
+    in.speedMs = static_cast<float>(st.speed);
+    in.throttle = static_cast<float>(st.throttle);
+    in.brake = static_cast<float>(st.brake);
+    in.steer = static_cast<float>(st.steering);
+    in.posX = static_cast<float>(st.position.x);
+    in.posY = static_cast<float>(st.position.y);
+    in.posZ = static_cast<float>(st.position.z);
+    in.heading = static_cast<float>(st.heading);
+    in.pitLaneOpen = true;
+    in.pathBlocked = false;
+    if (m_garageExit.phase() == GarageExitPhase::InGarage && st.throttle > 0.2)
+        in.requestLeave = true;
+
+    GarageExitOutput out = m_garageExit.update(dt, in);
+    if (out.holdControls) {
+        m_vehicle->setThrottle(0);
+        m_vehicle->setBrake(out.snapToBox ? 1.0 : st.brake);
+        if (out.snapToBox)
+            m_vehicle->setSteering(0);
+    }
+    if (out.pitLimiterActive && st.speed > out.pitLimiterMaxMs) {
+        m_vehicle->setThrottle(0);
+        m_vehicle->setBrake(0.4);
+    }
+#else
+    (void)dt;
+#endif
 }
 
 } // namespace ks::sim
