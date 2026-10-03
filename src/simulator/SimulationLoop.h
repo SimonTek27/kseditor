@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * SimulationLoop — fixed-timestep sim + pit stack + telemetry + damage HUD.
+ * SimulationLoop — fixed-timestep sim + pit stack + telemetry + damage HUD + snap hold.
  */
 
 #include "engine/physics/PhysicsCoreTypes.h"
@@ -107,6 +107,7 @@ public:
     void applyDamageEffects();
     bool loadGarageFromTrack(const std::string& trackDir);
     void snapVehicleToPose(ks::physics::VehicleSimulator* veh, const WorldPose& pose);
+    float snapHoldRemaining() const { return m_snapHoldSec; }
     void requestPitService(bool on = true) { m_requestPitService = on; }
 
     GarageExitController& garageExit() { return m_garageExit; }
@@ -157,6 +158,8 @@ private:
     ks::physics::DamageSystem m_damage;
     bool m_pitSystemsReady = false;
     bool m_requestPitService = false;
+    float m_snapHoldSec = 0.f;
+    static constexpr float kSnapHoldDuration = 0.35f;
     static constexpr int kPlayerCarId = 0;
 
     float m_timeOfDay = 12.0f;
