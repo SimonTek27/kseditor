@@ -2,7 +2,7 @@
 
 /**
  * SimulationLoop — fixed-timestep sim + NativeUiHub + GPU UI pass.
- * FeatureHub + full pit stack: GarageExit, Queue, Collision, Repair.
+ * FeatureHub + full pit stack + AI garage spawn + damage HUD.
  */
 
 #include "engine/physics/PhysicsCoreTypes.h"
@@ -84,6 +84,7 @@ public:
     ui::NativeUiHub& ui() { return m_ui; }
     NetworkManager* networkManager() { return m_network.get(); }
     ks::physics::VehicleSimulator* vehicle() { return m_vehicle.get(); }
+    MultiCarManager* multiCar() { return m_multiCar.get(); }
 
     void setTimeOfDay(float hours) { m_timeOfDay = hours; }
     float timeOfDay() const { return m_timeOfDay; }
@@ -103,7 +104,8 @@ public:
     void updatePitRepair(float dt);
     void configurePitAxis(float originX, float originZ, float headingRad, float lengthM = 120.f);
     void setupDefaultGarageLayout(int boxCount = 8);
-    /** Request pit service next time car is stationary in garage. */
+    void spawnAiGrid(int count);
+    void applyDamageEffects();
     void requestPitService(bool on = true) { m_requestPitService = on; }
 
     GarageExitController& garageExit() { return m_garageExit; }

@@ -5,50 +5,33 @@
 | Feature | Status | Notes |
 |---------|--------|-------|
 | FeatureHub | Done | session, discovery, control API, limits, weather, PB, setup, replay |
-| Session modes | Done | Practice / Qualify / Race / Time Attack via menu → `beginSession` |
+| Session modes | Done | Practice / Qualify / Race / Time Attack |
 | LAN discovery | Done | UDP `:20779` |
 | Control API | Done | TCP `:20780` |
-| Track limits | Done | `TrackLimitsMonitor` |
-| Weather / ToD | Done | `WeatherControl` + tick sync |
-| Setup load/save | Done | FeatureHub callbacks |
-| Replay load | Done | `loadReplayFile` |
-| Personal bests | Done | `onLapCompleted` |
-| **Garage exit** | Done | InGarage → OnTrack state machine |
-| **Pit queue** | Done | spacing, ClearedToMove, multi-car feed |
-| **Pit collision** | Done | OBB + corridor, soft impulse |
-| **Pit repair** | Done | jobs from DamageSystem, Stop-Go auto-request |
-| **Garage layout** | Done | default linear row + `configurePitAxis` / `bindBox` |
+| Track limits / Weather / Setup / Replay / PB | Done | |
+| Garage exit + Pit queue + Collision + Repair | Done | full tick stack |
+| Garage layout default | Done | linear row + bindBox |
+| **AI spawn into garage boxes** | Done | `spawnAiGrid` on beginSession |
+| **Damage → HUD** | Done | RaceHudSample damageOverall / engineHealth / warning |
+| **Damage → power scale** | Done | `applyDamageEffects` → setEnginePower |
 
-## SimulationLoop tick order
+## Tick order
 
 ```
-applyInput → vehicle physics
-updateLapAndSurface (green)
+applyInput → physics
+updateLapAndSurface
 m_features.tick
-updatePitLane          // player + AI bodies
-updateGarageExit       // pathBlocked: queue | contact | service
-updatePitRepair        // InGarage stationary service
+updatePitLane (+ AI bodies)
+updateGarageExit
+updatePitRepair (+ applyDamageEffects)
+render → pushRaceSample (damage strip)
 ```
 
-## Build
-
-- `CMakeLists_ksimulator_QtFree.cmake` includes `SimulationLoop_FeatureMethods.cpp`
-- Pit stack headers are header-only under `src/simulator/`
-
-## Still open / optional
+## Still open
 
 | Item | Notes |
 |------|-------|
-| Real track pit boxes | Replace `setupDefaultGarageLayout` with track-supplied poses |
-| Shared-memory / UDP publish | Re-expand from simplified SimulationLoop.cpp if needed |
-| AI grid spawn into garage boxes | Assign `GarageLayout` indices per AI car |
-| Mechanical damage → HUD | Telemetry channels for zone damage |
-| CMake root hook | `include(CMakeLists_ksimulator_QtFree.cmake)` when flag ON |
-
-## Env
-
-| Variable | Purpose |
-|----------|---------|
-| `KS_REPLAY_FILE` | Menu load replay path |
-| `KS_GOLDEN_CSV` | Golden telemetry export |
-| `KS_AI_CARS` | AI grid size hint |
+| Track-supplied pit boxes | Load poses from track data instead of linear row |
+| Vehicle teleport to box | Physics API to snap position on spawn |
+| Full SM/UDP re-expand | Optional telemetry bridges in simplified cpp |
+| Root CMake include | `-DKSIMULATOR_QT_FREE=ON` + include cmake file |
