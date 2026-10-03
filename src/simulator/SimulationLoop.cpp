@@ -1,6 +1,6 @@
 /**
  * SimulationLoop.cpp — std-only / Qt-free
- * 1 kHz physics + FeatureHub + PitLaneQueue + GarageExit + telemetry
+ * FeatureHub + PitLaneQueue + Collision + GarageExit + Repair
  */
 
 #include "SimulationLoop.h"
@@ -35,19 +35,9 @@
 #ifndef HAS_VEHICLE_SIM
 #define HAS_VEHICLE_SIM 1
 #endif
-#ifndef HAS_KSNET
-#define HAS_KSNET 0
-#endif
-#ifndef HAS_FFB
-#define HAS_FFB 1
-#endif
 
 #if HAS_VEHICLE_SIM
 #include "engine/physics/VehicleSimulator.h"
-#endif
-#if HAS_FFB
-#include "engine/devices/FFBBridge.h"
-#include "engine/devices/simracing/FFBSDKFactory.h"
 #endif
 
 namespace ks::sim {
@@ -60,11 +50,6 @@ static constexpr uint8_t PHASE_CHECKERED_FLAG = 4;
 namespace {
 std::shared_ptr<ks::EngineModule> borrowModule(ks::EngineModule& m) {
     return std::shared_ptr<ks::EngineModule>(&m, [](ks::EngineModule*) {});
-}
-ks::sim::mat4 toNativeMat4(const ks::math::mat4& m) {
-    ks::sim::mat4 r;
-    std::memcpy(r.m, m.m, sizeof(m.m));
-    return r;
 }
 } // namespace
 
@@ -103,7 +88,7 @@ bool SimulationLoop::initialize() {
     if (m_input) m_input->initialize();
 
     startFeatureServices(false);
-    configurePitAxis(0.f, 0.f, 0.f, 120.f);
+    setupDefaultGarageLayout(8);
     return true;
 }
 
@@ -217,11 +202,6 @@ void SimulationLoop::applyInput() {
     if (!m_input) return;
     const bool blocked = m_ui.blocksDrivingInput();
     if (!blocked) m_input->update();
-    ks::engine::devices::InputState input;
-    input.throttle = m_input->throttle();
-    input.brake = m_input->brake();
-    input.steering = m_input->steer();
-    ks::engine::devices::InputSystem::instance().setState(input);
 #if HAS_VEHICLE_SIM
     if (!m_vehicle) return;
     if (blocked) { m_vehicle->setThrottle(0); m_vehicle->setBrake(0); m_vehicle->setSteering(0); return; }
@@ -250,9 +230,6 @@ void SimulationLoop::updateLapAndSurface(double dt) {
         m_features.onLapCompleted(m_trackData.name, m_carName, "Player",
                                   m_lapTimer.lastTimeMs() * 0.001f, sectors);
     }
-    ks::physics::PhysVec3 p{st.position.x, st.position.y, st.position.z};
-    if (speed > 5.f && st.throttle > 0.8f)
-        ks::physics::TrackSurface::instance().depositRubber(p, 0.0002f * static_cast<float>(dt), 1.5f);
 #endif
 }
 
@@ -296,6 +273,7 @@ void SimulationLoop::tick() {
             m_features.tick((float)m_physicsDt, &m_raceSession, 0, pos, onTrack);
             updatePitLane((float)m_physicsDt);
             updateGarageExit((float)m_physicsDt);
+            updatePitRepair((float)m_physicsDt);
             m_timeOfDay = m_features.weatherCtrl.time().hours;
         }
         m_simTime += m_physicsDt;
@@ -327,7 +305,6 @@ void SimulationLoop::tick() {
 }
 
 void SimulationLoop::render() {
-    // UI + optional Vulkan path driven by NativeUiHub / NativeRenderer when present
     m_ui.update(0.016f);
 }
 
