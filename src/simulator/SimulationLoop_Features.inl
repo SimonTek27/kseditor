@@ -22,10 +22,10 @@ void SimulationLoop::startFeatureServices(bool hostAnnounce) {
     };
     m_features.onPenalty = [this](int car, int kind, float value, const std::string& reason) {
         using PT = Penalty::Type;
-        PT t = PT::TimeAdded;
-        if (kind == 1) t = PT::DriveThrough;
-        else if (kind == 2) t = PT::StopGo;
-        m_raceSession.addPenalty(car, t, value, reason);
+        PT ty = PT::TimeAdded;
+        if (kind == 1) ty = PT::DriveThrough;
+        else if (kind == 2) ty = PT::StopGo;
+        m_raceSession.addPenalty(car, ty, value, reason);
     };
     m_features.onSetTimeOfDay = [this](float h) { setTimeOfDay(h); };
     m_features.onSetWeather = [this](const std::string& name) {
