@@ -4,34 +4,47 @@
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| FeatureHub | Done | session, discovery, control API, limits, weather, PB, setup, replay |
-| Session modes | Done | Practice / Qualify / Race / Time Attack |
-| LAN discovery | Done | UDP `:20779` |
-| Control API | Done | TCP `:20780` |
-| Track limits / Weather / Setup / Replay / PB | Done | |
-| Garage exit + Pit queue + Collision + Repair | Done | full tick stack |
-| Garage layout default | Done | linear row + bindBox |
-| **AI spawn into garage boxes** | Done | `spawnAiGrid` on beginSession |
-| **Damage → HUD** | Done | RaceHudSample damageOverall / engineHealth / warning |
-| **Damage → power scale** | Done | `applyDamageEffects` → setEnginePower |
+| FeatureHub | Done | session, discovery, API, limits, weather, PB, setup, replay |
+| Session modes | Done | menu → beginSession |
+| Garage exit + Pit queue/collision/repair | Done | full tick stack |
+| AI multi-car in pit | Done | bodies in queue + OBB |
+| AI spawn into garage boxes | Done | spawnAiGrid |
+| Damage → HUD + power scale | Done | RaceHudSample + setEnginePower |
+| **Track pit boxes** | Done | `loadGarageFromTrack` (pit_boxes.ini / garage.ini) |
+| **Snap to box** | Done | `snapVehicleToPose` via SimulationState |
+| **SM / UDP / TCP telemetry** | Done | publish restored in tick |
 
 ## Tick order
 
 ```
-applyInput → physics
+applyInput → vehicle + multiCar physics
 updateLapAndSurface
 m_features.tick
-updatePitLane (+ AI bodies)
-updateGarageExit
-updatePitRepair (+ applyDamageEffects)
-render → pushRaceSample (damage strip)
+updatePitLane / updateGarageExit / updatePitRepair
+publishSharedMemory + UDP + TCP
+render (damage HUD)
 ```
+
+## Track pit file format (optional)
+
+```
+[BOX_0]
+X=10.0
+Y=0.0
+Z=-5.0
+HEADING=1.57
+PIT_HEADING=1.57
+
+[BOX_1]
+...
+```
+
+Paths tried: `data/pit_boxes.ini`, `pit_boxes.ini`, `data/garage.ini`, `garage.ini`, `data/pits.ini`
 
 ## Still open
 
 | Item | Notes |
 |------|-------|
-| Track-supplied pit boxes | Load poses from track data instead of linear row |
-| Vehicle teleport to box | Physics API to snap position on spawn |
-| Full SM/UDP re-expand | Optional telemetry bridges in simplified cpp |
-| Root CMake include | `-DKSIMULATOR_QT_FREE=ON` + include cmake file |
+| Full physics teleport stability | may need integrate-hold after snap |
+| AI spline load on track load | MultiCarManager::loadAiSpline |
+| Dedicated server executable | SimulatorServerApp |

@@ -1,8 +1,7 @@
 #pragma once
 
 /**
- * SimulationLoop — fixed-timestep sim + NativeUiHub + GPU UI pass.
- * FeatureHub + full pit stack + AI garage spawn + damage HUD.
+ * SimulationLoop — fixed-timestep sim + pit stack + telemetry + damage HUD.
  */
 
 #include "engine/physics/PhysicsCoreTypes.h"
@@ -106,6 +105,8 @@ public:
     void setupDefaultGarageLayout(int boxCount = 8);
     void spawnAiGrid(int count);
     void applyDamageEffects();
+    bool loadGarageFromTrack(const std::string& trackDir);
+    void snapVehicleToPose(ks::physics::VehicleSimulator* veh, const WorldPose& pose);
     void requestPitService(bool on = true) { m_requestPitService = on; }
 
     GarageExitController& garageExit() { return m_garageExit; }
@@ -116,6 +117,11 @@ public:
 
     void setAiCarCount(int n) { m_aiCarCount = n; }
     int aiCarCount() const { return m_aiCarCount; }
+    void setSharedMemoryEnabled(bool e) { m_shmEnabled = e; }
+    void setUdpTelemetry(bool e, const std::string& host = "127.0.0.1", uint16_t port = 9996) {
+        m_udpEnabled = e; m_udpHost = host; m_udpPort = port;
+    }
+    void setTcpTelemetry(bool e, uint16_t port = 9997) { m_tcpEnabled = e; m_tcpPort = port; }
 
     std::function<void()> onSimulationStarted;
     std::function<void()> onSimulationStopped;
@@ -171,6 +177,16 @@ private:
     bool m_trackLoaded = false;
     bool m_carLoaded = false;
     std::chrono::steady_clock::time_point m_lastTime{};
+
+    std::unique_ptr<ks::ac::AcSharedMemoryPublisher> m_shm;
+    std::unique_ptr<UdpTelemetryBridge> m_udp;
+    std::unique_ptr<TcpTelemetryBridge> m_tcp;
+    bool m_shmEnabled = true;
+    bool m_udpEnabled = false;
+    bool m_tcpEnabled = false;
+    std::string m_udpHost = "127.0.0.1";
+    uint16_t m_udpPort = 9996;
+    uint16_t m_tcpPort = 9997;
 };
 
 } // namespace ks::sim
