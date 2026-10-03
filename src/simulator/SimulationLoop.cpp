@@ -1,7 +1,5 @@
 /**
- * SimulationLoop.cpp — std-only / Qt-free
- * FeatureHub + pit stack + AI + damage HUD + snap hold
- * Publish: SimulationLoop_Telemetry.cpp
+ * SimulationLoop.cpp — std-only / Qt-free (hardened path checks)
  */
 
 #include "SimulationLoop.h"
@@ -110,6 +108,8 @@ bool SimulationLoop::initialize() {
 }
 
 bool SimulationLoop::loadTrack(const std::string& kn5Path) {
+    if (kn5Path.empty() || kn5Path.size() > 4096 || kn5Path.find("..") != std::string::npos)
+        return false;
     m_trackData = TrackRuntimeData{};
     m_trackData.kn5Path = kn5Path;
     m_trackData.name = std::filesystem::path(kn5Path).stem().string();
@@ -122,6 +122,8 @@ bool SimulationLoop::loadTrack(const std::string& kn5Path) {
 
 bool SimulationLoop::loadTrackFolder(const std::string& trackDirectory) {
     namespace fs = std::filesystem;
+    if (trackDirectory.empty() || trackDirectory.size() > 4096) return false;
+    if (trackDirectory.find("..") != std::string::npos) return false;
     if (!fs::is_directory(trackDirectory)) return false;
     m_trackData.directory = trackDirectory;
     m_trackData.name = fs::path(trackDirectory).filename().string();
@@ -143,6 +145,8 @@ bool SimulationLoop::loadTrackFolder(const std::string& trackDirectory) {
 
 bool SimulationLoop::loadCar(const std::string& carDir) {
     namespace fs = std::filesystem;
+    if (carDir.empty() || carDir.size() > 4096 || carDir.find("..") != std::string::npos)
+        return false;
     if (!fs::is_directory(carDir)) return false;
     m_carName = fs::path(carDir).filename().string();
 #if HAS_VEHICLE_SIM
