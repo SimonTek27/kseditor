@@ -1,6 +1,6 @@
 #pragma once
 /**
- * Track-limits detection → RaceSessionManager::reportTrackLimitsViolation.
+ * Track-limits detection → warnings → RaceSessionManager penalties (Sprint 4 / P1.3).
  */
 #include "RaceSessionManager.h"
 #include "MathTypes.h"
@@ -8,6 +8,7 @@
 #include <vector>
 #include <functional>
 #include <algorithm>
+#include <cstdio>
 
 namespace ks {
 namespace sim {
@@ -17,6 +18,12 @@ struct TrackLimitsConfig {
     float graceSec = 0.35f;
     float cooldownSec = 1.5f;
     bool enabled = true;
+    int warnEvery = 1;
+    int timePenaltyAt = 3;
+    float timePenaltySec = 1.0f;
+    int driveThroughAt = 5;
+    int stopGoAt = 8;
+    int dqAt = 12;
 };
 
 class TrackLimitsMonitor {
@@ -42,10 +49,10 @@ public:
         if (off) {
             st.offTimer += dt;
             if (st.offTimer >= m_cfg.graceSec && st.cooldown <= 0.f) {
-                session->reportTrackLimitsViolation(carIndex);
                 st.cooldown = m_cfg.cooldownSec;
                 st.offTimer = 0.f;
                 st.reports++;
+                applyEscalation(carIndex, st.reports, session);
                 if (onViolation) onViolation(carIndex, st.reports);
             }
         } else {
@@ -53,9 +60,38 @@ public:
         }
     }
 
+    int reportsFor(int carIndex) const {
+        if (carIndex < 0 || carIndex >= (int)m_state.size()) return 0;
+        return m_state[static_cast<size_t>(carIndex)].reports;
+    }
+
+    void resetCar(int carIndex) {
+        if (carIndex >= 0 && carIndex < (int)m_state.size())
+            m_state[static_cast<size_t>(carIndex)] = {};
+    }
+
     std::function<void(int carIndex, int totalReports)> onViolation;
 
 private:
+    void applyEscalation(int carIndex, int reports, RaceSessionManager* session) {
+        session->reportTrackLimitsViolation(carIndex);
+        if (m_cfg.dqAt > 0 && reports >= m_cfg.dqAt) {
+            session->addPenalty(carIndex, Penalty::Type::Disqualification, 0.f, "Track limits DQ");
+            return;
+        }
+        if (m_cfg.stopGoAt > 0 && reports == m_cfg.stopGoAt) {
+            session->addPenalty(carIndex, Penalty::Type::StopGo, 10.f, "Track limits Stop-Go");
+            return;
+        }
+        if (m_cfg.driveThroughAt > 0 && reports == m_cfg.driveThroughAt) {
+            session->addPenalty(carIndex, Penalty::Type::DriveThrough, 0.f, "Track limits Drive-Through");
+            return;
+        }
+        if (m_cfg.timePenaltyAt > 0 && reports > 0 && reports % m_cfg.timePenaltyAt == 0) {
+            session->addPenalty(carIndex, Penalty::Type::TimeAdded, m_cfg.timePenaltySec, "Track limits time");
+        }
+    }
+
     float lateralDistance(const vec3& pos) const {
         if (m_center.size() < 2) return 0.f;
         float best = 1e9f;
@@ -73,7 +109,12 @@ private:
         }
         return best;
     }
-    struct CarState { float offTimer = 0.f; float cooldown = 0.f; int reports = 0; };
+
+    struct CarState {
+        float offTimer = 0.f;
+        float cooldown = 0.f;
+        int reports = 0;
+    };
     TrackLimitsConfig m_cfg;
     std::vector<vec3> m_center;
     std::vector<CarState> m_state;
