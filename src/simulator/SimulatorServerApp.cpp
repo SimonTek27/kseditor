@@ -1,10 +1,14 @@
 /**
- * SimulatorServerApp — headless host: FeatureHub discovery + control API + physics.
+ * SimulatorServerApp — headless host
+ *   FeatureHub: discovery :20779, control :20780
+ *   Optional game net: --game-port 40000 (NetworkManager when HAS_KSNET)
+ *
  * Usage:
- *   SimulatorServer [--port 20780] [--announce] [--track DIR] [--ai N] [--name NAME]
+ *   SimulatorServer [--announce] [--track DIR] [--ai N] [--name NAME] [--game-port PORT]
  */
 #include "SimulationLoop.h"
 #include "FeatureHub.h"
+#include "NetworkManager.h"
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -21,6 +25,7 @@ void onSig(int) { g_run = false; }
 int main(int argc, char** argv) {
     bool announce = false;
     int ai = 0;
+    int gamePort = 0;
     std::string trackDir;
     std::string hostName = "ksengine-server";
     for (int i = 1; i < argc; ++i) {
@@ -28,8 +33,11 @@ int main(int argc, char** argv) {
         else if (!std::strcmp(argv[i], "--ai") && i + 1 < argc) ai = std::atoi(argv[++i]);
         else if (!std::strcmp(argv[i], "--track") && i + 1 < argc) trackDir = argv[++i];
         else if (!std::strcmp(argv[i], "--name") && i + 1 < argc) hostName = argv[++i];
+        else if (!std::strcmp(argv[i], "--game-port") && i + 1 < argc) gamePort = std::atoi(argv[++i]);
         else if (!std::strcmp(argv[i], "--help")) {
-            std::fprintf(stderr, "SimulatorServer [--announce] [--track DIR] [--ai N] [--name NAME]\n");
+            std::fprintf(stderr,
+                "SimulatorServer [--announce] [--track DIR] [--ai N] [--name NAME] [--game-port PORT]\n"
+                "  discovery UDP :20779  control TCP :20780  game net optional\n");
             return 0;
         }
     }
@@ -53,10 +61,20 @@ int main(int argc, char** argv) {
     if (ai > 0)
         loop.setAiCarCount(ai);
 
+    ks::sim::NetworkManager net(&loop);
+    if (gamePort > 0) {
+        if (net.hostServer(static_cast<uint16_t>(gamePort), 24, hostName, trackDir)) {
+            std::fprintf(stderr, "SimulatorServer: game host on port %d\n", gamePort);
+        } else {
+            std::fprintf(stderr, "SimulatorServer: game host unavailable (build without HAS_KSNET?)\n");
+        }
+    }
+
     loop.beginSession(ks::sim::GameSessionMode::Practice);
     loop.start();
 
-    std::fprintf(stderr, "SimulatorServer: running (discovery UDP :20779, control TCP :20780)\n");
+    std::fprintf(stderr, "SimulatorServer: running (disc :20779, ctrl :20780%s)\n",
+                 gamePort > 0 ? ", game net on" : "");
     auto last = std::chrono::steady_clock::now();
     while (g_run) {
         loop.tick();
@@ -66,6 +84,8 @@ int main(int argc, char** argv) {
         if (dt < 1.0 / 120.0)
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+    if (net.isHosting())
+        net.stopServer();
     loop.stop();
     loop.features().stopServices();
     std::fprintf(stderr, "SimulatorServer: stopped\n");

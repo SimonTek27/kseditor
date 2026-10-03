@@ -38,6 +38,10 @@ public:
     void reset();
     bool isRunning() const { return m_running; }
 
+    /** Freeze integrate (snap hold / garage park). Inputs still accepted. */
+    void setFrozen(bool f) { m_frozen = f; }
+    bool isFrozen() const { return m_frozen; }
+
     void updatePhysics(double dt);
 
     void setThrottle(double v);
@@ -69,7 +73,6 @@ public:
     PacejkaTireModel& tires() { return m_tires; }
     AeroModel& aero() { return m_aero; }
 
-    // --- rF2-style damage ---
     DamageSystem& damage() { return m_damage; }
     const DamageSystem& damage() const { return m_damage; }
     Rf2DamageParams& damageParams() { return m_rf2Dmg; }
@@ -79,12 +82,10 @@ public:
         c.enabled = e;
         m_damage.setConfig(c);
     }
-    /** Apply collision impulse (rF2-like thresholds → mechanical systems). */
     void applyCollisionImpulse(float impulse, const PhysVec3& contactPoint,
                                const PhysVec3& contactNormal) {
         applyRf2Impulse(m_damage, m_rf2Dmg, impulse, contactPoint, contactNormal);
     }
-    /** Wall/car impact helper from relative speed (m/s). */
     void applyImpactFromSpeed(float relativeSpeedMs, const PhysVec3& contactPoint,
                               const PhysVec3& contactNormal) {
         const float J = impulseFromImpact(relativeSpeedMs, static_cast<float>(m_mass));
@@ -100,6 +101,7 @@ private:
     SimulationState m_state;
     VehicleFFBSample m_ffb;
     bool m_running = false;
+    bool m_frozen = false;
 
     double m_throttle = 0, m_brake = 0, m_steering = 0;
     double m_mass = 1200, m_enginePowerKw = 260, m_maxRpm = 8500;

@@ -5,39 +5,29 @@
 | Feature | Status |
 |---------|--------|
 | FeatureHub + session modes | Done |
-| Garage exit / pit queue / collision / repair | Done |
-| AI multi-car + garage spawn | Done |
-| Track pit boxes + snap to pose | Done |
-| **Post-snap physics hold (0.35s)** | Done |
-| Damage HUD + power scale | Done |
-| SM / UDP / TCP telemetry | Done |
-| **SimulatorServer headless** | Done |
-| **FeatureMethods + Telemetry in SimulatorApp CMake** | Done |
-
-## Tick order
-
-```
-applyInput (blocks during snap hold)
-vehicle + multiCar physics
-m_features.tick
-updatePitLane (decays snap hold, freezes vel)
-updateGarageExit (no leave while hold)
-updatePitRepair
-publish SM/UDP/TCP
-render HUD
-```
+| Garage / pit stack + AI | Done |
+| Track pit boxes + snap | Done |
+| **Vehicle setFrozen (integrate pause)** | Done |
+| Post-snap hold (0.35s + frozen) | Done |
+| Damage HUD + telemetry SM/UDP/TCP | Done |
+| SimulatorServer headless | Done |
+| **Server --game-port (NetworkManager)** | Done (HAS_KSNET) |
 
 ## SimulatorServer
 
 ```
-SimulatorServer [--announce] [--track DIR] [--ai N] [--name NAME]
+SimulatorServer [--announce] [--track DIR] [--ai N] [--name NAME] [--game-port 40000]
 ```
 
-Discovery UDP :20779, control TCP :20780.
+| Port | Service |
+|------|---------|
+| UDP 20779 | LAN discovery |
+| TCP 20780 | External control API |
+| --game-port | Multiplayer host (when HAS_KSNET) |
 
 ## Still open
 
 | Item | Notes |
 |------|-------|
-| Full dedicated multiplayer server | beyond FeatureHub host |
-| Integrate hold with vehicle integrate() pause flag | optional |
+| Full state sync for remote cars | needs HAS_KSNET + CarState broadcast in tick |
+| Restore optional CMake deps (ImGui/Python) | if needed for editor builds |
