@@ -4,13 +4,13 @@
 |---------|--------|
 | Session modes | **WIRED** menu → beginSession |
 | Track limits | **WIRED** FeatureHub::tick |
-| Weather / ToD | **WIRED** control API + hub |
-| LAN discovery :20779 | **WIRED** host + F2 browser |
-| Control API :20780 | **WIRED** FeatureHub handlers |
+| Weather / ToD | **WIRED** |
+| LAN discovery :20779 | **WIRED** |
+| Control API :20780 | **WIRED** |
 | Setup load/save | **WIRED** |
 | Replay load | **WIRED** KS_REPLAY_FILE |
-| PB store | **READY** |
-| Multi layout | **READY** |
+| PB store | READY |
+| Multi layout | READY |
 
 ## API
 
@@ -19,3 +19,5 @@
 - `SimulationLoop::features()`
 - `GameMenuOverlay::onStartSessionRequested`
 - Env: `KS_REPLAY_FILE`, `KS_GOLDEN_CSV`, `KS_AI_CARS`
+
+See `docs/WIRING_DIFF.md` and `FeatureHub.h`.
