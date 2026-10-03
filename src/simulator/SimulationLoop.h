@@ -2,14 +2,14 @@
 
 /**
  * SimulationLoop — fixed-timestep sim + NativeUiHub + GPU UI pass.
- * FeatureHub: session modes, discovery, control API, track limits, weather.
- * GarageExit + PitLaneQueue + PitLaneCollision: rF2-style pit stack.
+ * FeatureHub + full pit stack: GarageExit, Queue, Collision, Repair.
  */
 
 #include "engine/physics/PhysicsCoreTypes.h"
 #include "engine/physics/TrackSurface.h"
 #include "engine/physics/LapSectorTimer.h"
 #include "engine/physics/PhysicsGolden.h"
+#include "engine/physics/DamageSystem.h"
 #include "engine/scene/Registry.h"
 #include "ui/NativeUiHub.h"
 #include "CameraController.h"
@@ -17,8 +17,10 @@
 #include "RaceSessionManager.h"
 #include "FeatureHub.h"
 #include "GarageExit.h"
+#include "GarageSpawn.h"
 #include "PitLaneQueue.h"
 #include "PitLaneCollision.h"
+#include "PitLaneRepair.h"
 
 #include <memory>
 #include <chrono>
@@ -98,11 +100,17 @@ public:
 
     void updateGarageExit(float dt);
     void updatePitLane(float dt);
-    /** Set pit corridor axis (call after track load / garage spawn). */
+    void updatePitRepair(float dt);
     void configurePitAxis(float originX, float originZ, float headingRad, float lengthM = 120.f);
+    void setupDefaultGarageLayout(int boxCount = 8);
+    /** Request pit service next time car is stationary in garage. */
+    void requestPitService(bool on = true) { m_requestPitService = on; }
+
     GarageExitController& garageExit() { return m_garageExit; }
     PitLaneQueue& pitQueue() { return m_pitQueue; }
     PitLaneCollision& pitCollision() { return m_pitCollision; }
+    PitLaneRepair& pitRepair() { return m_pitRepair; }
+    GarageLayout& garageLayout() { return m_garageLayout; }
 
     void setAiCarCount(int n) { m_aiCarCount = n; }
     int aiCarCount() const { return m_aiCarCount; }
@@ -136,7 +144,11 @@ private:
     GarageExitController m_garageExit;
     PitLaneQueue m_pitQueue;
     PitLaneCollision m_pitCollision;
+    PitLaneRepair m_pitRepair;
+    GarageLayout m_garageLayout;
+    ks::physics::DamageSystem m_damage;
     bool m_pitSystemsReady = false;
+    bool m_requestPitService = false;
     static constexpr int kPlayerCarId = 0;
 
     float m_timeOfDay = 12.0f;

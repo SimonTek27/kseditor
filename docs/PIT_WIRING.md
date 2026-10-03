@@ -1,53 +1,36 @@
-# Pit lane stack wiring
+# Pit lane stack (complete)
 
-## Tick order (inside physics step)
+## Tick order
 
 ```
-updateLapAndSurface
-m_features.tick(...)
-updatePitLane(dt)      // queue + OBB collision FIRST
-updateGarageExit(dt)   // pathBlocked from queue/collision
+m_features.tick
+updatePitLane(dt)      // queue + OBB
+updateGarageExit(dt)   // pathBlocked includes service busy
+updatePitRepair(dt)    // jobs while InGarage + stationary
 ```
 
-In `SimulationLoop.cpp` after FeatureHub tick:
+## Session start
+
+```
+beginSession
+  → setupDefaultGarageLayout(N)   // linear boxes + configurePitAxis
+  → bindBox(0, pose) for player
+  → forceEnterGarage if Practice/Qualify
+```
+
+## Service request
 
 ```cpp
-updatePitLane((float)m_physicsDt);
-updateGarageExit((float)m_physicsDt);
-```
-
-Also in `initialize()`:
-
-```cpp
-startFeatureServices(false);
-configurePitAxis(0.f, 0.f, 0.f, 120.f); // until track provides real pit spline
-```
-
-## configurePitAxis
-
-Call after loading track/garage boxes with the real pit corridor:
-
-```cpp
-loop.configurePitAxis(pitStartX, pitStartZ, pitHeadingRad, pitLengthM);
-```
-
-Sets the same `PitAxis` on both `PitLaneQueue` and `PitLaneCollision`.
-
-## Data flow
-
-```
-GarageExit Preparing/RollingOut/PitLane
-    → PitLaneQueue.requestLeave + updateCar
-    → shouldBlockGarageExit → pathBlocked
-    → PitLaneCollision.upsert + step
-    → suggestedMaxSpeedMs / damageImpulse
+loop.requestPitService(true);  // or Stop-Go penalty auto-sets flag
+// when InGarage and speed < 0.35 m/s → plan jobs from DamageSystem
 ```
 
 ## Modules
 
 | Module | Role |
 |--------|------|
-| PitLaneQueue | spacing ≥8 m, ClearedToMove, leave/enter |
-| PitLaneCollision | 2D OBB + corridor walls |
-| GarageExit | box state machine |
-| configurePitAxis | shared axis for queue + collision |
+| GarageSpawn | box layout, start-in-garage policy |
+| GarageExit | state machine InGarage…OnTrack |
+| PitLaneQueue | spacing / clearance |
+| PitLaneCollision | OBB soft contact |
+| PitLaneRepair | parallel body/susp/aero/tyre/fuel jobs |
