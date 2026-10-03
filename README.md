@@ -11,7 +11,7 @@ mikktspace.
 # SimulatorApp
 
 **SimulatorApp** is the standalone runtime executable (`src/simulator/`) that links
-*only* ksengine It is a native Win32 window with a raw Vulkan renderer (`NativeRenderer`, precompiled `.spv` shaders), driving `SimulationLoop`: KN5 track/car loading, vehicle physics, FFB and sim-racing device input, audio, dashboard/telemetry overlays, setup garage and multiplayer networking. `examples/MinimalSimulator` shows the minimal way to run it.
+*only* ksengine. It is a native Win32 window with a raw Vulkan renderer (`NativeRenderer`, precompiled `.spv` shaders), driving `SimulationLoop`: KN5 track/car loading, vehicle physics, FFB and sim-racing device input, audio, dashboard/telemetry overlays, setup garage and multiplayer networking. `examples/MinimalSimulator` shows the minimal way to run it.
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)]()
 [![License](https://img.shields.io/badge/license-GPL3-blue.svg)](LICENSE.txt)
@@ -96,45 +96,19 @@ The **Text Editor** is a **code-aware IDE** for scripting and config files. It p
 
 ### 3D Modeler (ksModeler)
 
-**KSModeler** is a **Vulkan-powered 3D modeling environment** purpose-built for racing game assets. It offers **mesh primitives** (cube, sphere, cylinder, cone, torus, plane, grid), comprehensive **UV mapping** tools (planar, cylindrical, spherical, box projection, LSCM/ABF++ unwrap, auto-pack), and **skeletal rigging** with humanoid/quadruped skeleton creation, bone manipulation, weight painting, and IK solvers. The **PBR material system** includes a **node-based shader graph editor** with live preview. Animation support covers keyframe tracks, playback controls, and timeline editing. **File format converters** handle bidirectional workflows for **KN5, FBX, GLB, OBJ**. Specialized editors include **CarEditor** (vehicle hierarchy, livery painter, tire/engine rig tools), **TrackEditor** (geometry, terrain, waypoints, sectors), and **CharacterEditor** (driver models). Advanced geometry operations leverage **CGAL for boolean operations** (BSP), **OpenSubdiv for Catmull-Clark subdivision**, **libigl for mesh processing**, and **OpenVDB for volumetric workflows**. The UI provides a project explorer, properties inspector, layers, history, Python console, material preset library, curve editor, and render settings.
+**KSModeler** is a **Vulkan-powered 3D modeling environment** purpose-built for racing game assets. It offers **mesh primitives**, **UV mapping**, **skeletal rigging**, **PBR material system**, and **file format converters** for **KN5, FBX, GLB, OBJ**. Specialized editors include **CarEditor**, **TrackEditor**, and **CharacterEditor**.
 
 ### Audio Editor (ksAudioEditor)
 
-The **Audio Editor** is a full-featured digital audio workstation built directly into ksEditor. It provides **35+ specialized panels** covering the entire audio production pipeline: a multi-track **AudioMixerPanel** with channel strips, VU meters, and master bus routing; an **EffectsRackPanel** with parametric EQ, compressor, gate, reverb, delay, and limiter; real-time analysis via **AudioAnalyzerPanel** (spectrum, phase scope), **LoudnessMeterPanel** (EBU R128 LUFS/True Peak/LRA), and **OscilloscopePanel**. Advanced dynamics include **SidechainCompressorPanel**, **MultibandCompressorPanel** (4-band with crossover visualization), and **TransientDesignerPanel**. Creative tools feature **ConvolutionReverbPanel** (impulse responses), **TapeEmulatorPanel** (2"/1"/Cassette/VHS/DAT), **GuitarAmpSimulatorPanel**, **VocalProcessorPanel** (de-esser, pitch correction), **HarmonicGeneratorPanel**, and **StereoEnhancerPanel**. The editor supports **VST2/3 plugin hosting**, a **node-based audio graph** for complex routing, **surround mixing** up to 7.1.4, **automation lanes** for volume/pan/filter, and full **FMOD Studio 1.08.12 bank import/export** compatibility. Dialogs cover import/export wizards, tone generation, BPM detection, recording, preset management, and metadata editing.
-
-### Audio Studio (ksAudioStudio)
-
-**ksAudioStudio** is the **internal audio engine and workstation** powering all audio functionality in ksEditor, serving as a native **replacement for FMOD Studio**. It provides complete **FMOD Studio 1.08.12 project compatibility** with bidirectional `.bank` file import/export. The **native "KSaudio" format** stores projects with full signal graph, automation, and plugin state. The **DSP pipeline** supports real-time synthesis (additive, subtractive, FM, granular, wavetable), **35+ built-in effects** (dynamics, EQ, modulation, delay, reverb, distortion, pitch), and **VST2/3 plugin hosting** with parameter automation. **Multi-channel surround** handles up to 7.1.4 with flexible bus routing. The **node-based audio graph editor** enables visual signal flow design with real-time parameter modulation. **Analysis tools** include spectrum analyzer (FFT, 1/3 octave), oscilloscope, phase correlation, loudness metering (EBU R128, ATSC A/85), and true peak detection. **Recording engine** captures multi-channel audio with punch-in/out, loop recording, and take management. **Batch processing** applies effect chains, format conversion, loudness normalization, and dithering across multiple files.
+The **Audio Editor** is a full-featured digital audio workstation built into ksEditor with multi-track mixing, effects, FMOD bank compatibility, and **ksAudioStudio** as the internal engine.
 
 ### Physics Editor (ksPhysicsEditor)
 
-The **Physics Editor** delivers a complete **vehicle dynamics simulation and tuning environment**. It implements the **Pacejka "Magic Formula" tire model** with full parameter exposure for longitudinal/lateral/combined slip. Suspension geometry includes double-wishbone, MacPherson, multi-link configurations with kinematics visualization. **Brake tuning** covers bias, pressure curves, duct cooling, and temperature modeling. **Aerodynamics** supports configurable wings, splitter, diffuser, and DRS zones with ride-height-sensitive maps. **Powertrain modeling** encompasses engine torque curves, turbo/charger dynamics, hybrid/ERS deployment strategies (MGU-K, MGU-H), gearbox ratios, differential settings (preload, ramp angles, clutch packs), and driveline inertia. **Damage modeling** tracks mechanical wear, aero degradation, and tire punctures. **Weather simulation** integrates ambient temperature, track temperature, humidity, wind, and precipitation effects on grip. The editor provides **telemetry overlay**, **lap time estimation** with sector analysis, **setup comparison** (side-by-side parameter diff), and **86 validated unit tests** covering tire, suspension, aero, and powertrain subsystems.
+The **Physics Editor** delivers vehicle dynamics simulation and tuning: Pacejka tires, suspension kinematics, brakes, aero, powertrain, damage, and weather effects on grip.
 
-### Display Editor
+### Display / Font / Paint / License Plates / Showroom / PP Filters
 
-The **Display Editor** configures **on-screen dashboards and UI elements** for in-game telemetry. It edits **segment-based LCD/LED displays** (gear, RPM, speed, lap time, fuel, temperatures) with customizable fonts, colors, and layouts. Supports **custom display pages** with conditional visibility (pit limiter, DRS, ERS modes, flag signals). Preview mode simulates game rendering with accurate character spacing and kerning.
-
-### Font Editor (ksFontEditor)
-
-The **Font Editor** generates **game-ready font atlases** from TTF/OTF sources. It packs glyphs into **power-of-two textures** with configurable padding, supports **Unicode ranges** (Basic Latin, Latin Extended, Cyrillic, CJK), and exports **distance field** or **standard bitmap** formats. Includes **kerning pair** extraction, **fallback chain** configuration, and **preview rendering** at multiple sizes. Output formats match game engine requirements (DDS/BC, PNG).
-
-### Paint Editor (ksPaintEditor)
-
-The **Paint Editor** is a **layer-based 3D painting system** for creating custom car liveries. It features **unlimited layers** with blending modes (normal, multiply, overlay, screen), **vector drawing tools** (pen, shapes, text, gradients), and a **decal/stencil system** for logos, numbers, and sponsorship graphics with precise placement. **Material masks** allow per-layer control over paint, metallic, roughness, and clearcoat properties. A **template system** provides base UV layouts for popular cars with automatic seam alignment. **Color palettes** support manufacturer swatches, custom gradients, and eyedropper sampling. The **3D preview viewport** uses studio lighting rigs (HDRI, key/fill/rim) with real-time PBR rendering. Export produces **DDS textures** with mipmaps and BC compression ready for game integration.
-
-### License Plates
-
-The **License Plate Editor** generates **custom registration plates** matching regional formats (EU, US, UK, JP, custom). It supports **font selection**, **character spacing**, **background templates** (reflective, flat, vintage), **embossed/flat styles**, and **official font recreation** (FE-Schrift, UK Mandatory, etc.). **Batch generation** creates sequential plates for AI traffic. Export produces **game-ready textures** with alpha masks.
-
-### Showroom Editor
-
-The **Showroom Editor** creates **photorealistic vehicle presentations** for showcases, thumbnails, and marketing. It provides **studio lighting rigs** (3-point, ring, softbox, HDRI environments) with physical light units (lumens, candela, kelvin). **Camera paths** support keyframed Dolly/Track/Crane movements with smooth interpolation for turntable videos. **Reflection probes** capture environment lighting for accurate PBR material response. **Material overrides** let you swap shaders/textures per-mesh for A/B comparisons. A **render queue** batches multiple camera angles, resolutions, and exposure settings. The **comparison slider** enables interactive before/after or variant comparisons in the viewport.
-
-### PP Filters Editor
-
-The **Post-Processing Filters Editor** manages the **visual effects pipeline** for tracks and showrooms. It organizes **filter chains** (bloom, tone mapping, color grading, vignette, chromatic aberration, film grain, lens flare, DOF, motion blur) with per-filter parameter exposure. **Preset system** saves/loads complete looks. **Real-time preview** in the showroom viewport with histogram and vectorscope. Exports filter configurations for game integration.
-
-
+Specialized editors for dashboards, font atlases, liveries, plates, showroom presentation, and post-processing filter chains.
 
 ---
 
@@ -143,15 +117,16 @@ The **Post-Processing Filters Editor** manages the **visual effects pipeline** f
 | Category | Technology |
 |----------|------------|
 | **Language** | C++17 |
-| **UI Framework** | Qt6 (Widgets + QML + Quick3D) |
-| **3D Rendering** | Vulkan (via QVulkanWindow) + GLSL shaders |
-| **Audio Engine** | ksAudioStudio (internal) + Qt6::Multimedia |
+| **Engine (ksengine)** | Qt-free static library |
+| **SimulatorApp** | Win32 + Vulkan (no Qt) |
+| **Editor UI** | Qt6 (Widgets + QML + Quick3D) |
+| **3D Rendering** | Vulkan + GLSL / SPIR-V shaders |
+| **Audio** | ksAudioStudio + WASAPI (simulator) |
 | **Physics** | Bullet Physics 3.25+ (optional) |
 | **Geometry** | CGAL, Eigen, libigl, OpenVDB, OpenSubdiv, mikktspace |
 | **Scripting** | Python 3, Lua 5.4 |
 | **Build System** | CMake 3.16+ |
 | **Package Manager** | vcpkg (embedded) |
-| **Archive** | 7-Zip 24+ |
 | **Target Platform** | Windows 10/11 (x64) |
 
 ---
@@ -159,91 +134,87 @@ The **Post-Processing Filters Editor** manages the **visual effects pipeline** f
 ## Project Structure
 
 ```
-kseditor/
-├── CMakeLists.txt              # Build configuration (850+ lines)
-├── CMakePresets.json           # CMake presets for IDEs
-├── compile.bat / compile.sh    # Quick build scripts
-├── build.bat                   # Full Windows build + deployment
-├── LICENSE.txt                 # GPL-3.0 License
-├── CONTRIBUTING.md             # Contribution guidelines
-├── CHANGELOG.md                # Version history
-├── docs/                       # Documentation
-│   ├── overview.md             # Architecture overview
-│   ├── modules.md              # Module documentation
-│   ├── graphics.md             # Graphics pipeline
-│   ├── audio.md                # Audio system
-│   ├── file_formats.md         # Supported formats
-│   ├── plugins.md              # Plugin development
-│   ├── video.md                # Video encoding
-│   ├── ksAssettoCorsa.MD       # AC plugin docs
-│   ├── ksAssettoCorsaEVO.md    # AC EVO support
-│   ├── ksAssettoCorsaCompetizione.md # ACC support
-│   └── ksAssettoCorsaRally.md  # ACR support
-├── src/
-│   ├── main.cpp                # Application entry point
-│   ├── SDKBackend.cpp/h        # Game SDK integration
-│   ├── app_icon.rc             # Windows icon resource
-│   ├── core/                   # Core subsystems (32 modules)
-│   │   ├── Audio/              # Audio engine (65 files, DSP, graph)
-│   │   ├── Graphics/           # Vulkan renderer (26 files + 12 shaders)
-│   │   ├── FileFormat/         # 50+ format parsers/converters
-│   │   ├── mesh/               # Mesh operations (42 files)
-│   │   ├── material/           # PBR materials, shader graph (16 files)
-│   │   ├── sys/                # Plugin/module managers, undo, tasks
-│   │   ├── editor/             # Base editor, console, timeline, ribbon
-│   │   ├── assets/             # Asset manager, search, preview, cloud
-│   │   ├── tools/              # Tools framework (49 files, LOD/collision)
-│   │   ├── ui/                 # Widgets (30 files, node graph, title bar)
-│   │   ├── modmanager/         # Mod/package manager
-│   │   ├── paint/              # Paint tool
-│   │   ├── Scripting/          # Python/Lua hosts, debugger, hot-reload
-│   │   ├── network/            # Cloud sync, collaboration, WebSocket
-│   │   ├── Config/             # CSP config editor, schema-driven UI
-│   │   ├── AIEditor/           # Behavior trees, telemetry trainer
-│   │   ├── animation/          # Skeletal animation, IK, blend trees
-│   │   ├── weather/            # Weather editor, preview
-│   │   ├── eventEditor/        # Career/championship/race editors
-│   │   ├── ServerConfigEditor/ # Server configuration editor
-│   │   ├── textEditor/         # Code editor with LSP
-│   │   ├── FfbEditor/          # Force feedback configuration
-│   │   ├── ppfiltersEditor/    # Post-processing filters
-│   │   ├── 3dprint/            # 3D printing (slicer, GCode)
-│   │   ├── VR/                 # OpenXR integration
-│   │   ├── workshop/           # Steam Workshop integration
-│   │   ├── vcs/                # Git version control
-│   │   ├── archive/            # 7-Zip integration
-│   │   ├── help/               # Context help system
-│   │   ├── splitter/           # Window tiling management
-│   │   └── formatTools/        # Format conversion utilities
-│   ├── modules/                # High-level application modules (9)
-│   │   ├── modellingEditor/    # 3D modeling (49 files)
-│   │   ├── soundEditor/        # Audio editing (30 files)
-│   │   ├── PhysicsEditor/      # Physics simulation (38 files)
-│   │   ├── PaintEditor/       # Car livery painting (20 files)
-│   │   ├── ShowroomEditor/     # 3D showroom (10 files)
-│   │   ├── displayEditor/      # Display editor (6 files)
-│   │   ├── LicensePlatesEditor/ (6 files)
-│   │   ├── fontEditor/         # Font atlas (4 files)
-│   │   └── VREditor/           # VR viewport
-│   ├── plugins/                # Plugin architecture
-│   │   ├── base/               # PluginBase.h interfaces
-│   │   └── simulators/kunos/   # Assetto Corsa integration (50+ files)
-│   └── tests/                  # Unit tests (25+ files, 40/40 suites pass)
-├── resources/
-│   ├── ui/                     # Qt UI resources, Ribbon UI
-│   └── qml/                    # QML components
-├── i18n/                       # Localization (en, de, ja, it, es, fr, pt-BR, ru, zh-CN, zh-TW)
-├── external/                   # Embedded dependencies
-│   ├── eigen/                  # Eigen 3.4+ (linear algebra)
-│   ├── bullet/                 # Bullet Physics 3.25+
-│   ├── libigl/                 # libigl 2.5+ (geometry processing)
-│   ├── 7zip/                   # 7-Zip 24+
-│   ├── mikktspace/             # Mikktspace (tangent space)
-│   ├── openxr/                 # OpenXR headers
-│   ├── stb/                    # STB image libraries
-│   └── vcpkg/                  # vcpkg (CGAL, OpenVDB, libuv, OpenSubdiv, Lua, Python)
-└── bin/                        # Build output (executables, plugins, DLLs)
+ksengine/
+├── CMakeLists.txt              # Root build (ksengine + SimulatorApp + editor)
+├── CMakePresets.json
+├── LICENSE.txt                 # GPL-3.0
+├── CONTRIBUTING.md
+├── CHANGELOG.md
+├── docs/                       # Architecture, parity, module notes
+│   ├── PARITY_STATUS.md
+│   ├── COMMIT_COMPLETE.md
+│   ├── SIMLOOP_WIRING.md
+│   └── …
+├── examples/
+│   └── MinimalSimulator/       # Minimal Qt-free runtime sample
+├── external/                   # Eigen, Bullet, mikktspace, stb, …
+├── include/                    # Public headers (if exported)
+├── resources/                  # Qt UI / QML (editor only)
+├── i18n/                       # Editor localization
+├── tests/
+└── src/
+    ├── main.cpp                # ksEditor (Qt) entry
+    ├── MainWindow.cpp/h        # Editor shell
+    │
+    ├── engine/                 # ★ ksengine — Qt-free static library
+    │   ├── Engine.h / Engine.cpp / EngineModule.h
+    │   ├── KsQtFreeGuard.h
+    │   ├── Math/               # Math core (std)
+    │   ├── physics/            # Vehicle, Pacejka, suspension, aero, weather
+    │   ├── devices/            # FFB, input, simracing (Fanatec/Logitech/Moza/…)
+    │   ├── Graphics/           # Vulkan-oriented render helpers
+    │   ├── Audio/              # Engine audio utilities
+    │   ├── FileFormat/         # KN5, INI, banks, mesh I/O
+    │   ├── scene/              # ECS registry / systems
+    │   ├── network/            # Low-level networking
+    │   ├── vehicle/            # Vehicle helpers
+    │   ├── material/ mesh/ terrain/
+    │   ├── Config/ Scripting/ AI/ Tools/
+    │   └── CMakeLists.txt
+    │
+    ├── simulator/              # ★ SimulatorApp — Qt-free runtime (ksim)
+    │   ├── SimulatorApp.cpp            # Win32 + Vulkan entry
+    │   ├── SimulationLoop.h/.cpp       # Fixed-timestep loop
+    │   ├── SimulationLoop_FeatureMethods.cpp
+    │   ├── SimulationLoop_Features.inl
+    │   ├── FeatureHub.h                # Session, discovery, control API
+    │   ├── SessionController.h
+    │   ├── ServerDiscovery.h           # LAN UDP :20779
+    │   ├── ExternalControlApi.h        # TCP control :20780
+    │   ├── TrackLimitsMonitor.h
+    │   ├── WeatherControl.h
+    │   ├── PersonalBestStore.h
+    │   ├── TrackLayout.h / ApplySetup.h / SetupFile.h
+    │   ├── GarageExit.h / GarageSpawn.h
+    │   ├── PitLaneQueue.h / PitLaneCollision.h / PitLaneRepair.h
+    │   ├── RaceSessionManager.*
+    │   ├── GameMenuOverlay.*           # Native menu (session modes)
+    │   ├── NativeRenderer.* / ShadowSystem.* / PostProcessing.*
+    │   ├── InputManager.* / CameraController.*
+    │   ├── NetworkManager.* / UdpTelemetryBridge / TcpTelemetryBridge
+    │   ├── SimulatorAudio.* / VehicleAudioHook / CarEventVolumes
+    │   ├── SetupGarage.* / DashboardOverlay.* / TelemetryOverlay.*
+    │   ├── ReplayRecorder.* / MultiCarManager.* / AIController.*
+    │   ├── ui/                         # NativeUiHub, GPU UI pass
+    │   └── shaders/                    # Precompiled .spv
+    │
+    ├── adapters/
+    │   └── assetto_corsa/              # Format bridge (shared mem, surfaces, CSP)
+    │       ├── AcSharedMemory*
+    │       ├── AcSurfacesLoader*
+    │       └── CspConfigParser*
+    │
+    └── sdk/                    # Optional game-SDK helpers
 ```
+
+**Layering**
+
+| Layer | Path | Qt | Role |
+|-------|------|----|------|
+| **ksengine** | `src/engine/` | No | Core math, physics, devices, formats |
+| **SimulatorApp (ksim)** | `src/simulator/` | No | Standalone race runtime |
+| **Adapters** | `src/adapters/` | No | Content-format bridges |
+| **ksEditor** | `src/MainWindow*`, modules | Yes | Modding UI on top of ksengine |
 
 ---
 
@@ -251,169 +222,24 @@ kseditor/
 
 ### Requirements
 
-- **Qt 6.11+** (MSVC 2022 or MinGW-w64)
+- **Qt 6.11+** (MSVC 2022 or MinGW-w64) — required only for **ksEditor**
 - **CMake 3.16+**
-- **C++17 compatible compiler** (MSVC 2022 17.8+, GCC 11+, Clang 14+)
-- **Vulkan SDK** (optional, for 3D features)
-- **Windows 10/11** (primary target)
+- **Vulkan SDK** — for SimulatorApp / NativeRenderer
+- **Windows 10/11 x64**
 
-### Quick Build (Windows)
+### Quick build
 
-```powershell
-# Using the build script (handles dependencies, deployment)
-.\build.bat
+```bash
+# Configure (preset or manual)
+cmake --preset default
+cmake --build --preset default
 
-# Or manually:
-mkdir build
-cd build
-cmake .. -G "Visual Studio 17 2022" -A x64
-cmake --build . --config Release
+# Engine + simulator only (Qt-free path when enabled in CMake)
+# See CMakeLists_ksengine_QtFree.txt / tools/check_no_qt.ps1
 ```
-
-### Build Scripts
-
-| Script | Purpose |
-|--------|---------|
-| `build.bat` | Full Windows build with vcpkg, deployment, DLL copying |
-| `compile.bat` | Basic compilation only |
-| `compile.sh` | Basic compilation (Linux/WSL) |
-
-### CMake Options
-
-```cmake
-# Key variables (auto-detected by default)
--DQT6_PATH="C:/Qt/6.11.1/msvc2022_64"     # Qt installation path
--DCMAKE_BUILD_TYPE=Release                 # Build type
--DBUILD_TESTS=ON                           # Enable unit tests
-```
-
-### Output
-
-After building, the executable and plugins are in:
-```
-bin/
-├── ksEditor.exe              # Main application
-├── plugins/
-│   └── ksAssettoCorsa.dll    # AC plugin
-└── lib/                      # Runtime DLLs (Qt, Vulkan, etc.)
-```
-
----
-
-## SDK Integration
-
-ksEditor includes a comprehensive **SDKBackend** for Assetto Corsa content manipulation:
-
-```cpp
-#include "SDKBackend.h"
-
-// Initialize
-ks::SDKBackend* sdk = ks::SDKBackend::instance();
-sdk->initialize();
-
-// List installed content
-QStringList cars = ks::SDKBackend::getCarList();
-QStringList tracks = ks::SDKBackend::getTrackList();
-
-// Load car/track specifications
-ks::ACCarSpec spec;
-ks::SDKBackend::loadCarSpec("ks_nissan_gtr", spec);
-
-// Physics calculations
-float downforce = ks::SDKBackend::calculateDownforce(speed, aoa, cl);
-float cornerG = ks::SDKBackend::calculateCornerG(speedMs, radius);
-```
-
-**SDK Version:** 1.4
-
----
-
-## Supported File Formats
-
-### 3D Models
-`KN5` `FBX` `GLB` `OBJ` `STL` `Alembic` `USD` `Collada` `3DS` `PLY` `DXF` `VRML` `3MF` `STEP` `IGES`
-
-### Audio
-`WAV` `OGG` `FLAC` `MP3` `AIFF` `FMOD .bank` `KSaudio` (native)
-
-### Textures
-`DDS` `PNG` `JPG` `TGA` `BMP` `HDR` `EXR` `KTX` `KTX2`
-
-### Data
-`ACD` (physics) `INI` `JSON` `XML` `Lua` `Python` `CSP` configs
-
-### Fonts
-`TTF` `OTF` `WOFF` `WOFF2`
-
----
-
-## Localization
-
-ksEditor supports **10 languages**:
-- English (default)
-- German (de)
-- Japanese (ja)
-- Italian (it)
-- Spanish (es)
-- French (fr)
-- Portuguese-BR (pt-BR)
-- Russian (ru)
-- Chinese Simplified (zh-CN)
-- Chinese Traditional (zh-TW)
-
-Translation files: `i18n/kseditor_<locale>.ts`
-
----
-
-## Testing
-
-```powershell
-# Run all tests (40 test suites)
-cd build
-ctest --output-on-failure -C Release
-
-# Or run specific test
-./bin/Release/ksEditor_tests --gtest_filter=AudioEditor*
-```
-
-**Test Coverage:** 40/40 test suites passing (audio, physics, graphics, file formats, scripting, UI, tools, etc.)
-
----
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
-- Code style (C++ Core Guidelines)
-- Commit message format
-- Pull request process
-- Testing requirements
-- Documentation standards
 
 ---
 
 ## License
 
-**GPL-3.0 License** - see [LICENSE.txt](LICENSE.txt) for details.
-
----
-
-## Links
-
-- **Repository:** https://github.com/kseditor/kseditor
-- **Issues:** https://github.com/kseditor/kseditor/issues
-- **Discussions:** https://github.com/kseditor/kseditor/discussions
-- **Wiki:** https://github.com/kseditor/kseditor/wiki
-
----
-
-## Acknowledgments
-
-- **Kunos Simulazioni** for Assetto Corsa
-- **Qt Project** for Qt6 framework
-- **Khronos Group** for Vulkan/OpenXR
-- **FMOD** for audio reference implementation
-- **All contributors** and the Assetto Corsa modding community
-
----
-
-*ksEditor v1.16.4 — Professional modding toolkit for racing simulators*
+GPL-3.0 — see [LICENSE.txt](LICENSE.txt).
