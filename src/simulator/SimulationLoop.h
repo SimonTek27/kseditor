@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * SimulationLoop — fixed-timestep sim + pit stack + telemetry + damage HUD + snap hold.
+ * SimulationLoop — fixed-timestep sim + pit + telemetry + setup + FFB (Sprint 1).
  */
 
 #include "engine/physics/PhysicsCoreTypes.h"
@@ -37,6 +37,7 @@ class InputManager;
 class CameraController;
 class SimulatorAudio;
 class SetupGarage;
+class FfbOutput;
 class NativeRenderer;
 class MultiCarManager;
 class NetworkManager;
@@ -105,6 +106,8 @@ public:
     void setupDefaultGarageLayout(int boxCount = 8);
     void spawnAiGrid(int count);
     void applyDamageEffects();
+    void applyVehicleSetup();
+    void updateForceFeedback();
     bool loadGarageFromTrack(const std::string& trackDir);
     void snapVehicleToPose(ks::physics::VehicleSimulator* veh, const WorldPose& pose);
     float snapHoldRemaining() const { return m_snapHoldSec; }
@@ -146,6 +149,7 @@ private:
     std::unique_ptr<NetworkManager> m_network;
     std::unique_ptr<SimulatorAudio> m_audio;
     std::unique_ptr<SetupGarage> m_setupGarage;
+    std::unique_ptr<FfbOutput> m_ffb;
     ui::NativeUiHub m_ui;
     RaceSessionManager m_raceSession;
     ks::physics::LapSectorTimer m_lapTimer;
